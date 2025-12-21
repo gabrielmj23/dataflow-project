@@ -11,8 +11,10 @@ import {
   Controls,
   Background,
   BackgroundVariant,
+  ControlButton,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { PlusCircle } from "lucide-react";
 
 const initialNodes = [
   { id: "n1", position: { x: 0, y: 0 }, data: { label: "Node 1" } },
@@ -45,6 +47,23 @@ export default function App() {
     []
   );
 
+  const addNode = useCallback(() => {
+    setNodes((prev) => {
+      const maxIndex = prev.reduce((max, n) => {
+        const m = String(n.id).match(/^n(\d+)$/);
+        const idx = m ? parseInt(m[1], 10) : 0;
+        return Math.max(max, idx);
+      }, 0);
+      const next = maxIndex + 1;
+      const newNode = {
+        id: `n${next}`,
+        position: { x: 0, y: next * 100 },
+        data: { label: `Node ${next}` },
+      };
+      return [...prev, newNode];
+    });
+  }, []);
+
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
       <ReactFlow
@@ -56,7 +75,11 @@ export default function App() {
         fitView
       >
         <Background variant={BackgroundVariant.Dots} />
-        <Controls />
+        <Controls>
+          <ControlButton onClick={addNode}>
+            <PlusCircle color="white" />
+          </ControlButton>
+        </Controls>
         <MiniMap />
       </ReactFlow>
     </div>
