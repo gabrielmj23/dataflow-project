@@ -14,6 +14,7 @@ import {
   ControlButton,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import "./App.css";
 import { PlusCircle } from "lucide-react";
 
 const initialNodes = [
