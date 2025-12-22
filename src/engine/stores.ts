@@ -1,4 +1,4 @@
-import type { Arc, DataToken, Node } from "./nodes";
+import type { Arc, DataToken, Node } from "./program-elements";
 
 /**
  * A collection of all the Data Tokens in the system
