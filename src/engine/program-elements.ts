@@ -1,3 +1,6 @@
+/**
+ * Function that defines the behavior of a node
+ */
 type ActivationFunction = (...args: unknown[]) => unknown;
 
 const FirePatterns = {
