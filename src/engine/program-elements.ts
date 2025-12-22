@@ -1,9 +1,10 @@
 /**
  * Function that defines the behavior of a node
  */
-type ActivationFunction = (...args: unknown[]) => unknown;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type ActivationFunction = (...args: any[]) => unknown;
 
-const FirePatterns = {
+export const FirePatterns = {
   EXISTS: "EXISTS",
   EMPTY: "EMPTY",
   DONT_CARE: "DONT_CARE",
