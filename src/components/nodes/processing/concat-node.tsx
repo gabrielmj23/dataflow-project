@@ -1,0 +1,17 @@
+import { memo } from "react";
+import type { NodeProps } from "@xyflow/react";
+import { Link2 } from "lucide-react";
+
+import { ProcessingRectNodeShell } from "@/components/nodes/processing/processing-rect-node-shell";
+
+export type ConcatNodeData = {
+  label?: string;
+};
+
+export const ConcatNode = memo(({ data }: NodeProps) => {
+  const { label = "Concatenar" } = (data ?? {}) as ConcatNodeData;
+
+  return <ProcessingRectNodeShell icon={<Link2 className="h-5 w-5" />} label={label} />;
+});
+
+ConcatNode.displayName = "ConcatNode";
