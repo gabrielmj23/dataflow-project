@@ -14,6 +14,7 @@ export const SequenceNode = memo(({ data }: NodeProps) => {
     <IterationRectNodeShell
       icon={<span className="text-sm font-bold">1..N</span>}
       label={label}
+      variant="doubleInSingleOut"
     />
   );
 });

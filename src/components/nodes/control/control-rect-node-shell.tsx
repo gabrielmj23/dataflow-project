@@ -7,9 +7,10 @@ import { BaseNode } from "@/components/base-node";
 type ControlRectNodeShellProps = {
   icon: ReactNode;
   label: string;
+  variant?: "default" | "singleInDualOut";
 };
 
-export function ControlRectNodeShell({ icon, label }: ControlRectNodeShellProps) {
+export function ControlRectNodeShell({ icon, label, variant = "default" }: ControlRectNodeShellProps) {
   return (
     <BaseNode className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md">
       <div className="flex flex-col items-center gap-0.5">
@@ -17,16 +18,49 @@ export function ControlRectNodeShell({ icon, label }: ControlRectNodeShellProps)
         <div className="text-sm leading-tight">{label}</div>
       </div>
 
-      <Handle
-        type="target"
-        position={Position.Left}
-        className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
-      />
+      {variant === "default" && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Left}
+            style={{ top: "35%" }}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+          <Handle
+            type="target"
+            position={Position.Left}
+            style={{ top: "65%" }}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+        </>
+      )}
+
+      {variant === "singleInDualOut" && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Left}
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            style={{ top: "35%" }}
+            className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            style={{ top: "65%" }}
+            className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+        </>
+      )}
     </BaseNode>
   );
 }

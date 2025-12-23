@@ -20,7 +20,14 @@ export function ProcessingRectNodeShell({ icon, label }: ProcessingRectNodeShell
       <Handle
         type="target"
         position={Position.Left}
-        className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
+        style={{ top: "35%" }}
+        className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{ top: "65%" }}
+        className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
       />
       <Handle
         type="source"

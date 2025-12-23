@@ -7,9 +7,10 @@ import { BaseNode } from "@/components/base-node";
 type IterationRectNodeShellProps = {
   icon: ReactNode;
   label: string;
+  variant?: "multi" | "singleInSingleOut" | "doubleInSingleOut";
 };
 
-export function IterationRectNodeShell({ icon, label }: IterationRectNodeShellProps) {
+export function IterationRectNodeShell({ icon, label, variant = "multi" }: IterationRectNodeShellProps) {
   const offsets = ["15%", "35%", "65%", "85%"];
 
   return (
@@ -19,25 +20,66 @@ export function IterationRectNodeShell({ icon, label }: IterationRectNodeShellPr
         <div className="text-sm leading-tight">{label}</div>
       </div>
 
-      {offsets.map((offset) => (
-        <Handle
-          key={`l-${offset}`}
-          type="target"
-          position={Position.Left}
-          style={{ top: offset }}
-          className="h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
-        />
-      ))}
+      {variant === "multi" && (
+        <>
+          {offsets.map((offset) => (
+            <Handle
+              key={`l-${offset}`}
+              type="target"
+              position={Position.Left}
+              style={{ top: offset }}
+              className="h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
+            />
+          ))}
 
-      {offsets.map((offset) => (
-        <Handle
-          key={`r-${offset}`}
-          type="source"
-          position={Position.Right}
-          style={{ top: offset }}
-          className="h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
-        />
-      ))}
+          {offsets.map((offset) => (
+            <Handle
+              key={`r-${offset}`}
+              type="source"
+              position={Position.Right}
+              style={{ top: offset }}
+              className="h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
+            />
+          ))}
+        </>
+      )}
+
+      {variant === "singleInSingleOut" && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Left}
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
+          />
+        </>
+      )}
+
+      {variant === "doubleInSingleOut" && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Left}
+            style={{ top: "35%" }}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
+          />
+          <Handle
+            type="target"
+            position={Position.Left}
+            style={{ top: "65%" }}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
+          />
+        </>
+      )}
     </BaseNode>
   );
 }

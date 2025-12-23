@@ -14,6 +14,7 @@ export const AccumulateNode = memo(({ data }: NodeProps) => {
     <IterationRectNodeShell
       icon={<span className="text-lg font-bold">Σ</span>}
       label={label}
+      variant="singleInSingleOut"
     />
   );
 });

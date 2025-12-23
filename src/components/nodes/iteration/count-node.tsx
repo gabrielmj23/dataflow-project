@@ -14,6 +14,7 @@ export const CountNode = memo(({ data }: NodeProps) => {
     <IterationRectNodeShell
       icon={<span className="text-lg font-bold">#</span>}
       label={label}
+      variant="singleInSingleOut"
     />
   );
 });

@@ -11,7 +11,13 @@ export type WriteNodeData = {
 export const WriteNode = memo(({ data }: NodeProps) => {
   const { label = "Escribir" } = (data ?? {}) as WriteNodeData;
 
-  return <IoRectNodeShell icon={<PenSquare className="h-6 w-6" />} label={label} />;
+  return (
+    <IoRectNodeShell
+      icon={<PenSquare className="h-6 w-6" />}
+      label={label}
+      variant="sink"
+    />
+  );
 });
 
 WriteNode.displayName = "WriteNode";

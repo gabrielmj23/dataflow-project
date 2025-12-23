@@ -11,7 +11,13 @@ export type SwitchNodeData = {
 export const SwitchNode = memo(({ data }: NodeProps) => {
   const { label = "Switch" } = (data ?? {}) as SwitchNodeData;
 
-  return <ControlRectNodeShell icon={<ToggleRight className="h-5 w-5" />} label={label} />;
+  return (
+    <ControlRectNodeShell
+      icon={<ToggleRight className="h-5 w-5" />}
+      label={label}
+      variant="singleInDualOut"
+    />
+  );
 });
 
 SwitchNode.displayName = "SwitchNode";
