@@ -20,12 +20,20 @@ export type FirePatterns = (typeof FirePatterns)[keyof typeof FirePatterns];
  * Defines a unique location of a port within this engine.
  */
 export class PortAddress {
-  private nodeId: string;
-  private portId: string;
+  private _nodeId: string;
+  private _portId: string;
 
   constructor(nodeId: string, portId: string) {
-    this.nodeId = nodeId;
-    this.portId = portId;
+    this._nodeId = nodeId;
+    this._portId = portId;
+  }
+
+  get nodeId(): string {
+    return this._nodeId;
+  }
+
+  get portId(): string {
+    return this._portId;
   }
 }
 
@@ -33,12 +41,20 @@ export class PortAddress {
  * A container for the data value and its location
  */
 export class DataToken<T> {
-  private value: T;
-  private currentLocation: PortAddress;
+  private _value: T;
+  private _currentLocation: PortAddress;
 
   constructor(value: T, currentLocation: PortAddress) {
-    this.value = value;
-    this.currentLocation = currentLocation;
+    this._value = value;
+    this._currentLocation = currentLocation;
+  }
+
+  get value(): T {
+    return this._value;
+  }
+
+  get location(): PortAddress {
+    return this._currentLocation;
   }
 }
 
@@ -49,18 +65,38 @@ export class DataToken<T> {
  * that all act the same as the Node Definition
  */
 export class NodeDefinition {
-  private activationFunction: ActivationFunction;
-  private firePatterns: FirePatterns[];
-  private ports: string[];
+  private _activationFunction: ActivationFunction;
+  private _firePatterns: FirePatterns[];
+  private _ports: string[];
 
   constructor(
     activationFunction: ActivationFunction,
     firePatterns: FirePatterns[],
     ports: string[]
   ) {
-    this.activationFunction = activationFunction;
-    this.firePatterns = firePatterns;
-    this.ports = ports;
+    this._activationFunction = activationFunction;
+    this._firePatterns = firePatterns;
+    this._ports = ports;
+  }
+
+  get activationFunction(): ActivationFunction {
+    return this._activationFunction;
+  }
+
+  get firePatterns(): FirePatterns[] {
+    return [...this._firePatterns];
+  }
+
+  get ports(): string[] {
+    return [...this._ports];
+  }
+
+  public clone(): NodeDefinition {
+    return new NodeDefinition(
+      this.activationFunction,
+      [...this.firePatterns],
+      [...this.ports]
+    );
   }
 }
 
@@ -68,12 +104,20 @@ export class NodeDefinition {
  * A run-time node instance
  */
 export class Node {
-  private id: string;
-  private nodeDefinition: NodeDefinition;
+  private _id: string;
+  private _nodeDefinition: NodeDefinition;
 
   constructor(id: string, nodeDefinition: NodeDefinition) {
-    this.id = id;
-    this.nodeDefinition = nodeDefinition;
+    this._id = id;
+    this._nodeDefinition = nodeDefinition;
+  }
+
+  get id(): string {
+    return this._id;
+  }
+
+  get nodeDefinition(): NodeDefinition {
+    return this._nodeDefinition;
   }
 }
 
@@ -81,12 +125,20 @@ export class Node {
  * Combines everything needed to execute a node
  */
 export class ExecuteToken {
-  private dataTokens: DataToken<unknown>[];
-  private node: Node;
+  private _dataTokens: DataToken<unknown>[];
+  private _node: Node;
 
   constructor(dataTokens: DataToken<unknown>[], node: Node) {
-    this.dataTokens = dataTokens;
-    this.node = node;
+    this._dataTokens = dataTokens;
+    this._node = node;
+  }
+
+  get dataTokens(): DataToken<unknown>[] {
+    return this._dataTokens;
+  }
+
+  get node(): Node {
+    return this._node;
   }
 }
 
@@ -94,11 +146,19 @@ export class ExecuteToken {
  * A connection between two ports
  */
 export class Arc {
-  private source: PortAddress;
-  private target: PortAddress;
+  private _source: PortAddress;
+  private _target: PortAddress;
 
   constructor(source: PortAddress, target: PortAddress) {
-    this.source = source;
-    this.target = target;
+    this._source = source;
+    this._target = target;
+  }
+
+  get source(): PortAddress {
+    return this._source;
+  }
+
+  get target(): PortAddress {
+    return this._target;
   }
 }
