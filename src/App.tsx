@@ -13,35 +13,13 @@ import {
   useStore,
   type Node,
   type Edge,
-  type NodeTypes,
   type NodeChange,
   type EdgeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
 import { PlusCircle } from "lucide-react";
-import { BaseDataflowNode } from "@/components/nodes/base-dataflow-node";
-import { ConstantInputNode } from "@/components/nodes/input/constant-input-node";
-import { RandomInputNode } from "@/components/nodes/input/random-input-node";
-import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
-import { SumNode } from "@/components/nodes/processing/sum-node";
-import { SubtractNode } from "@/components/nodes/processing/subtract-node";
-import { MultiplyNode } from "@/components/nodes/processing/multiply-node";
-import { DivideNode } from "@/components/nodes/processing/divide-node";
-import { PowerNode } from "@/components/nodes/processing/power-node";
-import { ConcatNode } from "@/components/nodes/processing/concat-node";
-import { ComparisonNode } from "@/components/nodes/control/comparison-node";
-import { AndNode } from "@/components/nodes/control/and-node";
-import { OrNode } from "@/components/nodes/control/or-node";
-import { NotNode } from "@/components/nodes/control/not-node";
-import { SwitchNode } from "@/components/nodes/control/switch-node";
-import { SubflowNode } from "@/components/nodes/abstraction/subflow-node";
-import { WriteNode } from "@/components/nodes/io/write-node";
-import { SequenceNode } from "@/components/nodes/iteration/sequence-node";
-import { ZipNode } from "@/components/nodes/iteration/zip-node";
-import { FilterNode } from "@/components/nodes/iteration/filter-node";
-import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
-import { CountNode } from "@/components/nodes/iteration/count-node";
+import { nodeTypes } from "@/flow/node-types";
 import {
   Dialog,
   DialogContent,
@@ -58,8 +36,15 @@ type FlowBounds = { x: number; y: number; width: number; height: number };
 
 type SubflowPorts = { inCount: number; outCount: number };
 
+type SubflowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
+
 type CreateSubflowRequest =
-  | { ok: true; bounds: FlowBounds; ports: SubflowPorts }
+  | {
+      ok: true;
+      bounds: FlowBounds;
+      ports: SubflowPorts;
+      snapshot: SubflowSnapshot;
+    }
   | { ok: false; bounds: FlowBounds; message: string };
 
 type HandleKey = string | null;
@@ -174,6 +159,50 @@ function computeBounds(nodes: FlowNode[]): FlowBounds | null {
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
+function buildSubflowSnapshot(
+  selectedNodes: FlowNode[],
+  edges: FlowEdge[],
+  bounds: FlowBounds
+): SubflowSnapshot {
+  const selectedSet = new Set(selectedNodes.map((n) => n.id));
+  const padding = 40;
+
+  const nodes = selectedNodes.map((n) => {
+    const x = (n.position?.x ?? 0) - bounds.x + padding;
+    const y = (n.position?.y ?? 0) - bounds.y + padding;
+    return {
+      id: n.id,
+      type: n.type,
+      position: {
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0,
+      },
+      data: n.data,
+      selected: false,
+    } as FlowNode;
+  });
+
+  const internalEdges = edges
+    .filter(
+      (e) =>
+        selectedSet.has(String(e.source)) && selectedSet.has(String(e.target))
+    )
+    .map(
+      (e) =>
+        ({
+          id: e.id,
+          source: e.source,
+          target: e.target,
+          sourceHandle: e.sourceHandle,
+          targetHandle: e.targetHandle,
+          type: e.type,
+          data: e.data,
+        } as FlowEdge)
+    );
+
+  return { nodes, edges: internalEdges };
+}
+
 function CreateSubflowOverlay({
   selectedNodes,
   edges,
@@ -268,7 +297,13 @@ function CreateSubflowOverlay({
             const inCount = uniqueCount(openInputs);
             const outCount = uniqueCount(openOutputs);
 
-            onCreateClick({ ok: true, bounds, ports: { inCount, outCount } });
+            const snapshot = buildSubflowSnapshot(selectedNodes, edges, bounds);
+            onCreateClick({
+              ok: true,
+              bounds,
+              ports: { inCount, outCount },
+              snapshot,
+            });
           }}
         >
           Crear Subflujo
@@ -277,31 +312,6 @@ function CreateSubflowOverlay({
     </div>
   );
 }
-
-const nodeTypes: NodeTypes = {
-  baseNode: BaseDataflowNode,
-  constantInput: ConstantInputNode,
-  randomInput: RandomInputNode,
-  timerInput: TimerInputNode,
-  sum: SumNode,
-  subtract: SubtractNode,
-  multiply: MultiplyNode,
-  divide: DivideNode,
-  power: PowerNode,
-  concat: ConcatNode,
-  comparison: ComparisonNode,
-  and: AndNode,
-  or: OrNode,
-  not: NotNode,
-  switch: SwitchNode,
-  subflow: SubflowNode,
-  write: WriteNode,
-  sequence: SequenceNode,
-  zip: ZipNode,
-  filter: FilterNode,
-  accumulate: AccumulateNode,
-  count: CountNode,
-};
 
 const initialNodes: FlowNode[] = [
   // Entradas y eventos (verde, circulares)
@@ -461,6 +471,8 @@ export default function App() {
     useState<FlowBounds | null>(null);
   const [pendingSubflowPorts, setPendingSubflowPorts] =
     useState<SubflowPorts | null>(null);
+  const [pendingSubflowSnapshot, setPendingSubflowSnapshot] =
+    useState<SubflowSnapshot | null>(null);
   const [createSubflowError, setCreateSubflowError] = useState<string | null>(
     null
   );
@@ -470,6 +482,7 @@ export default function App() {
     if (!open) {
       setPendingSubflowBounds(null);
       setPendingSubflowPorts(null);
+      setPendingSubflowSnapshot(null);
       setCreateSubflowError(null);
     }
   }, []);
@@ -517,9 +530,11 @@ export default function App() {
     setSubflowName("");
     if (request.ok) {
       setPendingSubflowPorts(request.ports);
+      setPendingSubflowSnapshot(request.snapshot);
       setCreateSubflowError(null);
     } else {
       setPendingSubflowPorts(null);
+      setPendingSubflowSnapshot(null);
       setCreateSubflowError(request.message);
     }
     setIsCreateSubflowOpen(true);
@@ -527,7 +542,12 @@ export default function App() {
 
   const createSubflow = useCallback(() => {
     const name = subflowName.trim();
-    if (!name || !pendingSubflowBounds || !pendingSubflowPorts) {
+    if (
+      !name ||
+      !pendingSubflowBounds ||
+      !pendingSubflowPorts ||
+      !pendingSubflowSnapshot
+    ) {
       return;
     }
 
@@ -552,6 +572,8 @@ export default function App() {
           label: name,
           inCount: pendingSubflowPorts.inCount,
           outCount: pendingSubflowPorts.outCount,
+          subflowNodes: pendingSubflowSnapshot.nodes,
+          subflowEdges: pendingSubflowSnapshot.edges,
         },
         type: "subflow",
       };
@@ -562,7 +584,14 @@ export default function App() {
     setIsCreateSubflowOpen(false);
     setPendingSubflowBounds(null);
     setPendingSubflowPorts(null);
-  }, [pendingSubflowBounds, pendingSubflowPorts, setNodes, subflowName]);
+    setPendingSubflowSnapshot(null);
+  }, [
+    pendingSubflowBounds,
+    pendingSubflowPorts,
+    pendingSubflowSnapshot,
+    setNodes,
+    subflowName,
+  ]);
 
   return (
     <div style={{ width: "100vw", height: "100vh" }}>
