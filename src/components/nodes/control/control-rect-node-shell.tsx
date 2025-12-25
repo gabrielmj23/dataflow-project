@@ -24,17 +24,20 @@ export function ControlRectNodeShell({ icon, label, variant = "default" }: Contr
             type="target"
             position={Position.Left}
             style={{ top: "35%" }}
+            id="in-1"
             className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
           <Handle
             type="target"
             position={Position.Left}
             style={{ top: "65%" }}
+            id="in-2"
             className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
           <Handle
             type="source"
             position={Position.Right}
+            id="out"
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
         </>
@@ -45,18 +48,21 @@ export function ControlRectNodeShell({ icon, label, variant = "default" }: Contr
           <Handle
             type="target"
             position={Position.Left}
+            id="in"
             className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
           <Handle
             type="source"
             position={Position.Right}
             style={{ top: "35%" }}
+            id="out-1"
             className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
           <Handle
             type="source"
             position={Position.Right}
             style={{ top: "65%" }}
+            id="out-2"
             className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
         </>

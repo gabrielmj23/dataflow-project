@@ -21,17 +21,20 @@ export function ProcessingRectNodeShell({ icon, label }: ProcessingRectNodeShell
         type="target"
         position={Position.Left}
         style={{ top: "35%" }}
+        id="in-1"
         className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
       />
       <Handle
         type="target"
         position={Position.Left}
         style={{ top: "65%" }}
+        id="in-2"
         className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
       />
       <Handle
         type="source"
         position={Position.Right}
+        id="out"
         className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
       />
     </BaseNode>

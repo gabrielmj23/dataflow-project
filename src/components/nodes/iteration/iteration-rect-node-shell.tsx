@@ -22,22 +22,24 @@ export function IterationRectNodeShell({ icon, label, variant = "multi" }: Itera
 
       {variant === "multi" && (
         <>
-          {offsets.map((offset) => (
+          {offsets.map((offset, index) => (
             <Handle
               key={`l-${offset}`}
               type="target"
               position={Position.Left}
               style={{ top: offset }}
+              id={`in-${index}`}
               className="h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
             />
           ))}
 
-          {offsets.map((offset) => (
+          {offsets.map((offset, index) => (
             <Handle
               key={`r-${offset}`}
               type="source"
               position={Position.Right}
               style={{ top: offset }}
+              id={`out-${index}`}
               className="h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
             />
           ))}
@@ -49,11 +51,13 @@ export function IterationRectNodeShell({ icon, label, variant = "multi" }: Itera
           <Handle
             type="target"
             position={Position.Left}
+            id="in"
             className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
           />
           <Handle
             type="source"
             position={Position.Right}
+            id="out"
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
           />
         </>
@@ -65,17 +69,20 @@ export function IterationRectNodeShell({ icon, label, variant = "multi" }: Itera
             type="target"
             position={Position.Left}
             style={{ top: "35%" }}
+            id="in-1"
             className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
           />
           <Handle
             type="target"
             position={Position.Left}
             style={{ top: "65%" }}
+            id="in-2"
             className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
           />
           <Handle
             type="source"
             position={Position.Right}
+            id="out"
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-teal-800 bg-white"
           />
         </>
