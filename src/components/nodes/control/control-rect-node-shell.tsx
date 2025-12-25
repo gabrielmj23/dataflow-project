@@ -2,17 +2,29 @@ import type { ReactNode } from "react";
 
 import { Handle, Position } from "@xyflow/react";
 
-import { BaseNode } from "@/components/base-node";
+import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import NodeSettingsButton from "@/components/ui/node-settings-button";
 
 type ControlRectNodeShellProps = {
   icon: ReactNode;
   label: string;
   variant?: "default" | "singleInDualOut";
+  onConfigClick?: () => void;
 };
 
-export function ControlRectNodeShell({ icon, label, variant = "default" }: ControlRectNodeShellProps) {
+export function ControlRectNodeShell({
+  icon,
+  label,
+  variant = "default",
+  onConfigClick,
+}: ControlRectNodeShellProps) {
   return (
     <BaseNode className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md">
+      {onConfigClick && (
+        <BaseNodeHeader className="absolute top-1 right-1">
+          <NodeSettingsButton onClick={onConfigClick} />
+        </BaseNodeHeader>
+      )}
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
