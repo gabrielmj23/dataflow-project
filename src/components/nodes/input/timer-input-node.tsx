@@ -1,5 +1,5 @@
-import { memo, useId, useState } from "react";
-import type { NodeProps } from "@xyflow/react";
+import { memo, useCallback, useId, useState } from "react";
+import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { Minus, Plus, Timer } from "lucide-react";
 
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
@@ -14,13 +14,39 @@ import { Input } from "@/components/ui/input";
 
 export type TimerInputNodeData = {
   label?: string;
+  timeValue?: number;
 };
 
-export const TimerInputNode = memo(({ data }: NodeProps) => {
-  const { label = "Timer" } = (data ?? {}) as TimerInputNodeData;
-  const [timeValue, setTimeValue] = useState<number>(0);
+export const TimerInputNode = memo(({ id, data }: NodeProps) => {
+  const { label = "Timer", timeValue: rawTimeValue } = (data ??
+    {}) as TimerInputNodeData;
+
+  const timeValue = Number.isFinite(rawTimeValue)
+    ? (rawTimeValue as number)
+    : 0;
+
+  const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const inputId = useId();
+
+  const setTimeValue = useCallback(
+    (nextValue: number) => {
+      setNodes((prev) =>
+        prev.map((node) =>
+          node.id === id
+            ? {
+                ...node,
+                data: {
+                  ...(node.data ?? {}),
+                  timeValue: nextValue,
+                },
+              }
+            : node
+        )
+      );
+    },
+    [id, setNodes]
+  );
 
   return (
     <>
@@ -52,7 +78,10 @@ export const TimerInputNode = memo(({ data }: NodeProps) => {
                 type="number"
                 id={inputId}
                 value={timeValue}
-                onChange={(e) => setTimeValue(Number(e.target.value))}
+                onChange={(e) => {
+                  const next = e.currentTarget.valueAsNumber;
+                  setTimeValue(Number.isFinite(next) ? next : 0);
+                }}
                 className="rounded-none"
                 step={0.01}
               />

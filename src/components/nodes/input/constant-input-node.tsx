@@ -1,5 +1,5 @@
-import { memo, useId, useState } from "react";
-import type { NodeProps } from "@xyflow/react";
+import { memo, useCallback, useId, useState } from "react";
+import { useReactFlow, type NodeProps } from "@xyflow/react";
 
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
 import {
@@ -14,13 +14,37 @@ import { Minus, Plus } from "lucide-react";
 
 export type ConstantInputNodeData = {
   label?: string;
+  value?: number;
 };
 
-export const ConstantInputNode = memo(({ data }: NodeProps) => {
-  const { label = "Constante" } = (data ?? {}) as ConstantInputNodeData;
+export const ConstantInputNode = memo(({ id, data }: NodeProps) => {
+  const { label = "Constante", value: rawValue } = (data ??
+    {}) as ConstantInputNodeData;
+
+  const value = Number.isFinite(rawValue) ? (rawValue as number) : 0;
+
+  const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [value, setValue] = useState<number>(0);
   const inputId = useId();
+
+  const setValue = useCallback(
+    (nextValue: number) => {
+      setNodes((prev) =>
+        prev.map((node) =>
+          node.id === id
+            ? {
+                ...node,
+                data: {
+                  ...(node.data ?? {}),
+                  value: nextValue,
+                },
+              }
+            : node
+        )
+      );
+    },
+    [id, setNodes]
+  );
 
   return (
     <>
@@ -52,7 +76,10 @@ export const ConstantInputNode = memo(({ data }: NodeProps) => {
                 type="number"
                 id={inputId}
                 value={value}
-                onChange={(e) => setValue(Number(e.target.value))}
+                onChange={(e) => {
+                  const next = e.currentTarget.valueAsNumber;
+                  setValue(Number.isFinite(next) ? next : 0);
+                }}
                 className="rounded-none"
                 step={0.01}
               />
