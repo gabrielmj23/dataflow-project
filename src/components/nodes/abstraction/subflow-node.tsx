@@ -1,39 +1,250 @@
-import { memo } from "react";
-import type { NodeProps } from "@xyflow/react";
-import { Handle, Position } from "@xyflow/react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { Edge, Node, NodeProps } from "@xyflow/react";
+import {
+  addEdge,
+  applyEdgeChanges,
+  applyNodeChanges,
+  Background,
+  BackgroundVariant,
+  Controls,
+  ReactFlow,
+  ReactFlowProvider,
+  type Connection,
+  type EdgeChange,
+  type NodeChange,
+  useReactFlow,
+  useStore,
+  Handle,
+  Position,
+} from "@xyflow/react";
 
-import { BaseNode } from "@/components/base-node";
+import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { PictureInPicture2 } from "lucide-react";
+import NodeSettingsButton from "@/components/ui/node-settings-button";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { nodeTypesCore } from "@/flow/node-types-core";
+import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 
 export type SubflowNodeData = {
   label?: string;
+  inCount?: number;
+  outCount?: number;
+  subflowNodes?: Node[];
+  subflowEdges?: Edge[];
 };
 
-export const SubflowNode = memo(({ data }: NodeProps) => {
-  const { label = "Subflujo" } = (data ?? {}) as SubflowNodeData;
+type SubflowRfNode = Node<SubflowNodeData>;
+
+function EditorStoreBridge({
+  onNodeLookup,
+}: {
+  onNodeLookup: (lookup: unknown) => void;
+}) {
+  const nodeLookup = useStore(
+    (state) => (state as unknown as { nodeLookup: unknown }).nodeLookup
+  );
+
+  useEffect(() => {
+    onNodeLookup(nodeLookup);
+  }, [nodeLookup, onNodeLookup]);
+
+  return null;
+}
+
+function offsets(count: number): string[] {
+  const safeCount = Math.max(0, Math.floor(count));
+  if (safeCount === 0) {
+    return [];
+  }
+  if (safeCount === 1) {
+    return ["50%"];
+  }
+
+  const start = 15;
+  const end = 85;
+  const step = (end - start) / (safeCount - 1);
+  return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
+}
+
+export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
+  const { setNodes } = useReactFlow();
+
+  const {
+    label = "Subflujo",
+    inCount: rawInCount,
+    outCount: rawOutCount,
+    subflowNodes,
+    subflowEdges,
+  } = (data ?? {}) as SubflowNodeData;
+
+  const inCount = Number.isFinite(rawInCount) ? (rawInCount as number) : 3;
+  const outCount = Number.isFinite(rawOutCount) ? (rawOutCount as number) : 3;
+
+  const inOffsets = offsets(inCount);
+  const outOffsets = offsets(outCount);
+
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [draftNodes, setDraftNodes] = useState<Node[]>(
+    () => subflowNodes ?? []
+  );
+  const [draftEdges, setDraftEdges] = useState<Edge[]>(
+    () => subflowEdges ?? []
+  );
+
+  const editorLookupRef = useRef<unknown>(null);
+
+  const onEditorNodesChange = useCallback((changes: NodeChange[]) => {
+    setDraftNodes((snapshot) => applyNodeChanges(changes, snapshot));
+  }, []);
+
+  const onEditorEdgesChange = useCallback((changes: EdgeChange[]) => {
+    setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
+  }, []);
+
+  const onEditorConnect = useCallback((params: Connection) => {
+    setDraftEdges((snapshot) => addEdge(params, snapshot));
+  }, []);
+
+  const editorFlowId = useMemo(() => `subflow-editor-${id}`, [id]);
 
   return (
     <BaseNode className="relative flex w-36 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md">
-      <div className="text-sm font-semibold leading-tight">{label}</div>
+      <BaseNodeHeader className="absolute top-1 right-1 mx-0 my-0 p-0">
+        <NodeSettingsButton
+          onClick={() => {
+            setDraftNodes(subflowNodes ?? []);
+            setDraftEdges(subflowEdges ?? []);
+            setIsEditorOpen(true);
+          }}
+        />
+      </BaseNodeHeader>
+      <div className="flex flex-col items-center gap-0.5">
+        <div className="text-xl font-bold leading-none">
+          <PictureInPicture2 />
+        </div>
+        <div className="text-sm leading-tight">{label}</div>
+      </div>
 
-      {["10%", "40%", "70%"].map((offset) => (
+      {inOffsets.map((offset, index) => (
         <Handle
           key={`l-${offset}`}
           type="target"
           position={Position.Left}
           style={{ top: offset }}
+          id={`in-${index + 1}`}
           className="h-2 w-2 -translate-y-1/2 rounded-full border border-violet-700 bg-white"
         />
       ))}
 
-      {["10%", "40%", "70%"].map((offset) => (
+      {outOffsets.map((offset, index) => (
         <Handle
           key={`r-${offset}`}
           type="source"
           position={Position.Right}
           style={{ top: offset }}
+          id={`out-${index + 1}`}
           className="h-2 w-2 -translate-y-1/2 rounded-full border border-violet-700 bg-white"
         />
       ))}
+
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Editar subflujo</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Modifica los nodos y conexiones.
+            </p>
+
+            <div className="h-[60vh] w-full overflow-hidden rounded-md border">
+              <ReactFlowProvider>
+                <ReactFlow
+                  id={editorFlowId}
+                  nodes={draftNodes}
+                  edges={draftEdges}
+                  nodeTypes={nodeTypesCore}
+                  onNodesChange={onEditorNodesChange}
+                  onEdgesChange={onEditorEdgesChange}
+                  onConnect={onEditorConnect}
+                  fitView
+                  proOptions={{ hideAttribution: true }}
+                >
+                  <EditorStoreBridge
+                    onNodeLookup={(lookup) => {
+                      editorLookupRef.current = lookup;
+                    }}
+                  />
+                  <Background variant={BackgroundVariant.Dots} />
+                  <Controls />
+                </ReactFlow>
+              </ReactFlowProvider>
+            </div>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setIsEditorOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  const lookup = editorLookupRef.current;
+                  const computed = computeOpenPortsFromLookup(
+                    draftNodes,
+                    draftEdges,
+                    lookup
+                  );
+                  const nextInCount = computed.ready
+                    ? computed.inCount
+                    : Number.isFinite(rawInCount)
+                    ? (rawInCount as number)
+                    : inCount;
+                  const nextOutCount = computed.ready
+                    ? computed.outCount
+                    : Number.isFinite(rawOutCount)
+                    ? (rawOutCount as number)
+                    : outCount;
+
+                  setNodes((prev) =>
+                    prev.map((n) => {
+                      if (n.id !== id) {
+                        return n;
+                      }
+
+                      return {
+                        ...n,
+                        data: {
+                          ...(n.data as object),
+                          label,
+                          subflowNodes: draftNodes,
+                          subflowEdges: draftEdges,
+                          inCount: nextInCount,
+                          outCount: nextOutCount,
+                        },
+                      };
+                    })
+                  );
+
+                  setIsEditorOpen(false);
+                }}
+              >
+                Guardar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </BaseNode>
   );
 });
