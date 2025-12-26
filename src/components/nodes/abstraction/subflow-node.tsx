@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DragEvent } from "react";
 import type { Edge, Node, NodeProps } from "@xyflow/react";
 import {
   addEdge,
@@ -12,6 +13,7 @@ import {
   type Connection,
   type EdgeChange,
   type NodeChange,
+  type ReactFlowInstance,
   useReactFlow,
   useStore,
   Handle,
@@ -30,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
+import { nodePalette } from "@/flow/node-palette";
 
 export type SubflowNodeData = {
   label?: string;
@@ -113,6 +116,82 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const editorFlowId = useMemo(() => `subflow-editor-${id}`, [id]);
 
+  const paletteLabelByType = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of nodePalette) {
+      for (const item of category.items) {
+        map.set(item.type, item.label);
+      }
+    }
+    return map;
+  }, []);
+
+  const editorInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const nextInnerIdRef = useRef(1);
+
+  const createInnerNodeId = useCallback(() => {
+    const next = nextInnerIdRef.current++;
+    return `inner-${id}-${next}`;
+  }, [id]);
+
+  const onEditorDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onEditorDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData("application/reactflow");
+      if (!type) {
+        return;
+      }
+
+      const instance = editorInstanceRef.current as
+        | (ReactFlowInstance & {
+            screenToFlowPosition?: (pos: { x: number; y: number }) => {
+              x: number;
+              y: number;
+            };
+            project?: (pos: { x: number; y: number }) => {
+              x: number;
+              y: number;
+            };
+          })
+        | null;
+
+      const screenPos = { x: event.clientX, y: event.clientY };
+      const position = instance?.screenToFlowPosition?.(screenPos) ??
+        instance?.project?.(screenPos) ?? { x: 0, y: 0 };
+
+      const nodeLabel = paletteLabelByType.get(type);
+      const newNode: Node = {
+        id: createInnerNodeId(),
+        type,
+        position,
+        data: nodeLabel ? { label: nodeLabel } : {},
+      };
+
+      setDraftNodes((prev) => [...prev, newNode]);
+    },
+    [createInnerNodeId, paletteLabelByType]
+  );
+
+  const isSidebarEventTarget = useCallback((target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) {
+      return false;
+    }
+
+    // Sidebar elements come from `src/components/ui/sidebar.tsx`.
+    // We match data-slot/data-sidebar attributes so the rule survives class changes.
+    return Boolean(
+      target.closest(
+        '[data-slot="sidebar-container"], [data-slot="sidebar"], [data-slot="sidebar-inner"], [data-slot="sidebar-wrapper"], [data-sidebar]'
+      )
+    );
+  }, []);
+
   return (
     <BaseNode className="relative flex w-36 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md">
       <BaseNodeHeader className="absolute top-1 right-1 mx-0 my-0 p-0">
@@ -153,8 +232,20 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         />
       ))}
 
-      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
-        <DialogContent className="sm:max-w-4xl">
+      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen} modal={false}>
+        <DialogContent
+          className="sm:max-w-4xl"
+          onPointerDownOutside={(event) => {
+            if (isSidebarEventTarget(event.target)) {
+              event.preventDefault();
+            }
+          }}
+          onInteractOutside={(event) => {
+            if (isSidebarEventTarget(event.target)) {
+              event.preventDefault();
+            }
+          }}
+        >
           <DialogHeader>
             <DialogTitle>Editar subflujo</DialogTitle>
           </DialogHeader>
@@ -174,6 +265,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}
+                  onInit={(instance) => {
+                    editorInstanceRef.current = instance;
+                  }}
+                  onDrop={onEditorDrop}
+                  onDragOver={onEditorDragOver}
                   fitView
                   proOptions={{ hideAttribution: true }}
                 >
