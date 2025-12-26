@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   applyNodeChanges,
@@ -15,6 +15,7 @@ import {
   type Edge,
   type NodeChange,
   type EdgeChange,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
@@ -28,6 +29,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AppSidebar } from "@/components/app-sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { nodePalette } from "./flow/node-palette";
 
 type FlowNode = Node;
 type FlowEdge = Edge;
@@ -48,6 +56,15 @@ type CreateSubflowRequest =
   | { ok: false; bounds: FlowBounds; message: string };
 
 type HandleKey = string | null;
+
+function createNodeId(type: string): string {
+  const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
+  const uuid = g.crypto?.randomUUID?.();
+  if (uuid) {
+    return `${type}-${uuid}`;
+  }
+  return `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function isSelectionConnected(nodeIds: string[], edges: FlowEdge[]): boolean {
   if (nodeIds.length <= 1) {
@@ -459,6 +476,20 @@ const initialEdges: FlowEdge[] = [];
 export default function App() {
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
+  const [reactFlowInstance, setReactFlowInstance] =
+    useState<ReactFlowInstance | null>(null);
+
+  const draggingTypeRef = useRef<string | null>(null);
+
+  const paletteLabelByType = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of nodePalette) {
+      for (const item of category.items) {
+        map.set(item.type, item.label);
+      }
+    }
+    return map;
+  }, []);
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -500,6 +531,63 @@ export default function App() {
   const onConnect = useCallback(
     (params: Connection) =>
       setEdges((edgesSnapshot) => addEdge(params, edgesSnapshot)),
+    []
+  );
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const type =
+        event.dataTransfer.getData("application/reactflow") ||
+        draggingTypeRef.current;
+      if (!type) {
+        return;
+      }
+
+      const instance = reactFlowInstance as
+        | (ReactFlowInstance & {
+            screenToFlowPosition?: (pos: { x: number; y: number }) => {
+              x: number;
+              y: number;
+            };
+            project?: (pos: { x: number; y: number }) => {
+              x: number;
+              y: number;
+            };
+          })
+        | null;
+
+      const screenPos = { x: event.clientX, y: event.clientY };
+      const position =
+        instance?.screenToFlowPosition?.(screenPos) ??
+        instance?.project?.(screenPos) ?? { x: 0, y: 0 };
+
+      const label = paletteLabelByType.get(type);
+      const newNode: FlowNode = {
+        id: createNodeId(type),
+        type,
+        position,
+        data: label ? { label } : {},
+      };
+
+      setNodes((prev) => [...prev, newNode]);
+      draggingTypeRef.current = null;
+    },
+    [paletteLabelByType, reactFlowInstance, setNodes]
+  );
+
+  const onPaletteDragStart = useCallback(
+    (event: React.DragEvent, item: { type: string; label: string }) => {
+      draggingTypeRef.current = item.type;
+      event.dataTransfer.setData("application/reactflow", item.type);
+      event.dataTransfer.effectAllowed = "move";
+    },
     []
   );
 
@@ -594,30 +682,42 @@ export default function App() {
   ]);
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView
-        proOptions={{ hideAttribution: true }}
-      >
-        <CreateSubflowOverlay
-          selectedNodes={selectedNodes}
-          edges={edges}
-          onCreateClick={openCreateSubflow}
-        />
-        <Background variant={BackgroundVariant.Dots} />
-        <Controls>
-          <ControlButton onClick={addNode}>
-            <PlusCircle color="white" />
-          </ControlButton>
-        </Controls>
-        <MiniMap />
-      </ReactFlow>
+    <SidebarProvider>
+      <AppSidebar categories={nodePalette} onDragStart={onPaletteDragStart} />
+
+      <SidebarInset>
+        <div className="relative flex h-svh w-full">
+          <div className="absolute left-3 top-3 z-30 flex items-center gap-2">
+            <SidebarTrigger />
+          </div>
+
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onInit={setReactFlowInstance}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            fitView
+            proOptions={{ hideAttribution: true }}
+          >
+            <CreateSubflowOverlay
+              selectedNodes={selectedNodes}
+              edges={edges}
+              onCreateClick={openCreateSubflow}
+            />
+            <Background variant={BackgroundVariant.Dots} />
+            <Controls>
+              <ControlButton onClick={addNode}>
+                <PlusCircle color="white" />
+              </ControlButton>
+            </Controls>
+            <MiniMap />
+          </ReactFlow>
+        </div>
 
       <Dialog
         open={isCreateSubflowOpen}
@@ -677,6 +777,7 @@ export default function App() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
