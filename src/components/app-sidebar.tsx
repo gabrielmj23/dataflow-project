@@ -34,7 +34,7 @@ type AppSidebarProps = {
 
 export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
-  const [viewMode, setViewMode] = React.useState<"text" | "nodes">("text");
+  const [viewMode, setViewMode] = React.useState<"text" | "nodes">("nodes");
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
 
   const normalizedSearch = search.trim().toLowerCase();
