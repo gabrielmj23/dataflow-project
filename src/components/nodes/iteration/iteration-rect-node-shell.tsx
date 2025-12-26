@@ -3,18 +3,30 @@ import type { ReactNode } from "react";
 import { Handle, Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import NodeSettingsButton from "@/components/ui/node-settings-button";
 
 type IterationRectNodeShellProps = {
   icon: ReactNode;
   label: string;
   variant?: "multi" | "singleInSingleOut" | "doubleInSingleOut";
+  onConfigClick?: () => void;
 };
 
-export function IterationRectNodeShell({ icon, label, variant = "multi" }: IterationRectNodeShellProps) {
+export function IterationRectNodeShell({
+  icon,
+  label,
+  variant = "multi",
+  onConfigClick,
+}: IterationRectNodeShellProps) {
   const offsets = ["15%", "35%", "65%", "85%"];
 
   return (
     <BaseNode className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-teal-800 bg-teal-600 px-5 text-center text-white shadow-md">
+      {onConfigClick && (
+        <div className="absolute top-1 right-1">
+          <NodeSettingsButton onClick={onConfigClick} />
+        </div>
+      )}
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>

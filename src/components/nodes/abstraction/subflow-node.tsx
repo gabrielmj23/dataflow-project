@@ -135,12 +135,14 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   }, [id]);
 
   const onEditorDragOver = useCallback((event: DragEvent) => {
+    event.stopPropagation();
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
   }, []);
 
   const onEditorDrop = useCallback(
     (event: DragEvent) => {
+      event.stopPropagation();
       event.preventDefault();
 
       const type = event.dataTransfer.getData("application/reactflow");
