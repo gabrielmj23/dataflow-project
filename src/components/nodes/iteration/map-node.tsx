@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
 import type { Edge, Node, NodeProps } from "@xyflow/react";
 import {
@@ -167,6 +167,53 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
     }),
     []
   );
+
+  // Delete selected nodes/edges with Backspace/Delete when editor is open
+  useEffect(() => {
+    if (!isEditorOpen) return;
+
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+      // Prevent the main canvas key handler (in App.tsx) from also deleting
+      // whatever is selected there while we're interacting with this modal.
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      setDraftNodes((prev) => {
+        const removedIds = new Set(
+          prev.filter((n) => n.selected).map((n) => n.id)
+        );
+        const nextNodes = prev.filter((n) => !n.selected);
+
+        setDraftEdges((prevEdges) =>
+          prevEdges.filter((edge) => {
+            if ((edge as Edge).selected) return false;
+            const src = String((edge as Edge).source);
+            const tgt = String((edge as Edge).target);
+            if (removedIds.has(src) || removedIds.has(tgt)) return false;
+            return true;
+          })
+        );
+
+        return nextNodes;
+      });
+    };
+
+    window.addEventListener("keydown", handler, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handler, { capture: true });
+  }, [isEditorOpen, setDraftNodes, setDraftEdges]);
 
   return (
     <>

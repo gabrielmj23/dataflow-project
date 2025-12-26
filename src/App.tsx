@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   applyNodeChanges,
@@ -330,146 +330,7 @@ function CreateSubflowOverlay({
   );
 }
 
-const initialNodes: FlowNode[] = [
-  // Entradas y eventos (verde, circulares)
-  {
-    id: "in-const",
-    position: { x: 0, y: 0 },
-    data: {
-      label: "Constante",
-    },
-    type: "constantInput",
-  },
-  {
-    id: "in-timer",
-    position: { x: 0, y: 140 },
-    data: {
-      label: "Timer",
-    },
-    type: "timerInput",
-  },
-  {
-    id: "in-random",
-    position: { x: 0, y: 280 },
-    data: {
-      label: "Valor Aleatorio",
-    },
-    type: "randomInput",
-  },
-  // Procesamiento (azul, rectángulos redondeados)
-  {
-    id: "pr-sum",
-    position: { x: 260, y: 0 },
-    data: { label: "Sumar" },
-    type: "sum",
-  },
-  {
-    id: "pr-sub",
-    position: { x: 260, y: 90 },
-    data: { label: "Restar" },
-    type: "subtract",
-  },
-  {
-    id: "pr-mul",
-    position: { x: 260, y: 180 },
-    data: { label: "Multiplicar" },
-    type: "multiply",
-  },
-  {
-    id: "pr-div",
-    position: { x: 260, y: 270 },
-    data: { label: "División" },
-    type: "divide",
-  },
-  {
-    id: "pr-pow",
-    position: { x: 260, y: 360 },
-    data: { label: "Potencia" },
-    type: "power",
-  },
-  {
-    id: "pr-concat",
-    position: { x: 260, y: 450 },
-    data: { label: "Concatenar" },
-    type: "concat",
-  },
-  // Control (naranja)
-  {
-    id: "ct-comp",
-    position: { x: 520, y: 0 },
-    data: { label: "Comparación" },
-    type: "comparison",
-  },
-  {
-    id: "ct-and",
-    position: { x: 520, y: 90 },
-    data: { label: "AND" },
-    type: "and",
-  },
-  {
-    id: "ct-or",
-    position: { x: 520, y: 180 },
-    data: { label: "OR" },
-    type: "or",
-  },
-  {
-    id: "ct-not",
-    position: { x: 520, y: 270 },
-    data: { label: "NOT" },
-    type: "not",
-  },
-  {
-    id: "ct-switch",
-    position: { x: 520, y: 360 },
-    data: { label: "Switch" },
-    type: "switch",
-  },
-  // Iteración y listas (verde azulado)
-  {
-    id: "it-seq",
-    position: { x: 780, y: 0 },
-    data: { label: "Generar Secuencia" },
-    type: "sequence",
-  },
-  {
-    id: "it-zip",
-    position: { x: 780, y: 90 },
-    data: { label: "Zip" },
-    type: "zip",
-  },
-  {
-    id: "it-filter",
-    position: { x: 780, y: 180 },
-    data: { label: "Filtrar" },
-    type: "filter",
-  },
-  {
-    id: "it-acc",
-    position: { x: 780, y: 270 },
-    data: { label: "Acumular" },
-    type: "accumulate",
-  },
-  {
-    id: "it-count",
-    position: { x: 780, y: 360 },
-    data: { label: "Contar" },
-    type: "count",
-  },
-  // Abstracción (morado)
-  {
-    id: "ab-subflow",
-    position: { x: 1040, y: 180 },
-    data: { label: "Subflujo" },
-    type: "subflow",
-  },
-  // Interacción / Verificación (rojo)
-  {
-    id: "io-write",
-    position: { x: 1300, y: 180 },
-    data: { label: "Escribir" },
-    type: "write",
-  },
-];
+const initialNodes: FlowNode[] = [];
 
 const initialEdges: FlowEdge[] = [];
 
@@ -534,6 +395,44 @@ export default function App() {
     []
   );
 
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      setNodes((prevNodes) => {
+        const removedIds = new Set(
+          prevNodes.filter((n) => n.selected).map((n) => n.id)
+        );
+
+        const nextNodes = prevNodes.filter((n) => !n.selected);
+
+        setEdges((prevEdges) =>
+          prevEdges.filter((edge) => {
+            if ((edge as Edge).selected) return false;
+            const src = String((edge as Edge).source);
+            const tgt = String((edge as Edge).target);
+            if (removedIds.has(src) || removedIds.has(tgt)) return false;
+            return true;
+          })
+        );
+
+        return nextNodes;
+      });
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setNodes, setEdges]);
+
   const onDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
@@ -564,8 +463,7 @@ export default function App() {
         | null;
 
       const screenPos = { x: event.clientX, y: event.clientY };
-      const position =
-        instance?.screenToFlowPosition?.(screenPos) ??
+      const position = instance?.screenToFlowPosition?.(screenPos) ??
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       const label = paletteLabelByType.get(type);
@@ -719,64 +617,64 @@ export default function App() {
           </ReactFlow>
         </div>
 
-      <Dialog
-        open={isCreateSubflowOpen}
-        onOpenChange={onCreateSubflowDialogChange}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear Subflujo</DialogTitle>
-          </DialogHeader>
+        <Dialog
+          open={isCreateSubflowOpen}
+          onOpenChange={onCreateSubflowDialogChange}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Crear Subflujo</DialogTitle>
+            </DialogHeader>
 
-          <div className="space-y-4">
-            {createSubflowError ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                {createSubflowError}
-              </div>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Entradas: {pendingSubflowPorts?.inCount ?? 0} · Salidas:{" "}
-                  {pendingSubflowPorts?.outCount ?? 0}
-                </p>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-900">
-                    Nombre del subflujo:
-                  </label>
-                  <Input
-                    value={subflowName}
-                    onChange={(e) => setSubflowName(e.currentTarget.value)}
-                    placeholder="Ej: Validar datos"
-                  />
+            <div className="space-y-4">
+              {createSubflowError ? (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {createSubflowError}
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Entradas: {pendingSubflowPorts?.inCount ?? 0} · Salidas:{" "}
+                    {pendingSubflowPorts?.outCount ?? 0}
+                  </p>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-900">
+                      Nombre del subflujo:
+                    </label>
+                    <Input
+                      value={subflowName}
+                      onChange={(e) => setSubflowName(e.currentTarget.value)}
+                      placeholder="Ej: Validar datos"
+                    />
+                  </div>
+                </>
+              )}
 
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onCreateSubflowDialogChange(false)}
-              >
-                {createSubflowError ? "Cerrar" : "Cancelar"}
-              </Button>
-              {!createSubflowError && (
+              <div className="flex items-center justify-end gap-2">
                 <Button
                   type="button"
-                  disabled={
-                    !subflowName.trim() ||
-                    !pendingSubflowBounds ||
-                    !pendingSubflowPorts
-                  }
-                  onClick={createSubflow}
+                  variant="secondary"
+                  onClick={() => onCreateSubflowDialogChange(false)}
                 >
-                  Guardar
+                  {createSubflowError ? "Cerrar" : "Cancelar"}
                 </Button>
-              )}
+                {!createSubflowError && (
+                  <Button
+                    type="button"
+                    disabled={
+                      !subflowName.trim() ||
+                      !pendingSubflowBounds ||
+                      !pendingSubflowPorts
+                    }
+                    onClick={createSubflow}
+                  >
+                    Guardar
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
       </SidebarInset>
     </SidebarProvider>
   );
