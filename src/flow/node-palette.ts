@@ -119,6 +119,12 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Conserva solo los elementos que cumplen una condición.",
       },
       {
+        type: "map",
+        label: "Map",
+        description:
+          "Transforma cada elemento de una lista aplicando una función.",
+      },
+      {
         type: "accumulate",
         label: "Acumular",
         description: "Reduce una lista acumulando un valor (fold).",

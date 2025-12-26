@@ -23,6 +23,7 @@ import { WriteNode } from "@/components/nodes/io/write-node";
 import { SequenceNode } from "@/components/nodes/iteration/sequence-node";
 import { ZipNode } from "@/components/nodes/iteration/zip-node";
 import { FilterNode } from "@/components/nodes/iteration/filter-node";
+import { MapNode } from "@/components/nodes/iteration/map-node";
 import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
 import { CountNode } from "@/components/nodes/iteration/count-node";
 
@@ -48,6 +49,7 @@ export const nodeTypesCore: NodeTypes = {
   sequence: SequenceNode,
   zip: ZipNode,
   filter: FilterNode,
+  map: MapNode,
   accumulate: AccumulateNode,
   count: CountNode,
 };

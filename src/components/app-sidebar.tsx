@@ -29,7 +29,10 @@ import type { NodePaletteCategory } from "@/flow/node-palette";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
-  onDragStart: (event: DragEvent, item: { type: string; label: string }) => void;
+  onDragStart: (
+    event: DragEvent,
+    item: { type: string; label: string }
+  ) => void;
 };
 
 export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
@@ -128,41 +131,47 @@ export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
                 <SidebarMenu className="gap-1">
                   {category.items.map((item) => (
                     <SidebarMenuItem key={item.type}>
-                    <SidebarMenuButton
-                      type="button"
-                      draggable
-                      onDragStart={(event: DragEvent) =>
-                        onDragStart(event, { type: item.type, label: item.label })
-                      }
-                      className={`items-start justify-start gap-1 text-xs h-auto min-h-[3rem] overflow-visible py-1.5 ${
-                        viewMode === "nodes"
-                          ? "bg-transparent hover:bg-transparent active:bg-transparent shadow-none"
-                          : ""
-                      }`}
-                    >
-                      {viewMode === "text" ? (
-                        <div className="flex flex-1 flex-col gap-0.5">
-                          <span className="font-medium leading-snug">
-                            {item.label}
-                          </span>
-                          {item.description ? (
-                            <span className="text-[0.75rem] leading-snug text-foreground/80 whitespace-normal">
-                              {item.description}
+                      <SidebarMenuButton
+                        type="button"
+                        draggable
+                        onDragStart={(event: DragEvent) =>
+                          onDragStart(event, {
+                            type: item.type,
+                            label: item.label,
+                          })
+                        }
+                        className={`items-start justify-start gap-1 text-xs h-auto min-h-[3rem] overflow-visible py-1.5 ${
+                          viewMode === "nodes"
+                            ? "bg-transparent hover:bg-transparent active:bg-transparent shadow-none"
+                            : ""
+                        }`}
+                      >
+                        {viewMode === "text" ? (
+                          <div className="flex flex-1 flex-col gap-0.5">
+                            <span className="font-medium leading-snug">
+                              {item.label}
                             </span>
-                          ) : null}
-                          <span className="mt-0.5 text-[0.65rem] text-muted-foreground">
-                            {item.type}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex w-full items-center justify-center py-1">
-                          <div className="scale-100 origin-center">
-                            <NodePreview type={item.type} label={item.label} />
+                            {item.description ? (
+                              <span className="text-[0.75rem] leading-snug text-foreground/80 whitespace-normal">
+                                {item.description}
+                              </span>
+                            ) : null}
+                            <span className="mt-0.5 text-[0.65rem] text-muted-foreground">
+                              {item.type}
+                            </span>
                           </div>
-                        </div>
-                      )}
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                        ) : (
+                          <div className="flex w-full items-center justify-center py-1">
+                            <div className="scale-100 origin-center">
+                              <NodePreview
+                                type={item.type}
+                                label={item.label}
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
               </SidebarGroupContent>
@@ -256,8 +265,12 @@ function NodePreview({ type, label }: NodePreviewProps) {
               <span className="-rotate-90 text-2xl font-bold">=</span>
             )}
             {symbolMap[type] === "and" && <Ampersand className="h-6 w-6" />}
-            {symbolMap[type] === "or" && <span className="text-sm font-bold">∨</span>}
-            {symbolMap[type] === "not" && <span className="text-sm font-bold">¬</span>}
+            {symbolMap[type] === "or" && (
+              <span className="text-sm font-bold">∨</span>
+            )}
+            {symbolMap[type] === "not" && (
+              <span className="text-sm font-bold">¬</span>
+            )}
             {symbolMap[type] === "switch" && (
               <ToggleRight className="h-5 w-5" />
             )}
@@ -269,12 +282,14 @@ function NodePreview({ type, label }: NodePreviewProps) {
     case "sequence":
     case "zip":
     case "filter":
+    case "map":
     case "accumulate":
     case "count": {
       const symbolMap: Record<string, string> = {
         sequence: "1..N",
         zip: "⇆",
         filter: "↓",
+        map: "↦",
         accumulate: "Σ",
         count: "#",
       };
