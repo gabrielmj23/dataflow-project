@@ -101,12 +101,12 @@ export const SequenceNode = memo(({ id, data }: NodeProps) => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Configurar rango aleatorio</DialogTitle>
+            <DialogTitle>Configurar rango de generador de secuencia</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Elige el rango del que saldrá el número aleatorio.
+              Elige el rango de la secuencia y el paso.
             </p>
 
             {/* Mínimo */}
