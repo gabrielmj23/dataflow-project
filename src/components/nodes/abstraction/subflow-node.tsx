@@ -227,20 +227,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     [createInnerNodeId, paletteLabelByType]
   );
 
-  const isSidebarEventTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) {
-      return false;
-    }
-
-    // Sidebar elements come from `src/components/ui/sidebar.tsx`.
-    // We match data-slot/data-sidebar attributes so the rule survives class changes.
-    return Boolean(
-      target.closest(
-        '[data-slot="sidebar-container"], [data-slot="sidebar"], [data-slot="sidebar-inner"], [data-slot="sidebar-wrapper"], [data-sidebar]'
-      )
-    );
-  }, []);
-
   return (
     <BaseNode className="relative flex w-36 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md">
       <BaseNodeHeader className="absolute top-1 right-1 mx-0 my-0 p-0">
@@ -285,14 +271,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         <DialogContent
           className="sm:max-w-4xl"
           onPointerDownOutside={(event) => {
-            if (isSidebarEventTarget(event.target)) {
-              event.preventDefault();
-            }
+            event.preventDefault();
           }}
           onInteractOutside={(event) => {
-            if (isSidebarEventTarget(event.target)) {
-              event.preventDefault();
-            }
+            event.preventDefault();
           }}
         >
           <DialogHeader>

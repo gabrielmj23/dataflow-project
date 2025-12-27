@@ -152,18 +152,6 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
     [createInnerNodeId, paletteLabelByType]
   );
 
-  const isSidebarEventTarget = useCallback((target: EventTarget | null) => {
-    if (!(target instanceof HTMLElement)) {
-      return false;
-    }
-
-    return Boolean(
-      target.closest(
-        '[data-slot="sidebar-container"], [data-slot="sidebar"], [data-slot="sidebar-inner"], [data-slot="sidebar-wrapper"], [data-sidebar]'
-      )
-    );
-  }, []);
-
   const editorNodeTypes = useMemo(
     () => ({
       ...nodeTypesCore,
@@ -255,14 +243,10 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
         <DialogContent
           className="sm:max-w-4xl"
           onPointerDownOutside={(event) => {
-            if (isSidebarEventTarget(event.target)) {
-              event.preventDefault();
-            }
+            event.preventDefault();
           }}
           onInteractOutside={(event) => {
-            if (isSidebarEventTarget(event.target)) {
-              event.preventDefault();
-            }
+            event.preventDefault();
           }}
         >
           <DialogHeader>
