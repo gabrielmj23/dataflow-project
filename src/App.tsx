@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ReactFlow,
   applyNodeChanges,
@@ -15,6 +15,7 @@ import {
   type Edge,
   type NodeChange,
   type EdgeChange,
+  type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
@@ -28,6 +29,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { AppSidebar } from "@/components/app-sidebar";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@/components/ui/sidebar";
+import { nodePalette } from "./flow/node-palette";
 
 type FlowNode = Node;
 type FlowEdge = Edge;
@@ -48,6 +56,15 @@ type CreateSubflowRequest =
   | { ok: false; bounds: FlowBounds; message: string };
 
 type HandleKey = string | null;
+
+function createNodeId(type: string): string {
+  const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
+  const uuid = g.crypto?.randomUUID?.();
+  if (uuid) {
+    return `${type}-${uuid}`;
+  }
+  return `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
 
 function isSelectionConnected(nodeIds: string[], edges: FlowEdge[]): boolean {
   if (nodeIds.length <= 1) {
@@ -313,152 +330,27 @@ function CreateSubflowOverlay({
   );
 }
 
-const initialNodes: FlowNode[] = [
-  // Entradas y eventos (verde, circulares)
-  {
-    id: "in-const",
-    position: { x: 0, y: 0 },
-    data: {
-      label: "Constante",
-    },
-    type: "constantInput",
-  },
-  {
-    id: "in-timer",
-    position: { x: 0, y: 140 },
-    data: {
-      label: "Timer",
-    },
-    type: "timerInput",
-  },
-  {
-    id: "in-random",
-    position: { x: 0, y: 280 },
-    data: {
-      label: "Valor Aleatorio",
-    },
-    type: "randomInput",
-  },
-  // Procesamiento (azul, rectángulos redondeados)
-  {
-    id: "pr-sum",
-    position: { x: 260, y: 0 },
-    data: { label: "Sumar" },
-    type: "sum",
-  },
-  {
-    id: "pr-sub",
-    position: { x: 260, y: 90 },
-    data: { label: "Restar" },
-    type: "subtract",
-  },
-  {
-    id: "pr-mul",
-    position: { x: 260, y: 180 },
-    data: { label: "Multiplicar" },
-    type: "multiply",
-  },
-  {
-    id: "pr-div",
-    position: { x: 260, y: 270 },
-    data: { label: "División" },
-    type: "divide",
-  },
-  {
-    id: "pr-pow",
-    position: { x: 260, y: 360 },
-    data: { label: "Potencia" },
-    type: "power",
-  },
-  {
-    id: "pr-concat",
-    position: { x: 260, y: 450 },
-    data: { label: "Concatenar" },
-    type: "concat",
-  },
-  // Control (naranja)
-  {
-    id: "ct-comp",
-    position: { x: 520, y: 0 },
-    data: { label: "Comparación" },
-    type: "comparison",
-  },
-  {
-    id: "ct-and",
-    position: { x: 520, y: 90 },
-    data: { label: "AND" },
-    type: "and",
-  },
-  {
-    id: "ct-or",
-    position: { x: 520, y: 180 },
-    data: { label: "OR" },
-    type: "or",
-  },
-  {
-    id: "ct-not",
-    position: { x: 520, y: 270 },
-    data: { label: "NOT" },
-    type: "not",
-  },
-  {
-    id: "ct-switch",
-    position: { x: 520, y: 360 },
-    data: { label: "Switch" },
-    type: "switch",
-  },
-  // Iteración y listas (verde azulado)
-  {
-    id: "it-seq",
-    position: { x: 780, y: 0 },
-    data: { label: "Generar Secuencia" },
-    type: "sequence",
-  },
-  {
-    id: "it-zip",
-    position: { x: 780, y: 90 },
-    data: { label: "Zip" },
-    type: "zip",
-  },
-  {
-    id: "it-filter",
-    position: { x: 780, y: 180 },
-    data: { label: "Filtrar" },
-    type: "filter",
-  },
-  {
-    id: "it-acc",
-    position: { x: 780, y: 270 },
-    data: { label: "Acumular" },
-    type: "accumulate",
-  },
-  {
-    id: "it-count",
-    position: { x: 780, y: 360 },
-    data: { label: "Contar" },
-    type: "count",
-  },
-  // Abstracción (morado)
-  {
-    id: "ab-subflow",
-    position: { x: 1040, y: 180 },
-    data: { label: "Subflujo" },
-    type: "subflow",
-  },
-  // Interacción / Verificación (rojo)
-  {
-    id: "io-write",
-    position: { x: 1300, y: 180 },
-    data: { label: "Escribir" },
-    type: "write",
-  },
-];
+const initialNodes: FlowNode[] = [];
 
 const initialEdges: FlowEdge[] = [];
 
 export default function App() {
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
+  const [reactFlowInstance, setReactFlowInstance] =
+    useState<ReactFlowInstance | null>(null);
+
+  const draggingTypeRef = useRef<string | null>(null);
+
+  const paletteLabelByType = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const category of nodePalette) {
+      for (const item of category.items) {
+        map.set(item.type, item.label);
+      }
+    }
+    return map;
+  }, []);
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -500,6 +392,100 @@ export default function App() {
   const onConnect = useCallback(
     (params: Connection) =>
       setEdges((edgesSnapshot) => addEdge(params, edgesSnapshot)),
+    []
+  );
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      setNodes((prevNodes) => {
+        const removedIds = new Set(
+          prevNodes.filter((n) => n.selected).map((n) => n.id)
+        );
+
+        const nextNodes = prevNodes.filter((n) => !n.selected);
+
+        setEdges((prevEdges) =>
+          prevEdges.filter((edge) => {
+            if ((edge as Edge).selected) return false;
+            const src = String((edge as Edge).source);
+            const tgt = String((edge as Edge).target);
+            if (removedIds.has(src) || removedIds.has(tgt)) return false;
+            return true;
+          })
+        );
+
+        return nextNodes;
+      });
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [setNodes, setEdges]);
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  }, []);
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault();
+
+      const type =
+        event.dataTransfer.getData("application/reactflow") ||
+        draggingTypeRef.current;
+      if (!type) {
+        return;
+      }
+
+      const instance = reactFlowInstance as
+        | (ReactFlowInstance & {
+            screenToFlowPosition?: (pos: { x: number; y: number }) => {
+              x: number;
+              y: number;
+            };
+            project?: (pos: { x: number; y: number }) => {
+              x: number;
+              y: number;
+            };
+          })
+        | null;
+
+      const screenPos = { x: event.clientX, y: event.clientY };
+      const position = instance?.screenToFlowPosition?.(screenPos) ??
+        instance?.project?.(screenPos) ?? { x: 0, y: 0 };
+
+      const label = paletteLabelByType.get(type);
+      const newNode: FlowNode = {
+        id: createNodeId(type),
+        type,
+        position,
+        data: label ? { label } : {},
+      };
+
+      setNodes((prev) => [...prev, newNode]);
+      draggingTypeRef.current = null;
+    },
+    [paletteLabelByType, reactFlowInstance, setNodes]
+  );
+
+  const onPaletteDragStart = useCallback(
+    (event: React.DragEvent, item: { type: string; label: string }) => {
+      draggingTypeRef.current = item.type;
+      event.dataTransfer.setData("application/reactflow", item.type);
+      event.dataTransfer.effectAllowed = "move";
+    },
     []
   );
 
@@ -594,89 +580,102 @@ export default function App() {
   ]);
 
   return (
-    <div style={{ width: "100vw", height: "100vh" }}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onConnect={onConnect}
-        fitView
-        proOptions={{ hideAttribution: true }}
-      >
-        <CreateSubflowOverlay
-          selectedNodes={selectedNodes}
-          edges={edges}
-          onCreateClick={openCreateSubflow}
-        />
-        <Background variant={BackgroundVariant.Dots} />
-        <Controls>
-          <ControlButton onClick={addNode}>
-            <PlusCircle color="white" />
-          </ControlButton>
-        </Controls>
-        <MiniMap />
-      </ReactFlow>
+    <SidebarProvider>
+      <AppSidebar categories={nodePalette} onDragStart={onPaletteDragStart} />
 
-      <Dialog
-        open={isCreateSubflowOpen}
-        onOpenChange={onCreateSubflowDialogChange}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Crear Subflujo</DialogTitle>
-          </DialogHeader>
+      <SidebarInset>
+        <div className="relative flex h-svh w-full">
+          <div className="absolute left-3 top-3 z-30 flex items-center gap-2">
+            <SidebarTrigger />
+          </div>
 
-          <div className="space-y-4">
-            {createSubflowError ? (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                {createSubflowError}
-              </div>
-            ) : (
-              <>
-                <p className="text-sm text-muted-foreground">
-                  Entradas: {pendingSubflowPorts?.inCount ?? 0} · Salidas:{" "}
-                  {pendingSubflowPorts?.outCount ?? 0}
-                </p>
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-900">
-                    Nombre del subflujo:
-                  </label>
-                  <Input
-                    value={subflowName}
-                    onChange={(e) => setSubflowName(e.currentTarget.value)}
-                    placeholder="Ej: Validar datos"
-                  />
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={nodeTypes}
+            onInit={setReactFlowInstance}
+            onNodesChange={onNodesChange}
+            onEdgesChange={onEdgesChange}
+            onConnect={onConnect}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            fitView
+            proOptions={{ hideAttribution: true }}
+          >
+            <CreateSubflowOverlay
+              selectedNodes={selectedNodes}
+              edges={edges}
+              onCreateClick={openCreateSubflow}
+            />
+            <Background variant={BackgroundVariant.Dots} />
+            <Controls>
+              <ControlButton onClick={addNode}>
+                <PlusCircle color="white" />
+              </ControlButton>
+            </Controls>
+            <MiniMap />
+          </ReactFlow>
+        </div>
+
+        <Dialog
+          open={isCreateSubflowOpen}
+          onOpenChange={onCreateSubflowDialogChange}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Crear Subflujo</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {createSubflowError ? (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+                  {createSubflowError}
                 </div>
-              </>
-            )}
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    Entradas: {pendingSubflowPorts?.inCount ?? 0} · Salidas:{" "}
+                    {pendingSubflowPorts?.outCount ?? 0}
+                  </p>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-gray-900">
+                      Nombre del subflujo:
+                    </label>
+                    <Input
+                      value={subflowName}
+                      onChange={(e) => setSubflowName(e.currentTarget.value)}
+                      placeholder="Ej: Validar datos"
+                    />
+                  </div>
+                </>
+              )}
 
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => onCreateSubflowDialogChange(false)}
-              >
-                {createSubflowError ? "Cerrar" : "Cancelar"}
-              </Button>
-              {!createSubflowError && (
+              <div className="flex items-center justify-end gap-2">
                 <Button
                   type="button"
-                  disabled={
-                    !subflowName.trim() ||
-                    !pendingSubflowBounds ||
-                    !pendingSubflowPorts
-                  }
-                  onClick={createSubflow}
+                  variant="secondary"
+                  onClick={() => onCreateSubflowDialogChange(false)}
                 >
-                  Guardar
+                  {createSubflowError ? "Cerrar" : "Cancelar"}
                 </Button>
-              )}
+                {!createSubflowError && (
+                  <Button
+                    type="button"
+                    disabled={
+                      !subflowName.trim() ||
+                      !pendingSubflowBounds ||
+                      !pendingSubflowPorts
+                    }
+                    onClick={createSubflow}
+                  >
+                    Guardar
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+          </DialogContent>
+        </Dialog>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
