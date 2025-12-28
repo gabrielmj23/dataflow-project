@@ -106,3 +106,19 @@ export function deserializeProgram(serialized: SerializedProgramV1): {
 
   return { nodes, edges, viewport: serialized.viewport };
 }
+
+export function downloadSerializedProgram(
+  serialized: SerializedProgramV1,
+  filename = "program.json"
+) {
+  const text = JSON.stringify(serialized, null, 2);
+  const blob = new Blob([text], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}

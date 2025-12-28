@@ -20,7 +20,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { Play, PlusCircle } from "lucide-react";
+import { Download, Play, PlusCircle } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import {
   Dialog,
@@ -37,7 +37,11 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { nodePalette } from "./flow/node-palette";
-import { serializeProgram } from "@/flow/serialization";
+import {
+  serializeProgram,
+  downloadSerializedProgram,
+} from "@/flow/serialization";
+import { nanoid } from "nanoid";
 
 type FlowNode = Node;
 type FlowEdge = Edge;
@@ -59,13 +63,8 @@ type CreateSubflowRequest =
 
 type HandleKey = string | null;
 
-function createNodeId(type: string): string {
-  const g = globalThis as unknown as { crypto?: { randomUUID?: () => string } };
-  const uuid = g.crypto?.randomUUID?.();
-  if (uuid) {
-    return `${type}-${uuid}`;
-  }
-  return `${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+function createNodeId(): string {
+  return nanoid(16);
 }
 
 function isSelectionConnected(nodeIds: string[], edges: FlowEdge[]): boolean {
@@ -342,6 +341,8 @@ export default function App() {
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
 
+  const [programName, setProgramName] = useState<string>("Sin título");
+
   const draggingTypeRef = useRef<string | null>(null);
 
   const paletteLabelByType = useMemo(() => {
@@ -391,11 +392,21 @@ export default function App() {
       setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
     []
   );
-  const onConnect = useCallback(
-    (params: Connection) =>
-      setEdges((edgesSnapshot) => addEdge(params, edgesSnapshot)),
-    []
-  );
+  const onConnect = useCallback((params: Connection) => {
+    const typed = params as Connection & { type?: string; data?: unknown };
+
+    const newEdge: Edge = {
+      id: createNodeId(),
+      source: String(typed.source),
+      target: String(typed.target),
+      sourceHandle: typed.sourceHandle ?? null,
+      targetHandle: typed.targetHandle ?? null,
+      type: typed.type,
+      data: (typed.data ?? {}) as Record<string, unknown>,
+    };
+
+    setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
+  }, []);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -469,11 +480,39 @@ export default function App() {
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       const label = paletteLabelByType.get(type);
+      let data: Record<string, unknown> = label ? { label } : {};
+
+      // Provide sensible defaults for common input/sequence nodes
+      if (type === "constantInput") {
+        data = {
+          ...(data ?? {}),
+          value: 0,
+          label: (data.label as string) ?? "Constante",
+        };
+      }
+      if (type === "randomInput") {
+        data = {
+          ...(data ?? {}),
+          min: 0,
+          max: 100,
+          label: (data.label as string) ?? "Valor Aleatorio",
+        };
+      }
+      if (type === "sequence") {
+        data = {
+          ...(data ?? {}),
+          min: 0,
+          max: 100,
+          step: 1,
+          label: (data.label as string) ?? "Generar Secuencia",
+        };
+      }
+
       const newNode: FlowNode = {
-        id: createNodeId(type),
+        id: createNodeId(),
         type,
         position,
-        data: label ? { label } : {},
+        data,
       };
 
       setNodes((prev) => [...prev, newNode]);
@@ -487,6 +526,18 @@ export default function App() {
     const program = serializeProgram({ nodes, edges, viewport });
     console.log("[dataflow] serialized program", program);
   }, [edges, nodes, reactFlowInstance]);
+
+  const onDownloadClick = useCallback(() => {
+    if (!reactFlowInstance) return;
+    const nodes = reactFlowInstance.getNodes();
+    const edges = reactFlowInstance.getEdges();
+    const viewport = reactFlowInstance.getViewport();
+    const serialized = serializeProgram({ nodes, edges, viewport });
+    const base = programName?.trim() || `dataflow-program-${Date.now()}`;
+    const safe = base.replace(/[^a-zA-Z0-9-_. ]+/g, "_");
+    const filename = `${safe}.json`;
+    downloadSerializedProgram(serialized, filename);
+  }, [reactFlowInstance, programName]);
 
   const onPaletteDragStart = useCallback(
     (event: React.DragEvent, item: { type: string; label: string }) => {
@@ -595,6 +646,14 @@ export default function App() {
         <div className="relative flex h-svh w-full">
           <div className="absolute left-3 top-3 z-30 flex items-center gap-2">
             <SidebarTrigger />
+            <div className="flex items-center">
+              <Input
+                value={programName}
+                onChange={(e) => setProgramName(e.currentTarget.value)}
+                placeholder="Nombre del programa"
+                className="w-40 text-sm"
+              />
+            </div>
           </div>
 
           <ReactFlow
@@ -622,18 +681,29 @@ export default function App() {
               </ControlButton>
             </Controls>
             <MiniMap />
-            <Panel position="top-right">
+            <Panel position="top-right" className="flex gap-2">
               <Button
                 variant="secondary"
                 className="hover:cursor-pointer shadow-md"
                 type="button"
                 onClick={onRunClick}
+                disabled={nodes.length === 0}
               >
                 Ejecutar
                 <Play
                   fill="oklch(72.3% 0.219 149.579)"
                   className="text-green-500"
                 />
+              </Button>
+              <Button
+                variant="secondary"
+                className="hover:cursor-pointer shadow-md"
+                type="button"
+                onClick={onDownloadClick}
+                disabled={nodes.length === 0}
+              >
+                Descargar
+                <Download />
               </Button>
             </Panel>
           </ReactFlow>
