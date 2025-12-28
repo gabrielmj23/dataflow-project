@@ -623,8 +623,27 @@ export default function App() {
         type: "subflow",
       };
 
-      return [...prev, newNode];
+      // Remove original selected nodes from main canvas
+      const removedIds = new Set(
+        pendingSubflowSnapshot.nodes.map((n) => String(n.id))
+      );
+
+      const remaining = prev.filter((n) => !removedIds.has(String(n.id)));
+
+      return [...remaining, newNode];
     });
+
+    // Remove any edges connected to the removed nodes
+    setEdges((prevEdges) =>
+      prevEdges.filter((e) => {
+        const src = String(e.source);
+        const tgt = String(e.target);
+        return (
+          !pendingSubflowSnapshot.nodes.some((n) => String(n.id) === src) &&
+          !pendingSubflowSnapshot.nodes.some((n) => String(n.id) === tgt)
+        );
+      })
+    );
 
     setIsCreateSubflowOpen(false);
     setPendingSubflowBounds(null);
