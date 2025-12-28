@@ -25,10 +25,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type {
-  NodePaletteCategory,
-  NodePaletteItem,
-} from "@/flow/node-palette";
+import type { NodePaletteCategory, NodePaletteItem } from "@/flow/node-palette";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
@@ -136,7 +133,11 @@ export function AppSidebar({
                 <SidebarMenu className="gap-1">
                   {category.items.map((item) => (
                     <SidebarMenuItem
-                      key={item.templateId ? `${item.type}-${item.templateId}` : item.type}
+                      key={
+                        item.templateId
+                          ? `${item.type}-${item.templateId}`
+                          : item.type
+                      }
                     >
                       <SidebarMenuButton
                         type="button"
@@ -185,7 +186,9 @@ export function AppSidebar({
                               <NodePreview
                                 type={item.type}
                                 label={item.label}
-                                isCustom={!!item.templateId && !!onDeleteTemplate}
+                                isCustom={
+                                  !!item.templateId && !!onDeleteTemplate
+                                }
                                 onDelete={
                                   item.templateId && onDeleteTemplate
                                     ? () => onDeleteTemplate(item.templateId!)
@@ -227,144 +230,144 @@ type NodePreviewProps = {
 
 function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
   const core = (() => {
-  switch (type) {
-    case "constantInput":
-    case "timerInput":
-    case "randomInput": {
-      return (
-        <div
-          data-drag-preview
-          className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md"
-        >
-          <span className="mb-1 flex items-center justify-center">
-            {type === "constantInput" && (
-              <span className="text-lg font-bold">0</span>
-            )}
-            {type === "timerInput" && <Timer className="h-6 w-6" />}
-            {type === "randomInput" && <Shuffle className="h-6 w-6" />}
-          </span>
-          <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
-        </div>
-      );
+    switch (type) {
+      case "constantInput":
+      case "timerInput":
+      case "randomInput": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md"
+          >
+            <span className="mb-1 flex items-center justify-center">
+              {type === "constantInput" && (
+                <span className="text-lg font-bold">0</span>
+              )}
+              {type === "timerInput" && <Timer className="h-6 w-6" />}
+              {type === "randomInput" && <Shuffle className="h-6 w-6" />}
+            </span>
+            <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "sum":
+      case "subtract":
+      case "multiply":
+      case "divide":
+      case "power":
+      case "concat": {
+        const symbolMap: Record<string, string> = {
+          sum: "plus",
+          subtract: "minus",
+          multiply: "x",
+          divide: "divide",
+          power: "power",
+          concat: "concat",
+        };
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-sky-500 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              {symbolMap[type] === "plus" && <Plus className="h-6 w-6" />}
+              {symbolMap[type] === "minus" && <span>-</span>}
+              {symbolMap[type] === "x" && <X className="h-6 w-6" />}
+              {symbolMap[type] === "divide" && <Divide className="h-6 w-6" />}
+              {symbolMap[type] === "power" && (
+                <span className="text-sm font-bold">x²</span>
+              )}
+              {symbolMap[type] === "concat" && <Link2 className="h-5 w-5" />}
+            </span>
+            <span className="text-[0.75rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "comparison":
+      case "and":
+      case "or":
+      case "not":
+      case "switch": {
+        const symbolMap: Record<string, string> = {
+          comparison: "comparison",
+          and: "and",
+          or: "or",
+          not: "not",
+          switch: "switch",
+        };
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              {symbolMap[type] === "comparison" && (
+                <span className="-rotate-90 text-2xl font-bold">=</span>
+              )}
+              {symbolMap[type] === "and" && <Ampersand className="h-6 w-6" />}
+              {symbolMap[type] === "or" && (
+                <span className="text-sm font-bold">∨</span>
+              )}
+              {symbolMap[type] === "not" && (
+                <span className="text-sm font-bold">¬</span>
+              )}
+              {symbolMap[type] === "switch" && (
+                <ToggleRight className="h-5 w-5" />
+              )}
+            </span>
+            <span className="text-[0.75rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "sequence":
+      case "zip":
+      case "filter":
+      case "map":
+      case "accumulate":
+      case "count": {
+        const symbolMap: Record<string, string> = {
+          sequence: "1..N",
+          zip: "⇆",
+          filter: "↓",
+          map: "↦",
+          accumulate: "Σ",
+          count: "#",
+        };
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              {symbolMap[type] ?? ""}
+            </span>
+            <span className="text-[0.75rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "write": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-rose-500 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              <PenSquare className="h-6 w-6" />
+            </span>
+            <span className="text-[0.75rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      default:
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-16 w-32 items-center justify-center rounded-lg border border-dashed text-xs border-violet-700 bg-violet-500 text-white shadow-md"
+          >
+            {label}
+          </div>
+        );
     }
-    case "sum":
-    case "subtract":
-    case "multiply":
-    case "divide":
-    case "power":
-    case "concat": {
-      const symbolMap: Record<string, string> = {
-        sum: "plus",
-        subtract: "minus",
-        multiply: "x",
-        divide: "divide",
-        power: "power",
-        concat: "concat",
-      };
-      return (
-        <div
-          data-drag-preview
-          className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-sky-500 px-3 text-center text-white shadow-md"
-        >
-          <span className="text-xl font-bold leading-none">
-            {symbolMap[type] === "plus" && <Plus className="h-6 w-6" />}
-            {symbolMap[type] === "minus" && <span>-</span>}
-            {symbolMap[type] === "x" && <X className="h-6 w-6" />}
-            {symbolMap[type] === "divide" && <Divide className="h-6 w-6" />}
-            {symbolMap[type] === "power" && (
-              <span className="text-sm font-bold">x²</span>
-            )}
-            {symbolMap[type] === "concat" && <Link2 className="h-5 w-5" />}
-          </span>
-          <span className="text-[0.75rem] leading-tight">{label}</span>
-        </div>
-      );
-    }
-    case "comparison":
-    case "and":
-    case "or":
-    case "not":
-    case "switch": {
-      const symbolMap: Record<string, string> = {
-        comparison: "comparison",
-        and: "and",
-        or: "or",
-        not: "not",
-        switch: "switch",
-      };
-      return (
-        <div
-          data-drag-preview
-          className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md"
-        >
-          <span className="text-xl font-bold leading-none">
-            {symbolMap[type] === "comparison" && (
-              <span className="-rotate-90 text-2xl font-bold">=</span>
-            )}
-            {symbolMap[type] === "and" && <Ampersand className="h-6 w-6" />}
-            {symbolMap[type] === "or" && (
-              <span className="text-sm font-bold">∨</span>
-            )}
-            {symbolMap[type] === "not" && (
-              <span className="text-sm font-bold">¬</span>
-            )}
-            {symbolMap[type] === "switch" && (
-              <ToggleRight className="h-5 w-5" />
-            )}
-          </span>
-          <span className="text-[0.75rem] leading-tight">{label}</span>
-        </div>
-      );
-    }
-    case "sequence":
-    case "zip":
-    case "filter":
-    case "map":
-    case "accumulate":
-    case "count": {
-      const symbolMap: Record<string, string> = {
-        sequence: "1..N",
-        zip: "⇆",
-        filter: "↓",
-        map: "↦",
-        accumulate: "Σ",
-        count: "#",
-      };
-      return (
-        <div
-          data-drag-preview
-          className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
-        >
-          <span className="text-xl font-bold leading-none">
-            {symbolMap[type] ?? ""}
-          </span>
-          <span className="text-[0.75rem] leading-tight">{label}</span>
-        </div>
-      );
-    }
-    case "write": {
-      return (
-        <div
-          data-drag-preview
-          className="node-preview flex h-18 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-rose-500 px-3 text-center text-white shadow-md"
-        >
-          <span className="text-xl font-bold leading-none">
-            <PenSquare className="h-6 w-6" />
-          </span>
-          <span className="text-[0.75rem] leading-tight">{label}</span>
-        </div>
-      );
-    }
-    default:
-      return (
-        <div
-          data-drag-preview
-          className="node-preview flex h-16 w-32 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground"
-        >
-          {label}
-        </div>
-      );
-  }
   })();
 
   if (!isCustom || !onDelete) {
@@ -376,7 +379,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       {core}
       <button
         type="button"
-        className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full bg-destructive px-1 py-0.5 text-[0.6rem] leading-none text-destructive-foreground shadow"
+        className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full bg-destructive px-1 py-px text-[0.6rem] leading-none shadow text-white hover:cursor-pointer"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
