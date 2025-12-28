@@ -16,10 +16,11 @@ import {
   type NodeChange,
   type EdgeChange,
   type ReactFlowInstance,
+  Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { PlusCircle } from "lucide-react";
+import { Play, PlusCircle } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import {
   Dialog,
@@ -36,6 +37,7 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { nodePalette } from "./flow/node-palette";
+import { serializeProgram } from "@/flow/serialization";
 
 type FlowNode = Node;
 type FlowEdge = Edge;
@@ -480,6 +482,12 @@ export default function App() {
     [paletteLabelByType, reactFlowInstance, setNodes]
   );
 
+  const onRunClick = useCallback(() => {
+    const viewport = reactFlowInstance?.getViewport?.();
+    const program = serializeProgram({ nodes, edges, viewport });
+    console.log("[dataflow] serialized program", program);
+  }, [edges, nodes, reactFlowInstance]);
+
   const onPaletteDragStart = useCallback(
     (event: React.DragEvent, item: { type: string; label: string }) => {
       draggingTypeRef.current = item.type;
@@ -614,6 +622,20 @@ export default function App() {
               </ControlButton>
             </Controls>
             <MiniMap />
+            <Panel position="top-right">
+              <Button
+                variant="secondary"
+                className="hover:cursor-pointer shadow-md"
+                type="button"
+                onClick={onRunClick}
+              >
+                Ejecutar
+                <Play
+                  fill="oklch(72.3% 0.219 149.579)"
+                  className="text-green-500"
+                />
+              </Button>
+            </Panel>
           </ReactFlow>
         </div>
 
