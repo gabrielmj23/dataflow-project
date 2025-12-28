@@ -7,15 +7,19 @@ import {
   applyNodeChanges,
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   type Connection,
   type EdgeChange,
   type NodeChange,
   type ReactFlowInstance,
   useReactFlow,
 } from "@xyflow/react";
+
+import { Hand, MousePointer2 } from "lucide-react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
 import {
@@ -43,6 +47,9 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   const { label = "Map", mapNodes, mapEdges } = (data ?? {}) as MapNodeData;
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
+    "pan"
+  );
   const [draftNodes, setDraftNodes] = useState<Node[]>(() => mapNodes ?? []);
   const [draftEdges, setDraftEdges] = useState<Edge[]>(() => mapEdges ?? []);
 
@@ -262,6 +269,12 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}
+                  panOnDrag={editorCanvasMode === "pan"}
+                  selectionOnDrag={editorCanvasMode === "select"}
+                  selectionMode={SelectionMode.Partial}
+                  className={
+                    editorCanvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                  }
                   onInit={(instance) => {
                     editorInstanceRef.current = instance;
                   }}
@@ -271,7 +284,24 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                   proOptions={{ hideAttribution: true }}
                 >
                   <Background variant={BackgroundVariant.Dots} />
-                  <Controls />
+                  <Controls>
+                    <ControlButton
+                      className="rf-mode-toggle"
+                      aria-pressed={editorCanvasMode === "pan"}
+                      title="Modo arrastrar"
+                      onClick={() => setEditorCanvasMode("pan")}
+                    >
+                      <Hand className="rf-icon-hand" size={22} />
+                    </ControlButton>
+                    <ControlButton
+                      className="rf-mode-toggle"
+                      aria-pressed={editorCanvasMode === "select"}
+                      title="Modo selección"
+                      onClick={() => setEditorCanvasMode("select")}
+                    >
+                      <MousePointer2 size={22} />
+                    </ControlButton>
+                  </Controls>
                 </ReactFlow>
               </ReactFlowProvider>
             </div>

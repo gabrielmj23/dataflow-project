@@ -1,3 +1,73 @@
 .react-flow {
   --xy-node-border-radius-default: 8px;
 }
+
+.rf-mode-pan .react-flow__pane {
+  cursor: grab;
+}
+
+.rf-mode-pan .react-flow__pane:active {
+  cursor: grabbing;
+}
+
+.rf-mode-select .react-flow__pane {
+  cursor: crosshair;
+}
+
+/* Slightly larger React Flow control buttons */
+.react-flow__controls .react-flow__controls-button {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.react-flow__controls .react-flow__controls-button svg {
+  width: 1.15rem;
+  height: 1.15rem;
+  max-width: none;
+  max-height: none;
+}
+
+/* Custom mode toggle buttons inside React Flow Controls */
+.react-flow__controls .react-flow__controls-button.rf-mode-toggle {
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+  transition: background-color 120ms ease, color 120ms ease,
+    border-color 120ms ease, opacity 120ms ease;
+}
+
+.react-flow__controls .react-flow__controls-button.rf-mode-toggle[aria-pressed="true"] {
+  /* Fallback (no color-mix support): a subtle filled state */
+  background: var(--muted);
+  color: var(--foreground);
+  border-color: var(--border);
+
+  /* Preferred: slightly tint toward foreground (subtle, not black) */
+  background: color-mix(in oklch, var(--foreground) 12%, var(--background));
+  border-color: color-mix(in oklch, var(--foreground) 22%, var(--border));
+}
+
+.react-flow__controls .react-flow__controls-button.rf-mode-toggle:hover {
+  background: var(--muted);
+}
+
+.react-flow__controls .react-flow__controls-button.rf-mode-toggle:active {
+  background: var(--accent);
+}
+
+.react-flow__controls .react-flow__controls-button.rf-mode-toggle[aria-pressed="true"]:hover,
+.react-flow__controls .react-flow__controls-button.rf-mode-toggle[aria-pressed="true"]:active {
+  background: var(--muted);
+  background: color-mix(in oklch, var(--foreground) 16%, var(--background));
+}
+
+.react-flow__controls .react-flow__controls-button.rf-mode-toggle:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Some icons can include filled shapes; force the hand icon to be outline-only */
+.rf-icon-hand,
+.rf-icon-hand * {
+  fill: none !important;
+}

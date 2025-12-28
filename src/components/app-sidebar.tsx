@@ -25,17 +25,22 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { NodePaletteCategory } from "@/flow/node-palette";
+import type {
+  NodePaletteCategory,
+  NodePaletteItem,
+} from "@/flow/node-palette";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
-  onDragStart: (
-    event: DragEvent,
-    item: { type: string; label: string }
-  ) => void;
+  onDragStart: (event: DragEvent, item: NodePaletteItem) => void;
+  onDeleteTemplate?: (templateId: string) => void;
 };
 
-export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
+export function AppSidebar({
+  categories,
+  onDragStart,
+  onDeleteTemplate,
+}: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
   const [viewMode, setViewMode] = React.useState<"text" | "nodes">("nodes");
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
@@ -130,15 +135,14 @@ export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
               <SidebarGroupContent>
                 <SidebarMenu className="gap-1">
                   {category.items.map((item) => (
-                    <SidebarMenuItem key={item.type}>
+                    <SidebarMenuItem
+                      key={item.templateId ? `${item.type}-${item.templateId}` : item.type}
+                    >
                       <SidebarMenuButton
                         type="button"
                         draggable
                         onDragStart={(event: DragEvent) =>
-                          onDragStart(event, {
-                            type: item.type,
-                            label: item.label,
-                          })
+                          onDragStart(event, item)
                         }
                         className={`items-start justify-start gap-1 text-xs h-auto min-h-[3rem] overflow-visible py-1.5 ${
                           viewMode === "nodes"
@@ -147,18 +151,33 @@ export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
                         }`}
                       >
                         {viewMode === "text" ? (
-                          <div className="flex flex-1 flex-col gap-0.5">
-                            <span className="font-medium leading-snug">
-                              {item.label}
-                            </span>
-                            {item.description ? (
-                              <span className="text-[0.75rem] leading-snug text-foreground/80 whitespace-normal">
-                                {item.description}
+                          <div className="flex w-full items-start gap-1">
+                            <div className="flex flex-1 flex-col gap-0.5">
+                              <span className="font-medium leading-snug">
+                                {item.label}
                               </span>
+                              {item.description ? (
+                                <span className="text-[0.75rem] leading-snug text-foreground/80 whitespace-normal">
+                                  {item.description}
+                                </span>
+                              ) : null}
+                              <span className="mt-0.5 text-[0.65rem] text-muted-foreground">
+                                {item.type}
+                              </span>
+                            </div>
+                            {item.templateId && onDeleteTemplate ? (
+                              <button
+                                type="button"
+                                className="ml-1 self-start rounded px-1 py-0.5 text-[0.65rem] text-destructive hover:bg-destructive/10"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  onDeleteTemplate(item.templateId!);
+                                }}
+                              >
+                                Eliminar
+                              </button>
                             ) : null}
-                            <span className="mt-0.5 text-[0.65rem] text-muted-foreground">
-                              {item.type}
-                            </span>
                           </div>
                         ) : (
                           <div className="flex w-full items-center justify-center py-1">
@@ -166,6 +185,12 @@ export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
                               <NodePreview
                                 type={item.type}
                                 label={item.label}
+                                isCustom={!!item.templateId && !!onDeleteTemplate}
+                                onDelete={
+                                  item.templateId && onDeleteTemplate
+                                    ? () => onDeleteTemplate(item.templateId!)
+                                    : undefined
+                                }
                               />
                             </div>
                           </div>
@@ -196,15 +221,21 @@ export function AppSidebar({ categories, onDragStart }: AppSidebarProps) {
 type NodePreviewProps = {
   type: string;
   label: string;
+  isCustom?: boolean;
+  onDelete?: () => void;
 };
 
-function NodePreview({ type, label }: NodePreviewProps) {
+function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
+  const core = (() => {
   switch (type) {
     case "constantInput":
     case "timerInput":
     case "randomInput": {
       return (
-        <div className="flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md">
+        <div
+          data-drag-preview
+          className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md"
+        >
           <span className="mb-1 flex items-center justify-center">
             {type === "constantInput" && (
               <span className="text-lg font-bold">0</span>
@@ -231,7 +262,10 @@ function NodePreview({ type, label }: NodePreviewProps) {
         concat: "concat",
       };
       return (
-        <div className="flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-sky-500 px-3 text-center text-white shadow-md">
+        <div
+          data-drag-preview
+          className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-sky-500 px-3 text-center text-white shadow-md"
+        >
           <span className="text-xl font-bold leading-none">
             {symbolMap[type] === "plus" && <Plus className="h-6 w-6" />}
             {symbolMap[type] === "minus" && <span>-</span>}
@@ -259,7 +293,10 @@ function NodePreview({ type, label }: NodePreviewProps) {
         switch: "switch",
       };
       return (
-        <div className="flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md">
+        <div
+          data-drag-preview
+          className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md"
+        >
           <span className="text-xl font-bold leading-none">
             {symbolMap[type] === "comparison" && (
               <span className="-rotate-90 text-2xl font-bold">=</span>
@@ -294,7 +331,10 @@ function NodePreview({ type, label }: NodePreviewProps) {
         count: "#",
       };
       return (
-        <div className="flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md">
+        <div
+          data-drag-preview
+          className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
+        >
           <span className="text-xl font-bold leading-none">
             {symbolMap[type] ?? ""}
           </span>
@@ -304,7 +344,10 @@ function NodePreview({ type, label }: NodePreviewProps) {
     }
     case "write": {
       return (
-        <div className="flex h-18 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-rose-500 px-3 text-center text-white shadow-md">
+        <div
+          data-drag-preview
+          className="node-preview flex h-18 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-rose-500 px-3 text-center text-white shadow-md"
+        >
           <span className="text-xl font-bold leading-none">
             <PenSquare className="h-6 w-6" />
           </span>
@@ -314,9 +357,34 @@ function NodePreview({ type, label }: NodePreviewProps) {
     }
     default:
       return (
-        <div className="flex h-16 w-32 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground">
+        <div
+          data-drag-preview
+          className="node-preview flex h-16 w-32 items-center justify-center rounded-lg border border-dashed text-xs text-muted-foreground"
+        >
           {label}
         </div>
       );
   }
+  })();
+
+  if (!isCustom || !onDelete) {
+    return core;
+  }
+
+  return (
+    <div className="relative inline-block">
+      {core}
+      <button
+        type="button"
+        className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full bg-destructive px-1 py-0.5 text-[0.6rem] leading-none text-destructive-foreground shadow"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDelete();
+        }}
+      >
+        ×
+      </button>
+    </div>
+  );
 }
