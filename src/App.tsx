@@ -10,6 +10,7 @@ import {
   Background,
   BackgroundVariant,
   ControlButton,
+  SelectionMode,
   useStore,
   type Node,
   type Edge,
@@ -20,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { Download, Play, PlusCircle } from "lucide-react";
+import { Hand, MousePointer2, Download, Play } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import {
   Dialog,
@@ -36,7 +37,11 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { nodePalette } from "./flow/node-palette";
+import { nodePalette, type NodePaletteItem } from "./flow/node-palette";
+import {
+  SubflowTemplateContext,
+  type SubflowTemplatePayload,
+} from "@/flow/subflow-templates-context";
 import {
   serializeProgram,
   downloadSerializedProgram,
@@ -51,6 +56,13 @@ type FlowBounds = { x: number; y: number; width: number; height: number };
 type SubflowPorts = { inCount: number; outCount: number };
 
 type SubflowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
+
+type SavedSubflowTemplate = {
+  id: string;
+  name: string;
+  ports: SubflowPorts;
+  snapshot: SubflowSnapshot;
+};
 
 type CreateSubflowRequest =
   | {
@@ -340,8 +352,69 @@ export default function App() {
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
+  const [canvasMode, setCanvasMode] = useState<"pan" | "select">("pan");
+
+  const [subflowTemplates, setSubflowTemplates] = useState<
+    SavedSubflowTemplate[]
+  >([]);
 
   const [programName, setProgramName] = useState<string>("Sin título");
+
+  const addOrUpdateTemplate = useCallback(
+    (payload: SubflowTemplatePayload) => {
+      setSubflowTemplates((prev) => {
+        const nextTemplate: SavedSubflowTemplate = {
+          id: payload.id,
+          name: payload.name,
+          ports: {
+            inCount: payload.inCount,
+            outCount: payload.outCount,
+          },
+          snapshot: {
+            nodes: payload.nodes as FlowNode[],
+            edges: payload.edges as FlowEdge[],
+          },
+        };
+
+        const index = prev.findIndex((tpl) => tpl.id === payload.id);
+        if (index >= 0) {
+          const copy = [...prev];
+          copy[index] = nextTemplate;
+          return copy;
+        }
+
+        return [...prev, nextTemplate];
+      });
+    },
+    []
+  );
+
+  const isNameTaken = useCallback(
+    (name: string) => {
+      const normalized = name.trim().toLowerCase();
+      if (!normalized) return false;
+      return subflowTemplates.some(
+        (tpl) => tpl.name.trim().toLowerCase() === normalized
+      );
+    },
+    [subflowTemplates]
+  );
+
+  const resolveTemplate = useCallback(
+    (id: string) => {
+      const tpl = subflowTemplates.find((t) => t.id === id);
+      if (!tpl) return null;
+      return {
+        id: tpl.id,
+        name: tpl.name,
+        inCount: tpl.ports.inCount,
+        outCount: tpl.ports.outCount,
+        nodes: tpl.snapshot.nodes,
+        edges: tpl.snapshot.edges,
+      };
+    },
+    [subflowTemplates]
+  );
 
   const draggingTypeRef = useRef<string | null>(null);
 
@@ -354,6 +427,30 @@ export default function App() {
     }
     return map;
   }, []);
+
+  const paletteCategories = useMemo(() => {
+    if (!subflowTemplates.length) {
+      return nodePalette;
+    }
+
+    return nodePalette.map((category) => {
+      if (category.id !== "abstraction") {
+        return category;
+      }
+
+      const extraItems = subflowTemplates.map<NodePaletteItem>((tpl) => ({
+        type: "subflow",
+        label: tpl.name,
+        description: "Subflujo guardado",
+        templateId: tpl.id,
+      }));
+
+      return {
+        ...category,
+        items: [...category.items, ...extraItems],
+      };
+    });
+  }, [subflowTemplates]);
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -371,6 +468,13 @@ export default function App() {
   const [createSubflowError, setCreateSubflowError] = useState<string | null>(
     null
   );
+  const [createSubflowNameError, setCreateSubflowNameError] =
+    useState<string | null>(null);
+  const [addSubflowToPalette, setAddSubflowToPalette] = useState(false);
+  const [pendingDeleteTemplateId, setPendingDeleteTemplateId] =
+    useState<string | null>(null);
+  const [pendingDeleteTemplateName, setPendingDeleteTemplateName] =
+    useState<string | null>(null);
 
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
@@ -379,6 +483,8 @@ export default function App() {
       setPendingSubflowPorts(null);
       setPendingSubflowSnapshot(null);
       setCreateSubflowError(null);
+      setCreateSubflowNameError(null);
+      setAddSubflowToPalette(false);
     }
   }, []);
 
@@ -462,6 +568,11 @@ export default function App() {
         return;
       }
 
+      const templateIdRaw = event.dataTransfer.getData(
+        "application/subflow-template-id"
+      );
+      const templateId = templateIdRaw || null;
+
       const instance = reactFlowInstance as
         | (ReactFlowInstance & {
             screenToFlowPosition?: (pos: { x: number; y: number }) => {
@@ -480,32 +591,52 @@ export default function App() {
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       const label = paletteLabelByType.get(type);
-      let data: Record<string, unknown> = label ? { label } : {};
+      let data: Record<string, unknown> = {};
 
-      // Provide sensible defaults for common input/sequence nodes
-      if (type === "constantInput") {
-        data = {
-          ...(data ?? {}),
-          value: 0,
-          label: (data.label as string) ?? "Constante",
-        };
-      }
-      if (type === "randomInput") {
-        data = {
-          ...(data ?? {}),
-          min: 0,
-          max: 100,
-          label: (data.label as string) ?? "Valor Aleatorio",
-        };
-      }
-      if (type === "sequence") {
-        data = {
-          ...(data ?? {}),
-          min: 0,
-          max: 100,
-          step: 1,
-          label: (data.label as string) ?? "Generar Secuencia",
-        };
+      if (type === "subflow" && templateId) {
+        const template = subflowTemplates.find((tpl) => tpl.id === templateId);
+        if (template) {
+          data = {
+            label: template.name,
+            inCount: template.ports.inCount,
+            outCount: template.ports.outCount,
+            subflowNodes: template.snapshot.nodes,
+            subflowEdges: template.snapshot.edges,
+            templateId: template.id,
+          };
+        } else if (label) {
+          data = { label };
+        }
+      } else {
+        if (label) {
+          data = { label };
+        }
+
+        // Provide sensible defaults for common input/sequence nodes
+        if (type === "constantInput") {
+          data = {
+            ...(data ?? {}),
+            value: 0,
+            label: (data.label as string) ?? "Constante",
+          };
+        }
+        if (type === "randomInput") {
+          data = {
+            ...(data ?? {}),
+            min: 0,
+            max: 100,
+            label: (data.label as string) ?? "Valor Aleatorio",
+          };
+        }
+        if (type === "sequence") {
+          data = {
+            ...(data ?? {}),
+            min: 0,
+            max: 100,
+            step: 1,
+            label: (data.label as string) ?? "Generar Secuencia",
+          };
+        }
       }
 
       const newNode: FlowNode = {
@@ -518,7 +649,7 @@ export default function App() {
       setNodes((prev) => [...prev, newNode]);
       draggingTypeRef.current = null;
     },
-    [paletteLabelByType, reactFlowInstance, setNodes]
+    [paletteLabelByType, reactFlowInstance, setNodes, subflowTemplates]
   );
 
   const onRunClick = useCallback(() => {
@@ -540,35 +671,38 @@ export default function App() {
   }, [reactFlowInstance, programName]);
 
   const onPaletteDragStart = useCallback(
-    (event: React.DragEvent, item: { type: string; label: string }) => {
+    (event: React.DragEvent, item: NodePaletteItem) => {
       draggingTypeRef.current = item.type;
       event.dataTransfer.setData("application/reactflow", item.type);
       event.dataTransfer.effectAllowed = "move";
+
+      if (item.templateId) {
+        event.dataTransfer.setData(
+          "application/subflow-template-id",
+          item.templateId
+        );
+      }
+
+      // In Chrome, the default drag preview snapshots the whole draggable element
+      // (e.g. the menu button background). Override it to only show the node preview.
+      try {
+        const buttonEl = event.currentTarget as unknown as HTMLElement | null;
+        const previewEl = buttonEl?.querySelector<HTMLElement>(
+          "[data-drag-preview]"
+        );
+        if (previewEl) {
+          event.dataTransfer.setDragImage(
+            previewEl,
+            Math.round(previewEl.offsetWidth / 2),
+            Math.round(previewEl.offsetHeight / 2)
+          );
+        }
+      } catch {
+        // ignore
+      }
     },
     []
   );
-
-  const addNode = useCallback(() => {
-    setNodes((prev) => {
-      const maxIndex = prev.reduce((max, n) => {
-        const m = String(n.id).match(/^n(\d+)$/);
-        const idx = m ? parseInt(m[1], 10) : 0;
-        return Math.max(max, idx);
-      }, 0);
-      const next = maxIndex + 1;
-      const newNode = {
-        id: `n${next}`,
-        position: { x: 0, y: next * 140 },
-        data: {
-          title: `Nodo base ${next}`,
-          description: "Nodo creado dinámicamente a partir del esqueleto base.",
-          footerActionLabel: "Acción",
-        },
-        type: "baseNode" as FlowNode["type"],
-      };
-      return [...prev, newNode];
-    });
-  }, []);
 
   const openCreateSubflow = useCallback((request: CreateSubflowRequest) => {
     setPendingSubflowBounds(request.bounds);
@@ -577,10 +711,12 @@ export default function App() {
       setPendingSubflowPorts(request.ports);
       setPendingSubflowSnapshot(request.snapshot);
       setCreateSubflowError(null);
+      setCreateSubflowNameError(null);
     } else {
       setPendingSubflowPorts(null);
       setPendingSubflowSnapshot(null);
       setCreateSubflowError(request.message);
+      setCreateSubflowNameError(null);
     }
     setIsCreateSubflowOpen(true);
   }, []);
@@ -596,19 +732,30 @@ export default function App() {
       return;
     }
 
+    if (addSubflowToPalette && isNameTaken(name)) {
+      setCreateSubflowNameError(
+        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre."
+      );
+      return;
+    }
+
+    setCreateSubflowNameError(null);
+
+    const maxIndex = nodes.reduce((max, n) => {
+      const match = String(n.id).match(/^sf-(\d+)$/);
+      const idx = match ? parseInt(match[1] ?? "0", 10) : 0;
+      return Math.max(max, idx);
+    }, 0);
+    const next = maxIndex + 1;
+
+    const x = pendingSubflowBounds.x + pendingSubflowBounds.width / 2 - 72;
+    const y = pendingSubflowBounds.y - 90;
+
+    const templateId = `sf-${next}`;
+
     setNodes((prev) => {
-      const maxIndex = prev.reduce((max, n) => {
-        const match = String(n.id).match(/^sf-(\d+)$/);
-        const idx = match ? parseInt(match[1] ?? "0", 10) : 0;
-        return Math.max(max, idx);
-      }, 0);
-      const next = maxIndex + 1;
-
-      const x = pendingSubflowBounds.x + pendingSubflowBounds.width / 2 - 72;
-      const y = pendingSubflowBounds.y - 90;
-
       const newNode: FlowNode = {
-        id: `sf-${next}`,
+        id: templateId,
         position: {
           x: Number.isFinite(x) ? x : 0,
           y: Number.isFinite(y) ? y : 0,
@@ -619,6 +766,7 @@ export default function App() {
           outCount: pendingSubflowPorts.outCount,
           subflowNodes: pendingSubflowSnapshot.nodes,
           subflowEdges: pendingSubflowSnapshot.edges,
+          templateId,
         },
         type: "subflow",
       };
@@ -632,6 +780,16 @@ export default function App() {
 
       return [...remaining, newNode];
     });
+    if (addSubflowToPalette) {
+      addOrUpdateTemplate({
+        id: templateId,
+        name,
+        inCount: pendingSubflowPorts.inCount,
+        outCount: pendingSubflowPorts.outCount,
+        nodes: pendingSubflowSnapshot.nodes,
+        edges: pendingSubflowSnapshot.edges,
+      });
+    }
 
     // Remove any edges connected to the removed nodes
     setEdges((prevEdges) =>
@@ -650,6 +808,10 @@ export default function App() {
     setPendingSubflowPorts(null);
     setPendingSubflowSnapshot(null);
   }, [
+    addSubflowToPalette,
+    addOrUpdateTemplate,
+    isNameTaken,
+    nodes,
     pendingSubflowBounds,
     pendingSubflowPorts,
     pendingSubflowSnapshot,
@@ -659,7 +821,15 @@ export default function App() {
 
   return (
     <SidebarProvider>
-      <AppSidebar categories={nodePalette} onDragStart={onPaletteDragStart} />
+      <AppSidebar
+        categories={paletteCategories}
+        onDragStart={onPaletteDragStart}
+        onDeleteTemplate={(templateId) => {
+          const match = subflowTemplates.find((tpl) => tpl.id === templateId);
+          setPendingDeleteTemplateId(templateId);
+          setPendingDeleteTemplateName(match ? match.name : null);
+        }}
+      />
 
       <SidebarInset>
         <div className="relative flex h-svh w-full">
@@ -675,57 +845,80 @@ export default function App() {
             </div>
           </div>
 
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onInit={setReactFlowInstance}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onDrop={onDrop}
-            onDragOver={onDragOver}
-            fitView
-            proOptions={{ hideAttribution: true }}
+          <SubflowTemplateContext.Provider
+            value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
           >
-            <CreateSubflowOverlay
-              selectedNodes={selectedNodes}
+            <ReactFlow
+              nodes={nodes}
               edges={edges}
-              onCreateClick={openCreateSubflow}
-            />
-            <Background variant={BackgroundVariant.Dots} />
-            <Controls>
-              <ControlButton onClick={addNode}>
-                <PlusCircle color="white" />
-              </ControlButton>
-            </Controls>
-            <MiniMap />
-            <Panel position="top-right" className="flex gap-2">
-              <Button
-                variant="secondary"
-                className="hover:cursor-pointer shadow-md"
-                type="button"
-                onClick={onRunClick}
-                disabled={nodes.length === 0}
-              >
-                Ejecutar
-                <Play
-                  fill="oklch(72.3% 0.219 149.579)"
-                  className="text-green-500"
-                />
-              </Button>
-              <Button
-                variant="secondary"
-                className="hover:cursor-pointer shadow-md"
-                type="button"
-                onClick={onDownloadClick}
-                disabled={nodes.length === 0}
-              >
-                Descargar
-                <Download />
-              </Button>
-            </Panel>
-          </ReactFlow>
+              nodeTypes={nodeTypes}
+              onInit={setReactFlowInstance}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              onDrop={onDrop}
+              onDragOver={onDragOver}
+              panOnDrag={canvasMode === "pan"}
+              selectionOnDrag={canvasMode === "select"}
+              selectionMode={SelectionMode.Partial}
+              className={
+                canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+              }
+              fitView
+              proOptions={{ hideAttribution: true }}
+            >
+              <CreateSubflowOverlay
+                selectedNodes={selectedNodes}
+                edges={edges}
+                onCreateClick={openCreateSubflow}
+              />
+              <Background variant={BackgroundVariant.Dots} />
+              <Controls>
+                <ControlButton
+                  onClick={() => setCanvasMode("pan")}
+                  aria-pressed={canvasMode === "pan"}
+                  title="Modo arrastrar (mover canvas)"
+                  className="rf-mode-toggle"
+                >
+                  <Hand className="rf-icon-hand" />
+                </ControlButton>
+                <ControlButton
+                  onClick={() => setCanvasMode("select")}
+                  aria-pressed={canvasMode === "select"}
+                  title="Modo selección (cuadro)"
+                  className="rf-mode-toggle"
+                >
+                  <MousePointer2 />
+                </ControlButton>
+              </Controls>
+              <MiniMap />
+              <Panel position="top-right" className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  className="hover:cursor-pointer shadow-md"
+                  type="button"
+                  onClick={onRunClick}
+                  disabled={nodes.length === 0}
+                >
+                  Ejecutar
+                  <Play
+                    fill="oklch(72.3% 0.219 149.579)"
+                    className="text-green-500"
+                  />
+                </Button>
+                <Button
+                  variant="secondary"
+                  className="hover:cursor-pointer shadow-md"
+                  type="button"
+                  onClick={onDownloadClick}
+                  disabled={nodes.length === 0}
+                >
+                  Descargar
+                  <Download />
+                </Button>
+              </Panel>
+            </ReactFlow>
+          </SubflowTemplateContext.Provider>
         </div>
 
         <Dialog
@@ -754,10 +947,30 @@ export default function App() {
                     </label>
                     <Input
                       value={subflowName}
-                      onChange={(e) => setSubflowName(e.currentTarget.value)}
+                      onChange={(e) => {
+                        setSubflowName(e.currentTarget.value);
+                        setCreateSubflowNameError(null);
+                      }}
                       placeholder="Ej: Validar datos"
                     />
                   </div>
+                  {createSubflowNameError && (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                      {createSubflowNameError}
+                    </div>
+                  )}
+                  <label className="mt-1 flex items-center gap-2 text-sm text-gray-900">
+                    <input
+                      type="checkbox"
+                      className="h-3 w-3"
+                      checked={addSubflowToPalette}
+                      onChange={(e) => {
+                        setAddSubflowToPalette(e.currentTarget.checked);
+                        setCreateSubflowNameError(null);
+                      }}
+                    />
+                    <span>Añadir este subflujo a la paleta</span>
+                  </label>
                 </>
               )}
 
@@ -775,7 +988,8 @@ export default function App() {
                     disabled={
                       !subflowName.trim() ||
                       !pendingSubflowBounds ||
-                      !pendingSubflowPorts
+                      !pendingSubflowPorts ||
+                      (addSubflowToPalette && !!createSubflowNameError)
                     }
                     onClick={createSubflow}
                   >
@@ -787,6 +1001,63 @@ export default function App() {
           </DialogContent>
         </Dialog>
       </SidebarInset>
+
+      <Dialog
+        open={pendingDeleteTemplateId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingDeleteTemplateId(null);
+            setPendingDeleteTemplateName(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar subflujo de la paleta</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              ¿Seguro que quieres eliminar
+              {" "}
+              {pendingDeleteTemplateName
+                ? `"${pendingDeleteTemplateName}"`
+                : "este subflujo"}
+              {" "}
+              de la paleta? Los nodos ya colocados en el diagrama no se
+              borrarán.
+            </p>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setPendingDeleteTemplateId(null);
+                  setPendingDeleteTemplateName(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={() => {
+                  if (pendingDeleteTemplateId) {
+                    setSubflowTemplates((prev) =>
+                      prev.filter((tpl) => tpl.id !== pendingDeleteTemplateId)
+                    );
+                  }
+                  setPendingDeleteTemplateId(null);
+                  setPendingDeleteTemplateName(null);
+                }}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </SidebarProvider>
   );
 }

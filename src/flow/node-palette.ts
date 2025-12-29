@@ -2,6 +2,12 @@ export type NodePaletteItem = {
   type: string;
   label: string;
   description?: string;
+  /**
+   * Identificador de plantilla para subflujos guardados.
+   * Cuando está presente, el ítem representa un subflujo definido por el usuario
+   * y no un nodo "built-in".
+   */
+  templateId?: string;
 };
 
 export type NodePaletteCategory = {
