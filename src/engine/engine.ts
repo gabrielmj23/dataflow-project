@@ -13,12 +13,21 @@ export class DataflowEngine {
   private nodeStore: NodeStore;
   private tokenStore: TokenStore;
 
+  /**
+   * Creates a new in-memory dataflow engine with empty stores.
+   */
   constructor() {
     this.arcStore = new ArcStore();
     this.nodeStore = new NodeStore();
     this.tokenStore = new TokenStore();
   }
 
+  /**
+   * Replaces the currently loaded program.
+   *
+   * This resets all internal stores (nodes, arcs, and tokens) and then loads the
+   * provided nodes/arcs into the engine.
+   */
   loadProgram(params: { nodes: Node[]; arcs: Arc[] }): void {
     this.arcStore = new ArcStore();
     this.nodeStore = new NodeStore();
@@ -68,6 +77,13 @@ export class DataflowEngine {
     return externalOutputs;
   }
 
+  /**
+   * Attempts to enable exactly one node execution, consuming any tokens used to
+   * satisfy its fire pattern.
+   *
+   * @returns An {@link ExecuteToken} for the next node to execute, or `null` if
+   * no node can currently fire.
+   */
   private tryEnableOnce(): ExecuteToken | null {
     for (const node of this.nodeStore.getNodes()) {
       const activationTokens = this.collectTokensForNode(node);
@@ -83,6 +99,13 @@ export class DataflowEngine {
     return null;
   }
 
+  /**
+   * Routes a single produced token through outgoing arcs.
+   *
+   * Internal destinations are enqueued into the token store. Destinations that
+   * refer to a non-existent node id (including "") are returned as external
+   * outputs.
+   */
   private transmitToken(token: DataToken<unknown>): DataToken<unknown>[] {
     const location = token.location;
     const destinations = this.arcStore.findArcsBySource(location);
@@ -111,6 +134,12 @@ export class DataflowEngine {
     return external;
   }
 
+  /**
+   * Splits a token into either a local output (address targets a loaded node) or
+   * an external output (address targets no loaded node).
+   *
+   * This is useful when interfacing the engine with an external runtime.
+   */
   ioUnit<T>(token: DataToken<T>): {
     localOutput: DataToken<T> | null;
     externalOutput: DataToken<T> | null;
@@ -132,6 +161,13 @@ export class DataflowEngine {
     return { localOutput: null, externalOutput: cloned };
   }
 
+  /**
+   * Transmits a token through all outgoing arcs and removes it from the token
+   * store.
+   *
+   * Note: unlike {@link run} / {@link transmitToken}, this method does not
+   * surface "external" outputs; it only enqueues internal destinations.
+   */
   transmitUnit<T>(token: DataToken<T>): void {
     const location = token.location;
     const destinations = this.arcStore.findArcsBySource(location);
@@ -141,6 +177,12 @@ export class DataflowEngine {
     this.tokenStore.removeToken(token);
   }
 
+  /**
+   * Adds a token to the token store and checks if any node can fire.
+   *
+   * If a node can fire, the required tokens are consumed and returned inside an
+   * {@link ExecuteToken}.
+   */
   enableUnit<T>(token: DataToken<T>): ExecuteToken | null {
     this.tokenStore.addToken(token);
 
@@ -159,6 +201,15 @@ export class DataflowEngine {
     return null;
   }
 
+  /**
+   * Executes a single enabled node and returns the produced global output tokens.
+   *
+   * Execution details:
+   * - Converts global input tokens to local tokens (node id stripped).
+   * - Orders arguments according to the node's declared port list.
+   * - Invokes the node's activation function.
+   * - Normalizes the result into local output tokens and re-attaches the node id.
+   */
   async executeUnit(token: ExecuteToken): Promise<DataToken<unknown>[]> {
     const node = token.node;
     const nodeDefinition = node.nodeDefinition;
@@ -206,6 +257,14 @@ export class DataflowEngine {
     );
   }
 
+  /**
+   * Normalizes an activation function result into local output tokens.
+   *
+   * Supported return shapes:
+   * - `DataToken[]`: returned as-is (assumed to be local tokens).
+   * - `unknown[]`: values are mapped to `outputPortIds` by index.
+   * - `unknown`: mapped to the first output port.
+   */
   private normalizeToLocalOutputTokens(
     result: unknown,
     outputPortIds: string[]
@@ -236,6 +295,13 @@ export class DataflowEngine {
     return [new DataToken(result, new PortAddress("", outputPortIds[0]))];
   }
 
+  /**
+   * Collects all tokens required for a node to fire according to its fire
+   * patterns.
+   *
+   * @returns The tokens that satisfy the fire patterns, or `null` if the node
+   * cannot fire with the current token store.
+   */
   private collectTokensForNode(node: Node): DataToken<unknown>[] | null {
     const nodeDefinition = node.nodeDefinition;
     const firePatterns = nodeDefinition.firePatterns;
@@ -263,6 +329,9 @@ export class DataflowEngine {
     return collectedTokens;
   }
 
+  /**
+   * Evaluates whether a port's available tokens satisfy a given fire pattern.
+   */
   private matchesFirePattern(
     pattern: FirePatterns,
     tokens: DataToken<unknown>[]
