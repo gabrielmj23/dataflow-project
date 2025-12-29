@@ -7,9 +7,11 @@ import {
   applyNodeChanges,
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   type Connection,
   type EdgeChange,
   type NodeChange,
@@ -21,7 +23,7 @@ import {
 } from "@xyflow/react";
 
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
-import { PictureInPicture2 } from "lucide-react";
+import { Hand, MousePointer2, PictureInPicture2 } from "lucide-react";
 import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,6 +35,9 @@ import {
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 import { nodePalette } from "@/flow/node-palette";
+import { Input } from "@/components/ui/input";
+import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
+import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 
 export type SubflowNodeData = {
   label?: string;
@@ -77,6 +82,7 @@ function offsets(count: number): string[] {
 
 export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const { setNodes } = useReactFlow();
+  const templateContext = useSubflowTemplateContext();
 
   const {
     label = "Subflujo",
@@ -84,7 +90,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     outCount: rawOutCount,
     subflowNodes,
     subflowEdges,
-  } = (data ?? {}) as SubflowNodeData;
+    templateId,
+  } = (data ?? {}) as SubflowNodeData & { templateId?: string };
 
   const inCount = Number.isFinite(rawInCount) ? (rawInCount as number) : 3;
   const outCount = Number.isFinite(rawOutCount) ? (rawOutCount as number) : 3;
@@ -93,12 +100,18 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const outOffsets = offsets(outCount);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editorCanvasMode, setEditorCanvasMode] = useState<
+    "pan" | "select"
+  >("pan");
   const [draftNodes, setDraftNodes] = useState<Node[]>(
     () => subflowNodes ?? []
   );
   const [draftEdges, setDraftEdges] = useState<Edge[]>(
     () => subflowEdges ?? []
   );
+  const [draftLabel, setDraftLabel] = useState(label);
+  const [addToPalette, setAddToPalette] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   // Delete selected nodes/edges with Backspace/Delete when editor is open
   useEffect(() => {
@@ -106,11 +119,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
-
-      // Prevent the main canvas key handler (in App.tsx) from also deleting
-      // whatever is selected there while we're interacting with this modal.
-      e.preventDefault();
-      e.stopImmediatePropagation();
 
       const target = e.target as HTMLElement | null;
       if (
@@ -121,6 +129,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       ) {
         return;
       }
+
+      // Prevent the main canvas key handler (in App.tsx) from also deleting
+      // whatever is selected there while we're interacting with this modal.
+      e.preventDefault();
+      e.stopImmediatePropagation();
 
       setDraftNodes((prev) => {
         const removedIds = new Set(
@@ -197,6 +210,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         return;
       }
 
+       const templateIdRaw = event.dataTransfer.getData(
+         "application/subflow-template-id"
+       );
+       const templateId = templateIdRaw || null;
+
       const instance = editorInstanceRef.current as
         | (ReactFlowInstance & {
             screenToFlowPosition?: (pos: { x: number; y: number }) => {
@@ -215,16 +233,37 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       const nodeLabel = paletteLabelByType.get(type);
+
+      let data: Record<string, unknown> = {};
+
+      if (type === "subflow" && templateId && templateContext) {
+        const resolved = templateContext.resolveTemplate(templateId);
+        if (resolved) {
+          data = {
+            label: resolved.name,
+            inCount: resolved.inCount,
+            outCount: resolved.outCount,
+            subflowNodes: resolved.nodes,
+            subflowEdges: resolved.edges,
+            templateId: resolved.id,
+          };
+        } else if (nodeLabel) {
+          data = { label: nodeLabel };
+        }
+      } else if (nodeLabel) {
+        data = { label: nodeLabel };
+      }
+
       const newNode: Node = {
         id: createInnerNodeId(),
         type,
         position,
-        data: nodeLabel ? { label: nodeLabel } : {},
+        data,
       };
 
       setDraftNodes((prev) => [...prev, newNode]);
     },
-    [createInnerNodeId, paletteLabelByType]
+    [createInnerNodeId, paletteLabelByType, templateContext]
   );
 
   return (
@@ -234,6 +273,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           onClick={() => {
             setDraftNodes(subflowNodes ?? []);
             setDraftEdges(subflowEdges ?? []);
+            setDraftLabel(label);
+            setAddToPalette(false);
+            setNameError(null);
             setIsEditorOpen(true);
           }}
         />
@@ -285,6 +327,36 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             <p className="text-sm text-muted-foreground">
               Modifica los nodos y conexiones.
             </p>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-gray-900">
+                Nombre del subflujo:
+              </label>
+              <Input
+                value={draftLabel}
+                onChange={(e) => {
+                  setDraftLabel(e.currentTarget.value);
+                  setNameError(null);
+                }}
+                placeholder="Ej: Validar datos"
+              />
+            </div>
+            {nameError && (
+              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                {nameError}
+              </div>
+            )}
+            <label className="mt-1 flex items-center gap-2 text-sm text-gray-900">
+              <input
+                type="checkbox"
+                className="h-3 w-3"
+                checked={addToPalette}
+                onChange={(e) => {
+                  setAddToPalette(e.currentTarget.checked);
+                  setNameError(null);
+                }}
+              />
+              <span>Añadir este subflujo a la paleta</span>
+            </label>
 
             <div className="h-[60vh] w-full overflow-hidden rounded-md border">
               <ReactFlowProvider>
@@ -292,7 +364,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   id={editorFlowId}
                   nodes={draftNodes}
                   edges={draftEdges}
-                  nodeTypes={nodeTypesCore}
+                  nodeTypes={{
+                    ...nodeTypesCore,
+                    subflow: NestedSubflowNode,
+                  }}
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}
@@ -301,6 +376,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   }}
                   onDrop={onEditorDrop}
                   onDragOver={onEditorDragOver}
+                  panOnDrag={editorCanvasMode === "pan"}
+                  selectionOnDrag={editorCanvasMode === "select"}
+                  selectionMode={SelectionMode.Partial}
+                  className={
+                    editorCanvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                  }
                   fitView
                   proOptions={{ hideAttribution: true }}
                 >
@@ -310,7 +391,24 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     }}
                   />
                   <Background variant={BackgroundVariant.Dots} />
-                  <Controls />
+                  <Controls>
+                    <ControlButton
+                      onClick={() => setEditorCanvasMode("pan")}
+                      aria-pressed={editorCanvasMode === "pan"}
+                      title="Modo arrastrar (mover canvas)"
+                      className="rf-mode-toggle"
+                    >
+                      <Hand className="rf-icon-hand" />
+                    </ControlButton>
+                    <ControlButton
+                      onClick={() => setEditorCanvasMode("select")}
+                      aria-pressed={editorCanvasMode === "select"}
+                      title="Modo selección (cuadro)"
+                      className="rf-mode-toggle"
+                    >
+                      <MousePointer2 />
+                    </ControlButton>
+                  </Controls>
                 </ReactFlow>
               </ReactFlowProvider>
             </div>
@@ -319,7 +417,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setIsEditorOpen(false)}
+                onClick={() => {
+                  setIsEditorOpen(false);
+                  setNameError(null);
+                }}
               >
                 Cancelar
               </Button>
@@ -343,6 +444,29 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     ? (rawOutCount as number)
                     : outCount;
 
+                  const finalLabel = (draftLabel || label).trim() || label;
+
+                  if (addToPalette && templateContext) {
+                    if (templateContext.isNameTaken(finalLabel)) {
+                      setNameError(
+                        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre."
+                      );
+                      return;
+                    }
+
+                    const baseId = templateId || `sf-node-${String(id)}`;
+                    const uniqueId = `${baseId}-${Date.now().toString(36)}`;
+
+                    templateContext.addOrUpdateTemplate({
+                      id: uniqueId,
+                      name: finalLabel,
+                      inCount: nextInCount,
+                      outCount: nextOutCount,
+                      nodes: draftNodes,
+                      edges: draftEdges,
+                    });
+                  }
+
                   setNodes((prev) =>
                     prev.map((n) => {
                       if (n.id !== id) {
@@ -353,7 +477,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                         ...n,
                         data: {
                           ...(n.data as object),
-                          label,
+                          label: finalLabel,
                           subflowNodes: draftNodes,
                           subflowEdges: draftEdges,
                           inCount: nextInCount,
@@ -364,6 +488,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   );
 
                   setIsEditorOpen(false);
+                  setNameError(null);
                 }}
               >
                 Guardar

@@ -7,15 +7,19 @@ import {
   applyNodeChanges,
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  SelectionMode,
   type Connection,
   type EdgeChange,
   type NodeChange,
   type ReactFlowInstance,
   useReactFlow,
 } from "@xyflow/react";
+
+import { Hand, MousePointer2 } from "lucide-react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
 import {
@@ -28,6 +32,8 @@ import { Button } from "@/components/ui/button";
 import { nodePalette } from "@/flow/node-palette";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { ListInputValueNode } from "@/components/nodes/iteration/list-input-value-node";
+import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
+import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 
 export type FilterNodeData = {
   label?: string;
@@ -39,6 +45,7 @@ const FILTER_INPUT_NODE_ID = "filter-input-value";
 
 export const FilterNode = memo(({ id, data }: NodeProps) => {
   const { setNodes } = useReactFlow();
+  const templateContext = useSubflowTemplateContext();
 
   const {
     label = "Filtrar",
@@ -47,6 +54,9 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
   } = (data ?? {}) as FilterNodeData;
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
+    "pan"
+  );
   const [draftNodes, setDraftNodes] = useState<Node[]>(() => filterNodes ?? []);
   const [draftEdges, setDraftEdges] = useState<Edge[]>(() => filterEdges ?? []);
 
@@ -122,6 +132,11 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
         return;
       }
 
+      const templateIdRaw = event.dataTransfer.getData(
+        "application/subflow-template-id"
+      );
+      const templateId = templateIdRaw || null;
+
       const instance = editorInstanceRef.current as
         | (ReactFlowInstance & {
             screenToFlowPosition?: (pos: { x: number; y: number }) => {
@@ -140,21 +155,43 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       const nodeLabel = paletteLabelByType.get(type);
+
+      let data: Record<string, unknown> = {};
+
+      if (type === "subflow" && templateId && templateContext) {
+        const resolved = templateContext.resolveTemplate(templateId);
+        if (resolved) {
+          data = {
+            label: resolved.name,
+            inCount: resolved.inCount,
+            outCount: resolved.outCount,
+            subflowNodes: resolved.nodes,
+            subflowEdges: resolved.edges,
+            templateId: resolved.id,
+          };
+        } else if (nodeLabel) {
+          data = { label: nodeLabel };
+        }
+      } else if (nodeLabel) {
+        data = { label: nodeLabel };
+      }
+
       const newNode: Node = {
         id: createInnerNodeId(),
         type,
         position,
-        data: nodeLabel ? { label: nodeLabel } : {},
+        data,
       };
 
       setDraftNodes((prev) => [...prev, newNode]);
     },
-    [createInnerNodeId, paletteLabelByType]
+    [createInnerNodeId, paletteLabelByType, templateContext]
   );
 
   const editorNodeTypes = useMemo(
     () => ({
       ...nodeTypesCore,
+      subflow: NestedSubflowNode,
       filterInputValue: ListInputValueNode,
     }),
     []
@@ -268,6 +305,12 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}
+                  panOnDrag={editorCanvasMode === "pan"}
+                  selectionOnDrag={editorCanvasMode === "select"}
+                  selectionMode={SelectionMode.Partial}
+                  className={
+                    editorCanvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                  }
                   onInit={(instance) => {
                     editorInstanceRef.current = instance;
                   }}
@@ -277,7 +320,24 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
                   proOptions={{ hideAttribution: true }}
                 >
                   <Background variant={BackgroundVariant.Dots} />
-                  <Controls />
+                  <Controls>
+                    <ControlButton
+                      className="rf-mode-toggle"
+                      aria-pressed={editorCanvasMode === "pan"}
+                      title="Modo arrastrar"
+                      onClick={() => setEditorCanvasMode("pan")}
+                    >
+                      <Hand className="rf-icon-hand" size={22} />
+                    </ControlButton>
+                    <ControlButton
+                      className="rf-mode-toggle"
+                      aria-pressed={editorCanvasMode === "select"}
+                      title="Modo selección"
+                      onClick={() => setEditorCanvasMode("select")}
+                    >
+                      <MousePointer2 size={22} />
+                    </ControlButton>
+                  </Controls>
                 </ReactFlow>
               </ReactFlowProvider>
             </div>
