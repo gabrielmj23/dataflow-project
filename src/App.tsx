@@ -46,6 +46,8 @@ import {
   serializeProgram,
   downloadSerializedProgram,
 } from "@/flow/serialization";
+import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
+import { DataflowEngine } from "@/engine/engine";
 import { nanoid } from "nanoid";
 
 type FlowNode = Node;
@@ -360,34 +362,31 @@ export default function App() {
 
   const [programName, setProgramName] = useState<string>("Sin título");
 
-  const addOrUpdateTemplate = useCallback(
-    (payload: SubflowTemplatePayload) => {
-      setSubflowTemplates((prev) => {
-        const nextTemplate: SavedSubflowTemplate = {
-          id: payload.id,
-          name: payload.name,
-          ports: {
-            inCount: payload.inCount,
-            outCount: payload.outCount,
-          },
-          snapshot: {
-            nodes: payload.nodes as FlowNode[],
-            edges: payload.edges as FlowEdge[],
-          },
-        };
+  const addOrUpdateTemplate = useCallback((payload: SubflowTemplatePayload) => {
+    setSubflowTemplates((prev) => {
+      const nextTemplate: SavedSubflowTemplate = {
+        id: payload.id,
+        name: payload.name,
+        ports: {
+          inCount: payload.inCount,
+          outCount: payload.outCount,
+        },
+        snapshot: {
+          nodes: payload.nodes as FlowNode[],
+          edges: payload.edges as FlowEdge[],
+        },
+      };
 
-        const index = prev.findIndex((tpl) => tpl.id === payload.id);
-        if (index >= 0) {
-          const copy = [...prev];
-          copy[index] = nextTemplate;
-          return copy;
-        }
+      const index = prev.findIndex((tpl) => tpl.id === payload.id);
+      if (index >= 0) {
+        const copy = [...prev];
+        copy[index] = nextTemplate;
+        return copy;
+      }
 
-        return [...prev, nextTemplate];
-      });
-    },
-    []
-  );
+      return [...prev, nextTemplate];
+    });
+  }, []);
 
   const isNameTaken = useCallback(
     (name: string) => {
@@ -468,13 +467,16 @@ export default function App() {
   const [createSubflowError, setCreateSubflowError] = useState<string | null>(
     null
   );
-  const [createSubflowNameError, setCreateSubflowNameError] =
-    useState<string | null>(null);
+  const [createSubflowNameError, setCreateSubflowNameError] = useState<
+    string | null
+  >(null);
   const [addSubflowToPalette, setAddSubflowToPalette] = useState(false);
-  const [pendingDeleteTemplateId, setPendingDeleteTemplateId] =
-    useState<string | null>(null);
-  const [pendingDeleteTemplateName, setPendingDeleteTemplateName] =
-    useState<string | null>(null);
+  const [pendingDeleteTemplateId, setPendingDeleteTemplateId] = useState<
+    string | null
+  >(null);
+  const [pendingDeleteTemplateName, setPendingDeleteTemplateName] = useState<
+    string | null
+  >(null);
 
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
@@ -655,7 +657,20 @@ export default function App() {
   const onRunClick = useCallback(() => {
     const viewport = reactFlowInstance?.getViewport?.();
     const program = serializeProgram({ nodes, edges, viewport });
-    console.log("[dataflow] serialized program", program);
+
+    try {
+      const stores = deserializeProgramToEngineStores(program);
+      const engine = new DataflowEngine();
+      engine.loadProgram({
+        nodes: stores.nodeStore.getNodes(),
+        arcs: stores.arcStore.getArcs(),
+      });
+
+      console.log("[engine] nodeStore:", stores.nodeStore.getNodes());
+      console.log("[engine] arcStore:", stores.arcStore.getArcs());
+    } catch (err) {
+      console.error("Failed to load program into engine:", err);
+    }
   }, [edges, nodes, reactFlowInstance]);
 
   const onDownloadClick = useCallback(() => {
@@ -840,7 +855,7 @@ export default function App() {
                 value={programName}
                 onChange={(e) => setProgramName(e.currentTarget.value)}
                 placeholder="Nombre del programa"
-                className="w-40 text-sm"
+                className="w-40 text-sm bg-white"
               />
             </div>
           </div>
@@ -1018,12 +1033,10 @@ export default function App() {
 
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              ¿Seguro que quieres eliminar
-              {" "}
+              ¿Seguro que quieres eliminar{" "}
               {pendingDeleteTemplateName
                 ? `"${pendingDeleteTemplateName}"`
-                : "este subflujo"}
-              {" "}
+                : "este subflujo"}{" "}
               de la paleta? Los nodos ya colocados en el diagrama no se
               borrarán.
             </p>

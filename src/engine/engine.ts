@@ -4,6 +4,7 @@ import {
   FirePatterns,
   Node,
   PortAddress,
+  Arc,
 } from "./program-elements";
 import { ArcStore, NodeStore, TokenStore } from "./stores";
 
@@ -16,6 +17,19 @@ export class DataflowEngine {
     this.arcStore = new ArcStore();
     this.nodeStore = new NodeStore();
     this.tokenStore = new TokenStore();
+  }
+
+  loadProgram(params: { nodes: Node[]; arcs: Arc[] }): void {
+    this.arcStore = new ArcStore();
+    this.nodeStore = new NodeStore();
+    this.tokenStore = new TokenStore();
+
+    for (const node of params.nodes) {
+      this.nodeStore.addNode(node);
+    }
+    for (const arc of params.arcs) {
+      this.arcStore.addArc(arc);
+    }
   }
 
   ioUnit<T>(token: DataToken<T>): {
