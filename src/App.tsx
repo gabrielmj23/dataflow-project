@@ -398,6 +398,22 @@ export default function App() {
     [subflowTemplates]
   );
 
+  const resolveTemplate = useCallback(
+    (id: string) => {
+      const tpl = subflowTemplates.find((t) => t.id === id);
+      if (!tpl) return null;
+      return {
+        id: tpl.id,
+        name: tpl.name,
+        inCount: tpl.ports.inCount,
+        outCount: tpl.ports.outCount,
+        nodes: tpl.snapshot.nodes,
+        edges: tpl.snapshot.edges,
+      };
+    },
+    [subflowTemplates]
+  );
+
   const draggingTypeRef = useRef<string | null>(null);
 
   const paletteLabelByType = useMemo(() => {
@@ -747,7 +763,7 @@ export default function App() {
           </div>
 
           <SubflowTemplateContext.Provider
-            value={{ addOrUpdateTemplate, isNameTaken }}
+            value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
           >
             <ReactFlow
               nodes={nodes}

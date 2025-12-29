@@ -37,6 +37,7 @@ import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 import { nodePalette } from "@/flow/node-palette";
 import { Input } from "@/components/ui/input";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
+import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 
 export type SubflowNodeData = {
   label?: string;
@@ -119,11 +120,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
 
-      // Prevent the main canvas key handler (in App.tsx) from also deleting
-      // whatever is selected there while we're interacting with this modal.
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -133,6 +129,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       ) {
         return;
       }
+
+      // Prevent the main canvas key handler (in App.tsx) from also deleting
+      // whatever is selected there while we're interacting with this modal.
+      e.preventDefault();
+      e.stopImmediatePropagation();
 
       setDraftNodes((prev) => {
         const removedIds = new Set(
@@ -209,6 +210,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         return;
       }
 
+       const templateIdRaw = event.dataTransfer.getData(
+         "application/subflow-template-id"
+       );
+       const templateId = templateIdRaw || null;
+
       const instance = editorInstanceRef.current as
         | (ReactFlowInstance & {
             screenToFlowPosition?: (pos: { x: number; y: number }) => {
@@ -227,16 +233,37 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       const nodeLabel = paletteLabelByType.get(type);
+
+      let data: Record<string, unknown> = {};
+
+      if (type === "subflow" && templateId && templateContext) {
+        const resolved = templateContext.resolveTemplate(templateId);
+        if (resolved) {
+          data = {
+            label: resolved.name,
+            inCount: resolved.inCount,
+            outCount: resolved.outCount,
+            subflowNodes: resolved.nodes,
+            subflowEdges: resolved.edges,
+            templateId: resolved.id,
+          };
+        } else if (nodeLabel) {
+          data = { label: nodeLabel };
+        }
+      } else if (nodeLabel) {
+        data = { label: nodeLabel };
+      }
+
       const newNode: Node = {
         id: createInnerNodeId(),
         type,
         position,
-        data: nodeLabel ? { label: nodeLabel } : {},
+        data,
       };
 
       setDraftNodes((prev) => [...prev, newNode]);
     },
-    [createInnerNodeId, paletteLabelByType]
+    [createInnerNodeId, paletteLabelByType, templateContext]
   );
 
   return (
@@ -337,7 +364,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   id={editorFlowId}
                   nodes={draftNodes}
                   edges={draftEdges}
-                  nodeTypes={nodeTypesCore}
+                  nodeTypes={{
+                    ...nodeTypesCore,
+                    subflow: NestedSubflowNode,
+                  }}
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}

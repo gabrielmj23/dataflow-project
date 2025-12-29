@@ -13,6 +13,14 @@ export type SubflowTemplatePayload = {
 export type SubflowTemplateContextValue = {
   addOrUpdateTemplate: (payload: SubflowTemplatePayload) => void;
   isNameTaken: (name: string) => boolean;
+  resolveTemplate: (id: string) => {
+    id: string;
+    name: string;
+    inCount: number;
+    outCount: number;
+    nodes: Node[];
+    edges: Edge[];
+  } | null;
 };
 
 export const SubflowTemplateContext =
