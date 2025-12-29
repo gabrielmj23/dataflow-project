@@ -17,9 +17,17 @@ export class EngineGenerateSequenceNode extends NodeDefinition {
 }
 
 export class EngineFilterNode extends NodeDefinition {
-  constructor(predicate: (item: number) => boolean) {
+  constructor(predicate: (item: unknown) => boolean | Promise<boolean>) {
     super(
-      (inputList: number[]) => inputList.filter(predicate),
+      async (inputList: unknown[]) => {
+        const out: unknown[] = [];
+        for (const item of inputList) {
+          if (await predicate(item)) {
+            out.push(item);
+          }
+        }
+        return out;
+      },
       [FirePatterns.EXISTS],
       ["inputList", "outputList"]
     );
@@ -27,9 +35,15 @@ export class EngineFilterNode extends NodeDefinition {
 }
 
 export class EngineMapNode extends NodeDefinition {
-  constructor(mapper: (item: number) => number) {
+  constructor(mapper: (item: unknown) => unknown | Promise<unknown>) {
     super(
-      (inputList: number[]) => inputList.map(mapper),
+      async (inputList: unknown[]) => {
+        const out: unknown[] = [];
+        for (const item of inputList) {
+          out.push(await mapper(item));
+        }
+        return out;
+      },
       [FirePatterns.EXISTS],
       ["inputList", "outputList"]
     );

@@ -32,6 +32,85 @@ export class DataflowEngine {
     }
   }
 
+  /**
+   * Executes the currently loaded program until no more nodes can fire.
+   *
+   * Returns tokens that were emitted to non-existent nodes (including the empty
+   * node id ""), which can be used as the program's observable outputs.
+   */
+  async run(params: {
+    initialTokens: DataToken<unknown>[];
+    maxSteps?: number;
+  }): Promise<DataToken<unknown>[]> {
+    const maxSteps =
+      typeof params.maxSteps === "number" && params.maxSteps > 0
+        ? Math.floor(params.maxSteps)
+        : 10_000;
+
+    const externalOutputs: DataToken<unknown>[] = [];
+
+    for (const token of params.initialTokens) {
+      this.tokenStore.addToken(token);
+    }
+
+    for (let step = 0; step < maxSteps; step += 1) {
+      const executeToken = this.tryEnableOnce();
+      if (!executeToken) {
+        break;
+      }
+
+      const outputTokens = await this.executeUnit(executeToken);
+      for (const outputToken of outputTokens) {
+        externalOutputs.push(...this.transmitToken(outputToken));
+      }
+    }
+
+    return externalOutputs;
+  }
+
+  private tryEnableOnce(): ExecuteToken | null {
+    for (const node of this.nodeStore.getNodes()) {
+      const activationTokens = this.collectTokensForNode(node);
+      if (!activationTokens) {
+        continue;
+      }
+
+      this.tokenStore.removeTokens(activationTokens);
+      const executeNode = new Node(node.id, node.nodeDefinition.clone());
+      return new ExecuteToken(activationTokens, executeNode);
+    }
+
+    return null;
+  }
+
+  private transmitToken(token: DataToken<unknown>): DataToken<unknown>[] {
+    const location = token.location;
+    const destinations = this.arcStore.findArcsBySource(location);
+
+    if (destinations.length === 0) {
+      return [];
+    }
+
+    const external: DataToken<unknown>[] = [];
+
+    destinations.forEach((arc) => {
+      const target = arc.target;
+      const next = new DataToken<unknown>(token.value, target);
+
+      const isInternal =
+        target.nodeId !== "" &&
+        this.nodeStore.getNodeById(target.nodeId) !== undefined;
+
+      if (isInternal) {
+        this.tokenStore.addToken(next);
+      } else {
+        external.push(next);
+      }
+    });
+
+    return external;
+  }
+
   ioUnit<T>(token: DataToken<T>): {
     localOutput: DataToken<T> | null;
     externalOutput: DataToken<T> | null;

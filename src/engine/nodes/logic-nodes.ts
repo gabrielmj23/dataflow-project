@@ -65,9 +65,9 @@ export class EngineOrNode extends NodeDefinition {
  * TODO: Revisar que el nodo funcione correctamente
  */
 export class EngineSwitchNode extends NodeDefinition {
-  constructor(condition: (value: unknown) => boolean) {
+  constructor(condition: (value: unknown) => boolean | Promise<boolean>) {
     super(
-      (value: unknown) => condition(value),
+      async (value: unknown) => Boolean(await condition(value)),
       [FirePatterns.EXISTS, FirePatterns.DONT_CARE, FirePatterns.DONT_CARE],
       ["value", "outputTrue", "outputFalse"]
     );
