@@ -21,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { Hand, MousePointer2, Download, Play } from "lucide-react";
+import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import {
   Dialog,
@@ -1014,6 +1014,7 @@ export default function App() {
                   onClick={onLoadClick}
                 >
                   Cargar
+                  <Upload />
                 </Button>
               </Panel>
               <input
