@@ -493,6 +493,13 @@ function compileSubflowNodeDefinition(params: {
         outputs.push(token?.value);
       }
 
+      // For 1-output subflows, behave like any other single-output node and
+      // return the value directly. This avoids nested arrays when subflows are
+      // used as mappers/predicates (e.g., Map -> Subflow "Cuadrado").
+      if (selectedOutputs.length === 1) {
+        return outputs[0];
+      }
+
       return outputs;
     },
     firePatterns,
@@ -724,11 +731,6 @@ function mapHandleToPortId(params: {
   }
 
   if (nodeType === NODE_TYPES.GENERATE_SEQUENCE_NODE) {
-    if (direction === "target") {
-      throw new Error(
-        `Node ${nodeId} (${nodeType}) does not accept inputs in the engine model.`
-      );
-    }
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(

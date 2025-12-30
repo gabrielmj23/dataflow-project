@@ -354,7 +354,9 @@ export class DataflowEngine {
    *
    * Supported return shapes:
    * - `DataToken[]`: returned as-is (assumed to be local tokens).
-   * - `unknown[]`: values are mapped to `outputPortIds` by index.
+   * - `unknown[]`: if there are multiple output ports, values are mapped to
+   *   `outputPortIds` by index. If there is exactly one output port, the array
+   *   is treated as a single value (useful for list outputs).
    * - `unknown`: mapped to the first output port.
    */
   private normalizeToLocalOutputTokens(
@@ -366,8 +368,18 @@ export class DataflowEngine {
       return result as DataToken<unknown>[];
     }
 
-    // If the node returns an array of values, map them to output ports in order.
+    // If the node returns an array:
+    // - with 1 output port, treat the entire array as a single value (e.g. lists)
+    // - with N output ports, treat it as N positional outputs
     if (Array.isArray(result)) {
+      if (outputPortIds.length === 0) {
+        return [];
+      }
+
+      if (outputPortIds.length === 1) {
+        return [new DataToken(result, new PortAddress("", outputPortIds[0]))];
+      }
+
       return result
         .slice(0, outputPortIds.length)
         .map(
