@@ -666,10 +666,12 @@ export default function App() {
         arcs: stores.arcStore.getArcs(),
       });
 
-      console.log("[engine] nodeStore:", stores.nodeStore.getNodes());
-      console.log("[engine] arcStore:", stores.arcStore.getArcs());
-
-      await engine.run({ initialTokens: [], maxSteps: 10_000 });
+      const trace = { executedNodeIds: [] as string[], batches: 0 };
+      await engine.run({
+        initialTokens: [],
+        maxSteps: 10_000,
+        trace,
+      });
     } catch (err) {
       console.error("Failed to load program into engine:", err);
     }

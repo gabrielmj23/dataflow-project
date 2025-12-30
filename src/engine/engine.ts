@@ -1,10 +1,10 @@
 import {
+  Arc,
   DataToken,
   ExecuteToken,
   FirePatterns,
   Node,
   PortAddress,
-  Arc,
 } from "./program-elements";
 import { ArcStore, NodeStore, TokenStore } from "./stores";
 
@@ -44,12 +44,19 @@ export class DataflowEngine {
   /**
    * Executes the currently loaded program until no more nodes can fire.
    *
+   * Nodes that can fire concurrently (i.e., they do not contend for the same
+   * input tokens) are executed together using `Promise.all`.
+   *
    * Returns tokens that were emitted to non-existent nodes (including the empty
    * node id ""), which can be used as the program's observable outputs.
    */
   async run(params: {
     initialTokens: DataToken<unknown>[];
     maxSteps?: number;
+    trace?: {
+      executedNodeIds?: string[];
+      batches?: number;
+    };
   }): Promise<DataToken<unknown>[]> {
     const maxSteps =
       typeof params.maxSteps === "number" && params.maxSteps > 0
@@ -59,25 +66,52 @@ export class DataflowEngine {
     const externalOutputs: DataToken<unknown>[] = [];
     const firedWithoutConsumingTokens = new Set<string>();
 
+    let executedSteps = 0;
+    let batches = 0;
+
     for (const token of params.initialTokens) {
       this.tokenStore.addToken(token);
     }
 
-    for (let step = 0; step < maxSteps; step += 1) {
-      const executeToken = this.tryEnableOnce({
+    // Execute in concurrent batches: any nodes that can fire without consuming
+    // overlapping tokens are executed together.
+    while (executedSteps < maxSteps) {
+      const batch = this.tryEnableBatch({
+        maxExecutions: maxSteps - executedSteps,
         skipIfNoConsumptionAndPreviouslyFired: firedWithoutConsumingTokens,
       });
-      if (!executeToken) {
+
+      if (batch.length === 0) {
         break;
       }
 
-      if (executeToken.dataTokens.length === 0) {
-        firedWithoutConsumingTokens.add(executeToken.node.id);
+      batches += 1;
+      if (params.trace && params.trace.batches !== undefined) {
+        params.trace.batches = batches;
       }
 
-      const outputTokens = await this.executeUnit(executeToken);
-      for (const outputToken of outputTokens) {
-        externalOutputs.push(...this.transmitToken(outputToken));
+      const executed = params.trace?.executedNodeIds;
+      if (executed) {
+        for (const t of batch) {
+          executed.push(t.node.id);
+        }
+      }
+
+      for (const t of batch) {
+        if (t.dataTokens.length === 0) {
+          firedWithoutConsumingTokens.add(t.node.id);
+        }
+      }
+
+      executedSteps += batch.length;
+
+      const batchOutputs = await Promise.all(
+        batch.map((t) => this.executeUnit(t))
+      );
+      for (const outputTokens of batchOutputs) {
+        for (const outputToken of outputTokens) {
+          externalOutputs.push(...this.transmitToken(outputToken));
+        }
       }
     }
 
@@ -85,42 +119,76 @@ export class DataflowEngine {
   }
 
   /**
-   * Attempts to enable exactly one node execution, consuming any tokens used to
-   * satisfy its fire pattern.
+   * Attempts to enable a set of nodes that can execute concurrently.
    *
-   * @returns An {@link ExecuteToken} for the next node to execute, or `null` if
-   * no node can currently fire.
+   * A node is considered safe to batch with others if the tokens it consumes do
+   * not overlap with tokens already reserved for this batch.
    */
-  /**
-   * Scans nodes in insertion order and returns the first one that can fire.
-   *
-   * This is a deterministic scheduling strategy intended for debugging and
-   * simple execution. Callers may provide a set of node ids to skip when the
-   * node would fire without consuming any tokens (e.g. source nodes with
-   * `FirePatterns.ALWAYS`).
-   */
-  private tryEnableOnce(params?: {
+  private tryEnableBatch(params: {
+    maxExecutions: number;
     skipIfNoConsumptionAndPreviouslyFired?: Set<string>;
-  }): ExecuteToken | null {
-    for (const node of this.nodeStore.getNodes()) {
-      const activationTokens = this.collectTokensForNode(node);
-      if (!activationTokens) {
-        continue;
-      }
-
-      if (
-        activationTokens.length === 0 &&
-        params?.skipIfNoConsumptionAndPreviouslyFired?.has(node.id)
-      ) {
-        continue;
-      }
-
-      this.tokenStore.removeTokens(activationTokens);
-      const executeNode = new Node(node.id, node.nodeDefinition.clone());
-      return new ExecuteToken(activationTokens, executeNode);
+  }): ExecuteToken[] {
+    const maxExecutions = Math.max(0, Math.floor(params.maxExecutions));
+    if (maxExecutions === 0) {
+      return [];
     }
 
-    return null;
+    const reserved = new Set<DataToken<unknown>>();
+    const scheduled: ExecuteToken[] = [];
+    const scheduledNodeIds = new Set<string>();
+
+    // Repeat scanning until no more nodes can be scheduled in this batch.
+    // This helps capture cases where scheduling one node removes tokens that
+    // would otherwise allow another node to fire.
+    let progressed = true;
+    while (progressed && scheduled.length < maxExecutions) {
+      progressed = false;
+
+      for (const node of this.nodeStore.getNodes()) {
+        if (scheduled.length >= maxExecutions) {
+          break;
+        }
+
+        // Never schedule the same node more than once per batch. This avoids
+        // infinite filling of a batch for nodes that can fire without consuming
+        // tokens (e.g. sources with FirePatterns.ALWAYS).
+        if (scheduledNodeIds.has(node.id)) {
+          continue;
+        }
+
+        const activationTokens = this.collectTokensForNode(node);
+        if (!activationTokens) {
+          continue;
+        }
+
+        if (
+          activationTokens.length === 0 &&
+          params.skipIfNoConsumptionAndPreviouslyFired?.has(node.id)
+        ) {
+          continue;
+        }
+
+        // If this node would consume any token already reserved for another
+        // node in the batch, skip it for this batch.
+        const overlaps = activationTokens.some((t) => reserved.has(t));
+        if (overlaps) {
+          continue;
+        }
+
+        // Reserve and consume tokens now.
+        for (const t of activationTokens) {
+          reserved.add(t);
+        }
+        this.tokenStore.removeTokens(activationTokens);
+
+        const executeNode = new Node(node.id, node.nodeDefinition.clone());
+        scheduled.push(new ExecuteToken(activationTokens, executeNode));
+        scheduledNodeIds.add(node.id);
+        progressed = true;
+      }
+    }
+
+    return scheduled;
   }
 
   /**
