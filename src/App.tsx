@@ -659,7 +659,12 @@ export default function App() {
 
   const onRunClick = useCallback(() => {
     const viewport = reactFlowInstance?.getViewport?.();
-    const program = serializeProgram({ nodes, edges, viewport });
+    const program = serializeProgram({
+      nodes,
+      edges,
+      viewport,
+      programName,
+    });
 
     try {
       const stores = deserializeProgramToEngineStores(program);
@@ -674,14 +679,19 @@ export default function App() {
     } catch (err) {
       console.error("Failed to load program into engine:", err);
     }
-  }, [edges, nodes, reactFlowInstance]);
+  }, [edges, nodes, programName, reactFlowInstance]);
 
   const onDownloadClick = useCallback(() => {
     if (!reactFlowInstance) return;
     const nodes = reactFlowInstance.getNodes();
     const edges = reactFlowInstance.getEdges();
     const viewport = reactFlowInstance.getViewport();
-    const serialized = serializeProgram({ nodes, edges, viewport });
+    const serialized = serializeProgram({
+      nodes,
+      edges,
+      viewport,
+      programName,
+    });
     const base = programName?.trim() || `dataflow-program-${Date.now()}`;
     const safe = base.replace(/[^a-zA-Z0-9-_. ]+/g, "_");
     const filename = `${safe}.json`;
@@ -714,11 +724,20 @@ export default function App() {
             return;
           }
 
-          const { nodes: desNodes, edges: desEdges, viewport } =
+          const {
+            nodes: desNodes,
+            edges: desEdges,
+            viewport,
+            programName: loadedName,
+          } =
             deserializeProgram(parsed);
 
           setNodes(desNodes as FlowNode[]);
           setEdges(desEdges as FlowEdge[]);
+
+          if (loadedName && typeof loadedName === "string") {
+            setProgramName(loadedName);
+          }
 
           if (viewport && reactFlowInstance?.setViewport) {
             reactFlowInstance.setViewport(
