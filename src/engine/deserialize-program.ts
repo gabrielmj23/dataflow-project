@@ -635,8 +635,7 @@ function mapHandleToPortId(params: {
       );
     }
 
-    // UI currently exposes two outputs; map both to the same engine output.
-    if (handleId === "out-1" || handleId === "out-2" || handleId == null) {
+    if (handleId === "out") {
       return "output";
     }
     throw new Error(

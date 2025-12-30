@@ -14,7 +14,7 @@ export const NotNode = memo(({ data }: NodeProps) => {
     <ControlRectNodeShell
       icon={<span className="text-sm font-bold">¬</span>}
       label={label}
-      variant="singleInDualOut"
+      variant="singleInSingleOut"
     />
   );
 });
