@@ -21,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { Hand, MousePointer2, Download, Play } from "lucide-react";
+import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import {
   Dialog,
@@ -714,8 +714,11 @@ export default function App() {
             return;
           }
 
-          const { nodes: desNodes, edges: desEdges, viewport } =
-            deserializeProgram(parsed);
+          const {
+            nodes: desNodes,
+            edges: desEdges,
+            viewport,
+          } = deserializeProgram(parsed);
 
           setNodes(desNodes as FlowNode[]);
           setEdges(desEdges as FlowEdge[]);
@@ -995,6 +998,7 @@ export default function App() {
                   onClick={onLoadClick}
                 >
                   Cargar
+                  <Upload />
                 </Button>
               </Panel>
               <input
