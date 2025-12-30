@@ -57,15 +57,22 @@ export class DataflowEngine {
         : 10_000;
 
     const externalOutputs: DataToken<unknown>[] = [];
+    const firedWithoutConsumingTokens = new Set<string>();
 
     for (const token of params.initialTokens) {
       this.tokenStore.addToken(token);
     }
 
     for (let step = 0; step < maxSteps; step += 1) {
-      const executeToken = this.tryEnableOnce();
+      const executeToken = this.tryEnableOnce({
+        skipIfNoConsumptionAndPreviouslyFired: firedWithoutConsumingTokens,
+      });
       if (!executeToken) {
         break;
+      }
+
+      if (executeToken.dataTokens.length === 0) {
+        firedWithoutConsumingTokens.add(executeToken.node.id);
       }
 
       const outputTokens = await this.executeUnit(executeToken);
@@ -84,10 +91,27 @@ export class DataflowEngine {
    * @returns An {@link ExecuteToken} for the next node to execute, or `null` if
    * no node can currently fire.
    */
-  private tryEnableOnce(): ExecuteToken | null {
+  /**
+   * Scans nodes in insertion order and returns the first one that can fire.
+   *
+   * This is a deterministic scheduling strategy intended for debugging and
+   * simple execution. Callers may provide a set of node ids to skip when the
+   * node would fire without consuming any tokens (e.g. source nodes with
+   * `FirePatterns.ALWAYS`).
+   */
+  private tryEnableOnce(params?: {
+    skipIfNoConsumptionAndPreviouslyFired?: Set<string>;
+  }): ExecuteToken | null {
     for (const node of this.nodeStore.getNodes()) {
       const activationTokens = this.collectTokensForNode(node);
       if (!activationTokens) {
+        continue;
+      }
+
+      if (
+        activationTokens.length === 0 &&
+        params?.skipIfNoConsumptionAndPreviouslyFired?.has(node.id)
+      ) {
         continue;
       }
 

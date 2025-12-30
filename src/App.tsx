@@ -654,7 +654,7 @@ export default function App() {
     [paletteLabelByType, reactFlowInstance, setNodes, subflowTemplates]
   );
 
-  const onRunClick = useCallback(() => {
+  const onRunClick = useCallback(async () => {
     const viewport = reactFlowInstance?.getViewport?.();
     const program = serializeProgram({ nodes, edges, viewport });
 
@@ -668,6 +668,8 @@ export default function App() {
 
       console.log("[engine] nodeStore:", stores.nodeStore.getNodes());
       console.log("[engine] arcStore:", stores.arcStore.getArcs());
+
+      await engine.run({ initialTokens: [], maxSteps: 10_000 });
     } catch (err) {
       console.error("Failed to load program into engine:", err);
     }
