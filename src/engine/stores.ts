@@ -80,4 +80,8 @@ export class ArcStore {
       );
     });
   }
+
+  getArcs(): Arc[] {
+    return [...this.arcs];
+  }
 }
