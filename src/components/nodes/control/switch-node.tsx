@@ -1,5 +1,9 @@
-import { memo, useCallback, useId, useMemo, useState } from "react";
-import { useReactFlow, type NodeProps } from "@xyflow/react";
+import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  useReactFlow,
+  useUpdateNodeInternals,
+  type NodeProps,
+} from "@xyflow/react";
 import { ToggleRight } from "lucide-react";
 
 import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
@@ -31,6 +35,8 @@ export type SwitchOperator =
   | "falsy";
 
 export type SwitchCondition = {
+  /** Optional user-facing label for this condition (used on edge labels). */
+  label?: string;
   operator: SwitchOperator;
   /**
    * Raw target value (entered as text). The engine will interpret it based on
@@ -68,10 +74,12 @@ function sanitizeConditions(value: unknown): SwitchCondition[] {
     if (!item || typeof item !== "object") continue;
     const operator = (item as { operator?: unknown }).operator;
     const target = (item as { target?: unknown }).target;
+    const label = (item as { label?: unknown }).label;
     if (!isOperator(operator)) continue;
 
     out.push({
       operator,
+      label: typeof label === "string" ? label : undefined,
       target: typeof target === "string" ? target : undefined,
     });
   }
@@ -92,7 +100,17 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
     return parsed.length > 0 ? parsed : DEFAULT_CONDITIONS;
   }, [rawConditions]);
 
-  const outputCount = Math.max(1, conditions.length);
+  const outputHandleIds = useMemo(
+    () => [...conditions.map((_, i) => `out-${i + 1}`), "out-default"],
+    [conditions]
+  );
+
+  const outputCount = outputHandleIds.length;
+
+  const updateNodeInternals = useUpdateNodeInternals();
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, outputCount, updateNodeInternals]);
 
   const { setNodes } = useReactFlow();
   const setConditions = useCallback(
@@ -133,6 +151,7 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
         label={label}
         variant="singleInMultiOut"
         outputCount={outputCount}
+        outputHandleIds={outputHandleIds}
         onConfigClick={openDialog}
       />
 
@@ -171,7 +190,30 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                     </Button>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div>
+                      <label className="mb-1 block text-sm font-medium text-gray-900">
+                        Etiqueta
+                      </label>
+                      <Input
+                        value={cond.label ?? ""}
+                        placeholder={`Ej: Caso ${idx + 1}`}
+                        onChange={(e) => {
+                          const next = e.currentTarget.value;
+                          setDraftConditions((prev) =>
+                            prev.map((c, i) =>
+                              i === idx
+                                ? {
+                                    ...c,
+                                    label: next.trim() ? next : undefined,
+                                  }
+                                : c
+                            )
+                          );
+                        }}
+                      />
+                    </div>
+
                     <div>
                       <label className="mb-1 block text-sm font-medium text-gray-900">
                         Operador
@@ -241,6 +283,14 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div className="rounded-md border p-3">
+              <div className="text-sm font-medium">Salida por defecto</div>
+              <p className="text-sm text-muted-foreground">
+                Si ninguna condición coincide, el valor saldrá por la salida
+                final.
+              </p>
             </div>
 
             <div className="flex items-center justify-between">

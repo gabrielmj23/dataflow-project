@@ -23,6 +23,7 @@ import "@xyflow/react/dist/style.css";
 import "./App.css";
 import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
+import { LabeledEdge } from "@/flow/labeled-edge";
 import {
   Dialog,
   DialogContent,
@@ -1216,6 +1217,7 @@ export default function App() {
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
+              edgeTypes={{ default: LabeledEdge }}
               onInit={setReactFlowInstance}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}

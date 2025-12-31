@@ -665,6 +665,8 @@ function mapHandleToPortId(params: {
       );
     }
 
+    if (handleId === "out-default") return "outputDefault";
+
     const idx = parseIndexHandle(handleId);
     if (handleId?.startsWith("out-") && idx) return `output${idx}`;
     throw new Error(
