@@ -8,7 +8,7 @@ import NodeSettingsButton from "@/components/ui/node-settings-button";
 type ControlRectNodeShellProps = {
   icon: ReactNode;
   label: string;
-  variant?: "default" | "singleInDualOut";
+  variant?: "default" | "singleInDualOut" | "singleInSingleOut";
   onConfigClick?: () => void;
 };
 
@@ -76,6 +76,23 @@ export function ControlRectNodeShell({
             style={{ top: "65%" }}
             id="out-2"
             className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+        </>
+      )}
+
+      {variant == "singleInSingleOut" && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="in"
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="out"
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
         </>
       )}

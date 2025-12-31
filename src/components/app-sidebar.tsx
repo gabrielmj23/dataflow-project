@@ -6,6 +6,7 @@ import {
   Link2,
   PenSquare,
   Plus,
+  Percent,
   Shuffle,
   Timer,
   ToggleRight,
@@ -254,6 +255,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "subtract":
       case "multiply":
       case "divide":
+       case "mod":
       case "power":
       case "concat": {
         const symbolMap: Record<string, string> = {
@@ -261,6 +263,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           subtract: "minus",
           multiply: "x",
           divide: "divide",
+          mod: "mod",
           power: "power",
           concat: "concat",
         };
@@ -274,6 +277,9 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               {symbolMap[type] === "minus" && <span>-</span>}
               {symbolMap[type] === "x" && <X className="h-6 w-6" />}
               {symbolMap[type] === "divide" && <Divide className="h-6 w-6" />}
+              {symbolMap[type] === "mod" && (
+                <Percent className="h-6 w-6" />
+              )}
               {symbolMap[type] === "power" && (
                 <span className="text-sm font-bold">x²</span>
               )}

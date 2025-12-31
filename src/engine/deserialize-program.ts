@@ -20,6 +20,7 @@ import {
   EngineSubstractNode,
   EngineMultiplyNode,
   EngineDivideNode,
+  EngineModNode,
   EnginePowerNode,
   EngineConcatNode,
 } from "./nodes/algorithm-nodes";
@@ -47,24 +48,81 @@ export type EngineProgramStores = {
   arcStore: ArcStore;
 };
 
+/**
+ * Safely coerces an unknown value into a plain record.
+ *
+ * This is used to read `node.data` coming from the UI graph, which may be
+ * `undefined`, `null`, or any other JSON value.
+ */
 function asRecord(value: unknown): Record<string, unknown> {
   return (
     value && typeof value === "object" ? (value as Record<string, unknown>) : {}
   ) as Record<string, unknown>;
 }
 
+/**
+ * Type guard that checks if a value is an array with at least one element.
+ */
 function isNonEmptyArray<T>(value: unknown): value is T[] {
   return Array.isArray(value) && value.length > 0;
 }
 
+/**
+ * Infers the number of *input* ports for a given node definition.
+ *
+ * The engine encodes inputs as the first `firePatterns.length` port IDs in
+ * `def.ports`. However, some source nodes (Constante/Random/Timer/Sequence)
+ * are modeled as `FirePatterns.ALWAYS` with a single port named `output`.
+ * At runtime, these nodes consume zero tokens and only produce an output.
+ *
+ * For graph analysis (e.g., discovering open ports inside subflows), treat
+ * those nodes as having 0 inputs.
+ */
+function inferredInputPortCount(def: NodeDefinition): number {
+  // In this engine, "source" nodes (Constante, Random, Timer, Sequence) are
+  // modeled as FirePatterns.ALWAYS with a single port named "output".
+  // At runtime they consume zero tokens and produce one output token.
+  // For graph analysis (open ports), treat them as having 0 inputs.
+  if (
+    def.firePatterns.length === 1 &&
+    def.firePatterns[0] === FirePatterns.ALWAYS &&
+    def.ports.length === 1
+  ) {
+    return 0;
+  }
+
+  return def.firePatterns.length;
+}
+
+/**
+ * Returns the input port IDs for a node definition.
+ *
+ * Inputs are inferred from the node definition's fire patterns.
+ */
 function inputPortIds(def: NodeDefinition): string[] {
-  return def.ports.slice(0, def.firePatterns.length);
+  const inputCount = inferredInputPortCount(def);
+  return def.ports.slice(0, inputCount);
 }
 
+/**
+ * Returns the output port IDs for a node definition.
+ *
+ * Outputs are the remaining ports after the inferred inputs.
+ */
 function outputPortIds(def: NodeDefinition): string[] {
-  return def.ports.slice(def.firePatterns.length);
+  const inputCount = inferredInputPortCount(def);
+  return def.ports.slice(inputCount);
 }
 
+/**
+ * Parses an XYFlow handle id that ends with "-<n>".
+ *
+ * Examples:
+ * - "in-1" -> 1
+ * - "out-2" -> 2
+ *
+ * Returns `null` when the format doesn't match.
+ */
 function parseIndexHandle(handleId: string | null | undefined): number | null {
   if (!handleId) return null;
   const match = /-(\d+)$/.exec(handleId);
@@ -73,6 +131,14 @@ function parseIndexHandle(handleId: string | null | undefined): number | null {
   return Number.isFinite(idx) ? idx : null;
 }
 
+/**
+ * Builds engine stores from a UI graph (XYFlow nodes and edges).
+ *
+ * Responsibilities:
+ * - Converts each UI node into an engine `NodeDefinition`.
+ * - Converts each UI edge into an engine `Arc`, mapping UI handles to
+ *   engine port IDs.
+ */
 function buildEngineStoresFromFlowGraph(params: {
   nodes: Node[];
   edges: Edge[];
@@ -133,6 +199,10 @@ function buildEngineStoresFromFlowGraph(params: {
   return { nodeStore, arcStore };
 }
 
+/**
+ * Computes the set of node IDs reachable from a starting node, following arcs
+ * in the forward direction.
+ */
 function findReachableNodeIds(params: {
   startNodeId: string;
   arcs: Arc[];
@@ -164,6 +234,12 @@ function findReachableNodeIds(params: {
   return visited;
 }
 
+/**
+ * Picks a deterministic "single output" (a port with no outgoing arc).
+ *
+ * Used when compiling embedded graphs (e.g., Map/Filter) where we need one
+ * return value.
+ */
 function chooseSingleOutputPort(params: {
   nodes: EngineNode[];
   arcs: Arc[];
@@ -198,6 +274,16 @@ function chooseSingleOutputPort(params: {
   return candidates[0] ?? null;
 }
 
+/**
+ * Compiles a UI subgraph into an async function `value -> result` by running a
+ * nested engine instance.
+ *
+ * This is used for embedded editors (Map/Filter):
+ * - An explicit "input value" node provides the starting token.
+ * - A single "open output" is selected as the result.
+ *
+ * If compilation fails, the function falls back to identity.
+ */
 function compileSingleInputGraph(params: {
   graphNodes: Node[];
   graphEdges: Edge[];
@@ -269,6 +355,13 @@ function compileSingleInputGraph(params: {
   };
 }
 
+/**
+ * Computes "open" ports in a graph:
+ * - open inputs: input ports with no incoming arc
+ * - open outputs: output ports with no outgoing arc
+ *
+ * This is used to infer a subflow's exposed inputs/outputs.
+ */
 function computeOpenPorts(params: { nodes: EngineNode[]; arcs: Arc[] }): {
   openInputs: Array<{ nodeId: string; portId: string }>;
   openOutputs: Array<{ nodeId: string; portId: string }>;
@@ -311,11 +404,33 @@ function computeOpenPorts(params: { nodes: EngineNode[]; arcs: Arc[] }): {
   return { openInputs, openOutputs };
 }
 
+/**
+ * Compiles a Subflow UI node into an engine `NodeDefinition`.
+ *
+ * The subflow definition executes an inner program in a nested engine:
+ * - External inputs are injected into selected open input ports.
+ * - Selected open output ports are forwarded to special external ports
+ *   (nodeId "") so they can be observed.
+ *
+ * `inCount/outCount` control how many open ports to expose. If omitted, all
+ * open ports are exposed.
+ */
 function compileSubflowNodeDefinition(params: {
   subflowNodes: Node[];
   subflowEdges: Edge[];
-  inCount: number;
-  outCount: number;
+  /**
+   * Number of exposed input ports for the subflow.
+   *
+   * If omitted, all open inputs in the inner graph are exposed.
+   * (This is important for older/hand-crafted graphs where `inCount` isn't persisted.)
+   */
+  inCount?: number;
+  /**
+   * Number of exposed output ports for the subflow.
+   *
+   * If omitted, all open outputs in the inner graph are exposed.
+   */
+  outCount?: number;
 }): NodeDefinition {
   const stores = buildEngineStoresFromFlowGraph({
     nodes: params.subflowNodes,
@@ -329,8 +444,15 @@ function compileSubflowNodeDefinition(params: {
     arcs: engineArcs,
   });
 
-  const selectedInputs = openInputs.slice(0, Math.max(0, params.inCount));
-  const selectedOutputs = openOutputs.slice(0, Math.max(0, params.outCount));
+  const selectedInputs =
+    typeof params.inCount === "number"
+      ? openInputs.slice(0, Math.max(0, params.inCount))
+      : openInputs;
+
+  const selectedOutputs =
+    typeof params.outCount === "number"
+      ? openOutputs.slice(0, Math.max(0, params.outCount))
+      : openOutputs;
 
   const firePatterns = selectedInputs.map(() => FirePatterns.EXISTS);
   const inputPorts = selectedInputs.map((_, idx) => `input${idx + 1}`);
@@ -372,6 +494,13 @@ function compileSubflowNodeDefinition(params: {
         outputs.push(token?.value);
       }
 
+      // For 1-output subflows, behave like any other single-output node and
+      // return the value directly. This avoids nested arrays when subflows are
+      // used as mappers/predicates (e.g., Map -> Subflow "Cuadrado").
+      if (selectedOutputs.length === 1) {
+        return outputs[0];
+      }
+
       return outputs;
     },
     firePatterns,
@@ -379,6 +508,12 @@ function compileSubflowNodeDefinition(params: {
   );
 }
 
+/**
+ * Maps a UI handle ID (XYFlow) into an engine port ID.
+ *
+ * This function encodes the contract between the visual nodes (their handle
+ * IDs) and the engine node definitions (their port names).
+ */
 function mapHandleToPortId(params: {
   nodeId: string;
   nodeType?: string;
@@ -453,6 +588,7 @@ function mapHandleToPortId(params: {
     nodeType === NODE_TYPES.SUBTRACT_NODE ||
     nodeType === NODE_TYPES.MULTIPLY_NODE ||
     nodeType === NODE_TYPES.DIVIDE_NODE ||
+    nodeType === NODE_TYPES.MOD_NODE ||
     nodeType === NODE_TYPES.POWER_NODE ||
     nodeType === NODE_TYPES.CONCAT_NODE
   ) {
@@ -508,8 +644,7 @@ function mapHandleToPortId(params: {
       );
     }
 
-    // UI currently exposes two outputs; map both to the same engine output.
-    if (handleId === "out-1" || handleId === "out-2" || handleId == null) {
+    if (handleId === "out") {
       return "output";
     }
     throw new Error(
@@ -598,11 +733,6 @@ function mapHandleToPortId(params: {
   }
 
   if (nodeType === NODE_TYPES.GENERATE_SEQUENCE_NODE) {
-    if (direction === "target") {
-      throw new Error(
-        `Node ${nodeId} (${nodeType}) does not accept inputs in the engine model.`
-      );
-    }
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
@@ -616,6 +746,11 @@ function mapHandleToPortId(params: {
   );
 }
 
+/**
+ * Converts a UI node into an engine `NodeDefinition`.
+ *
+ * The mapping is based on the node's `type` and its serialized `data`.
+ */
 function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
   const nodeType = flowNode.type;
   const data = asRecord(flowNode.data);
@@ -654,6 +789,8 @@ function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
       return new EngineMultiplyNode();
     case NODE_TYPES.DIVIDE_NODE:
       return new EngineDivideNode();
+    case NODE_TYPES.MOD_NODE:
+      return new EngineModNode();
     case NODE_TYPES.POWER_NODE:
       return new EnginePowerNode();
     case NODE_TYPES.CONCAT_NODE:
@@ -745,8 +882,14 @@ function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
     case NODE_TYPES.SUBFLOW: {
       const subflowNodes = data.subflowNodes;
       const subflowEdges = data.subflowEdges;
-      const inCount = typeof data.inCount === "number" ? data.inCount : 0;
-      const outCount = typeof data.outCount === "number" ? data.outCount : 0;
+      // IMPORTANT: When `inCount/outCount` are missing, defaulting to 0 would
+      // drop all inputs/outputs, causing subflows to run with no initial tokens
+      // and produce `undefined` outputs.
+      // If the user explicitly configured 0 inputs/outputs, we keep that.
+      const inCount =
+        typeof data.inCount === "number" ? data.inCount : undefined;
+      const outCount =
+        typeof data.outCount === "number" ? data.outCount : undefined;
 
       if (Array.isArray(subflowNodes) && Array.isArray(subflowEdges)) {
         return compileSubflowNodeDefinition({

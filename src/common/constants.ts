@@ -8,6 +8,7 @@ export const NODE_TYPES = {
   SUBTRACT_NODE: "subtract",
   MULTIPLY_NODE: "multiply",
   DIVIDE_NODE: "divide",
+  MOD_NODE: "mod",
   POWER_NODE: "power",
   CONCAT_NODE: "concat",
   COMPARISON_NODE: "comparison",

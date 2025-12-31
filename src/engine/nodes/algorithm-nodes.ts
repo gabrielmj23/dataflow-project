@@ -40,6 +40,16 @@ export class EngineDivideNode extends NodeDefinition {
   }
 }
 
+export class EngineModNode extends NodeDefinition {
+  constructor() {
+    super(
+      (a: number, b: number) => a % b,
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"]
+    );
+  }
+}
+
 export class EnginePowerNode extends NodeDefinition {
   constructor() {
     super(
