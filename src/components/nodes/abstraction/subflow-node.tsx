@@ -20,6 +20,7 @@ import {
   useStore,
   Handle,
   Position,
+  useUpdateNodeInternals,
 } from "@xyflow/react";
 
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
@@ -81,7 +82,8 @@ function offsets(count: number): string[] {
 }
 
 export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
-  const { setNodes } = useReactFlow();
+  const { setNodes, setEdges } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
   const templateContext = useSubflowTemplateContext();
 
   const {
@@ -98,6 +100,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const inOffsets = offsets(inCount);
   const outOffsets = offsets(outCount);
+
+  // Ensure XYFlow recomputes handle bounds whenever the number of ports changes.
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, inCount, outCount, updateNodeInternals]);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorCanvasMode, setEditorCanvasMode] = useState<
@@ -485,6 +492,17 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                         },
                       };
                     })
+                  );
+
+                  // Remove all edges connected to this subflow node.
+                  // After cambiar entradas/salidas, el usuario vuelve
+                  // a acomodar manualmente las conexiones.
+                  setEdges((prev) =>
+                    prev.filter(
+                      (edge) =>
+                        String(edge.source) !== String(id) &&
+                        String(edge.target) !== String(id)
+                    )
                   );
 
                   setIsEditorOpen(false);

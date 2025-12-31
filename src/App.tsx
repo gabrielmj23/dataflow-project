@@ -21,7 +21,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { Hand, MousePointer2, Download, Play } from "lucide-react";
+import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import {
   Dialog,
@@ -45,6 +45,8 @@ import {
 import {
   serializeProgram,
   downloadSerializedProgram,
+  deserializeProgram,
+  type SerializedProgramV1,
 } from "@/flow/serialization";
 import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
 import { DataflowEngine } from "@/engine/engine";
@@ -431,6 +433,7 @@ export default function App() {
   );
 
   const draggingTypeRef = useRef<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const paletteLabelByType = useMemo(() => {
     const map = new Map<string, string>();
@@ -671,7 +674,12 @@ export default function App() {
 
   const onRunClick = useCallback(async () => {
     const viewport = reactFlowInstance?.getViewport?.();
-    const program = serializeProgram({ nodes, edges, viewport });
+    const program = serializeProgram({
+      nodes,
+      edges,
+      viewport,
+      programName,
+    });
 
     try {
       const stores = deserializeProgramToEngineStores(program);
@@ -690,19 +698,87 @@ export default function App() {
     } catch (err) {
       console.error("Failed to load program into engine:", err);
     }
-  }, [edges, nodes, reactFlowInstance]);
+  }, [edges, nodes, programName, reactFlowInstance]);
 
   const onDownloadClick = useCallback(() => {
     if (!reactFlowInstance) return;
     const nodes = reactFlowInstance.getNodes();
     const edges = reactFlowInstance.getEdges();
     const viewport = reactFlowInstance.getViewport();
-    const serialized = serializeProgram({ nodes, edges, viewport });
+    const serialized = serializeProgram({
+      nodes,
+      edges,
+      viewport,
+      programName,
+    });
     const base = programName?.trim() || `dataflow-program-${Date.now()}`;
     const safe = base.replace(/[^a-zA-Z0-9-_. ]+/g, "_");
     const filename = `${safe}.json`;
     downloadSerializedProgram(serialized, filename);
   }, [reactFlowInstance, programName]);
+
+  const onLoadClick = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const onProgramFileChange = useCallback(
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const text = String(reader.result ?? "");
+          const parsed = JSON.parse(text) as SerializedProgramV1;
+
+          if (!parsed || typeof parsed !== "object" || parsed.version !== 1) {
+            console.error(
+              "[dataflow] Versión de programa no soportada",
+              parsed
+            );
+            window.alert(
+              "No se pudo cargar el programa: archivo inválido o versión no soportada."
+            );
+            return;
+          }
+
+          const {
+            nodes: desNodes,
+            edges: desEdges,
+            viewport,
+            programName: loadedName,
+          } =
+            deserializeProgram(parsed);
+
+          setNodes(desNodes as FlowNode[]);
+          setEdges(desEdges as FlowEdge[]);
+
+          if (loadedName && typeof loadedName === "string") {
+            setProgramName(loadedName);
+          }
+
+          if (viewport && reactFlowInstance?.setViewport) {
+            reactFlowInstance.setViewport(
+              { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
+              { duration: 0 }
+            );
+          }
+        } catch (error) {
+          console.error("[dataflow] Error al cargar programa", error);
+          window.alert(
+            "No se pudo cargar el programa: el archivo no contiene un JSON válido."
+          );
+        } finally {
+          // Permite volver a seleccionar el mismo archivo si se desea
+          event.target.value = "";
+        }
+      };
+
+      reader.readAsText(file, "utf-8");
+    },
+    [reactFlowInstance, setNodes, setEdges]
+  );
 
   const onPaletteDragStart = useCallback(
     (event: React.DragEvent, item: NodePaletteItem) => {
@@ -1209,7 +1285,23 @@ export default function App() {
                   Descargar
                   <Download />
                 </Button>
+                <Button
+                  variant="secondary"
+                  className="hover:cursor-pointer shadow-md"
+                  type="button"
+                  onClick={onLoadClick}
+                >
+                  Cargar
+                  <Upload />
+                </Button>
               </Panel>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={onProgramFileChange}
+              />
             </ReactFlow>
           </SubflowTemplateContext.Provider>
         </div>

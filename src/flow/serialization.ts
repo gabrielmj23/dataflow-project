@@ -25,6 +25,8 @@ export type SerializedEdge = {
 
 export type SerializedProgramV1 = {
   version: 1;
+  /** Nombre legible del programa (opcional para compatibilidad hacia atrás) */
+  programName?: string;
   nodes: SerializedNode[];
   edges: SerializedEdge[];
   viewport?: SerializedViewport;
@@ -53,13 +55,14 @@ function jsonClone<T>(value: T): T {
  * Este resultado está pensado para persistencia o descarga y puede ser
  * reimportado con `deserializeProgram`.
  *
- * @param params Objeto con `nodes`, `edges` y opcionalmente `viewport`.
+ * @param params Objeto con `nodes`, `edges`, opcionalmente `viewport` y `programName`.
  * @returns Un `SerializedProgramV1` listo para guardarse como JSON.
  */
 export function serializeProgram(params: {
   nodes: Node[];
   edges: Edge[];
   viewport?: Viewport | SerializedViewport;
+  programName?: string;
 }): SerializedProgramV1 {
   const viewport = params.viewport
     ? {
@@ -91,6 +94,7 @@ export function serializeProgram(params: {
 
   return {
     version: 1,
+    programName: params.programName,
     nodes,
     edges,
     viewport,
@@ -113,6 +117,7 @@ export function deserializeProgram(serialized: SerializedProgramV1): {
   nodes: Node[];
   edges: Edge[];
   viewport?: SerializedViewport;
+  programName?: string;
 } {
   const nodes: Node[] = serialized.nodes.map((n) => {
     const data = n.data === undefined ? {} : jsonClone(n.data);
@@ -137,7 +142,12 @@ export function deserializeProgram(serialized: SerializedProgramV1): {
     };
   });
 
-  return { nodes, edges, viewport: serialized.viewport };
+  return {
+    nodes,
+    edges,
+    viewport: serialized.viewport,
+    programName: serialized.programName,
+  };
 }
 
 /**
