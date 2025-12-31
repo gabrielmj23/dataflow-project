@@ -8,16 +8,39 @@ import NodeSettingsButton from "@/components/ui/node-settings-button";
 type ControlRectNodeShellProps = {
   icon: ReactNode;
   label: string;
-  variant?: "default" | "singleInDualOut" | "singleInSingleOut";
+  variant?:
+    | "default"
+    | "singleInDualOut"
+    | "singleInSingleOut"
+    | "singleInMultiOut";
+  /**
+   * Number of outputs to render when `variant` is `singleInMultiOut`.
+   */
+  outputCount?: number;
   onConfigClick?: () => void;
 };
+
+function offsets(count: number): string[] {
+  const safeCount = Math.max(0, Math.floor(count));
+  if (safeCount === 0) return [];
+  if (safeCount === 1) return ["50%"];
+
+  const start = 15;
+  const end = 85;
+  const step = (end - start) / (safeCount - 1);
+  return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
+}
 
 export function ControlRectNodeShell({
   icon,
   label,
   variant = "default",
+  outputCount,
   onConfigClick,
 }: ControlRectNodeShellProps) {
+  const outOffsets =
+    variant === "singleInMultiOut" ? offsets(outputCount ?? 0) : [];
+
   return (
     <BaseNode className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md">
       {onConfigClick && (
@@ -77,6 +100,28 @@ export function ControlRectNodeShell({
             id="out-2"
             className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
+        </>
+      )}
+
+      {variant === "singleInMultiOut" && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="in"
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+
+          {outOffsets.map((offset, index) => (
+            <Handle
+              key={`r-${offset}`}
+              type="source"
+              position={Position.Right}
+              style={{ top: offset }}
+              id={`out-${index + 1}`}
+              className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            />
+          ))}
         </>
       )}
 

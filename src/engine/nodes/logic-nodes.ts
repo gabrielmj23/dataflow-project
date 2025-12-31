@@ -1,4 +1,9 @@
-import { FirePatterns, NodeDefinition } from "../program-elements";
+import {
+  DataToken,
+  FirePatterns,
+  NodeDefinition,
+  PortAddress,
+} from "../program-elements";
 
 type ComparisonOperator = "==" | "!=" | "<" | "<=" | ">" | ">=";
 
@@ -62,14 +67,102 @@ export class EngineOrNode extends NodeDefinition {
 }
 
 /**
- * TODO: Revisar que el nodo funcione correctamente
+ * Supported operators for the configurable Switch node.
+ */
+export type SwitchOperator =
+  | "=="
+  | "!="
+  | ">"
+  | ">="
+  | "<"
+  | "<="
+  | "contains"
+  | "startsWith"
+  | "endsWith"
+  | "truthy"
+  | "falsy";
+
+export type SwitchCondition = {
+  operator: SwitchOperator;
+  target?: unknown;
+};
+
+function parseScalarTarget(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  const raw = value.trim();
+  if (raw.length === 0) return "";
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+
+  const n = Number(raw);
+  if (Number.isFinite(n) && /^-?\d+(\.\d+)?$/.test(raw)) {
+    return n;
+  }
+
+  return raw;
+}
+
+function matchesCondition(value: unknown, condition: SwitchCondition): boolean {
+  const op = condition.operator;
+  const target = parseScalarTarget(condition.target);
+
+  switch (op) {
+    case "truthy":
+      return Boolean(value);
+    case "falsy":
+      return !value;
+    case "contains": {
+      return String(value ?? "").includes(String(target ?? ""));
+    }
+    case "startsWith": {
+      return String(value ?? "").startsWith(String(target ?? ""));
+    }
+    case "endsWith": {
+      return String(value ?? "").endsWith(String(target ?? ""));
+    }
+    case "==":
+      return value === target;
+    case "!=":
+      return value !== target;
+    case ">":
+    case ">=":
+    case "<":
+    case "<=": {
+      const a = typeof value === "number" ? value : Number(value);
+      const b = typeof target === "number" ? target : Number(target);
+      if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+      if (op === ">") return a > b;
+      if (op === ">=") return a >= b;
+      if (op === "<") return a < b;
+      return a <= b;
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * Configurable Switch: evaluates N conditions and emits the input value on the
+ * first matching output.
  */
 export class EngineSwitchNode extends NodeDefinition {
-  constructor(condition: (value: unknown) => boolean | Promise<boolean>) {
+  constructor(conditions: SwitchCondition[]) {
+    const safeConditions = Array.isArray(conditions) ? conditions : [];
+    const outputPorts = safeConditions.map((_, i) => `output${i + 1}`);
+
     super(
-      async (value: unknown) => Boolean(await condition(value)),
-      [FirePatterns.EXISTS, FirePatterns.DONT_CARE, FirePatterns.DONT_CARE],
-      ["value", "outputTrue", "outputFalse"]
+      (value: unknown) => {
+        for (let i = 0; i < safeConditions.length; i += 1) {
+          if (matchesCondition(value, safeConditions[i])) {
+            const portId = outputPorts[i] ?? `output${i + 1}`;
+            return [new DataToken(value, new PortAddress("", portId))];
+          }
+        }
+
+        return [];
+      },
+      [FirePatterns.EXISTS],
+      ["value", ...outputPorts]
     );
   }
 }

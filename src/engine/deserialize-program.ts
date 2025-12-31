@@ -34,6 +34,7 @@ import {
   EngineOrNode,
   EngineSwitchNode,
 } from "./nodes/logic-nodes";
+import type { SwitchCondition, SwitchOperator } from "./nodes/logic-nodes";
 import {
   EngineCountNode,
   EngineFilterNode,
@@ -664,8 +665,8 @@ function mapHandleToPortId(params: {
       );
     }
 
-    if (handleId === "out-1") return "outputTrue";
-    if (handleId === "out-2") return "outputFalse";
+    const idx = parseIndexHandle(handleId);
+    if (handleId?.startsWith("out-") && idx) return `output${idx}`;
     throw new Error(
       `Unknown output handle '${String(
         handleId
@@ -817,7 +818,45 @@ function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
       return new EngineNotNode();
 
     case NODE_TYPES.SWITCH_NODE: {
-      return new EngineSwitchNode((v) => Boolean(v));
+      const raw = data.conditions;
+
+      const conditions: SwitchCondition[] = Array.isArray(raw)
+        ? raw
+            .map((c) =>
+              c && typeof c === "object" ? (c as Record<string, unknown>) : null
+            )
+            .filter((c): c is Record<string, unknown> => Boolean(c))
+            .map((c): SwitchCondition => {
+              const operator = c.operator;
+              const target = c.target;
+
+              const op: SwitchOperator =
+                operator === "==" ||
+                operator === "!=" ||
+                operator === ">" ||
+                operator === ">=" ||
+                operator === "<" ||
+                operator === "<=" ||
+                operator === "contains" ||
+                operator === "startsWith" ||
+                operator === "endsWith" ||
+                operator === "truthy" ||
+                operator === "falsy"
+                  ? operator
+                  : "truthy";
+
+              return {
+                operator: op,
+                target,
+              };
+            })
+        : [];
+
+      return new EngineSwitchNode(
+        conditions.length > 0
+          ? conditions
+          : [{ operator: "truthy" }, { operator: "falsy" }]
+      );
     }
 
     case NODE_TYPES.WRITE_SINK:
