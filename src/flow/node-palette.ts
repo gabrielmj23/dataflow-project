@@ -63,6 +63,11 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Divide el primer valor entre el segundo.",
       },
       {
+        type: "mod",
+        label: "Módulo",
+        description: "Calcula el resto de la división entre dos valores.",
+      },
+      {
         type: "power",
         label: "Potencia",
         description: "Eleva una base a un exponente.",

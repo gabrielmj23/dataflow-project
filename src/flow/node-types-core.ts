@@ -9,6 +9,7 @@ import { SumNode } from "@/components/nodes/processing/sum-node";
 import { SubtractNode } from "@/components/nodes/processing/subtract-node";
 import { MultiplyNode } from "@/components/nodes/processing/multiply-node";
 import { DivideNode } from "@/components/nodes/processing/divide-node";
+import { ModNode } from "@/components/nodes/processing/mod-node";
 import { PowerNode } from "@/components/nodes/processing/power-node";
 import { ConcatNode } from "@/components/nodes/processing/concat-node";
 
@@ -38,6 +39,7 @@ export const nodeTypesCore: NodeTypes = {
   subtract: SubtractNode,
   multiply: MultiplyNode,
   divide: DivideNode,
+  mod: ModNode,
   power: PowerNode,
   concat: ConcatNode,
   comparison: ComparisonNode,

@@ -20,6 +20,7 @@ import {
   EngineSubstractNode,
   EngineMultiplyNode,
   EngineDivideNode,
+  EngineModNode,
   EnginePowerNode,
   EngineConcatNode,
 } from "./nodes/algorithm-nodes";
@@ -587,6 +588,7 @@ function mapHandleToPortId(params: {
     nodeType === NODE_TYPES.SUBTRACT_NODE ||
     nodeType === NODE_TYPES.MULTIPLY_NODE ||
     nodeType === NODE_TYPES.DIVIDE_NODE ||
+    nodeType === NODE_TYPES.MOD_NODE ||
     nodeType === NODE_TYPES.POWER_NODE ||
     nodeType === NODE_TYPES.CONCAT_NODE
   ) {
@@ -787,6 +789,8 @@ function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
       return new EngineMultiplyNode();
     case NODE_TYPES.DIVIDE_NODE:
       return new EngineDivideNode();
+    case NODE_TYPES.MOD_NODE:
+      return new EngineModNode();
     case NODE_TYPES.POWER_NODE:
       return new EnginePowerNode();
     case NODE_TYPES.CONCAT_NODE:

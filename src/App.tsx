@@ -362,6 +362,21 @@ export default function App() {
 
   const [programName, setProgramName] = useState<string>("Sin título");
 
+  type FlowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
+
+  const [history, setHistory] = useState<{
+    stack: FlowSnapshot[];
+    index: number;
+  }>(() => ({
+    stack: [{ nodes: initialNodes, edges: initialEdges }],
+    index: 0,
+  }));
+
+  const isRestoringRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const historyTimeoutRef = useRef<number | null>(null);
+  const clipboardRef = useRef<SubflowSnapshot | null>(null);
+
   const addOrUpdateTemplate = useCallback((payload: SubflowTemplatePayload) => {
     setSubflowTemplates((prev) => {
       const nextTemplate: SavedSubflowTemplate = {
@@ -702,8 +717,6 @@ export default function App() {
         );
       }
 
-      // In Chrome, the default drag preview snapshots the whole draggable element
-      // (e.g. the menu button background). Override it to only show the node preview.
       try {
         const buttonEl = event.currentTarget as unknown as HTMLElement | null;
         const previewEl = buttonEl?.querySelector<HTMLElement>(
@@ -722,6 +735,265 @@ export default function App() {
     },
     []
   );
+    const pushHistorySnapshot = useCallback(
+      (snapshot?: FlowSnapshot) => {
+        const currentSnapshot: FlowSnapshot =
+          snapshot ?? {
+            nodes,
+            edges,
+          };
+
+        setHistory((prev) => {
+          const truncated = prev.stack.slice(0, prev.index + 1);
+          const last = truncated[truncated.length - 1];
+
+          if (
+            last &&
+            last.nodes === currentSnapshot.nodes &&
+            last.edges === currentSnapshot.edges
+          ) {
+            return prev;
+          }
+
+          truncated.push(currentSnapshot);
+
+          const MAX_HISTORY = 50;
+          const limitedStack =
+            truncated.length > MAX_HISTORY
+              ? truncated.slice(truncated.length - MAX_HISTORY)
+              : truncated;
+
+          return {
+            stack: limitedStack,
+            index: limitedStack.length - 1,
+          };
+        });
+      },
+      [edges, nodes]
+    );
+
+    const onNodeDragStart = useCallback(() => {
+      isDraggingRef.current = true;
+      if (historyTimeoutRef.current !== null) {
+        window.clearTimeout(historyTimeoutRef.current);
+        historyTimeoutRef.current = null;
+      }
+    }, []);
+
+    const onNodeDragStop = useCallback(() => {
+      isDraggingRef.current = false;
+      pushHistorySnapshot();
+    }, [pushHistorySnapshot]);
+
+
+  useEffect(() => {
+    if (isRestoringRef.current) {
+      isRestoringRef.current = false;
+      return;
+
+      if (isDraggingRef.current) {
+        return;
+      }
+    }
+    if (historyTimeoutRef.current !== null) {
+      window.clearTimeout(historyTimeoutRef.current);
+    }
+
+    historyTimeoutRef.current = window.setTimeout(() => {
+        pushHistorySnapshot();
+    }, 200);
+
+    return () => {
+      if (historyTimeoutRef.current !== null) {
+        window.clearTimeout(historyTimeoutRef.current);
+      }
+    };
+  }, [nodes, edges, pushHistorySnapshot]);
+
+  const undo = useCallback(() => {
+    setHistory((prev) => {
+      if (prev.index <= 0) {
+        return prev;
+      }
+
+      const newIndex = prev.index - 1;
+      const snapshot = prev.stack[newIndex];
+
+      if (!snapshot) {
+        return prev;
+      }
+
+      isRestoringRef.current = true;
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+
+      return {
+        ...prev,
+        index: newIndex,
+      };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setHistory((prev) => {
+      if (prev.index >= prev.stack.length - 1) {
+        return prev;
+      }
+
+      const newIndex = prev.index + 1;
+      const snapshot = prev.stack[newIndex];
+
+      if (!snapshot) {
+        return prev;
+      }
+
+      isRestoringRef.current = true;
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+
+      return {
+        ...prev,
+        index: newIndex,
+      };
+    });
+  }, []);
+
+  const copySelection = useCallback(() => {
+    const selectedNodesNow = nodes.filter((node) => node.selected);
+    if (!selectedNodesNow.length) {
+      return;
+    }
+
+    const bounds = computeBounds(selectedNodesNow);
+    if (!bounds) {
+      return;
+    }
+
+    const snapshot = buildSubflowSnapshot(selectedNodesNow, edges, bounds);
+    clipboardRef.current = snapshot;
+  }, [edges, nodes]);
+
+  const pasteSelection = useCallback(() => {
+    const snapshot = clipboardRef.current;
+    if (!snapshot) {
+      return;
+    }
+
+    const idMap = new Map<string, string>();
+    const OFFSET = 30;
+
+    const newNodes: FlowNode[] = snapshot.nodes.map((n) => {
+      const newId = createNodeId();
+      idMap.set(String(n.id), newId);
+      const x = (n.position?.x ?? 0) + OFFSET;
+      const y = (n.position?.y ?? 0) + OFFSET;
+
+      return {
+        ...n,
+        id: newId,
+        position: {
+          x,
+          y,
+        },
+        selected: true,
+      } as FlowNode;
+    });
+
+    const newEdges: FlowEdge[] = snapshot.edges.map((e) => {
+      const newId = createNodeId();
+      const src = String(e.source);
+      const tgt = String(e.target);
+
+      return {
+        ...e,
+        id: newId,
+        source: idMap.get(src) ?? src,
+        target: idMap.get(tgt) ?? tgt,
+        selected: false,
+      } as FlowEdge;
+    });
+
+    setNodes((prev) => {
+      const deselected = prev.map((n) => ({
+        ...n,
+        selected: false,
+      }));
+      return [...deselected, ...newNodes];
+    });
+
+    setEdges((prev) => [...prev, ...newEdges]);
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTextInput =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      const key = e.key.toLowerCase();
+      const hasCtrlOrMeta = e.ctrlKey || e.metaKey;
+
+      if (isTextInput) {
+        return;
+      }
+
+      if (hasCtrlOrMeta && key === "z") {
+        e.preventDefault();
+        if (e.shiftKey) {
+          redo();
+        } else {
+          undo();
+        }
+        return;
+      }
+
+      if (hasCtrlOrMeta && key === "y") {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
+      if (hasCtrlOrMeta && key === "c") {
+        e.preventDefault();
+        copySelection();
+        return;
+      }
+
+      if (hasCtrlOrMeta && key === "v") {
+        e.preventDefault();
+        pasteSelection();
+        return;
+      }
+
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+
+      setNodes((prevNodes) => {
+        const removedIds = new Set(
+          prevNodes.filter((n) => n.selected).map((n) => n.id)
+        );
+
+        const nextNodes = prevNodes.filter((n) => !n.selected);
+
+        setEdges((prevEdges) =>
+          prevEdges.filter((edge) => {
+            if ((edge as Edge).selected) return false;
+            const src = String((edge as Edge).source);
+            const tgt = String((edge as Edge).target);
+            if (removedIds.has(src) || removedIds.has(tgt)) return false;
+            return true;
+          })
+        );
+
+        return nextNodes;
+      });
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [copySelection, pasteSelection, redo, undo, setNodes, setEdges]);
 
   const openCreateSubflow = useCallback((request: CreateSubflowRequest) => {
     setPendingSubflowBounds(request.bounds);
@@ -877,6 +1149,8 @@ export default function App() {
               onConnect={onConnect}
               onDrop={onDrop}
               onDragOver={onDragOver}
+              onNodeDragStart={onNodeDragStart}
+              onNodeDragStop={onNodeDragStop}
               panOnDrag={canvasMode === "pan"}
               selectionOnDrag={canvasMode === "select"}
               selectionMode={SelectionMode.Partial}
