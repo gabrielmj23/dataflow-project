@@ -637,7 +637,24 @@ export default function App() {
           data = {
             ...(data ?? {}),
             value: 0,
-            label: (data.label as string) ?? "Constante",
+          };
+        }
+        if (type === "constantNumber") {
+          data = {
+            ...(data ?? {}),
+            value: 0,
+          };
+        }
+        if (type === "constantBoolean") {
+          data = {
+            ...(data ?? {}),
+            value: true,
+          };
+        }
+        if (type === "constantText") {
+          data = {
+            ...(data ?? {}),
+            value: "texto",
           };
         }
         if (type === "randomInput") {

@@ -563,6 +563,9 @@ function mapHandleToPortId(params: {
   // Input circle nodes: no explicit handle id -> output
   if (
     nodeType === NODE_TYPES.CONSTANT_INPUT ||
+    nodeType === NODE_TYPES.CONSTANT_NUMBER_INPUT ||
+    nodeType === NODE_TYPES.CONSTANT_BOOLEAN_INPUT ||
+    nodeType === NODE_TYPES.CONSTANT_TEXT_INPUT ||
     nodeType === NODE_TYPES.RANDOM_INPUT ||
     nodeType === NODE_TYPES.TIMER_INPUT
   ) {
@@ -759,6 +762,18 @@ function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
     case NODE_TYPES.CONSTANT_INPUT: {
       const value = data.value as number | string | boolean | undefined;
       return new EngineConstantNode(value ?? 0);
+    }
+    case NODE_TYPES.CONSTANT_NUMBER_INPUT: {
+      const value = typeof data.value === "number" ? data.value : 0;
+      return new EngineConstantNode(value);
+    }
+    case NODE_TYPES.CONSTANT_BOOLEAN_INPUT: {
+      const value = data.value === true;
+      return new EngineConstantNode(value);
+    }
+    case NODE_TYPES.CONSTANT_TEXT_INPUT: {
+      const value = typeof data.value === "string" ? data.value : "";
+      return new EngineConstantNode(value);
     }
     case NODE_TYPES.RANDOM_INPUT: {
       const min = typeof data.min === "number" ? data.min : 0;
