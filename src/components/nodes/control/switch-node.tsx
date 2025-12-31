@@ -15,6 +15,15 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export type SwitchNodeData = {
   label?: string;
@@ -218,11 +227,11 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                       <label className="mb-1 block text-sm font-medium text-gray-900">
                         Operador
                       </label>
-                      <select
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      <Select
                         value={cond.operator}
-                        onChange={(e) => {
-                          const next = e.currentTarget.value as SwitchOperator;
+                        onValueChange={(value: string) => {
+                          if (!isOperator(value)) return;
+                          const next = value;
                           setDraftConditions((prev) =>
                             prev.map((c, i) =>
                               i === idx
@@ -238,24 +247,40 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                           );
                         }}
                       >
-                        <optgroup label="Lógico">
-                          <option value="truthy">Es verdadero</option>
-                          <option value="falsy">Es falso</option>
-                        </optgroup>
-                        <optgroup label="Texto">
-                          <option value="contains">Contiene</option>
-                          <option value="startsWith">Inicia con</option>
-                          <option value="endsWith">Termina con</option>
-                        </optgroup>
-                        <optgroup label="Comparación">
-                          <option value="==">Igual (==)</option>
-                          <option value="!=">Distinto (!=)</option>
-                          <option value=">">Mayor (&gt;)</option>
-                          <option value=">=">Mayor o igual (&gt;=)</option>
-                          <option value="<">Menor (&lt;)</option>
-                          <option value="<=">Menor o igual (&lt;=)</option>
-                        </optgroup>
-                      </select>
+                        <SelectTrigger className="h-10">
+                          <SelectValue placeholder="Selecciona un operador" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>Lógico</SelectLabel>
+                            <SelectItem value="truthy">Es verdadero</SelectItem>
+                            <SelectItem value="falsy">Es falso</SelectItem>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>Texto</SelectLabel>
+                            <SelectItem value="contains">Contiene</SelectItem>
+                            <SelectItem value="startsWith">
+                              Inicia con
+                            </SelectItem>
+                            <SelectItem value="endsWith">
+                              Termina con
+                            </SelectItem>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>Comparación</SelectLabel>
+                            <SelectItem value="==">Igual (==)</SelectItem>
+                            <SelectItem value="!=">Distinto (!=)</SelectItem>
+                            <SelectItem value=">">Mayor (&gt;)</SelectItem>
+                            <SelectItem value=">=">
+                              Mayor o igual (&gt;=)
+                            </SelectItem>
+                            <SelectItem value="<">Menor (&lt;)</SelectItem>
+                            <SelectItem value="<=">
+                              Menor o igual (&lt;=)
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div>
