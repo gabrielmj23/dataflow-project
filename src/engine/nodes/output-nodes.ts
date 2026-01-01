@@ -1,7 +1,7 @@
 import { FirePatterns, NodeDefinition } from "../program-elements";
 
 export class EngineWriteNode extends NodeDefinition {
-  constructor(inputCount = 1) {
+  constructor(inputCount = 1, template?: string) {
     const safeCount = Number.isFinite(inputCount)
       ? Math.max(1, Math.floor(inputCount))
       : 1;
@@ -13,7 +13,10 @@ export class EngineWriteNode extends NodeDefinition {
       },
       Array.from({ length: safeCount }, () => FirePatterns.EXISTS),
       Array.from({ length: safeCount }, (_, i) => `input${i + 1}`),
-      { kind: "write" }
+      {
+        kind: "write",
+        template: typeof template === "string" ? template : undefined,
+      }
     );
   }
 }

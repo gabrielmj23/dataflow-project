@@ -907,7 +907,8 @@ function flowNodeToEngineDefinition(
 
     case NODE_TYPES.WRITE_SINK:
       return new EngineWriteNode(
-        context?.writeSinkInputCountByNodeId?.get(String(flowNode.id)) ?? 1
+        context?.writeSinkInputCountByNodeId?.get(String(flowNode.id)) ?? 1,
+        typeof data.template === "string" ? data.template : undefined
       );
 
     case NODE_TYPES.GENERATE_SEQUENCE_NODE: {
