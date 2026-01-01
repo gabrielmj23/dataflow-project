@@ -6,12 +6,19 @@ import { ProcessingRectNodeShell } from "@/components/nodes/processing/processin
 
 export type DivideNodeData = {
   label?: string;
+  runtimeError?: string | null;
 };
 
 export const DivideNode = memo(({ data }: NodeProps) => {
-  const { label = "División" } = (data ?? {}) as DivideNodeData;
+  const { label = "División", runtimeError } = (data ?? {}) as DivideNodeData;
 
-  return <ProcessingRectNodeShell icon={<Divide className="h-6 w-6" />} label={label} />;
+  return (
+    <ProcessingRectNodeShell
+      icon={<Divide className="h-6 w-6" />}
+      label={label}
+      runtimeError={runtimeError}
+    />
+  );
 });
 
 DivideNode.displayName = "DivideNode";

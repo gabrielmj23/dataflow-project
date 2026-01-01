@@ -17,7 +17,11 @@ export function InputCircleNodeShell({
   onConfigClick,
 }: InputCircleNodeShellProps) {
   return (
-    <BaseNode className="relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 text-center text-white shadow-md">
+    <BaseNode
+      hideRuntimeBadges
+      disableRuntimeStyles
+      className="relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 text-center text-white shadow-md"
+    >
       {onConfigClick && (
         <BaseNodeHeader className="absolute top-1 right-1">
           <NodeSettingsButton onClick={onConfigClick} />

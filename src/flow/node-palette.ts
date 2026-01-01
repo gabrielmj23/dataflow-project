@@ -22,9 +22,19 @@ export const nodePalette: NodePaletteCategory[] = [
     title: "Entradas y eventos",
     items: [
       {
-        type: "constantInput",
-        label: "Constante",
-        description: "Emite siempre el mismo valor configurado.",
+        type: "constantNumber",
+        label: "Constante numérica",
+        description: "Emite siempre el mismo número configurado.",
+      },
+      {
+        type: "constantBoolean",
+        label: "Constante lógica",
+        description: "Emite siempre el mismo valor verdadero/falso.",
+      },
+      {
+        type: "constantText",
+        label: "Constante de texto",
+        description: "Emite siempre el mismo texto configurado.",
       },
       {
         type: "timerInput",

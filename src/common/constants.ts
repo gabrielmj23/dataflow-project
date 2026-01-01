@@ -1,5 +1,8 @@
 export const NODE_TYPES = {
   CONSTANT_INPUT: "constantInput",
+  CONSTANT_NUMBER_INPUT: "constantNumber",
+  CONSTANT_BOOLEAN_INPUT: "constantBoolean",
+  CONSTANT_TEXT_INPUT: "constantText",
   RANDOM_INPUT: "randomInput",
   TIMER_INPUT: "timerInput",
   SUBFLOW: "subflow",

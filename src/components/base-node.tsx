@@ -1,12 +1,34 @@
 import type { ComponentProps } from "react";
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+type BaseNodeProps = ComponentProps<"div"> & {
+  hideRuntimeBadges?: boolean;
+  /**
+   * When true, disables visual runtime state styles (borders/halos).
+   * Used for constant/input nodes so they don't show execution state.
+   */
+  disableRuntimeStyles?: boolean;
+  /** Optional runtime error message to show in a tooltip when the node fails. */
+  runtimeError?: string | null;
+};
 
-export function BaseNode({ className, ...props }: ComponentProps<"div">) {
-  return (
+export function BaseNode({
+  className,
+  hideRuntimeBadges,
+  disableRuntimeStyles,
+  runtimeError,
+  ...props
+}: BaseNodeProps) {
+  const hasErrorTooltip = Boolean(runtimeError) && !disableRuntimeStyles;
+
+  const content = (
     <div
       className={cn(
-        "bg-card text-card-foreground relative rounded-md border",
+        // Inner node container; when runtime styles are disabled we skip the
+        // `rf-node-inner` class so global runtime CSS won't touch it.
+        disableRuntimeStyles ? "" : "rf-node-inner",
+        "bg-card text-card-foreground relative rounded-md border border-border",
         "hover:ring-1",
         // React Flow displays node elements inside of a `NodeWrapper` component,
         // which compiles down to a div with the class `react-flow__node`.
@@ -19,7 +41,27 @@ export function BaseNode({ className, ...props }: ComponentProps<"div">) {
       )}
       tabIndex={0}
       {...props}
-    />
+    >
+      {!hideRuntimeBadges && (
+        <span className="rf-runtime-badge rf-runtime-running pointer-events-none absolute top-1 left-1 hidden select-none rounded bg-background/80 px-1 py-0.5 text-[10px] leading-none text-foreground">
+          <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-current border-r-transparent" />
+        </span>
+      )}
+      {props.children}
+    </div>
+  );
+
+  if (!hasErrorTooltip) {
+    return content;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{content}</TooltipTrigger>
+      <TooltipContent side="top" sideOffset={8} className="text-red-600">
+        {`Error: ${runtimeError ?? ""}`}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 

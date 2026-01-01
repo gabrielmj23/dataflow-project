@@ -8,7 +8,8 @@ export class EngineWriteNode extends NodeDefinition {
         return data;
       },
       [FirePatterns.EXISTS],
-      ["input"]
+      ["input"],
+      { kind: "write" }
     );
   }
 }

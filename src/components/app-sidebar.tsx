@@ -233,6 +233,9 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
   const core = (() => {
     switch (type) {
       case "constantInput":
+      case "constantNumber":
+      case "constantBoolean":
+      case "constantText":
       case "timerInput":
       case "randomInput": {
         return (
@@ -240,14 +243,17 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             data-drag-preview
             className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md"
           >
-            <span className="mb-1 flex items-center justify-center">
-              {type === "constantInput" && (
-                <span className="text-lg font-bold">0</span>
-              )}
-              {type === "timerInput" && <Timer className="h-6 w-6" />}
-              {type === "randomInput" && <Shuffle className="h-6 w-6" />}
-            </span>
-            <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
+            {type === "timerInput" || type === "randomInput" ? (
+              <>
+                <span className="mb-1 flex items-center justify-center">
+                  {type === "timerInput" && <Timer className="h-6 w-6" />}
+                  {type === "randomInput" && <Shuffle className="h-6 w-6" />}
+                </span>
+                <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
+              </>
+            ) : (
+              <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
+            )}
           </div>
         );
       }

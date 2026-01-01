@@ -6,12 +6,19 @@ import { ProcessingRectNodeShell } from "@/components/nodes/processing/processin
 
 export type ModNodeData = {
   label?: string;
+  runtimeError?: string | null;
 };
 
 export const ModNode = memo(({ data }: NodeProps) => {
-  const { label = "Módulo" } = (data ?? {}) as ModNodeData;
+  const { label = "Módulo", runtimeError } = (data ?? {}) as ModNodeData;
 
-  return <ProcessingRectNodeShell icon={<Percent className="h-5 w-5" />} label={label} />;
+  return (
+    <ProcessingRectNodeShell
+      icon={<Percent className="h-5 w-5" />}
+      label={label}
+      runtimeError={runtimeError}
+    />
+  );
 });
 
 ModNode.displayName = "ModNode";

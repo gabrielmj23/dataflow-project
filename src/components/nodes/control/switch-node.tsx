@@ -28,6 +28,7 @@ import {
 export type SwitchNodeData = {
   label?: string;
   conditions?: SwitchCondition[];
+  runtimeError?: string | null;
 };
 
 export type SwitchOperator =
@@ -101,8 +102,11 @@ function requiresTarget(operator: SwitchOperator): boolean {
 }
 
 export const SwitchNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Switch", conditions: rawConditions } = (data ??
-    {}) as SwitchNodeData;
+  const {
+    label = "Switch",
+    conditions: rawConditions,
+    runtimeError,
+  } = (data ?? {}) as SwitchNodeData;
 
   const conditions = useMemo(() => {
     const parsed = sanitizeConditions(rawConditions);
@@ -162,6 +166,7 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
         outputCount={outputCount}
         outputHandleIds={outputHandleIds}
         onConfigClick={openDialog}
+        runtimeError={runtimeError}
       />
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
