@@ -363,19 +363,19 @@ export class DataflowEngine {
 
     // Optional slow-motion delay to visualize program execution.
     if (ENGINE_STEP_DELAY_MS > 0) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, ENGINE_STEP_DELAY_MS)
-      );
+      await new Promise((resolve) => setTimeout(resolve, ENGINE_STEP_DELAY_MS));
     }
 
     // Surface write-node outputs to observers (frontend console)
     if (nodeDefinition.meta.kind === "write") {
-      this.observer?.onLog?.({
-        level: "info",
-        nodeId: node.id,
-        message: "write",
-        data: argValues[0],
-      });
+      for (let i = 0; i < argValues.length; i += 1) {
+        this.observer?.onLog?.({
+          level: "info",
+          nodeId: node.id,
+          message: "write",
+          data: { index: i + 1, value: argValues[i] },
+        });
+      }
     }
 
     let rawResult: unknown;
@@ -383,7 +383,11 @@ export class DataflowEngine {
       // Invoke activation function with locals
       rawResult = await nodeDefinition.activationFunction(...argValues);
     } catch (error) {
-      this.observer?.onNodeStatus?.({ nodeId: node.id, status: "error", error });
+      this.observer?.onNodeStatus?.({
+        nodeId: node.id,
+        status: "error",
+        error,
+      });
       this.observer?.onLog?.({
         level: "error",
         nodeId: node.id,

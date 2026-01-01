@@ -8,10 +8,32 @@ type IoRectNodeShellProps = {
   icon: ReactNode;
   label: string;
   variant?: "default" | "sink";
+  /** Optional explicit target handle ids for `sink` nodes (dynamic inputs). */
+  targetHandleIds?: string[];
   runtimeError?: string | null;
 };
 
-export function IoRectNodeShell({ icon, label, variant = "default", runtimeError }: IoRectNodeShellProps) {
+function offsets(count: number): string[] {
+  const safeCount = Math.max(0, Math.floor(count));
+  if (safeCount === 0) return [];
+  if (safeCount === 1) return ["50%"];
+
+  const start = 15;
+  const end = 85;
+  const step = (end - start) / (safeCount - 1);
+  return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
+}
+
+export function IoRectNodeShell({
+  icon,
+  label,
+  variant = "default",
+  targetHandleIds,
+  runtimeError,
+}: IoRectNodeShellProps) {
+  const targetOffsets =
+    variant === "sink" ? offsets(targetHandleIds?.length ?? 1) : [];
+
   return (
     <BaseNode
       runtimeError={runtimeError}
@@ -38,11 +60,18 @@ export function IoRectNodeShell({ icon, label, variant = "default", runtimeError
       )}
 
       {variant === "sink" && (
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-rose-700 bg-white"
-        />
+        <>
+          {(targetHandleIds ?? ["in-1"]).map((handleId, index) => (
+            <Handle
+              key={`sink-in-${handleId}`}
+              type="target"
+              position={Position.Left}
+              id={handleId}
+              style={{ top: targetOffsets[index] ?? "50%" }}
+              className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-rose-700 bg-white"
+            />
+          ))}
+        </>
       )}
     </BaseNode>
   );

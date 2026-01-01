@@ -570,21 +570,54 @@ export default function App() {
       setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
     []
   );
-  const onConnect = useCallback((params: Connection) => {
-    const typed = params as Connection & { type?: string; data?: unknown };
+  const onConnect = useCallback(
+    (params: Connection) => {
+      const typed = params as Connection & { type?: string; data?: unknown };
 
-    const newEdge: Edge = {
-      id: createNodeId(),
-      source: String(typed.source),
-      target: String(typed.target),
-      sourceHandle: typed.sourceHandle ?? null,
-      targetHandle: typed.targetHandle ?? null,
-      type: typed.type,
-      data: (typed.data ?? {}) as Record<string, unknown>,
-    };
+      const newEdge: Edge = {
+        id: createNodeId(),
+        source: String(typed.source),
+        target: String(typed.target),
+        sourceHandle: typed.sourceHandle ?? null,
+        targetHandle: typed.targetHandle ?? null,
+        type: typed.type,
+        data: (typed.data ?? {}) as Record<string, unknown>,
+      };
 
-    setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
-  }, []);
+      // Dynamic inputs for Write node: when the user connects into the last
+      // available input handle, we append a new one.
+      if (typed.target && (typed.targetHandle ?? null) != null) {
+        const targetId = String(typed.target);
+        const targetHandle = String(typed.targetHandle);
+        setNodes((prev) =>
+          prev.map((n) => {
+            if (String(n.id) !== targetId) return n;
+            if (n.type !== "write") return n;
+            const data = (
+              n.data && typeof n.data === "object" ? n.data : {}
+            ) as Record<string, unknown>;
+            const current =
+              typeof data.inputCount === "number" ? data.inputCount : 1;
+            const currentCount = Number.isFinite(current)
+              ? Math.max(1, Math.floor(current))
+              : 1;
+            const lastHandleId = `in-${currentCount}`;
+            if (targetHandle !== lastHandleId) return n;
+            return {
+              ...n,
+              data: {
+                ...data,
+                inputCount: currentCount + 1,
+              },
+            };
+          })
+        );
+      }
+
+      setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
+    },
+    [setEdges, setNodes]
+  );
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -757,10 +790,15 @@ export default function App() {
       setNodes((prev) =>
         prev.map((n) => ({
           ...n,
-          className: `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus("waiting")}`.trim(),
+          className: `${stripRuntimeClasses(
+            n.className
+          )} ${runtimeClassForStatus("waiting")}`.trim(),
           data:
             n.data && typeof n.data === "object"
-              ? { ...(n.data as Record<string, unknown>), runtimeError: undefined }
+              ? {
+                  ...(n.data as Record<string, unknown>),
+                  runtimeError: undefined,
+                }
               : n.data,
         }))
       );
@@ -1430,7 +1468,11 @@ export default function App() {
               <Panel
                 position="bottom-left"
                 className="w-80"
-                style={{ left: "50%", transform: "translateX(-50%)", bottom: 16 }}
+                style={{
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  bottom: 16,
+                }}
               >
                 <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
                   <div className="border-b px-2 py-1 text-sm font-medium">
