@@ -2,6 +2,9 @@ import type { NodeTypes } from "@xyflow/react";
 
 import { BaseDataflowNode } from "@/components/nodes/base-dataflow-node";
 import { ConstantInputNode } from "@/components/nodes/input/constant-input-node";
+import { ConstantNumberInputNode } from "@/components/nodes/input/constant-number-input-node";
+import { ConstantBooleanInputNode } from "@/components/nodes/input/constant-boolean-input-node";
+import { ConstantTextInputNode } from "@/components/nodes/input/constant-text-input-node";
 import { RandomInputNode } from "@/components/nodes/input/random-input-node";
 import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
 
@@ -33,6 +36,9 @@ import { CountNode } from "@/components/nodes/iteration/count-node";
 export const nodeTypesCore: NodeTypes = {
   baseNode: BaseDataflowNode,
   constantInput: ConstantInputNode,
+  constantNumber: ConstantNumberInputNode,
+  constantBoolean: ConstantBooleanInputNode,
+  constantText: ConstantTextInputNode,
   randomInput: RandomInputNode,
   timerInput: TimerInputNode,
   sum: SumNode,
