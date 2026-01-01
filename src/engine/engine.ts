@@ -8,10 +8,34 @@ import {
 } from "./program-elements";
 import { ArcStore, NodeStore, TokenStore } from "./stores";
 
+// Global artificial delay (in ms) applied before each node execution.
+// Set to 0 to disable the slowdown effect.
+export const ENGINE_STEP_DELAY_MS = 1000;
+
+export type EngineNodeStatus = "waiting" | "running" | "done" | "error";
+export type EngineLogLevel = "info" | "error";
+
+export type EngineObserver = {
+  onRunStart?: () => void;
+  onRunEnd?: (event: { ok: boolean; error?: unknown }) => void;
+  onNodeStatus?: (event: {
+    nodeId: string;
+    status: EngineNodeStatus;
+    error?: unknown;
+  }) => void;
+  onLog?: (event: {
+    level: EngineLogLevel;
+    nodeId?: string;
+    message: string;
+    data?: unknown;
+  }) => void;
+};
+
 export class DataflowEngine {
   private arcStore: ArcStore;
   private nodeStore: NodeStore;
   private tokenStore: TokenStore;
+  private observer: EngineObserver | null = null;
 
   /**
    * Creates a new in-memory dataflow engine with empty stores.
@@ -20,6 +44,10 @@ export class DataflowEngine {
     this.arcStore = new ArcStore();
     this.nodeStore = new NodeStore();
     this.tokenStore = new TokenStore();
+  }
+
+  setObserver(observer: EngineObserver | null): void {
+    this.observer = observer;
   }
 
   /**
@@ -58,6 +86,8 @@ export class DataflowEngine {
       batches?: number;
     };
   }): Promise<DataToken<unknown>[]> {
+    this.observer?.onRunStart?.();
+
     const maxSteps =
       typeof params.maxSteps === "number" && params.maxSteps > 0
         ? Math.floor(params.maxSteps)
@@ -75,47 +105,53 @@ export class DataflowEngine {
 
     // Execute in concurrent batches: any nodes that can fire without consuming
     // overlapping tokens are executed together.
-    while (executedSteps < maxSteps) {
-      const batch = this.tryEnableBatch({
-        maxExecutions: maxSteps - executedSteps,
-        skipIfNoConsumptionAndPreviouslyFired: firedWithoutConsumingTokens,
-      });
+    try {
+      while (executedSteps < maxSteps) {
+        const batch = this.tryEnableBatch({
+          maxExecutions: maxSteps - executedSteps,
+          skipIfNoConsumptionAndPreviouslyFired: firedWithoutConsumingTokens,
+        });
 
-      if (batch.length === 0) {
-        break;
-      }
+        if (batch.length === 0) {
+          break;
+        }
 
-      batches += 1;
-      if (params.trace && params.trace.batches !== undefined) {
-        params.trace.batches = batches;
-      }
+        batches += 1;
+        if (params.trace && params.trace.batches !== undefined) {
+          params.trace.batches = batches;
+        }
 
-      const executed = params.trace?.executedNodeIds;
-      if (executed) {
+        const executed = params.trace?.executedNodeIds;
+        if (executed) {
+          for (const t of batch) {
+            executed.push(t.node.id);
+          }
+        }
+
         for (const t of batch) {
-          executed.push(t.node.id);
+          if (t.dataTokens.length === 0) {
+            firedWithoutConsumingTokens.add(t.node.id);
+          }
+        }
+
+        executedSteps += batch.length;
+
+        const batchOutputs = await Promise.all(
+          batch.map((t) => this.executeUnit(t))
+        );
+        for (const outputTokens of batchOutputs) {
+          for (const outputToken of outputTokens) {
+            externalOutputs.push(...this.transmitToken(outputToken));
+          }
         }
       }
 
-      for (const t of batch) {
-        if (t.dataTokens.length === 0) {
-          firedWithoutConsumingTokens.add(t.node.id);
-        }
-      }
-
-      executedSteps += batch.length;
-
-      const batchOutputs = await Promise.all(
-        batch.map((t) => this.executeUnit(t))
-      );
-      for (const outputTokens of batchOutputs) {
-        for (const outputToken of outputTokens) {
-          externalOutputs.push(...this.transmitToken(outputToken));
-        }
-      }
+      this.observer?.onRunEnd?.({ ok: true });
+      return externalOutputs;
+    } catch (error) {
+      this.observer?.onRunEnd?.({ ok: false, error });
+      throw error;
     }
-
-    return externalOutputs;
   }
 
   /**
@@ -306,6 +342,8 @@ export class DataflowEngine {
     const node = token.node;
     const nodeDefinition = node.nodeDefinition;
 
+    this.observer?.onNodeStatus?.({ nodeId: node.id, status: "running" });
+
     // Global -> Local (strip node id, keep port id + value)
     const localInputTokens = token.dataTokens.map(
       (globalToken) =>
@@ -323,8 +361,41 @@ export class DataflowEngine {
       .filter((t): t is DataToken<unknown> => Boolean(t))
       .map((t) => t.value);
 
-    // Invoke activation function with locals
-    const rawResult = await nodeDefinition.activationFunction(...argValues);
+    // Optional slow-motion delay to visualize program execution.
+    if (ENGINE_STEP_DELAY_MS > 0) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, ENGINE_STEP_DELAY_MS)
+      );
+    }
+
+    // Surface write-node outputs to observers (frontend console)
+    if (nodeDefinition.meta.kind === "write") {
+      this.observer?.onLog?.({
+        level: "info",
+        nodeId: node.id,
+        message: "write",
+        data: argValues[0],
+      });
+    }
+
+    let rawResult: unknown;
+    try {
+      // Invoke activation function with locals
+      rawResult = await nodeDefinition.activationFunction(...argValues);
+    } catch (error) {
+      this.observer?.onNodeStatus?.({ nodeId: node.id, status: "error", error });
+      this.observer?.onLog?.({
+        level: "error",
+        nodeId: node.id,
+        message: "error",
+        data: error,
+      });
+      // Do not propagate the error to the whole program run. By returning
+      // no output tokens, this effectively cuts the execution of this
+      // particular flow, while allowing other independent flows to
+      // continue executing.
+      return [];
+    }
 
     // Normalize outputs to local tokens
     const inputPortIds = new Set(
@@ -338,6 +409,8 @@ export class DataflowEngine {
       rawResult,
       outputPortIds
     );
+
+    this.observer?.onNodeStatus?.({ nodeId: node.id, status: "done" });
 
     // Local -> Global (add current node id back)
     return localOutputTokens.map(

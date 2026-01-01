@@ -59,10 +59,11 @@ const OPERATORS: Array<{
 export type ComparisonNodeData = {
   label?: string;
   operator?: ComparisonOperator;
+  runtimeError?: string | null;
 };
 
 export const ComparisonNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Comparación", operator: rawOperator } = (data ??
+  const { label = "Comparación", operator: rawOperator, runtimeError } = (data ??
     {}) as ComparisonNodeData;
 
   const operator = useMemo<ComparisonOperator>(() => {
@@ -115,6 +116,7 @@ export const ComparisonNode = memo(({ id, data }: NodeProps) => {
       <ControlRectNodeShell
         icon={OPERATORS.find(({ op }) => op === operator)?.icon ?? "?"}
         label={label}
+        runtimeError={runtimeError}
         onConfigClick={openDialog}
       />
 

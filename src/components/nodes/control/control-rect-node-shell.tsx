@@ -10,6 +10,7 @@ type ControlRectNodeShellProps = {
   label: string;
   variant?: "default" | "singleInDualOut" | "singleInSingleOut";
   onConfigClick?: () => void;
+  runtimeError?: string | null;
 };
 
 export function ControlRectNodeShell({
@@ -17,9 +18,13 @@ export function ControlRectNodeShell({
   label,
   variant = "default",
   onConfigClick,
+  runtimeError,
 }: ControlRectNodeShellProps) {
   return (
-    <BaseNode className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md">
+    <BaseNode
+      runtimeError={runtimeError}
+      className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+    >
       {onConfigClick && (
         <BaseNodeHeader className="absolute top-1 right-1">
           <NodeSettingsButton onClick={onConfigClick} />

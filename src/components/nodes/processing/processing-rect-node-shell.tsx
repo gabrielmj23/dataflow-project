@@ -7,11 +7,15 @@ import { BaseNode } from "@/components/base-node";
 type ProcessingRectNodeShellProps = {
   icon: ReactNode;
   label: string;
+  runtimeError?: string | null;
 };
 
-export function ProcessingRectNodeShell({ icon, label }: ProcessingRectNodeShellProps) {
+export function ProcessingRectNodeShell({ icon, label, runtimeError }: ProcessingRectNodeShellProps) {
   return (
-    <BaseNode className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 px-5 text-center text-white shadow-md">
+    <BaseNode
+      runtimeError={runtimeError}
+      className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 px-5 text-center text-white shadow-md"
+    >
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>

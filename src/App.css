@@ -71,3 +71,33 @@
 .rf-icon-hand * {
   fill: none !important;
 }
+
+/* Runtime status badges (set by App.tsx via node.className) */
+.react-flow__node.rf-node-running .rf-runtime-running {
+  display: inline-flex;
+}
+
+/* Strong outlines for runtime states applied to the inner node container
+   so they follow the exact rounded shape of each node. */
+.react-flow__node.rf-node-waiting .rf-node-inner {
+  border-width: 3px;
+  border-color: rgba(148, 163, 184, 0.95);
+}
+
+.react-flow__node.rf-node-running .rf-node-inner {
+  border-width: 3px;
+  border-color: rgba(56, 189, 248, 0.98);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.6);
+}
+
+.react-flow__node.rf-node-done .rf-node-inner {
+  border-width: 3px;
+  border-color: rgba(34, 197, 94, 0.98);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.6);
+}
+
+.react-flow__node.rf-node-error .rf-node-inner {
+  border-width: 3px;
+  border-color: rgba(239, 68, 68, 0.98);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.6);
+}

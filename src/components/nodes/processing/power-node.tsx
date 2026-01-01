@@ -5,15 +5,17 @@ import { ProcessingRectNodeShell } from "@/components/nodes/processing/processin
 
 export type PowerNodeData = {
   label?: string;
+  runtimeError?: string | null;
 };
 
 export const PowerNode = memo(({ data }: NodeProps) => {
-  const { label = "Potencia" } = (data ?? {}) as PowerNodeData;
+  const { label = "Potencia", runtimeError } = (data ?? {}) as PowerNodeData;
 
   return (
     <ProcessingRectNodeShell
       icon={<span className="text-sm font-bold">x²</span>}
       label={label}
+      runtimeError={runtimeError}
     />
   );
 });

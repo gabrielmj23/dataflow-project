@@ -5,15 +5,17 @@ import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-no
 
 export type OrNodeData = {
   label?: string;
+  runtimeError?: string | null;
 };
 
 export const OrNode = memo(({ data }: NodeProps) => {
-  const { label = "OR" } = (data ?? {}) as OrNodeData;
+  const { label = "OR", runtimeError } = (data ?? {}) as OrNodeData;
 
   return (
     <ControlRectNodeShell
       icon={<span className="text-sm font-bold">∨</span>}
       label={label}
+      runtimeError={runtimeError}
     />
   );
 });

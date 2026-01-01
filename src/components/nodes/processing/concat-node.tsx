@@ -6,12 +6,19 @@ import { ProcessingRectNodeShell } from "@/components/nodes/processing/processin
 
 export type ConcatNodeData = {
   label?: string;
+  runtimeError?: string | null;
 };
 
 export const ConcatNode = memo(({ data }: NodeProps) => {
-  const { label = "Concatenar" } = (data ?? {}) as ConcatNodeData;
+  const { label = "Concatenar", runtimeError } = (data ?? {}) as ConcatNodeData;
 
-  return <ProcessingRectNodeShell icon={<Link2 className="h-5 w-5" />} label={label} />;
+  return (
+    <ProcessingRectNodeShell
+      icon={<Link2 className="h-5 w-5" />}
+      label={label}
+      runtimeError={runtimeError}
+    />
+  );
 });
 
 ConcatNode.displayName = "ConcatNode";

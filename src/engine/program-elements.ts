@@ -68,15 +68,18 @@ export class NodeDefinition {
   private _activationFunction: ActivationFunction;
   private _firePatterns: FirePatterns[];
   private _ports: string[];
+  private _meta: { kind?: string };
 
   constructor(
     activationFunction: ActivationFunction,
     firePatterns: FirePatterns[],
-    ports: string[]
+    ports: string[],
+    meta?: { kind?: string }
   ) {
     this._activationFunction = activationFunction;
     this._firePatterns = firePatterns;
     this._ports = ports;
+    this._meta = meta ?? {};
   }
 
   get activationFunction(): ActivationFunction {
@@ -91,11 +94,16 @@ export class NodeDefinition {
     return [...this._ports];
   }
 
+  get meta(): { kind?: string } {
+    return { ...this._meta };
+  }
+
   public clone(): NodeDefinition {
     return new NodeDefinition(
       this.activationFunction,
       [...this.firePatterns],
-      [...this.ports]
+      [...this.ports],
+      this.meta
     );
   }
 }
