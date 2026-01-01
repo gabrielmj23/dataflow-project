@@ -6,12 +6,19 @@ import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-no
 
 export type AndNodeData = {
   label?: string;
+  runtimeError?: string | null;
 };
 
 export const AndNode = memo(({ data }: NodeProps) => {
-  const { label = "AND" } = (data ?? {}) as AndNodeData;
+  const { label = "AND", runtimeError } = (data ?? {}) as AndNodeData;
 
-  return <ControlRectNodeShell icon={<Ampersand className="h-6 w-6" />} label={label} />;
+  return (
+    <ControlRectNodeShell
+      icon={<Ampersand className="h-6 w-6" />}
+      label={label}
+      runtimeError={runtimeError}
+    />
+  );
 });
 
 AndNode.displayName = "AndNode";

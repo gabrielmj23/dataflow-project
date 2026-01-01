@@ -49,7 +49,11 @@ import {
   type SerializedProgramV1,
 } from "@/flow/serialization";
 import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
-import { DataflowEngine } from "@/engine/engine";
+import {
+  DataflowEngine,
+  type EngineLogLevel,
+  type EngineNodeStatus,
+} from "@/engine/engine";
 import { nanoid } from "nanoid";
 
 type FlowNode = Node;
@@ -366,7 +370,7 @@ export default function App() {
 
   type FlowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
 
-  const [history, setHistory] = useState<{
+  const [, setHistory] = useState<{
     stack: FlowSnapshot[];
     index: number;
   }>(() => ({
@@ -378,6 +382,53 @@ export default function App() {
   const isDraggingRef = useRef(false);
   const historyTimeoutRef = useRef<number | null>(null);
   const clipboardRef = useRef<SubflowSnapshot | null>(null);
+  const isRuntimeUpdateRef = useRef(false);
+
+  const [engineLogs, setEngineLogs] = useState<
+    Array<{ ts: number; level: EngineLogLevel; nodeId?: string; text: string }>
+  >([]);
+
+  const stripRuntimeClasses = useCallback((className?: string) => {
+    if (!className) return "";
+    return className
+      .split(/\s+/g)
+      .filter(
+        (c) =>
+          c &&
+          c !== "rf-node-waiting" &&
+          c !== "rf-node-running" &&
+          c !== "rf-node-error" &&
+          c !== "rf-node-done"
+      )
+      .join(" ");
+  }, []);
+
+  const runtimeClassForStatus = useCallback((status: EngineNodeStatus) => {
+    switch (status) {
+      case "running":
+        return "rf-node-running";
+      case "error":
+        return "rf-node-error";
+      case "done":
+        return "rf-node-done";
+      case "waiting":
+      default:
+        return "rf-node-waiting";
+    }
+  }, []);
+
+  const formatLogText = useCallback((data: unknown) => {
+    if (typeof data === "string") return data;
+    if (typeof data === "number" || typeof data === "boolean") {
+      return String(data);
+    }
+    if (data instanceof Error) return data.message;
+    try {
+      return JSON.stringify(data);
+    } catch {
+      return String(data);
+    }
+  }, []);
 
   const addOrUpdateTemplate = useCallback((payload: SubflowTemplatePayload) => {
     setSubflowTemplates((prev) => {
@@ -699,8 +750,58 @@ export default function App() {
     });
 
     try {
+      // Reset runtime UI state
+      setEngineLogs([]);
+      isRuntimeUpdateRef.current = true;
+      setNodes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          className: `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus("waiting")}`.trim(),
+          data:
+            n.data && typeof n.data === "object"
+              ? { ...(n.data as Record<string, unknown>), runtimeError: undefined }
+              : n.data,
+        }))
+      );
+
       const stores = deserializeProgramToEngineStores(program);
       const engine = new DataflowEngine();
+
+      engine.setObserver({
+        onNodeStatus: ({ nodeId, status, error }) => {
+          isRuntimeUpdateRef.current = true;
+          const errorText =
+            status === "error" && error !== undefined
+              ? formatLogText(error)
+              : undefined;
+          setNodes((prev) =>
+            prev.map((n) => {
+              if (String(n.id) !== String(nodeId)) return n;
+              const base = stripRuntimeClasses(n.className);
+              const next = `${base} ${runtimeClassForStatus(status)}`.trim();
+              let data = n.data;
+              if (data && typeof data === "object") {
+                data = {
+                  ...(data as Record<string, unknown>),
+                  runtimeError: errorText,
+                };
+              }
+              return { ...n, className: next, data };
+            })
+          );
+        },
+        onLog: ({ level, nodeId, message, data }) => {
+          const payload = message === "write" ? data : data ?? message;
+          const baseText = formatLogText(payload);
+          const text = level === "error" ? `Error: ${baseText}` : baseText;
+          setEngineLogs((prev) => {
+            const next = [...prev, { ts: Date.now(), level, nodeId, text }];
+            const MAX = 200;
+            return next.length > MAX ? next.slice(next.length - MAX) : next;
+          });
+        },
+      });
+
       engine.loadProgram({
         nodes: stores.nodeStore.getNodes(),
         arcs: stores.arcStore.getArcs(),
@@ -714,6 +815,14 @@ export default function App() {
       });
     } catch (err) {
       console.error("Failed to load program into engine:", err);
+      setEngineLogs((prev) => [
+        ...prev,
+        {
+          ts: Date.now(),
+          level: "error",
+          text: formatLogText(err),
+        },
+      ]);
     }
   }, [edges, nodes, programName, reactFlowInstance]);
 
@@ -883,17 +992,23 @@ export default function App() {
     if (isRestoringRef.current) {
       isRestoringRef.current = false;
       return;
-
-      if (isDraggingRef.current) {
-        return;
-      }
     }
+
+    if (isRuntimeUpdateRef.current) {
+      isRuntimeUpdateRef.current = false;
+      return;
+    }
+
+    if (isDraggingRef.current) {
+      return;
+    }
+
     if (historyTimeoutRef.current !== null) {
       window.clearTimeout(historyTimeoutRef.current);
     }
 
     historyTimeoutRef.current = window.setTimeout(() => {
-        pushHistorySnapshot();
+      pushHistorySnapshot();
     }, 200);
 
     return () => {
@@ -1311,6 +1426,36 @@ export default function App() {
                   Cargar
                   <Upload />
                 </Button>
+              </Panel>
+
+              <Panel
+                position="bottom-left"
+                className="w-80"
+                style={{ left: "50%", transform: "translateX(-50%)", bottom: 16 }}
+              >
+                <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
+                  <div className="border-b px-2 py-1 text-sm font-medium">
+                    Consola
+                  </div>
+                  <div className="max-h-52 overflow-auto p-2 text-xs font-mono">
+                    {engineLogs.length === 0 ? (
+                      <div className="text-muted-foreground">Sin salida</div>
+                    ) : (
+                      engineLogs.map((l, idx) => (
+                        <div
+                          key={`${l.ts}-${idx}`}
+                          className={
+                            l.level === "error"
+                              ? "text-destructive"
+                              : "text-foreground"
+                          }
+                        >
+                          {l.text}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
               </Panel>
               <input
                 ref={fileInputRef}

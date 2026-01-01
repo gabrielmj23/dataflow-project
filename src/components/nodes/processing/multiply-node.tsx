@@ -6,12 +6,19 @@ import { ProcessingRectNodeShell } from "@/components/nodes/processing/processin
 
 export type MultiplyNodeData = {
   label?: string;
+  runtimeError?: string | null;
 };
 
 export const MultiplyNode = memo(({ data }: NodeProps) => {
-  const { label = "Multiplicar" } = (data ?? {}) as MultiplyNodeData;
+  const { label = "Multiplicar", runtimeError } = (data ?? {}) as MultiplyNodeData;
 
-  return <ProcessingRectNodeShell icon={<X className="h-6 w-6" />} label={label} />;
+  return (
+    <ProcessingRectNodeShell
+      icon={<X className="h-6 w-6" />}
+      label={label}
+      runtimeError={runtimeError}
+    />
+  );
 });
 
 MultiplyNode.displayName = "MultiplyNode";

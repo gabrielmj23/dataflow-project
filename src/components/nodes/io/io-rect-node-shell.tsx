@@ -8,11 +8,15 @@ type IoRectNodeShellProps = {
   icon: ReactNode;
   label: string;
   variant?: "default" | "sink";
+  runtimeError?: string | null;
 };
 
-export function IoRectNodeShell({ icon, label, variant = "default" }: IoRectNodeShellProps) {
+export function IoRectNodeShell({ icon, label, variant = "default", runtimeError }: IoRectNodeShellProps) {
   return (
-    <BaseNode className="relative flex h-18 w-48 flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md">
+    <BaseNode
+      runtimeError={runtimeError}
+      className="relative flex h-18 w-48 flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md"
+    >
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
