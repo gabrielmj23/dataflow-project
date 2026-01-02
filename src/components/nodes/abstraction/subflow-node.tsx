@@ -9,6 +9,7 @@ import {
   BackgroundVariant,
   ControlButton,
   Controls,
+  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -39,6 +40,10 @@ import { nodePalette } from "@/flow/node-palette";
 import { Input } from "@/components/ui/input";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
+import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { validateConnection } from "@/flow/connection-validation";
+import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
+import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 
 export type SubflowNodeData = {
   label?: string;
@@ -120,6 +125,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [addToPalette, setAddToPalette] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
 
+  const connectionTooltip = useConnectionValidationTooltip(draftNodes);
+
   // Delete selected nodes/edges with Backspace/Delete when editor is open
   useEffect(() => {
     if (!isEditorOpen) return;
@@ -177,9 +184,17 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
   }, []);
 
-  const onEditorConnect = useCallback((params: Connection) => {
-    setDraftEdges((snapshot) => addEdge(params, snapshot));
-  }, []);
+  const onEditorConnect = useCallback(
+    (connection: Connection) => {
+      const validation = validateConnection(draftNodes, connection);
+      if (!validation.ok) {
+        connectionTooltip.show(validation.message ?? "Conexión no válida.");
+        return;
+      }
+      setDraftEdges((snapshot) => addEdge(connection, snapshot));
+    },
+    [connectionTooltip, draftNodes]
+  );
 
   const editorFlowId = useMemo(() => `subflow-editor-${id}`, [id]);
 
@@ -371,6 +386,14 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   id={editorFlowId}
                   nodes={draftNodes}
                   edges={draftEdges}
+                  defaultEdgeOptions={{
+                    markerEnd: {
+                      type: MarkerType.ArrowClosed,
+                      width: 14,
+                      height: 14,
+                    },
+                  }}
+                  connectionLineComponent={ArrowConnectionLine}
                   nodeTypes={{
                     ...nodeTypesCore,
                     subflow: NestedSubflowNode,
@@ -378,6 +401,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}
+                  isValidConnection={connectionTooltip.isValidConnection}
+                  onConnectStart={connectionTooltip.onConnectStart}
+                  onConnectEnd={connectionTooltip.onConnectEnd}
                   onInit={(instance) => {
                     editorInstanceRef.current = instance;
                   }}
@@ -392,6 +418,13 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   fitView
                   proOptions={{ hideAttribution: true }}
                 >
+                  <ConnectionErrorTooltip
+                    open={connectionTooltip.tooltip.open}
+                    message={connectionTooltip.tooltip.message}
+                    x={connectionTooltip.tooltip.x}
+                    y={connectionTooltip.tooltip.y}
+                    onClose={connectionTooltip.hide}
+                  />
                   <EditorStoreBridge
                     onNodeLookup={(lookup) => {
                       editorLookupRef.current = lookup;

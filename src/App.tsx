@@ -5,6 +5,7 @@ import {
   applyEdgeChanges,
   addEdge,
   type Connection,
+  MarkerType,
   MiniMap,
   Controls,
   Background,
@@ -31,6 +32,10 @@ import {
 } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
+import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { validateConnection } from "@/flow/connection-validation";
+import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
+import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 import {
   Dialog,
   DialogContent,
@@ -769,6 +774,8 @@ export default function App() {
     []
   );
 
+  const connectionTooltip = useConnectionValidationTooltip(nodes);
+
   // Keep WriteNode dynamic inputs in sync with actual connections.
   // - On deletions that create gaps (e.g. in-1, in-3), compact indices (→ in-1, in-2)
   // - Shrink inputCount to connectedCount+1 (keep one empty handle)
@@ -782,8 +789,15 @@ export default function App() {
     if (result.changedEdges) setEdges(result.edges);
     if (result.changedNodes) setNodes(result.nodes);
   }, [edges, nodes, setEdges, setNodes]);
+
   const onConnect = useCallback(
     (params: Connection) => {
+      const validation = validateConnection(nodes, params);
+      if (!validation.ok) {
+        connectionTooltip.show(validation.message ?? "Conexión no válida.");
+        return;
+      }
+
       const typed = params as Connection & { type?: string; data?: unknown };
 
       const newEdge: Edge = {
@@ -828,7 +842,7 @@ export default function App() {
 
       setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
     },
-    [setEdges, setNodes]
+    [connectionTooltip, nodes, setEdges, setNodes]
   );
 
   useEffect(() => {
@@ -1617,10 +1631,21 @@ export default function App() {
               edges={edges}
               nodeTypes={nodeTypes}
               edgeTypes={{ default: LabeledEdge }}
+              connectionLineComponent={ArrowConnectionLine}
+              isValidConnection={connectionTooltip.isValidConnection}
+              defaultEdgeOptions={{
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  width: 14,
+                  height: 14,
+                },
+              }}
               onInit={setReactFlowInstance}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
+              onConnectStart={connectionTooltip.onConnectStart}
+              onConnectEnd={connectionTooltip.onConnectEnd}
               onDrop={onDrop}
               onDragOver={onDragOver}
               onNodeDragStart={onNodeDragStart}
@@ -1634,6 +1659,13 @@ export default function App() {
               fitView
               proOptions={{ hideAttribution: true }}
             >
+              <ConnectionErrorTooltip
+                open={connectionTooltip.tooltip.open}
+                message={connectionTooltip.tooltip.message}
+                x={connectionTooltip.tooltip.x}
+                y={connectionTooltip.tooltip.y}
+                onClose={connectionTooltip.hide}
+              />
               <CreateSubflowOverlay
                 selectedNodes={selectedNodes}
                 edges={edges}

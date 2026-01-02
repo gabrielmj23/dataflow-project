@@ -101,3 +101,18 @@
   border-color: rgba(239, 68, 68, 0.98);
   box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.6);
 }
+
+/* Handles */
+/* React Flow styles handles as circular by default; make input (target) handles rectangular. */
+.react-flow .react-flow__handle {
+  background: var(--border) !important;
+  border: 1px solid var(--muted-foreground) !important;
+  border: 1px solid color-mix(in oklch, var(--foreground) 22%, var(--border)) !important;
+  box-shadow: none !important;
+}
+
+.react-flow .react-flow__handle.target {
+  width: 4px !important;
+  height: 10px !important;
+  border-radius: 2px !important;
+}
