@@ -16,6 +16,7 @@ import {
   BackgroundVariant,
   ControlButton,
   Controls,
+  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -43,6 +44,10 @@ import { nodePalette } from "@/flow/node-palette";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 import { Input } from "@/components/ui/input";
+import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { validateConnection } from "@/flow/connection-validation";
+import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
+import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 
 export type NestedSubflowNodeData = {
   label?: string;
@@ -115,6 +120,8 @@ export const NestedSubflowNode = memo(
     );
     const [draftLabel, setDraftLabel] = useState(label);
 
+    const connectionTooltip = useConnectionValidationTooltip(draftNodes);
+
     // Delete selected nodes/edges with Backspace/Delete when editor is open
     useEffect(() => {
       if (!isEditorOpen) return;
@@ -172,9 +179,17 @@ export const NestedSubflowNode = memo(
       setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
     }, []);
 
-    const onEditorConnect = useCallback((params: Connection) => {
-      setDraftEdges((snapshot) => addEdge(params, snapshot));
-    }, []);
+    const onEditorConnect = useCallback(
+      (connection: Connection) => {
+        const validation = validateConnection(draftNodes, connection);
+        if (!validation.ok) {
+          connectionTooltip.show(validation.message ?? "Conexión no válida.");
+          return;
+        }
+        setDraftEdges((snapshot) => addEdge(connection, snapshot));
+      },
+      [connectionTooltip, draftNodes]
+    );
 
     const editorFlowId = useMemo(() => `nested-subflow-editor-${id}`, [id]);
 
@@ -318,6 +333,14 @@ export const NestedSubflowNode = memo(
                     id={editorFlowId}
                     nodes={draftNodes}
                     edges={draftEdges}
+                    defaultEdgeOptions={{
+                      markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: 14,
+                        height: 14,
+                      },
+                    }}
+                    connectionLineComponent={ArrowConnectionLine}
                     nodeTypes={{
                       ...nodeTypesCore,
                       // Permite seguir anidando subflujos si se desea.
@@ -326,6 +349,9 @@ export const NestedSubflowNode = memo(
                     onNodesChange={onEditorNodesChange}
                     onEdgesChange={onEditorEdgesChange}
                     onConnect={onEditorConnect}
+                    isValidConnection={connectionTooltip.isValidConnection}
+                    onConnectStart={connectionTooltip.onConnectStart}
+                    onConnectEnd={connectionTooltip.onConnectEnd}
                     onInit={(instance) => {
                       editorInstanceRef.current = instance;
                     }}
@@ -342,6 +368,13 @@ export const NestedSubflowNode = memo(
                     fitView
                     proOptions={{ hideAttribution: true }}
                   >
+                    <ConnectionErrorTooltip
+                      open={connectionTooltip.tooltip.open}
+                      message={connectionTooltip.tooltip.message}
+                      x={connectionTooltip.tooltip.x}
+                      y={connectionTooltip.tooltip.y}
+                      onClose={connectionTooltip.hide}
+                    />
                     <EditorStoreBridge
                       onNodeLookup={(lookup) => {
                         editorLookupRef.current = lookup;

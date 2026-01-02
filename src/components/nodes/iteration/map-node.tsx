@@ -9,6 +9,7 @@ import {
   BackgroundVariant,
   ControlButton,
   Controls,
+  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -34,6 +35,10 @@ import { nodeTypesCore } from "@/flow/node-types-core";
 import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-node";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
+import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { validateConnection } from "@/flow/connection-validation";
+import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
+import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 
 export type MapNodeData = {
   label?: string;
@@ -55,6 +60,8 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   );
   const [draftNodes, setDraftNodes] = useState<Node[]>(() => mapNodes ?? []);
   const [draftEdges, setDraftEdges] = useState<Edge[]>(() => mapEdges ?? []);
+
+  const connectionTooltip = useConnectionValidationTooltip(draftNodes);
 
   const onEditorNodesChange = useCallback((changes: NodeChange[]) => {
     const removingMandatoryInput = changes.some(
@@ -88,9 +95,18 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
     setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
   }, []);
 
-  const onEditorConnect = useCallback((params: Connection) => {
-    setDraftEdges((snapshot) => addEdge(params, snapshot));
-  }, []);
+  const onEditorConnect = useCallback(
+    (connection: Connection) => {
+      const validation = validateConnection(draftNodes, connection);
+      if (!validation.ok) {
+        connectionTooltip.show(validation.message ?? "Conexión no válida.");
+        return;
+      }
+
+      setDraftEdges((snapshot) => addEdge(connection, snapshot));
+    },
+    [connectionTooltip, draftNodes]
+  );
 
   const editorFlowId = useMemo(() => `map-editor-${id}`, [id]);
 
@@ -296,9 +312,20 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                   nodes={draftNodes}
                   edges={draftEdges}
                   nodeTypes={editorNodeTypes}
+                  defaultEdgeOptions={{
+                    markerEnd: {
+                      type: MarkerType.ArrowClosed,
+                      width: 14,
+                      height: 14,
+                    },
+                  }}
+                  connectionLineComponent={ArrowConnectionLine}
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}
+                  isValidConnection={connectionTooltip.isValidConnection}
+                  onConnectStart={connectionTooltip.onConnectStart}
+                  onConnectEnd={connectionTooltip.onConnectEnd}
                   panOnDrag={editorCanvasMode === "pan"}
                   selectionOnDrag={editorCanvasMode === "select"}
                   selectionMode={SelectionMode.Partial}
@@ -313,6 +340,13 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                   fitView
                   proOptions={{ hideAttribution: true }}
                 >
+                  <ConnectionErrorTooltip
+                    open={connectionTooltip.tooltip.open}
+                    message={connectionTooltip.tooltip.message}
+                    x={connectionTooltip.tooltip.x}
+                    y={connectionTooltip.tooltip.y}
+                    onClose={connectionTooltip.hide}
+                  />
                   <Background variant={BackgroundVariant.Dots} />
                   <Controls>
                     <ControlButton

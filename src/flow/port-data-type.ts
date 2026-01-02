@@ -1,5 +1,40 @@
 export type PortDataType = "number" | "text" | "boolean" | "any";
 
+// Bitmask for validating connections where an input can accept multiple types
+// (e.g. concat accepts number OR text).
+export type PortDataTypeMask = number;
+
+const TYPE_NUMBER = 1 << 0;
+const TYPE_TEXT = 1 << 1;
+const TYPE_BOOLEAN = 1 << 2;
+const TYPE_ANY = TYPE_NUMBER | TYPE_TEXT | TYPE_BOOLEAN;
+
+export function describePortTypeMask(mask: PortDataTypeMask): string {
+  const parts: string[] = [];
+  if ((mask & TYPE_NUMBER) !== 0) parts.push("numérico");
+  if ((mask & TYPE_TEXT) !== 0) parts.push("texto");
+  if ((mask & TYPE_BOOLEAN) !== 0) parts.push("lógico");
+
+  if (parts.length === 0) return "desconocido";
+  if (parts.length === 1) return parts[0];
+  if (parts.length === 2) return `${parts[0]} o ${parts[1]}`;
+  return `${parts[0]}, ${parts[1]} o ${parts[2]}`;
+}
+
+function toMask(type: PortDataType): PortDataTypeMask {
+  switch (type) {
+    case "number":
+      return TYPE_NUMBER;
+    case "text":
+      return TYPE_TEXT;
+    case "boolean":
+      return TYPE_BOOLEAN;
+    case "any":
+    default:
+      return TYPE_ANY;
+  }
+}
+
 export function normalizePortDataType(value: unknown): PortDataType {
   switch (value) {
     case "number":
@@ -142,4 +177,95 @@ export function inferPortDataType(params: {
   }
 
   return "any";
+}
+
+/**
+ * Returns the allowed type(s) for a given node handle.
+ *
+ * This is used for connection validation (isValidConnection). It's intentionally
+ * broader than runtime typing; if unsure, it should return "any".
+ */
+export function getPortTypeMask(params: {
+  nodeType: string | null | undefined;
+  handleType: "source" | "target";
+  handleId: string | null | undefined;
+}): PortDataTypeMask {
+  const { nodeType, handleType } = params;
+
+  if (!nodeType) return TYPE_ANY;
+
+  const isOutput = handleType === "source";
+
+  // Inputs & events
+  if (nodeType === "constantNumber" || nodeType === "randomInput" || nodeType === "timerInput") {
+    return isOutput ? TYPE_NUMBER : TYPE_ANY;
+  }
+  if (nodeType === "constantText") {
+    return isOutput ? TYPE_TEXT : TYPE_ANY;
+  }
+  if (nodeType === "constantBoolean") {
+    return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
+  }
+  if (nodeType === "constantInput") {
+    return TYPE_ANY;
+  }
+
+  // Processing
+  if (
+    nodeType === "sum" ||
+    nodeType === "subtract" ||
+    nodeType === "multiply" ||
+    nodeType === "divide" ||
+    nodeType === "mod" ||
+    nodeType === "power"
+  ) {
+    return isOutput ? TYPE_NUMBER : TYPE_NUMBER;
+  }
+  if (nodeType === "concat") {
+    // Inputs: number OR text; output is text.
+    return isOutput ? TYPE_TEXT : TYPE_NUMBER | TYPE_TEXT;
+  }
+
+  // Control & logic
+  if (nodeType === "and" || nodeType === "or" || nodeType === "not") {
+    return TYPE_BOOLEAN;
+  }
+  if (nodeType === "comparison") {
+    // Inputs can be anything; output is boolean.
+    return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
+  }
+  if (nodeType === "switch") {
+    // Switch passes through the incoming value.
+    return TYPE_ANY;
+  }
+
+  // IO
+  if (nodeType === "write") {
+    return TYPE_ANY;
+  }
+
+  // Lists / iteration: keep permissive for now.
+  if (
+    nodeType === "sequence" ||
+    nodeType === "zip" ||
+    nodeType === "filter" ||
+    nodeType === "map" ||
+    nodeType === "accumulate" ||
+    nodeType === "count"
+  ) {
+    return TYPE_ANY;
+  }
+
+  return TYPE_ANY;
+}
+
+export function isTypeCompatible(params: {
+  sourceType: PortDataType | PortDataTypeMask;
+  targetType: PortDataType | PortDataTypeMask;
+}): boolean {
+  const sourceMask =
+    typeof params.sourceType === "number" ? params.sourceType : toMask(params.sourceType);
+  const targetMask =
+    typeof params.targetType === "number" ? params.targetType : toMask(params.targetType);
+  return (sourceMask & targetMask) !== 0;
 }
