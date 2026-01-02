@@ -22,7 +22,14 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
+import {
+  Hand,
+  MousePointer2,
+  Download,
+  Play,
+  Upload,
+  BrushCleaning,
+} from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
@@ -61,6 +68,9 @@ import {
   type EngineNodeStatus,
 } from "@/engine/engine";
 import { nanoid } from "nanoid";
+import dagre from "@dagrejs/dagre";
+
+const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
 type FlowNode = Node;
 type FlowEdge = Edge;
@@ -88,6 +98,161 @@ type CreateSubflowRequest =
   | { ok: false; bounds: FlowBounds; message: string };
 
 type HandleKey = string | null;
+
+function parseWriteTargetHandleIndex(handle: unknown): number {
+  const m = /^in-(\d+)$/.exec(String(handle ?? ""));
+  const idx = m ? parseInt(m[1] ?? "", 10) : NaN;
+  return Number.isFinite(idx) ? idx : 0;
+}
+
+function clampWriteTemplateToMaxVar(
+  template: unknown,
+  maxVar: number
+): string | undefined {
+  if (typeof template !== "string") return undefined;
+  if (!Number.isFinite(maxVar) || maxVar < 1) {
+    // No valid variables allowed; strip all placeholders.
+    return template.replace(/\{\d+\}/g, "");
+  }
+
+  return template.replace(/\{(\d+)\}/g, (full, raw) => {
+    const idx = parseInt(String(raw), 10);
+    if (!Number.isFinite(idx)) return "";
+    return idx >= 1 && idx <= maxVar ? full : "";
+  });
+}
+
+function reconcileWriteGraph(
+  nodes: FlowNode[],
+  edges: FlowEdge[]
+): {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  changedNodes: boolean;
+  changedEdges: boolean;
+} {
+  // Build per-write-node compaction maps based on current incoming connections.
+  const writeMaps = new Map<
+    string,
+    {
+      map: Map<number, number>;
+      desiredInputCount: number;
+      maxVarAllowed: number;
+    }
+  >();
+
+  for (const n of nodes) {
+    if (n.type !== "write") continue;
+    const nodeId = String(n.id);
+
+    const uniqueConnected = new Set<number>();
+    for (const e of edges) {
+      if (String(e.target) !== nodeId) continue;
+      const idx = parseWriteTargetHandleIndex(e.targetHandle);
+      if (idx > 0) uniqueConnected.add(idx);
+    }
+
+    const sorted = Array.from(uniqueConnected).sort((a, b) => a - b);
+    const map = new Map<number, number>();
+    for (let i = 0; i < sorted.length; i++) {
+      const oldIdx = sorted[i];
+      if (!oldIdx) continue;
+      map.set(oldIdx, i + 1);
+    }
+
+    const desiredInputCount = Math.max(2, sorted.length + 1);
+    const maxVarAllowed = desiredInputCount - 1;
+    writeMaps.set(nodeId, { map, desiredInputCount, maxVarAllowed });
+  }
+
+  // 1) Update edges: shift targetHandle indices down to compact away gaps.
+  let changedEdges = false;
+  const nextEdges = edges.map((e) => {
+    const targetId = String(e.target);
+    const info = writeMaps.get(targetId);
+    if (!info) return e;
+
+    const oldIdx = parseWriteTargetHandleIndex(e.targetHandle);
+    if (oldIdx <= 0) return e;
+
+    const newIdx = info.map.get(oldIdx);
+    if (!newIdx || newIdx === oldIdx) return e;
+
+    changedEdges = true;
+    return {
+      ...e,
+      targetHandle: `in-${newIdx}`,
+    } as FlowEdge;
+  });
+
+  // 2) Update nodes: shrink inputCount to connectedCount+1 and remap template.
+  let changedNodes = false;
+  const nextNodes = nodes.map((n) => {
+    if (n.type !== "write") return n;
+    const nodeId = String(n.id);
+    const info = writeMaps.get(nodeId);
+    if (!info) return n;
+
+    const data =
+      n.data && typeof n.data === "object"
+        ? (n.data as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
+
+    const currentRaw =
+      typeof data.inputCount === "number" ? data.inputCount : 1;
+    const current = Number.isFinite(currentRaw)
+      ? Math.max(1, Math.floor(currentRaw))
+      : 1;
+
+    const template = data.template;
+    const remappedTemplate =
+      typeof template !== "string"
+        ? undefined
+        : template.replace(/\{(\d+)\}/g, (_full, raw) => {
+            const oldIdx = parseInt(String(raw), 10);
+            if (!Number.isFinite(oldIdx)) return "";
+            const newIdx = info.map.get(oldIdx);
+            if (!newIdx) return "";
+            // Also enforce max vars in case something goes out of bounds.
+            return newIdx >= 1 && newIdx <= info.maxVarAllowed
+              ? `{${newIdx}}`
+              : "";
+          });
+
+    // If there are no connections, we keep only Entrada 1 + empty; strip placeholders.
+    const clampedTemplate = clampWriteTemplateToMaxVar(
+      remappedTemplate ?? template,
+      info.maxVarAllowed
+    );
+
+    const needsInputCountUpdate = current !== info.desiredInputCount;
+    const needsTemplateUpdate =
+      typeof template === "string" && typeof clampedTemplate === "string"
+        ? template !== clampedTemplate
+        : false;
+
+    if (!needsInputCountUpdate && !needsTemplateUpdate) return n;
+
+    changedNodes = true;
+    return {
+      ...n,
+      data: {
+        ...data,
+        ...(needsInputCountUpdate
+          ? { inputCount: info.desiredInputCount }
+          : null),
+        ...(needsTemplateUpdate ? { template: clampedTemplate } : null),
+      },
+    } as FlowNode;
+  });
+
+  return {
+    nodes: changedNodes ? nextNodes : nodes,
+    edges: changedEdges ? nextEdges : edges,
+    changedNodes,
+    changedEdges,
+  };
+}
 
 function createNodeId(): string {
   return nanoid(16);
@@ -361,6 +526,39 @@ const initialNodes: FlowNode[] = [];
 
 const initialEdges: FlowEdge[] = [];
 
+function getLayoutedElements(nodes: FlowNode[], edges: FlowEdge[]) {
+  dagreGraph.setGraph({ rankdir: "LR" });
+
+  const NODE_WIDTH = 240;
+  const NODE_HEIGHT = 64;
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    const newNode = {
+      ...node,
+      targetPosition: "left",
+      sourcePosition: "right",
+      position: {
+        x: nodeWithPosition.x - NODE_WIDTH / 2,
+        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+      },
+    };
+
+    return newNode;
+  });
+
+  return { nodes: newNodes as Node[], edges: edges as Edge[] };
+}
+
 export default function App() {
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
@@ -578,27 +776,74 @@ export default function App() {
 
   const connectionTooltip = useConnectionValidationTooltip(nodes);
 
-  const onConnect = useCallback((params: Connection) => {
-    const validation = validateConnection(nodes, params);
-    if (!validation.ok) {
-      connectionTooltip.show(validation.message ?? "Conexión no válida.");
-      return;
-    }
+  // Keep WriteNode dynamic inputs in sync with actual connections.
+  // - On deletions that create gaps (e.g. in-1, in-3), compact indices (→ in-1, in-2)
+  // - Shrink inputCount to connectedCount+1 (keep one empty handle)
+  // - Remap/remove {k} placeholders accordingly
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+    if (isRuntimeUpdateRef.current) return;
+    if (isDraggingRef.current) return;
 
-    const typed = params as Connection & { type?: string; data?: unknown };
+    const result = reconcileWriteGraph(nodes, edges);
+    if (result.changedEdges) setEdges(result.edges);
+    if (result.changedNodes) setNodes(result.nodes);
+  }, [edges, nodes, setEdges, setNodes]);
 
-    const newEdge: Edge = {
-      id: createNodeId(),
-      source: String(typed.source),
-      target: String(typed.target),
-      sourceHandle: typed.sourceHandle ?? null,
-      targetHandle: typed.targetHandle ?? null,
-      type: typed.type,
-      data: (typed.data ?? {}) as Record<string, unknown>,
-    };
+  const onConnect = useCallback(
+    (params: Connection) => {
+      const validation = validateConnection(nodes, params);
+      if (!validation.ok) {
+        connectionTooltip.show(validation.message ?? "Conexión no válida.");
+        return;
+      }
 
-    setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
-  }, [connectionTooltip, nodes]);
+      const typed = params as Connection & { type?: string; data?: unknown };
+
+      const newEdge: Edge = {
+        id: createNodeId(),
+        source: String(typed.source),
+        target: String(typed.target),
+        sourceHandle: typed.sourceHandle ?? null,
+        targetHandle: typed.targetHandle ?? null,
+        type: typed.type,
+        data: (typed.data ?? {}) as Record<string, unknown>,
+      };
+
+      // Dynamic inputs for Write node: when the user connects into the last
+      // available input handle, we append a new one.
+      if (typed.target && (typed.targetHandle ?? null) != null) {
+        const targetId = String(typed.target);
+        const targetHandle = String(typed.targetHandle);
+        setNodes((prev) =>
+          prev.map((n) => {
+            if (String(n.id) !== targetId) return n;
+            if (n.type !== "write") return n;
+            const data = (
+              n.data && typeof n.data === "object" ? n.data : {}
+            ) as Record<string, unknown>;
+            const current =
+              typeof data.inputCount === "number" ? data.inputCount : 1;
+            const currentCount = Number.isFinite(current)
+              ? Math.max(1, Math.floor(current))
+              : 1;
+            const lastHandleId = `in-${currentCount}`;
+            if (targetHandle !== lastHandleId) return n;
+            return {
+              ...n,
+              data: {
+                ...data,
+                inputCount: currentCount + 1,
+              },
+            };
+          })
+        );
+      }
+
+      setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
+    },
+    [connectionTooltip, nodes, setEdges, setNodes]
+  );
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -771,10 +1016,15 @@ export default function App() {
       setNodes((prev) =>
         prev.map((n) => ({
           ...n,
-          className: `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus("waiting")}`.trim(),
+          className: `${stripRuntimeClasses(
+            n.className
+          )} ${runtimeClassForStatus("waiting")}`.trim(),
           data:
             n.data && typeof n.data === "object"
-              ? { ...(n.data as Record<string, unknown>), runtimeError: undefined }
+              ? {
+                  ...(n.data as Record<string, unknown>),
+                  runtimeError: undefined,
+                }
               : n.data,
         }))
       );
@@ -839,7 +1089,15 @@ export default function App() {
         },
       ]);
     }
-  }, [edges, nodes, programName, reactFlowInstance]);
+  }, [
+    edges,
+    formatLogText,
+    nodes,
+    programName,
+    reactFlowInstance,
+    runtimeClassForStatus,
+    stripRuntimeClasses,
+  ]);
 
   const onDownloadClick = useCallback(() => {
     if (!reactFlowInstance) return;
@@ -1330,6 +1588,15 @@ export default function App() {
     subflowName,
   ]);
 
+  const onLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges
+    );
+    setNodes([...layoutedNodes]);
+    setEdges([...layoutedEdges]);
+  }, [nodes, edges]);
+
   return (
     <SidebarProvider>
       <AppSidebar
@@ -1422,6 +1689,9 @@ export default function App() {
                 >
                   <MousePointer2 />
                 </ControlButton>
+                <ControlButton title="Mejorar formato" onClick={onLayout}>
+                  <BrushCleaning className="fill-none!" />
+                </ControlButton>
               </Controls>
               <MiniMap />
               <Panel position="top-right" className="flex gap-2">
@@ -1462,7 +1732,11 @@ export default function App() {
               <Panel
                 position="bottom-left"
                 className="w-80"
-                style={{ left: "50%", transform: "translateX(-50%)", bottom: 16 }}
+                style={{
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  bottom: 16,
+                }}
               >
                 <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
                   <div className="border-b px-2 py-1 text-sm font-medium">

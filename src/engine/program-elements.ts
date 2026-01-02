@@ -68,13 +68,13 @@ export class NodeDefinition {
   private _activationFunction: ActivationFunction;
   private _firePatterns: FirePatterns[];
   private _ports: string[];
-  private _meta: { kind?: string };
+  private _meta: { kind?: string; template?: string };
 
   constructor(
     activationFunction: ActivationFunction,
     firePatterns: FirePatterns[],
     ports: string[],
-    meta?: { kind?: string }
+    meta?: { kind?: string; template?: string }
   ) {
     this._activationFunction = activationFunction;
     this._firePatterns = firePatterns;
@@ -94,7 +94,7 @@ export class NodeDefinition {
     return [...this._ports];
   }
 
-  get meta(): { kind?: string } {
+  get meta(): { kind?: string; template?: string } {
     return { ...this._meta };
   }
 

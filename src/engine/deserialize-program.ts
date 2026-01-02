@@ -149,11 +149,28 @@ function buildEngineStoresFromFlowGraph(params: {
     nodeById.set(String(node.id), node);
   }
 
+  // For nodes with dynamic port counts (e.g., Write sink), infer the required
+  // input count from the incoming edges.
+  const writeSinkInputCountByNodeId = new Map<string, number>();
+  for (const edge of params.edges) {
+    const targetId = String(edge.target);
+    const targetNode = nodeById.get(targetId);
+    if (!targetNode) continue;
+    if (targetNode.type !== NODE_TYPES.WRITE_SINK) continue;
+
+    const handleId = edge.targetHandle ?? null;
+    const idx = handleId == null ? 1 : parseIndexHandle(handleId) ?? 1;
+    const current = writeSinkInputCountByNodeId.get(targetId) ?? 1;
+    writeSinkInputCountByNodeId.set(targetId, Math.max(current, idx));
+  }
+
   const nodeStore = new NodeStore();
   const arcStore = new ArcStore();
 
   for (const flowNode of params.nodes) {
-    const engineDef = flowNodeToEngineDefinition(flowNode);
+    const engineDef = flowNodeToEngineDefinition(flowNode, {
+      writeSinkInputCountByNodeId,
+    });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
 
@@ -581,7 +598,14 @@ function mapHandleToPortId(params: {
   // IO sink
   if (nodeType === NODE_TYPES.WRITE_SINK) {
     if (direction === "target") {
-      return "input";
+      if (handleId == null) return "input1";
+      const idx = parseIndexHandle(handleId);
+      if (handleId.startsWith("in-") && idx) return `input${idx}`;
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId
+        )}' for node ${nodeId} (${nodeType}).`
+      );
     }
     throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
   }
@@ -757,7 +781,12 @@ function mapHandleToPortId(params: {
  *
  * The mapping is based on the node's `type` and its serialized `data`.
  */
-function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
+function flowNodeToEngineDefinition(
+  flowNode: Node,
+  context?: {
+    writeSinkInputCountByNodeId?: Map<string, number>;
+  }
+): NodeDefinition {
   const nodeType = flowNode.type;
   const data = asRecord(flowNode.data);
 
@@ -877,7 +906,10 @@ function flowNodeToEngineDefinition(flowNode: Node): NodeDefinition {
     }
 
     case NODE_TYPES.WRITE_SINK:
-      return new EngineWriteNode();
+      return new EngineWriteNode(
+        context?.writeSinkInputCountByNodeId?.get(String(flowNode.id)) ?? 1,
+        typeof data.template === "string" ? data.template : undefined
+      );
 
     case NODE_TYPES.GENERATE_SEQUENCE_NODE: {
       const min = typeof data.min === "number" ? data.min : 0;
