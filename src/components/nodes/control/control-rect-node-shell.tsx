@@ -8,18 +8,51 @@ import NodeSettingsButton from "@/components/ui/node-settings-button";
 type ControlRectNodeShellProps = {
   icon: ReactNode;
   label: string;
-  variant?: "default" | "singleInDualOut" | "singleInSingleOut";
+  variant?:
+    | "default"
+    | "singleInDualOut"
+    | "singleInSingleOut"
+    | "singleInMultiOut";
+  /**
+   * Number of outputs to render when `variant` is `singleInMultiOut`.
+   */
+  outputCount?: number;
+  /**
+   * Optional explicit output handle ids for `singleInMultiOut`.
+   * When provided, it overrides the default `out-1..out-N` ids.
+   */
+  outputHandleIds?: string[];
   onConfigClick?: () => void;
   runtimeError?: string | null;
 };
+
+function offsets(count: number): string[] {
+  const safeCount = Math.max(0, Math.floor(count));
+  if (safeCount === 0) return [];
+  if (safeCount === 1) return ["50%"];
+
+  const start = 15;
+  const end = 85;
+  const step = (end - start) / (safeCount - 1);
+  return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
+}
 
 export function ControlRectNodeShell({
   icon,
   label,
   variant = "default",
+  outputCount,
+  outputHandleIds,
   onConfigClick,
   runtimeError,
 }: ControlRectNodeShellProps) {
+  const outCount =
+    variant === "singleInMultiOut"
+      ? outputHandleIds?.length ?? outputCount ?? 0
+      : 0;
+
+  const outOffsets = variant === "singleInMultiOut" ? offsets(outCount) : [];
+
   return (
     <BaseNode
       runtimeError={runtimeError}
@@ -82,6 +115,28 @@ export function ControlRectNodeShell({
             id="out-2"
             className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
           />
+        </>
+      )}
+
+      {variant === "singleInMultiOut" && (
+        <>
+          <Handle
+            type="target"
+            position={Position.Left}
+            id="in"
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+          />
+
+          {outOffsets.map((offset, index) => (
+            <Handle
+              key={`r-${offset}`}
+              type="source"
+              position={Position.Right}
+              style={{ top: offset }}
+              id={outputHandleIds?.[index] ?? `out-${index + 1}`}
+              className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            />
+          ))}
         </>
       )}
 

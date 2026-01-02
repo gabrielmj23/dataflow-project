@@ -23,6 +23,7 @@ import "@xyflow/react/dist/style.css";
 import "./App.css";
 import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
+import { LabeledEdge } from "@/flow/labeled-edge";
 import {
   Dialog,
   DialogContent,
@@ -874,8 +875,7 @@ export default function App() {
             edges: desEdges,
             viewport,
             programName: loadedName,
-          } =
-            deserializeProgram(parsed);
+          } = deserializeProgram(parsed);
 
           setNodes(desNodes as FlowNode[]);
           setEdges(desEdges as FlowEdge[]);
@@ -937,56 +937,54 @@ export default function App() {
     },
     []
   );
-    const pushHistorySnapshot = useCallback(
-      (snapshot?: FlowSnapshot) => {
-        const currentSnapshot: FlowSnapshot =
-          snapshot ?? {
-            nodes,
-            edges,
-          };
+  const pushHistorySnapshot = useCallback(
+    (snapshot?: FlowSnapshot) => {
+      const currentSnapshot: FlowSnapshot = snapshot ?? {
+        nodes,
+        edges,
+      };
 
-        setHistory((prev) => {
-          const truncated = prev.stack.slice(0, prev.index + 1);
-          const last = truncated[truncated.length - 1];
+      setHistory((prev) => {
+        const truncated = prev.stack.slice(0, prev.index + 1);
+        const last = truncated[truncated.length - 1];
 
-          if (
-            last &&
-            last.nodes === currentSnapshot.nodes &&
-            last.edges === currentSnapshot.edges
-          ) {
-            return prev;
-          }
+        if (
+          last &&
+          last.nodes === currentSnapshot.nodes &&
+          last.edges === currentSnapshot.edges
+        ) {
+          return prev;
+        }
 
-          truncated.push(currentSnapshot);
+        truncated.push(currentSnapshot);
 
-          const MAX_HISTORY = 50;
-          const limitedStack =
-            truncated.length > MAX_HISTORY
-              ? truncated.slice(truncated.length - MAX_HISTORY)
-              : truncated;
+        const MAX_HISTORY = 50;
+        const limitedStack =
+          truncated.length > MAX_HISTORY
+            ? truncated.slice(truncated.length - MAX_HISTORY)
+            : truncated;
 
-          return {
-            stack: limitedStack,
-            index: limitedStack.length - 1,
-          };
-        });
-      },
-      [edges, nodes]
-    );
+        return {
+          stack: limitedStack,
+          index: limitedStack.length - 1,
+        };
+      });
+    },
+    [edges, nodes]
+  );
 
-    const onNodeDragStart = useCallback(() => {
-      isDraggingRef.current = true;
-      if (historyTimeoutRef.current !== null) {
-        window.clearTimeout(historyTimeoutRef.current);
-        historyTimeoutRef.current = null;
-      }
-    }, []);
+  const onNodeDragStart = useCallback(() => {
+    isDraggingRef.current = true;
+    if (historyTimeoutRef.current !== null) {
+      window.clearTimeout(historyTimeoutRef.current);
+      historyTimeoutRef.current = null;
+    }
+  }, []);
 
-    const onNodeDragStop = useCallback(() => {
-      isDraggingRef.current = false;
-      pushHistorySnapshot();
-    }, [pushHistorySnapshot]);
-
+  const onNodeDragStop = useCallback(() => {
+    isDraggingRef.current = false;
+    pushHistorySnapshot();
+  }, [pushHistorySnapshot]);
 
   useEffect(() => {
     if (isRestoringRef.current) {
@@ -1351,6 +1349,7 @@ export default function App() {
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
+              edgeTypes={{ default: LabeledEdge }}
               onInit={setReactFlowInstance}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
