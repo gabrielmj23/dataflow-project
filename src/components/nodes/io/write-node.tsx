@@ -38,7 +38,7 @@ function buildVarChip(params: { index: number }): HTMLSpanElement {
   span.setAttribute("contenteditable", "false");
   // Match the same visual style as the draggable variable pills in the dialog.
   span.className =
-    "inline h-fit items-center select-none rounded-md border px-2 py-1 text-xs text-white bg-teal-500";
+    "inline-flex h-fit items-center whitespace-nowrap select-none rounded-md border px-2 py-1 text-xs text-white bg-teal-500";
   span.textContent = `Entrada ${params.index}`;
   return span;
 }
@@ -445,7 +445,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
               <div
                 className={
-                  "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex min-h-24 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] md:text-sm"
+                  "border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 block min-h-24 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] md:text-sm wrap-break-word"
                 }
                 style={{
                   whiteSpace: "pre-wrap",
