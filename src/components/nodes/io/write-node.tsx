@@ -210,6 +210,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
     () => Array.from({ length: inputCount }, (_, i) => `in-${i + 1}`),
     [inputCount]
   );
+  console.log(targetHandleIds);
 
   const updateNodeInternals = useUpdateNodeInternals();
   useEffect(() => {

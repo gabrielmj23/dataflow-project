@@ -390,24 +390,13 @@ export class DataflowEngine {
 
     // Surface write-node outputs to observers (frontend console)
     if (nodeDefinition.meta.kind === "write") {
-      const template = nodeDefinition.meta.template;
-      if (typeof template === "string" && template.trim().length > 0) {
-        this.observer?.onLog?.({
-          level: "info",
-          nodeId: node.id,
-          message: "write",
-          data: applyWriteTemplate(template, argValues),
-        });
-      } else {
-        for (let i = 0; i < argValues.length; i += 1) {
-          this.observer?.onLog?.({
-            level: "info",
-            nodeId: node.id,
-            message: "write",
-            data: { index: i + 1, value: argValues[i] },
-          });
-        }
-      }
+      const template = nodeDefinition.meta.template || "{1}";
+      this.observer?.onLog?.({
+        level: "info",
+        nodeId: node.id,
+        message: "write",
+        data: applyWriteTemplate(template, argValues),
+      });
     }
 
     let rawResult: unknown;
