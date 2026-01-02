@@ -21,7 +21,14 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
+import {
+  Hand,
+  MousePointer2,
+  Download,
+  Play,
+  Upload,
+  BrushCleaning,
+} from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
 import {
@@ -56,6 +63,9 @@ import {
   type EngineNodeStatus,
 } from "@/engine/engine";
 import { nanoid } from "nanoid";
+import dagre from "@dagrejs/dagre";
+
+const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
 type FlowNode = Node;
 type FlowEdge = Edge;
@@ -355,6 +365,39 @@ function CreateSubflowOverlay({
 const initialNodes: FlowNode[] = [];
 
 const initialEdges: FlowEdge[] = [];
+
+function getLayoutedElements(nodes: FlowNode[], edges: FlowEdge[]) {
+  dagreGraph.setGraph({ rankdir: "LR" });
+
+  const NODE_WIDTH = 240;
+  const NODE_HEIGHT = 64;
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+  });
+
+  edges.forEach((edge) => {
+    dagreGraph.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(dagreGraph);
+
+  const newNodes = nodes.map((node) => {
+    const nodeWithPosition = dagreGraph.node(node.id);
+    const newNode = {
+      ...node,
+      targetPosition: "left",
+      sourcePosition: "right",
+      position: {
+        x: nodeWithPosition.x - NODE_WIDTH / 2,
+        y: nodeWithPosition.y - NODE_HEIGHT / 2,
+      },
+    };
+
+    return newNode;
+  });
+
+  return { nodes: newNodes as Node[], edges: edges as Edge[] };
+}
 
 export default function App() {
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
@@ -863,7 +906,15 @@ export default function App() {
         },
       ]);
     }
-  }, [edges, nodes, programName, reactFlowInstance]);
+  }, [
+    edges,
+    formatLogText,
+    nodes,
+    programName,
+    reactFlowInstance,
+    runtimeClassForStatus,
+    stripRuntimeClasses,
+  ]);
 
   const onDownloadClick = useCallback(() => {
     if (!reactFlowInstance) return;
@@ -1354,6 +1405,15 @@ export default function App() {
     subflowName,
   ]);
 
+  const onLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      nodes,
+      edges
+    );
+    setNodes([...layoutedNodes]);
+    setEdges([...layoutedEdges]);
+  }, [nodes, edges]);
+
   return (
     <SidebarProvider>
       <AppSidebar
@@ -1427,6 +1487,9 @@ export default function App() {
                   className="rf-mode-toggle"
                 >
                   <MousePointer2 />
+                </ControlButton>
+                <ControlButton title="Mejorar formato" onClick={onLayout}>
+                  <BrushCleaning className="fill-none!" />
                 </ControlButton>
               </Controls>
               <MiniMap />
