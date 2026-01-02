@@ -10,7 +10,7 @@ import { ArcStore, NodeStore, TokenStore } from "./stores";
 
 // Global artificial delay (in ms) applied before each node execution.
 // Set to 0 to disable the slowdown effect.
-export const ENGINE_STEP_DELAY_MS = 1000;
+export const ENGINE_STEP_DELAY_MS = 500;
 
 export type EngineNodeStatus = "waiting" | "running" | "done" | "error";
 export type EngineLogLevel = "info" | "error";
@@ -30,6 +30,28 @@ export type EngineObserver = {
     data?: unknown;
   }) => void;
 };
+
+function formatWriteValue(value: unknown): string {
+  if (value == null) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value instanceof Error) return value.message;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function applyWriteTemplate(template: string, values: unknown[]): string {
+  return template.replace(/\{(\d+)\}/g, (_match, rawIndex: string) => {
+    const idx = Number(rawIndex);
+    if (!Number.isFinite(idx) || idx <= 0) return "";
+    return formatWriteValue(values[idx - 1]);
+  });
+}
 
 export class DataflowEngine {
   private arcStore: ArcStore;
@@ -363,19 +385,29 @@ export class DataflowEngine {
 
     // Optional slow-motion delay to visualize program execution.
     if (ENGINE_STEP_DELAY_MS > 0) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, ENGINE_STEP_DELAY_MS)
-      );
+      await new Promise((resolve) => setTimeout(resolve, ENGINE_STEP_DELAY_MS));
     }
 
     // Surface write-node outputs to observers (frontend console)
     if (nodeDefinition.meta.kind === "write") {
-      this.observer?.onLog?.({
-        level: "info",
-        nodeId: node.id,
-        message: "write",
-        data: argValues[0],
-      });
+      const template = nodeDefinition.meta.template;
+      if (typeof template === "string" && template.trim().length > 0) {
+        this.observer?.onLog?.({
+          level: "info",
+          nodeId: node.id,
+          message: "write",
+          data: applyWriteTemplate(template, argValues),
+        });
+      } else {
+        for (let i = 0; i < argValues.length; i += 1) {
+          this.observer?.onLog?.({
+            level: "info",
+            nodeId: node.id,
+            message: "write",
+            data: { index: i + 1, value: argValues[i] },
+          });
+        }
+      }
     }
 
     let rawResult: unknown;
@@ -383,7 +415,11 @@ export class DataflowEngine {
       // Invoke activation function with locals
       rawResult = await nodeDefinition.activationFunction(...argValues);
     } catch (error) {
-      this.observer?.onNodeStatus?.({ nodeId: node.id, status: "error", error });
+      this.observer?.onNodeStatus?.({
+        nodeId: node.id,
+        status: "error",
+        error,
+      });
       this.observer?.onLog?.({
         level: "error",
         nodeId: node.id,
