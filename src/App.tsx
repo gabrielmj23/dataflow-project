@@ -94,6 +94,161 @@ type CreateSubflowRequest =
 
 type HandleKey = string | null;
 
+function parseWriteTargetHandleIndex(handle: unknown): number {
+  const m = /^in-(\d+)$/.exec(String(handle ?? ""));
+  const idx = m ? parseInt(m[1] ?? "", 10) : NaN;
+  return Number.isFinite(idx) ? idx : 0;
+}
+
+function clampWriteTemplateToMaxVar(
+  template: unknown,
+  maxVar: number
+): string | undefined {
+  if (typeof template !== "string") return undefined;
+  if (!Number.isFinite(maxVar) || maxVar < 1) {
+    // No valid variables allowed; strip all placeholders.
+    return template.replace(/\{\d+\}/g, "");
+  }
+
+  return template.replace(/\{(\d+)\}/g, (full, raw) => {
+    const idx = parseInt(String(raw), 10);
+    if (!Number.isFinite(idx)) return "";
+    return idx >= 1 && idx <= maxVar ? full : "";
+  });
+}
+
+function reconcileWriteGraph(
+  nodes: FlowNode[],
+  edges: FlowEdge[]
+): {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  changedNodes: boolean;
+  changedEdges: boolean;
+} {
+  // Build per-write-node compaction maps based on current incoming connections.
+  const writeMaps = new Map<
+    string,
+    {
+      map: Map<number, number>;
+      desiredInputCount: number;
+      maxVarAllowed: number;
+    }
+  >();
+
+  for (const n of nodes) {
+    if (n.type !== "write") continue;
+    const nodeId = String(n.id);
+
+    const uniqueConnected = new Set<number>();
+    for (const e of edges) {
+      if (String(e.target) !== nodeId) continue;
+      const idx = parseWriteTargetHandleIndex(e.targetHandle);
+      if (idx > 0) uniqueConnected.add(idx);
+    }
+
+    const sorted = Array.from(uniqueConnected).sort((a, b) => a - b);
+    const map = new Map<number, number>();
+    for (let i = 0; i < sorted.length; i++) {
+      const oldIdx = sorted[i];
+      if (!oldIdx) continue;
+      map.set(oldIdx, i + 1);
+    }
+
+    const desiredInputCount = Math.max(2, sorted.length + 1);
+    const maxVarAllowed = desiredInputCount - 1;
+    writeMaps.set(nodeId, { map, desiredInputCount, maxVarAllowed });
+  }
+
+  // 1) Update edges: shift targetHandle indices down to compact away gaps.
+  let changedEdges = false;
+  const nextEdges = edges.map((e) => {
+    const targetId = String(e.target);
+    const info = writeMaps.get(targetId);
+    if (!info) return e;
+
+    const oldIdx = parseWriteTargetHandleIndex(e.targetHandle);
+    if (oldIdx <= 0) return e;
+
+    const newIdx = info.map.get(oldIdx);
+    if (!newIdx || newIdx === oldIdx) return e;
+
+    changedEdges = true;
+    return {
+      ...e,
+      targetHandle: `in-${newIdx}`,
+    } as FlowEdge;
+  });
+
+  // 2) Update nodes: shrink inputCount to connectedCount+1 and remap template.
+  let changedNodes = false;
+  const nextNodes = nodes.map((n) => {
+    if (n.type !== "write") return n;
+    const nodeId = String(n.id);
+    const info = writeMaps.get(nodeId);
+    if (!info) return n;
+
+    const data =
+      n.data && typeof n.data === "object"
+        ? (n.data as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
+
+    const currentRaw =
+      typeof data.inputCount === "number" ? data.inputCount : 1;
+    const current = Number.isFinite(currentRaw)
+      ? Math.max(1, Math.floor(currentRaw))
+      : 1;
+
+    const template = data.template;
+    const remappedTemplate =
+      typeof template !== "string"
+        ? undefined
+        : template.replace(/\{(\d+)\}/g, (_full, raw) => {
+            const oldIdx = parseInt(String(raw), 10);
+            if (!Number.isFinite(oldIdx)) return "";
+            const newIdx = info.map.get(oldIdx);
+            if (!newIdx) return "";
+            // Also enforce max vars in case something goes out of bounds.
+            return newIdx >= 1 && newIdx <= info.maxVarAllowed
+              ? `{${newIdx}}`
+              : "";
+          });
+
+    // If there are no connections, we keep only Entrada 1 + empty; strip placeholders.
+    const clampedTemplate = clampWriteTemplateToMaxVar(
+      remappedTemplate ?? template,
+      info.maxVarAllowed
+    );
+
+    const needsInputCountUpdate = current !== info.desiredInputCount;
+    const needsTemplateUpdate =
+      typeof template === "string" && typeof clampedTemplate === "string"
+        ? template !== clampedTemplate
+        : false;
+
+    if (!needsInputCountUpdate && !needsTemplateUpdate) return n;
+
+    changedNodes = true;
+    return {
+      ...n,
+      data: {
+        ...data,
+        ...(needsInputCountUpdate
+          ? { inputCount: info.desiredInputCount }
+          : null),
+        ...(needsTemplateUpdate ? { template: clampedTemplate } : null),
+      },
+    } as FlowNode;
+  });
+
+  return {
+    nodes: changedNodes ? nextNodes : nodes,
+    edges: changedEdges ? nextEdges : edges,
+    changedNodes,
+    changedEdges,
+  };
+}
+
 function createNodeId(): string {
   return nanoid(16);
 }
@@ -613,6 +768,20 @@ export default function App() {
       setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
     []
   );
+
+  // Keep WriteNode dynamic inputs in sync with actual connections.
+  // - On deletions that create gaps (e.g. in-1, in-3), compact indices (→ in-1, in-2)
+  // - Shrink inputCount to connectedCount+1 (keep one empty handle)
+  // - Remap/remove {k} placeholders accordingly
+  useEffect(() => {
+    if (isRestoringRef.current) return;
+    if (isRuntimeUpdateRef.current) return;
+    if (isDraggingRef.current) return;
+
+    const result = reconcileWriteGraph(nodes, edges);
+    if (result.changedEdges) setEdges(result.edges);
+    if (result.changedNodes) setNodes(result.nodes);
+  }, [edges, nodes, setEdges, setNodes]);
   const onConnect = useCallback(
     (params: Connection) => {
       const typed = params as Connection & { type?: string; data?: unknown };
