@@ -5,6 +5,7 @@ import {
   applyEdgeChanges,
   addEdge,
   type Connection,
+  MarkerType,
   MiniMap,
   Controls,
   Background,
@@ -24,6 +25,7 @@ import "./App.css";
 import { Hand, MousePointer2, Download, Play, Upload } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
+import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import {
   Dialog,
   DialogContent,
@@ -1350,6 +1352,14 @@ export default function App() {
               edges={edges}
               nodeTypes={nodeTypes}
               edgeTypes={{ default: LabeledEdge }}
+              connectionLineComponent={ArrowConnectionLine}
+              defaultEdgeOptions={{
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  width: 14,
+                  height: 14,
+                },
+              }}
               onInit={setReactFlowInstance}
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
