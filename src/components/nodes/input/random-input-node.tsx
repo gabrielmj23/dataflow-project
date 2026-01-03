@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Toggle } from "@/components/ui/toggle";
+import { Switch } from "@/components/ui/switch";
 
 export type RandomInputNodeData = {
   label?: string;
@@ -65,6 +65,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
 
   const minInputId = useId();
   const maxInputId = useId();
+  const integerOnlySwitchId = useId();
 
   const validation = useMemo(() => {
     if (!Number.isFinite(draftMin) || !Number.isFinite(draftMax)) {
@@ -126,22 +127,24 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
 
             {/* Solo enteros */}
             <div>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    Solo enteros
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Si está activo, solo se generarán números enteros.
-                  </p>
-                </div>
-                <Toggle
-                  pressed={draftIntegerOnly}
-                  onPressedChange={setDraftIntegerOnly}
+              <p className="text-sm font-medium text-gray-900">Solo enteros</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Si está activo, solo se generarán números enteros.
+              </p>
+
+              <div className="mt-2 flex items-center gap-3">
+                <Switch
+                  id={integerOnlySwitchId}
+                  checked={draftIntegerOnly}
+                  onCheckedChange={setDraftIntegerOnly}
                   aria-label="Solo enteros"
+                />
+                <label
+                  htmlFor={integerOnlySwitchId}
+                  className="text-xs text-muted-foreground"
                 >
-                  {draftIntegerOnly ? "Sí" : "No"}
-                </Toggle>
+                  {draftIntegerOnly ? "Activado" : "Desactivado"}
+                </label>
               </div>
             </div>
 
