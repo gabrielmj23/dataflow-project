@@ -48,6 +48,7 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <InputCircleNodeShell
+        nodeType="constantNumber"
         icon={<span className="text-lg font-semibold">{numericValue}</span>}
         label=""
         onConfigClick={() => setIsDialogOpen(true)}

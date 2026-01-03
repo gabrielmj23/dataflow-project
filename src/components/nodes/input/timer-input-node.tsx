@@ -51,6 +51,7 @@ export const TimerInputNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <InputCircleNodeShell
+        nodeType="timerInput"
         icon={<Timer className="h-7 w-7" />}
         label={label}
         onConfigClick={() => setIsDialogOpen(true)}

@@ -13,6 +13,7 @@ export const NotNode = memo(({ data }: NodeProps) => {
 
   return (
     <ControlRectNodeShell
+      nodeType="not"
       icon={<span className="text-sm font-bold">¬</span>}
       label={label}
       variant="singleInSingleOut"

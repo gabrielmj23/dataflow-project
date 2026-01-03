@@ -9,6 +9,38 @@ const TYPE_TEXT = 1 << 1;
 const TYPE_BOOLEAN = 1 << 2;
 const TYPE_ANY = TYPE_NUMBER | TYPE_TEXT | TYPE_BOOLEAN;
 
+export function maskToVisualPortDataType(mask: PortDataTypeMask): PortDataType {
+  const safe = typeof mask === "number" && Number.isFinite(mask) ? mask : TYPE_ANY;
+
+  const hasNumber = (safe & TYPE_NUMBER) !== 0;
+  const hasText = (safe & TYPE_TEXT) !== 0;
+  const hasBoolean = (safe & TYPE_BOOLEAN) !== 0;
+
+  const count = Number(hasNumber) + Number(hasText) + Number(hasBoolean);
+  if (count !== 1) return "any";
+  if (hasNumber) return "number";
+  if (hasText) return "text";
+  return "boolean";
+}
+
+export function getHandleShapeClasses(dataType: PortDataType): string {
+  // Shape only: do not encode colors here.
+  // - number: circle
+  // - text: square-ish
+  // - boolean: diamond
+  // - any: circle (same as number)
+  if (dataType === "number") {
+    return "rounded-full";
+  }
+  if (dataType === "text") {
+    return "rounded-none";
+  }
+  if (dataType === "boolean") {
+    return "origin-center rotate-45 rounded-none";
+  }
+  return "rounded-full";
+}
+
 export function describePortTypeMask(mask: PortDataTypeMask): string {
   const parts: string[] = [];
   if ((mask & TYPE_NUMBER) !== 0) parts.push("numérico");
@@ -33,6 +65,10 @@ function toMask(type: PortDataType): PortDataTypeMask {
     default:
       return TYPE_ANY;
   }
+}
+
+export function portDataTypeToMask(type: PortDataType): PortDataTypeMask {
+  return toMask(type);
 }
 
 export function normalizePortDataType(value: unknown): PortDataType {

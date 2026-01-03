@@ -114,6 +114,7 @@ export const ComparisonNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <ControlRectNodeShell
+        nodeType="comparison"
         icon={OPERATORS.find(({ op }) => op === operator)?.icon ?? "?"}
         label={label}
         runtimeError={runtimeError}

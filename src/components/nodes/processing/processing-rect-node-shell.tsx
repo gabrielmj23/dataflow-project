@@ -1,16 +1,30 @@
 import type { ReactNode } from "react";
 
-import { Handle, Position } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
+import {
+  getPortTypeMask,
+  maskToVisualPortDataType,
+} from "@/flow/port-data-type";
 
 type ProcessingRectNodeShellProps = {
+  nodeType: string;
   icon: ReactNode;
   label: string;
   runtimeError?: string | null;
 };
 
-export function ProcessingRectNodeShell({ icon, label, runtimeError }: ProcessingRectNodeShellProps) {
+export function ProcessingRectNodeShell({ nodeType, icon, label, runtimeError }: ProcessingRectNodeShellProps) {
+  const in1Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-1" });
+  const in2Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-2" });
+  const outMask = getPortTypeMask({ nodeType, handleType: "source", handleId: "out" });
+
+  const in1Type = maskToVisualPortDataType(in1Mask);
+  const in2Type = maskToVisualPortDataType(in2Mask);
+  const outType = maskToVisualPortDataType(outMask);
+
   return (
     <BaseNode
       runtimeError={runtimeError}
@@ -21,25 +35,34 @@ export function ProcessingRectNodeShell({ icon, label, runtimeError }: Processin
         <div className="text-sm leading-tight">{label}</div>
       </div>
 
-      <Handle
+      <CustomTypedHandle
         type="target"
         position={Position.Left}
         style={{ top: "35%" }}
         id="in-1"
-        className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
+        dataType={in1Type}
+        typeMask={in1Mask}
+        className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+        indicatorClassName="border-sky-700"
       />
-      <Handle
+      <CustomTypedHandle
         type="target"
         position={Position.Left}
         style={{ top: "65%" }}
         id="in-2"
-        className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
+        dataType={in2Type}
+        typeMask={in2Mask}
+        className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+        indicatorClassName="border-sky-700"
       />
-      <Handle
+      <CustomTypedHandle
         type="source"
         position={Position.Right}
         id="out"
-        className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-sky-700 bg-white"
+        dataType={outType}
+        typeMask={outMask}
+        className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+        indicatorClassName="border-sky-700"
       />
     </BaseNode>
   );

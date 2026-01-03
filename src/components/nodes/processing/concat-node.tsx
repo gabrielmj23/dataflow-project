@@ -14,6 +14,7 @@ export const ConcatNode = memo(({ data }: NodeProps) => {
 
   return (
     <ProcessingRectNodeShell
+      nodeType="concat"
       icon={<Link2 className="h-5 w-5" />}
       label={label}
       runtimeError={runtimeError}

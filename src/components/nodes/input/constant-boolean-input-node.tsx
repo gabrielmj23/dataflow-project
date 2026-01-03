@@ -43,6 +43,7 @@ export const ConstantBooleanInputNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <InputCircleNodeShell
+        nodeType="constantBoolean"
         icon={
           <div className="flex flex-col items-center justify-center gap-0.5">
             <span className="flex items-center justify-center">

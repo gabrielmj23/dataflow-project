@@ -1,11 +1,17 @@
 import type { ReactNode } from "react";
 
-import { Handle, Position } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import NodeSettingsButton from "@/components/ui/node-settings-button";
+import {
+  getPortTypeMask,
+  maskToVisualPortDataType,
+} from "@/flow/port-data-type";
 
 type ControlRectNodeShellProps = {
+  nodeType: string;
   icon: ReactNode;
   label: string;
   variant?:
@@ -38,6 +44,7 @@ function offsets(count: number): string[] {
 }
 
 export function ControlRectNodeShell({
+  nodeType,
   icon,
   label,
   variant = "default",
@@ -46,6 +53,21 @@ export function ControlRectNodeShell({
   onConfigClick,
   runtimeError,
 }: ControlRectNodeShellProps) {
+  const maskFor = (params: {
+    handleType: "source" | "target";
+    handleId: string | null | undefined;
+  }) =>
+    getPortTypeMask({
+      nodeType,
+      handleType: params.handleType,
+      handleId: params.handleId ?? null,
+    });
+
+  const typeFor = (params: {
+    handleType: "source" | "target";
+    handleId: string | null | undefined;
+  }) => maskToVisualPortDataType(maskFor(params));
+
   const outCount =
     variant === "singleInMultiOut"
       ? outputHandleIds?.length ?? outputCount ?? 0
@@ -70,89 +92,126 @@ export function ControlRectNodeShell({
 
       {variant === "default" && (
         <>
-          <Handle
+          <CustomTypedHandle
             type="target"
             position={Position.Left}
             style={{ top: "35%" }}
             id="in-1"
-            className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "target", handleId: "in-1" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in-1" })}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
-          <Handle
+          <CustomTypedHandle
             type="target"
             position={Position.Left}
             style={{ top: "65%" }}
             id="in-2"
-            className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "target", handleId: "in-2" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in-2" })}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
-          <Handle
+          <CustomTypedHandle
             type="source"
             position={Position.Right}
             id="out"
-            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "source", handleId: "out" })}
+            typeMask={maskFor({ handleType: "source", handleId: "out" })}
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
         </>
       )}
 
       {variant === "singleInDualOut" && (
         <>
-          <Handle
+          <CustomTypedHandle
             type="target"
             position={Position.Left}
             id="in"
-            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "target", handleId: "in" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in" })}
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
-          <Handle
+          <CustomTypedHandle
             type="source"
             position={Position.Right}
             style={{ top: "35%" }}
             id="out-1"
-            className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "source", handleId: "out-1" })}
+            typeMask={maskFor({ handleType: "source", handleId: "out-1" })}
+            className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
-          <Handle
+          <CustomTypedHandle
             type="source"
             position={Position.Right}
             style={{ top: "65%" }}
             id="out-2"
-            className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "source", handleId: "out-2" })}
+            typeMask={maskFor({ handleType: "source", handleId: "out-2" })}
+            className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
         </>
       )}
 
       {variant === "singleInMultiOut" && (
         <>
-          <Handle
+          <CustomTypedHandle
             type="target"
             position={Position.Left}
             id="in"
-            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "target", handleId: "in" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in" })}
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
 
           {outOffsets.map((offset, index) => (
-            <Handle
+            (() => {
+              const id = outputHandleIds?.[index] ?? `out-${index + 1}`;
+              const mask = maskFor({ handleType: "source", handleId: id });
+              const dt = maskToVisualPortDataType(mask);
+              return (
+            <CustomTypedHandle
               key={`r-${offset}`}
               type="source"
               position={Position.Right}
               style={{ top: offset }}
-              id={outputHandleIds?.[index] ?? `out-${index + 1}`}
-              className="absolute -right-1 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+              id={id}
+              dataType={dt}
+              typeMask={mask}
+              className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+              indicatorClassName="border-orange-600"
             />
+              );
+            })()
           ))}
         </>
       )}
 
       {variant == "singleInSingleOut" && (
         <>
-          <Handle
+          <CustomTypedHandle
             type="target"
             position={Position.Left}
             id="in"
-            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "target", handleId: "in" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in" })}
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
-          <Handle
+          <CustomTypedHandle
             type="source"
             position={Position.Right}
             id="out"
-            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-orange-600 bg-white"
+            dataType={typeFor({ handleType: "source", handleId: "out" })}
+            typeMask={maskFor({ handleType: "source", handleId: "out" })}
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
           />
         </>
       )}

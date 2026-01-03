@@ -52,6 +52,7 @@ export const ConstantInputNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <InputCircleNodeShell
+        nodeType="constantInput"
         icon={
           <span className="text-lg font-bold">
             {typeof value === "boolean" ? (value ? "V" : "F") : value}

@@ -14,6 +14,7 @@ export const AndNode = memo(({ data }: NodeProps) => {
 
   return (
     <ControlRectNodeShell
+      nodeType="and"
       icon={<Ampersand className="h-6 w-6" />}
       label={label}
       runtimeError={runtimeError}

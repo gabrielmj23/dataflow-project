@@ -1,11 +1,17 @@
 import type { ReactNode } from "react";
 
-import { Handle, Position } from "@xyflow/react";
+import { Position } from "@xyflow/react";
 
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import NodeSettingsButton from "@/components/ui/node-settings-button";
+import {
+  getPortTypeMask,
+  maskToVisualPortDataType,
+} from "@/flow/port-data-type";
 
 type IoRectNodeShellProps = {
+  nodeType: string;
   icon: ReactNode;
   label: string;
   variant?: "default" | "sink";
@@ -27,6 +33,7 @@ function offsets(count: number): string[] {
 }
 
 export function IoRectNodeShell({
+  nodeType,
   icon,
   label,
   variant = "default",
@@ -34,6 +41,21 @@ export function IoRectNodeShell({
   onConfigClick,
   runtimeError,
 }: IoRectNodeShellProps) {
+  const maskFor = (params: {
+    handleType: "source" | "target";
+    handleId: string | null | undefined;
+  }) =>
+    getPortTypeMask({
+      nodeType,
+      handleType: params.handleType,
+      handleId: params.handleId ?? null,
+    });
+
+  const typeFor = (params: {
+    handleType: "source" | "target";
+    handleId: string | null | undefined;
+  }) => maskToVisualPortDataType(maskFor(params));
+
   const targetOffsets =
     variant === "sink" ? offsets(targetHandleIds?.length ?? 1) : [];
 
@@ -54,31 +76,44 @@ export function IoRectNodeShell({
 
       {variant === "default" && (
         <>
-          <Handle
+          <CustomTypedHandle
             type="target"
             position={Position.Left}
-            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-rose-700 bg-white"
+            dataType={typeFor({ handleType: "target", handleId: null })}
+            typeMask={maskFor({ handleType: "target", handleId: null })}
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-rose-700"
           />
-          <Handle
+          <CustomTypedHandle
             type="source"
             position={Position.Right}
-            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border border-rose-700 bg-white"
+            dataType={typeFor({ handleType: "source", handleId: null })}
+            typeMask={maskFor({ handleType: "source", handleId: null })}
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-rose-700"
           />
         </>
       )}
 
       {variant === "sink" && (
         <>
-          {(targetHandleIds ?? ["in-1"]).map((handleId, index) => (
-            <Handle
-              key={`sink-in-${handleId}`}
-              type="target"
-              position={Position.Left}
-              id={handleId}
-              style={{ top: targetOffsets[index] ?? "50%" }}
-              className="absolute -left-1 h-2 w-2 -translate-y-1/2 rounded-full border border-rose-700 bg-white"
-            />
-          ))}
+          {(targetHandleIds ?? ["in-1"]).map((handleId, index) => {
+            const mask = maskFor({ handleType: "target", handleId });
+            const dt = maskToVisualPortDataType(mask);
+            return (
+              <CustomTypedHandle
+                key={`sink-in-${handleId}`}
+                type="target"
+                position={Position.Left}
+                id={handleId}
+                style={{ top: targetOffsets[index] ?? "50%" }}
+                dataType={dt}
+                typeMask={mask}
+                className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+                indicatorClassName="border-rose-700"
+              />
+            );
+          })}
         </>
       )}
     </BaseNode>

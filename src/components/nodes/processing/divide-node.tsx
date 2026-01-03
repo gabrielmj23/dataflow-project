@@ -14,6 +14,7 @@ export const DivideNode = memo(({ data }: NodeProps) => {
 
   return (
     <ProcessingRectNodeShell
+      nodeType="divide"
       icon={<Divide className="h-6 w-6" />}
       label={label}
       runtimeError={runtimeError}

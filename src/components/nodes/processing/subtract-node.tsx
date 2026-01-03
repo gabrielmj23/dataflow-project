@@ -11,7 +11,13 @@ export type SubtractNodeData = {
 export const SubtractNode = memo(({ data }: NodeProps) => {
   const { label = "Restar" } = (data ?? {}) as SubtractNodeData;
 
-  return <ProcessingRectNodeShell icon={<Minus className="h-6 w-6" />} label={label} />;
+  return (
+    <ProcessingRectNodeShell
+      nodeType="subtract"
+      icon={<Minus className="h-6 w-6" />}
+      label={label}
+    />
+  );
 });
 
 SubtractNode.displayName = "SubtractNode";
