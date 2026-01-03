@@ -11,11 +11,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 export type RandomInputNodeData = {
   label?: string;
   min?: number;
   max?: number;
+  integerOnly?: boolean;
 };
 
 const DEFAULT_MIN = 0;
@@ -26,14 +28,16 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
     label = "Valor Aleatorio",
     min: rawMin,
     max: rawMax,
+    integerOnly: rawIntegerOnly,
   } = (data ?? {}) as RandomInputNodeData;
 
   const min = Number.isFinite(rawMin) ? (rawMin as number) : DEFAULT_MIN;
   const max = Number.isFinite(rawMax) ? (rawMax as number) : DEFAULT_MAX;
+  const integerOnly = rawIntegerOnly === true;
 
   const { setNodes } = useReactFlow();
   const setRange = useCallback(
-    (nextMin: number, nextMax: number) => {
+    (nextMin: number, nextMax: number, nextIntegerOnly: boolean) => {
       setNodes((prev) =>
         prev.map((node) =>
           node.id === id
@@ -43,6 +47,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                   ...(node.data ?? {}),
                   min: nextMin,
                   max: nextMax,
+                  integerOnly: nextIntegerOnly,
                 },
               }
             : node
@@ -56,9 +61,11 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
 
   const [draftMin, setDraftMin] = useState<number>(min);
   const [draftMax, setDraftMax] = useState<number>(max);
+  const [draftIntegerOnly, setDraftIntegerOnly] = useState<boolean>(integerOnly);
 
   const minInputId = useId();
   const maxInputId = useId();
+  const integerOnlySwitchId = useId();
 
   const validation = useMemo(() => {
     if (!Number.isFinite(draftMin) || !Number.isFinite(draftMax)) {
@@ -70,14 +77,27 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
         message: "El mínimo no puede ser mayor que el máximo.",
       };
     }
+
+    if (draftIntegerOnly) {
+      const minInt = Math.ceil(draftMin);
+      const maxInt = Math.floor(draftMax);
+      if (minInt > maxInt) {
+        return {
+          isValid: false,
+          message: "No hay números enteros dentro de ese rango.",
+        };
+      }
+    }
+
     return { isValid: true, message: "" };
-  }, [draftMin, draftMax]);
+  }, [draftIntegerOnly, draftMax, draftMin]);
 
   const openDialog = useCallback(() => {
     setDraftMin(min);
     setDraftMax(max);
+    setDraftIntegerOnly(integerOnly);
     setIsDialogOpen(true);
-  }, [max, min]);
+  }, [integerOnly, max, min]);
 
   return (
     <>
@@ -104,6 +124,29 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
             <p className="text-sm text-muted-foreground">
               Elige el rango del que saldrá el número aleatorio.
             </p>
+
+            {/* Solo enteros */}
+            <div>
+              <p className="text-sm font-medium text-gray-900">Solo enteros</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Si está activo, solo se generarán números enteros.
+              </p>
+
+              <div className="mt-2 flex items-center gap-3">
+                <Switch
+                  id={integerOnlySwitchId}
+                  checked={draftIntegerOnly}
+                  onCheckedChange={setDraftIntegerOnly}
+                  aria-label="Solo enteros"
+                />
+                <label
+                  htmlFor={integerOnlySwitchId}
+                  className="text-xs text-muted-foreground"
+                >
+                  {draftIntegerOnly ? "Activado" : "Desactivado"}
+                </label>
+              </div>
+            </div>
 
             {/* Mínimo */}
             <div>
@@ -200,6 +243,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                 onClick={() => {
                   setDraftMin(DEFAULT_MIN);
                   setDraftMax(DEFAULT_MAX);
+                  setDraftIntegerOnly(false);
                 }}
               >
                 Restablecer
@@ -211,7 +255,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                   if (!validation.isValid) {
                     return;
                   }
-                  setRange(draftMin, draftMax);
+                  setRange(draftMin, draftMax, draftIntegerOnly);
                   setIsDialogOpen(false);
                 }}
               >

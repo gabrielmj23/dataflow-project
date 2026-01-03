@@ -836,7 +836,8 @@ function flowNodeToEngineDefinition(
     case NODE_TYPES.RANDOM_INPUT: {
       const min = typeof data.min === "number" ? data.min : 0;
       const max = typeof data.max === "number" ? data.max : 100;
-      return new EngineRandomNode(min, max);
+      const integerOnly = data.integerOnly === true;
+      return new EngineRandomNode(min, max, integerOnly);
     }
     case NODE_TYPES.TIMER_INPUT: {
       // UI stores seconds; engine expects milliseconds.
