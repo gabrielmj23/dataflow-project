@@ -7,9 +7,22 @@ export class EngineConstantNode extends NodeDefinition {
 }
 
 export class EngineRandomNode extends NodeDefinition {
-  constructor(minValue: number, maxValue: number) {
+  constructor(minValue: number, maxValue: number, integerOnly = false) {
     super(
-      () => Math.random() * (maxValue - minValue) + minValue,
+      () => {
+        if (!integerOnly) {
+          return Math.random() * (maxValue - minValue) + minValue;
+        }
+
+        const minInt = Math.ceil(minValue);
+        const maxInt = Math.floor(maxValue);
+        if (minInt > maxInt) {
+          return Number.NaN;
+        }
+
+        // Inclusive integer in [minInt, maxInt]
+        return Math.floor(Math.random() * (maxInt - minInt + 1)) + minInt;
+      },
       [FirePatterns.ALWAYS],
       ["output"]
     );
