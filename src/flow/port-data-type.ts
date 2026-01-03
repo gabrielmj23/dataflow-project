@@ -197,8 +197,12 @@ export function getPortTypeMask(params: {
   const isOutput = handleType === "source";
 
   // Inputs & events
-  if (nodeType === "constantNumber" || nodeType === "randomInput" || nodeType === "timerInput") {
+  if (nodeType === "constantNumber" || nodeType === "randomInput") {
     return isOutput ? TYPE_NUMBER : TYPE_ANY;
+  }
+  if (nodeType === "timerInput") {
+    // Timer can optionally pass-through any incoming value after a delay.
+    return TYPE_ANY;
   }
   if (nodeType === "constantText") {
     return isOutput ? TYPE_TEXT : TYPE_ANY;
@@ -264,8 +268,12 @@ export function isTypeCompatible(params: {
   targetType: PortDataType | PortDataTypeMask;
 }): boolean {
   const sourceMask =
-    typeof params.sourceType === "number" ? params.sourceType : toMask(params.sourceType);
+    typeof params.sourceType === "number"
+      ? params.sourceType
+      : toMask(params.sourceType);
   const targetMask =
-    typeof params.targetType === "number" ? params.targetType : toMask(params.targetType);
+    typeof params.targetType === "number"
+      ? params.targetType
+      : toMask(params.targetType);
   return (sourceMask & targetMask) !== 0;
 }

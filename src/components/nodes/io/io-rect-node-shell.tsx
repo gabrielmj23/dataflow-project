@@ -20,7 +20,7 @@ function offsets(count: number): string[] {
   if (safeCount === 0) return [];
   if (safeCount === 1) return ["50%"];
 
-  const start = 15;
+  const start = 25;
   const end = 85;
   const step = (end - start) / (safeCount - 1);
   return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);

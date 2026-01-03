@@ -1,5 +1,13 @@
-import { memo, useCallback, useId, useState } from "react";
-import { useReactFlow, type NodeProps } from "@xyflow/react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { useReactFlow, useStore, type NodeProps } from "@xyflow/react";
 import { Minus, Plus, Timer } from "lucide-react";
 
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
@@ -29,6 +37,56 @@ export const TimerInputNode = memo(({ id, data }: NodeProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const inputId = useId();
 
+  const runtimeClassName = useStore((state) => {
+    const nodeLookup = (state as unknown as { nodeLookup?: unknown })
+      .nodeLookup;
+    const lookup =
+      nodeLookup &&
+      typeof nodeLookup === "object" &&
+      "get" in (nodeLookup as Record<string, unknown>) &&
+      typeof (nodeLookup as { get?: unknown }).get === "function"
+        ? (nodeLookup as { get: (nodeId: string) => unknown })
+        : null;
+
+    const entry = lookup ? lookup.get(String(id)) : null;
+    if (!entry || typeof entry !== "object") return "";
+    const className = (entry as { className?: unknown }).className;
+    return typeof className === "string" ? className : "";
+  });
+
+  const isRunning = runtimeClassName.includes("rf-node-running");
+  const [remainingMs, setRemainingMs] = useState<number | null>(null);
+  const startedAtRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!isRunning) {
+      startedAtRef.current = null;
+      return;
+    }
+
+    // Start a local countdown when the engine marks this node as running.
+    const totalMs = Math.max(0, timeValue * 1000);
+    const startedAt = Date.now();
+    startedAtRef.current = startedAt;
+
+    const tick = () => {
+      const elapsed = Date.now() - startedAt;
+      const next = Math.max(0, Math.round(totalMs - elapsed));
+      setRemainingMs(next);
+    };
+
+    tick();
+    const interval = window.setInterval(tick, 50);
+    return () => window.clearInterval(interval);
+  }, [isRunning, timeValue]);
+
+  const countdownLabel = useMemo(() => {
+    if (!isRunning || remainingMs == null) return null;
+    const seconds = remainingMs / 1000;
+    const formatted = seconds >= 10 ? seconds.toFixed(1) : seconds.toFixed(2);
+    return `Restan ${formatted}s`;
+  }, [isRunning, remainingMs]);
+
   const setTimeValue = useCallback(
     (nextValue: number) => {
       setNodes((prev) =>
@@ -54,6 +112,9 @@ export const TimerInputNode = memo(({ id, data }: NodeProps) => {
         icon={<Timer className="h-7 w-7" />}
         label={label}
         onConfigClick={() => setIsDialogOpen(true)}
+        variant="inputOutput"
+        sublabel={countdownLabel}
+        disableRuntimeStyles={false}
       />
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>

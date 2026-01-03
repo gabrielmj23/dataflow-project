@@ -160,7 +160,9 @@ function reconcileWriteGraph(
       map.set(oldIdx, i + 1);
     }
 
-    const desiredInputCount = Math.max(2, sorted.length + 1);
+    // If there are no connected inputs, keep a single empty handle only.
+    // Otherwise keep one extra empty handle beyond the highest connected input.
+    const desiredInputCount = sorted.length === 0 ? 1 : sorted.length + 1;
     const maxVarAllowed = desiredInputCount - 1;
     writeMaps.set(nodeId, { map, desiredInputCount, maxVarAllowed });
   }
@@ -781,14 +783,26 @@ export default function App() {
   // - Shrink inputCount to connectedCount+1 (keep one empty handle)
   // - Remap/remove {k} placeholders accordingly
   useEffect(() => {
+    // Run reconciliation only when edges change. Running on nodes causes
+    // the effect to fire right after a node is created (nodes list update),
+    // which produced an extra input handle being applied immediately. By
+    // reacting only to `edges` we avoid mutating freshly-created nodes and
+    // only adjust inputs when connections actually change (deletes/rewires).
     if (isRestoringRef.current) return;
     if (isRuntimeUpdateRef.current) return;
     if (isDraggingRef.current) return;
 
-    const result = reconcileWriteGraph(nodes, edges);
-    if (result.changedEdges) setEdges(result.edges);
-    if (result.changedNodes) setNodes(result.nodes);
-  }, [edges, nodes, setEdges, setNodes]);
+    setNodes((prevNodes) => {
+      const result = reconcileWriteGraph(prevNodes, edges);
+      if (result.changedEdges) {
+        // If edges were remapped (compaction), update them.
+        setEdges(result.edges);
+      }
+      return result.changedNodes ? result.nodes : prevNodes;
+    });
+    // Intentionally only depend on `edges` so new node creation doesn't
+    // trigger compaction immediately.
+  }, [edges, setEdges, setNodes]);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -941,6 +955,14 @@ export default function App() {
       } else {
         if (label) {
           data = { label };
+        }
+
+        if (type === "write") {
+          data = {
+            ...(data ?? {}),
+            inputCount: 1,
+            template: "{1}",
+          };
         }
 
         // Provide sensible defaults for common input/sequence nodes
