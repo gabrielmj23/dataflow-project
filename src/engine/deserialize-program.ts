@@ -152,10 +152,16 @@ function buildEngineStoresFromFlowGraph(params: {
   // For nodes with dynamic port counts (e.g., Write sink), infer the required
   // input count from the incoming edges.
   const writeSinkInputCountByNodeId = new Map<string, number>();
+  const timerHasIncomingByNodeId = new Map<string, boolean>();
   for (const edge of params.edges) {
     const targetId = String(edge.target);
     const targetNode = nodeById.get(targetId);
     if (!targetNode) continue;
+
+    if (targetNode.type === NODE_TYPES.TIMER_INPUT) {
+      timerHasIncomingByNodeId.set(targetId, true);
+    }
+
     if (targetNode.type !== NODE_TYPES.WRITE_SINK) continue;
 
     const handleId = edge.targetHandle ?? null;
@@ -170,6 +176,7 @@ function buildEngineStoresFromFlowGraph(params: {
   for (const flowNode of params.nodes) {
     const engineDef = flowNodeToEngineDefinition(flowNode, {
       writeSinkInputCountByNodeId,
+      timerHasIncomingByNodeId,
     });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
@@ -584,14 +591,32 @@ function mapHandleToPortId(params: {
     nodeType === NODE_TYPES.CONSTANT_NUMBER_INPUT ||
     nodeType === NODE_TYPES.CONSTANT_BOOLEAN_INPUT ||
     nodeType === NODE_TYPES.CONSTANT_TEXT_INPUT ||
-    nodeType === NODE_TYPES.RANDOM_INPUT ||
-    nodeType === NODE_TYPES.TIMER_INPUT
+    nodeType === NODE_TYPES.RANDOM_INPUT
   ) {
     if (direction === "source") {
       return "output";
     }
     throw new Error(
       `Node ${nodeId} (${nodeType}) should not have input connections.`
+    );
+  }
+
+  // Timer: inputOutput circle node (optional input -> output after delay)
+  if (nodeType === NODE_TYPES.TIMER_INPUT) {
+    if (direction === "target") {
+      if (handleId == null) return "input";
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId
+        )}' for node ${nodeId} (${nodeType}).`
+      );
+    }
+
+    if (handleId == null) return "output";
+    throw new Error(
+      `Unknown output handle '${String(
+        handleId
+      )}' for node ${nodeId} (${nodeType}).`
     );
   }
 
@@ -785,6 +810,7 @@ function flowNodeToEngineDefinition(
   flowNode: Node,
   context?: {
     writeSinkInputCountByNodeId?: Map<string, number>;
+    timerHasIncomingByNodeId?: Map<string, boolean>;
   }
 ): NodeDefinition {
   const nodeType = flowNode.type;
@@ -815,7 +841,13 @@ function flowNodeToEngineDefinition(
     case NODE_TYPES.TIMER_INPUT: {
       // UI stores seconds; engine expects milliseconds.
       const seconds = typeof data.timeValue === "number" ? data.timeValue : 0;
-      return new EngineTimerNode(Math.max(0, Math.round(seconds * 1000)));
+      const hasIncoming = Boolean(
+        context?.timerHasIncomingByNodeId?.get(String(flowNode.id))
+      );
+      return new EngineTimerNode(
+        Math.max(0, Math.round(seconds * 1000)),
+        hasIncoming ? "delay" : "source"
+      );
     }
 
     case NODE_TYPES.FILTER_INPUT_VALUE:
