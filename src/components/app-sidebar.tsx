@@ -2,6 +2,9 @@ import * as React from "react";
 import type { DragEvent } from "react";
 import {
   Ampersand,
+  ArrowDown,
+  ArrowUp,
+  Circle,
   Divide,
   Link2,
   PenSquare,
@@ -261,8 +264,11 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "subtract":
       case "multiply":
       case "divide":
-       case "mod":
+      case "mod":
       case "power":
+      case "floor":
+      case "ceiling":
+      case "round":
       case "concat": {
         const symbolMap: Record<string, string> = {
           sum: "plus",
@@ -271,6 +277,9 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           divide: "divide",
           mod: "mod",
           power: "power",
+          floor: "floor",
+          ceiling: "ceiling",
+          round: "round",
           concat: "concat",
         };
         return (
@@ -288,6 +297,15 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               )}
               {symbolMap[type] === "power" && (
                 <span className="text-sm font-bold">x²</span>
+              )}
+              {symbolMap[type] === "floor" && (
+                <ArrowDown className="h-6 w-6" />
+              )}
+              {symbolMap[type] === "ceiling" && (
+                <ArrowUp className="h-6 w-6" />
+              )}
+              {symbolMap[type] === "round" && (
+                <Circle className="h-6 w-6" />
               )}
               {symbolMap[type] === "concat" && <Link2 className="h-5 w-5" />}
             </span>

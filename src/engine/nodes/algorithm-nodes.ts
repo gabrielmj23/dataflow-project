@@ -86,3 +86,33 @@ export class EngineConcatNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineFloorNode extends NodeDefinition {
+  constructor() {
+    super(
+      (a: number) => Math.floor(a),
+      [FirePatterns.EXISTS],
+      ["input1", "output"]
+    );
+  }
+}
+
+export class EngineCeilingNode extends NodeDefinition {
+  constructor() {
+    super(
+      (a: number) => Math.ceil(a),
+      [FirePatterns.EXISTS],
+      ["input1", "output"]
+    );
+  }
+}
+
+export class EngineRoundNode extends NodeDefinition {
+  constructor() {
+    super(
+      (a: number) => Math.round(a),
+      [FirePatterns.EXISTS],
+      ["input1", "output"]
+    );
+  }
+}
