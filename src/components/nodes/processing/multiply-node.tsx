@@ -14,6 +14,7 @@ export const MultiplyNode = memo(({ data }: NodeProps) => {
 
   return (
     <ProcessingRectNodeShell
+      nodeType="multiply"
       icon={<X className="h-6 w-6" />}
       label={label}
       runtimeError={runtimeError}

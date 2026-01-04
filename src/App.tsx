@@ -5,6 +5,7 @@ import {
   applyEdgeChanges,
   addEdge,
   type Connection,
+  type OnConnectStartParams,
   MarkerType,
   MiniMap,
   Controls,
@@ -36,6 +37,11 @@ import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
+import {
+  ConnectionHighlightProvider,
+  type ConnectionHighlightState,
+} from "@/flow/connection-highlight-context";
+import { getPortTypeMask } from "@/flow/port-data-type";
 import {
   Dialog,
   DialogContent,
@@ -777,6 +783,44 @@ export default function App() {
   );
 
   const connectionTooltip = useConnectionValidationTooltip(nodes);
+
+  const [connectionHighlight, setConnectionHighlight] =
+    useState<ConnectionHighlightState>(null);
+
+  const onConnectStart = useCallback(
+    (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+      // Keep existing tooltip behavior.
+      connectionTooltip.onConnectStart(event, params);
+
+      if (!params.nodeId) {
+        setConnectionHighlight(null);
+        return;
+      }
+
+      if (params.handleType !== "source") {
+        setConnectionHighlight(null);
+        return;
+      }
+
+      const sourceNode = nodes.find((n) => String(n.id) === String(params.nodeId));
+      const nodeType = sourceNode && typeof sourceNode.type === "string" ? sourceNode.type : null;
+      const sourceMask = getPortTypeMask({
+        nodeType,
+        handleType: "source",
+        handleId: params.handleId ?? null,
+      });
+      setConnectionHighlight({ sourceMask });
+    },
+    [connectionTooltip, nodes]
+  );
+
+  const onConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      connectionTooltip.onConnectEnd(event);
+      setConnectionHighlight(null);
+    },
+    [connectionTooltip]
+  );
 
   // Keep WriteNode dynamic inputs in sync with actual connections.
   // - On deletions that create gaps (e.g. in-1, in-3), compact indices (→ in-1, in-2)
@@ -1649,7 +1693,8 @@ export default function App() {
           <SubflowTemplateContext.Provider
             value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
           >
-            <ReactFlow
+            <ConnectionHighlightProvider value={connectionHighlight}>
+              <ReactFlow
               nodes={nodes}
               edges={edges}
               nodeTypes={nodeTypes}
@@ -1667,8 +1712,8 @@ export default function App() {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onConnect={onConnect}
-              onConnectStart={connectionTooltip.onConnectStart}
-              onConnectEnd={connectionTooltip.onConnectEnd}
+              onConnectStart={onConnectStart}
+              onConnectEnd={onConnectEnd}
               onDrop={onDrop}
               onDragOver={onDragOver}
               onNodeDragStart={onNodeDragStart}
@@ -1793,6 +1838,7 @@ export default function App() {
                 onChange={onProgramFileChange}
               />
             </ReactFlow>
+            </ConnectionHighlightProvider>
           </SubflowTemplateContext.Provider>
         </div>
 

@@ -419,6 +419,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <IoRectNodeShell
+        nodeType="write"
         icon={<PenSquare className="h-6 w-6" />}
         label={label}
         variant="sink"

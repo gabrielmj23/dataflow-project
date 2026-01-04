@@ -12,6 +12,7 @@ export const ZipNode = memo(({ data }: NodeProps) => {
 
   return (
     <IterationRectNodeShell
+      nodeType="zip"
       icon={<span className="text-sm font-bold">⇆</span>}
       label={label}
       variant="doubleInSingleOut"

@@ -19,12 +19,12 @@ import {
   type ReactFlowInstance,
   useReactFlow,
   useStore,
-  Handle,
   Position,
   useUpdateNodeInternals,
 } from "@xyflow/react";
 
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Hand, MousePointer2, PictureInPicture2 } from "lucide-react";
 import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
@@ -310,24 +310,28 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       </div>
 
       {inOffsets.map((offset, index) => (
-        <Handle
+        <CustomTypedHandle
           key={`l-${offset}`}
           type="target"
           position={Position.Left}
           style={{ top: offset }}
           id={`in-${index + 1}`}
-          className="h-2 w-2 -translate-y-1/2 rounded-full border border-violet-700 bg-white"
+          dataType="any"
+          className="h-2 w-2 -translate-y-1/2"
+          indicatorClassName="border-violet-700"
         />
       ))}
 
       {outOffsets.map((offset, index) => (
-        <Handle
+        <CustomTypedHandle
           key={`r-${offset}`}
           type="source"
           position={Position.Right}
           style={{ top: offset }}
           id={`out-${index + 1}`}
-          className="h-2 w-2 -translate-y-1/2 rounded-full border border-violet-700 bg-white"
+          dataType="any"
+          className="h-2 w-2 -translate-y-1/2"
+          indicatorClassName="border-violet-700"
         />
       ))}
 

@@ -262,6 +262,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <IterationRectNodeShell
+        nodeType="filter"
         icon={<span className="text-lg font-bold">↓</span>}
         label={label}
         variant="singleInSingleOut"

@@ -160,6 +160,7 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <ControlRectNodeShell
+        nodeType="switch"
         icon={<ToggleRight className="h-5 w-5" />}
         label={label}
         variant="singleInMultiOut"

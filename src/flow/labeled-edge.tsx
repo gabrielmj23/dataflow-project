@@ -6,6 +6,8 @@ import {
   useStore,
 } from "@xyflow/react";
 
+import { getPortTypeMask, maskToVisualPortDataType } from "@/flow/port-data-type";
+
 type SwitchCondition = {
   label?: string;
   operator?: unknown;
@@ -109,6 +111,26 @@ export function LabeledEdge(props: EdgeProps) {
       ? (nodeLookup as { get: (id: string) => unknown }).get(String(source))
       : null;
 
+  const sourceNodeType =
+    sourceNode && typeof sourceNode === "object"
+      ? ((sourceNode as { type?: unknown }).type as unknown)
+      : null;
+
+  const visualType = maskToVisualPortDataType(
+    getPortTypeMask({
+      nodeType: typeof sourceNodeType === "string" ? sourceNodeType : null,
+      handleType: "source",
+      handleId: sourceHandleId ?? null,
+    })
+  );
+
+  const mergedStyle = {
+    ...(style ?? {}),
+    // Force all edges to be solid.
+    strokeDasharray: "none",
+    strokeDashoffset: 0,
+  };
+
   const label = getSwitchEdgeLabel({ sourceNode, sourceHandleId });
 
   const [edgePath, labelX, labelY] = getBezierPath({
@@ -122,7 +144,12 @@ export function LabeledEdge(props: EdgeProps) {
 
   return (
     <>
-      <BaseEdge id={id} path={edgePath} markerEnd={markerEnd} style={style} />
+      <BaseEdge
+        id={id}
+        path={edgePath}
+        markerEnd={markerEnd}
+        style={mergedStyle}
+      />
 
       {label && (
         <EdgeLabelRenderer>
@@ -139,6 +166,7 @@ export function LabeledEdge(props: EdgeProps) {
             data-edge-source-handle={sourceHandleId ?? ""}
             data-edge-target={target}
             data-edge-target-handle={targetHandleId ?? ""}
+            data-edge-type={visualType}
           >
             {label}
           </div>

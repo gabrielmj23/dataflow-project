@@ -13,6 +13,7 @@ export const OrNode = memo(({ data }: NodeProps) => {
 
   return (
     <ControlRectNodeShell
+      nodeType="or"
       icon={<span className="text-sm font-bold">∨</span>}
       label={label}
       runtimeError={runtimeError}

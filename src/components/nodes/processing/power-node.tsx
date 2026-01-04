@@ -13,6 +13,7 @@ export const PowerNode = memo(({ data }: NodeProps) => {
 
   return (
     <ProcessingRectNodeShell
+      nodeType="power"
       icon={<span className="text-sm font-bold">x²</span>}
       label={label}
       runtimeError={runtimeError}

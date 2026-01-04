@@ -14,6 +14,7 @@ export const ModNode = memo(({ data }: NodeProps) => {
 
   return (
     <ProcessingRectNodeShell
+      nodeType="mod"
       icon={<Percent className="h-5 w-5" />}
       label={label}
       runtimeError={runtimeError}

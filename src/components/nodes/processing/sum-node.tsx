@@ -14,6 +14,7 @@ export const SumNode = memo(({ data }: NodeProps) => {
 
   return (
     <ProcessingRectNodeShell
+      nodeType="sum"
       icon={<Plus className="h-6 w-6" />}
       label={label}
       runtimeError={runtimeError}

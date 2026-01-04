@@ -102,6 +102,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <InputCircleNodeShell
+        nodeType="randomInput"
         icon={
           <div className="flex flex-col items-center leading-none">
             <Shuffle className="size-6" />

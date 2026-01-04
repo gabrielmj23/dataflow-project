@@ -92,6 +92,7 @@ export const SequenceNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <IterationRectNodeShell
+        nodeType="sequence"
         icon={<span className="text-sm font-bold">1..N</span>}
         label={label}
         variant="source"

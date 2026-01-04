@@ -259,6 +259,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   return (
     <>
       <IterationRectNodeShell
+        nodeType="map"
         icon={<span className="text-sm font-bold">↦</span>}
         label={label}
         variant="singleInSingleOut"
