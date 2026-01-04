@@ -423,12 +423,24 @@ export class DataflowEngine {
     }
 
     // Normalize outputs to local tokens
-    const inputPortIds = new Set(
-      token.dataTokens.map((t) => t.location.portId)
-    );
-    const outputPortIds = nodeDefinition.ports.filter(
-      (portId) => !inputPortIds.has(portId)
-    );
+    const inferredInputCount = (() => {
+      const firePatterns = nodeDefinition.firePatterns;
+      const ports = nodeDefinition.ports;
+
+      // Source nodes are represented as FirePatterns.ALWAYS with a single
+      // "output" port. They consume zero tokens and still have one output.
+      if (
+        firePatterns.length === 1 &&
+        firePatterns[0] === FirePatterns.ALWAYS &&
+        ports.length === 1
+      ) {
+        return 0;
+      }
+
+      return firePatterns.length;
+    })();
+
+    const outputPortIds = nodeDefinition.ports.slice(inferredInputCount);
 
     const localOutputTokens = this.normalizeToLocalOutputTokens(
       rawResult,

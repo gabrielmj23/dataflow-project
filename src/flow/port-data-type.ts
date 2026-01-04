@@ -10,7 +10,8 @@ const TYPE_BOOLEAN = 1 << 2;
 const TYPE_ANY = TYPE_NUMBER | TYPE_TEXT | TYPE_BOOLEAN;
 
 export function maskToVisualPortDataType(mask: PortDataTypeMask): PortDataType {
-  const safe = typeof mask === "number" && Number.isFinite(mask) ? mask : TYPE_ANY;
+  const safe =
+    typeof mask === "number" && Number.isFinite(mask) ? mask : TYPE_ANY;
 
   const hasNumber = (safe & TYPE_NUMBER) !== 0;
   const hasText = (safe & TYPE_TEXT) !== 0;
@@ -292,7 +293,6 @@ export function getPortTypeMask(params: {
 
   // Lists / iteration: keep permissive for now.
   if (
-    nodeType === "sequence" ||
     nodeType === "zip" ||
     nodeType === "filter" ||
     nodeType === "map" ||
@@ -300,6 +300,11 @@ export function getPortTypeMask(params: {
     nodeType === "count"
   ) {
     return TYPE_ANY;
+  }
+
+  if (nodeType === "sequence") {
+    // Inputs (Inicio/Fin/Paso) are numbers; output is a list of numbers (kept as any).
+    return isOutput ? TYPE_ANY : TYPE_NUMBER;
   }
 
   return TYPE_ANY;

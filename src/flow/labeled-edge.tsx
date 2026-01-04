@@ -6,7 +6,10 @@ import {
   useStore,
 } from "@xyflow/react";
 
-import { getPortTypeMask, maskToVisualPortDataType } from "@/flow/port-data-type";
+import {
+  getPortTypeMask,
+  maskToVisualPortDataType,
+} from "@/flow/port-data-type";
 
 type SwitchCondition = {
   label?: string;
@@ -86,6 +89,27 @@ function getSwitchEdgeLabel(params: {
   return describeCondition(cond as SwitchCondition);
 }
 
+function getSequenceEdgeLabel(params: {
+  targetNode: unknown;
+  targetHandleId: string | null | undefined;
+}): string | null {
+  const { targetNode, targetHandleId } = params;
+  if (!targetNode || typeof targetNode !== "object") return null;
+  const type = (targetNode as { type?: unknown }).type;
+  if (type !== "sequence") return null;
+
+  switch (targetHandleId) {
+    case "in-1":
+      return "Inicio";
+    case "in-2":
+      return "Fin";
+    case "in-3":
+      return "Paso";
+    default:
+      return null;
+  }
+}
+
 /**
  * Default edge renderer that adds labels for Switch outputs.
  *
@@ -111,6 +135,14 @@ export function LabeledEdge(props: EdgeProps) {
       ? (nodeLookup as { get: (id: string) => unknown }).get(String(source))
       : null;
 
+  const targetNode =
+    nodeLookup &&
+    typeof nodeLookup === "object" &&
+    "get" in (nodeLookup as Record<string, unknown>) &&
+    typeof (nodeLookup as { get?: unknown }).get === "function"
+      ? (nodeLookup as { get: (id: string) => unknown }).get(String(target))
+      : null;
+
   const sourceNodeType =
     sourceNode && typeof sourceNode === "object"
       ? ((sourceNode as { type?: unknown }).type as unknown)
@@ -131,7 +163,9 @@ export function LabeledEdge(props: EdgeProps) {
     strokeDashoffset: 0,
   };
 
-  const label = getSwitchEdgeLabel({ sourceNode, sourceHandleId });
+  const label =
+    getSwitchEdgeLabel({ sourceNode, sourceHandleId }) ??
+    getSequenceEdgeLabel({ targetNode, targetHandleId });
 
   const [edgePath, labelX, labelY] = getBezierPath({
     sourceX: props.sourceX,

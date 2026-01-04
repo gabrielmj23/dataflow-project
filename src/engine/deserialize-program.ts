@@ -156,6 +156,10 @@ function buildEngineStoresFromFlowGraph(params: {
   // input count from the incoming edges.
   const writeSinkInputCountByNodeId = new Map<string, number>();
   const timerHasIncomingByNodeId = new Map<string, boolean>();
+  const sequenceIncomingByNodeId = new Map<
+    string,
+    { start: boolean; end: boolean; step: boolean }
+  >();
   for (const edge of params.edges) {
     const targetId = String(edge.target);
     const targetNode = nodeById.get(targetId);
@@ -163,6 +167,18 @@ function buildEngineStoresFromFlowGraph(params: {
 
     if (targetNode.type === NODE_TYPES.TIMER_INPUT) {
       timerHasIncomingByNodeId.set(targetId, true);
+    }
+
+    if (targetNode.type === NODE_TYPES.GENERATE_SEQUENCE_NODE) {
+      const handle = edge.targetHandle ?? "in-1";
+      const entry =
+        sequenceIncomingByNodeId.get(targetId) ??
+        ({ start: false, end: false, step: false } as const);
+      const next = { ...entry };
+      if (handle === "in-1" || handle == null) next.start = true;
+      if (handle === "in-2") next.end = true;
+      if (handle === "in-3") next.step = true;
+      sequenceIncomingByNodeId.set(targetId, next);
     }
 
     if (targetNode.type !== NODE_TYPES.WRITE_SINK) continue;
@@ -180,6 +196,7 @@ function buildEngineStoresFromFlowGraph(params: {
     const engineDef = flowNodeToEngineDefinition(flowNode, {
       writeSinkInputCountByNodeId,
       timerHasIncomingByNodeId,
+      sequenceIncomingByNodeId,
     });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
@@ -814,6 +831,17 @@ function mapHandleToPortId(params: {
   }
 
   if (nodeType === NODE_TYPES.GENERATE_SEQUENCE_NODE) {
+    if (direction === "target") {
+      if (handleId === "in-1" || handleId == null) return "start";
+      if (handleId === "in-2") return "end";
+      if (handleId === "in-3") return "step";
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId
+        )}' for node ${nodeId} (${nodeType}).`
+      );
+    }
+
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
@@ -837,6 +865,10 @@ function flowNodeToEngineDefinition(
   context?: {
     writeSinkInputCountByNodeId?: Map<string, number>;
     timerHasIncomingByNodeId?: Map<string, boolean>;
+    sequenceIncomingByNodeId?: Map<
+      string,
+      { start: boolean; end: boolean; step: boolean }
+    >;
   }
 ): NodeDefinition {
   const nodeType = flowNode.type;
@@ -977,11 +1009,26 @@ function flowNodeToEngineDefinition(
       );
 
     case NODE_TYPES.GENERATE_SEQUENCE_NODE: {
-      const min = typeof data.min === "number" ? data.min : 0;
-      const max = typeof data.max === "number" ? data.max : 100;
-      const step =
-        typeof data.step === "number" && data.step > 0 ? data.step : 1;
-      return new EngineGenerateSequenceNode(min, max, step);
+      const incoming = context?.sequenceIncomingByNodeId?.get(
+        String(flowNode.id)
+      ) ?? {
+        start: false,
+        end: false,
+        step: false,
+      };
+
+      const firePatterns: [FirePatterns, FirePatterns, FirePatterns] = [
+        incoming.start ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
+        incoming.end ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
+        incoming.step ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
+      ];
+
+      return new EngineGenerateSequenceNode({
+        defaultStart: 1,
+        defaultEnd: 10,
+        defaultStep: 1,
+        firePatterns,
+      });
     }
     case NODE_TYPES.ZIP_NODE:
       return new EngineZipNode();
