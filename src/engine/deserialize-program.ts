@@ -22,6 +22,9 @@ import {
   EngineDivideNode,
   EngineModNode,
   EnginePowerNode,
+  EngineFloorNode,
+  EngineCeilingNode,
+  EngineRoundNode,
   EngineConcatNode,
 } from "./nodes/algorithm-nodes";
 import { EngineConstantNode, EngineRandomNode } from "./nodes/input-nodes";
@@ -663,6 +666,29 @@ function mapHandleToPortId(params: {
     );
   }
 
+  // Processing nodes (1-in 1-out)
+  if (
+    nodeType === NODE_TYPES.FLOOR_NODE ||
+    nodeType === NODE_TYPES.CEILING_NODE ||
+    nodeType === NODE_TYPES.ROUND_NODE
+  ) {
+    if (direction === "target") {
+      if (handleId === "in-1") return "input1";
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId
+        )}' for node ${nodeId} (${nodeType}).`
+      );
+    }
+
+    if (handleId === "out" || handleId == null) return "output";
+    throw new Error(
+      `Unknown output handle '${String(
+        handleId
+      )}' for node ${nodeId} (${nodeType}).`
+    );
+  }
+
   // Control nodes
   if (
     nodeType === NODE_TYPES.COMPARISON_NODE ||
@@ -873,6 +899,12 @@ function flowNodeToEngineDefinition(
       return new EngineModNode();
     case NODE_TYPES.POWER_NODE:
       return new EnginePowerNode();
+    case NODE_TYPES.FLOOR_NODE:
+      return new EngineFloorNode();
+    case NODE_TYPES.CEILING_NODE:
+      return new EngineCeilingNode();
+    case NODE_TYPES.ROUND_NODE:
+      return new EngineRoundNode();
     case NODE_TYPES.CONCAT_NODE:
       return new EngineConcatNode();
 

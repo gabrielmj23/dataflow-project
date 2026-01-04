@@ -83,6 +83,21 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Eleva una base a un exponente.",
       },
       {
+        type: "floor",
+        label: "Piso",
+        description: "Redondea hacia abajo.",
+      },
+      {
+        type: "ceiling",
+        label: "Techo",
+        description: "Redondea hacia arriba.",
+      },
+      {
+        type: "round",
+        label: "Redondear",
+        description: "Redondea al entero más cercano.",
+      },
+      {
         type: "concat",
         label: "Concatenar",
         description: "Une dos cadenas o listas en una sola.",

@@ -14,9 +14,10 @@ type ProcessingRectNodeShellProps = {
   icon: ReactNode;
   label: string;
   runtimeError?: string | null;
+  inputCount?: 1 | 2;
 };
 
-export function ProcessingRectNodeShell({ nodeType, icon, label, runtimeError }: ProcessingRectNodeShellProps) {
+export function ProcessingRectNodeShell({ nodeType, icon, label, runtimeError, inputCount = 2 }: ProcessingRectNodeShellProps) {
   const in1Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-1" });
   const in2Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-2" });
   const outMask = getPortTypeMask({ nodeType, handleType: "source", handleId: "out" });
@@ -38,23 +39,25 @@ export function ProcessingRectNodeShell({ nodeType, icon, label, runtimeError }:
       <CustomTypedHandle
         type="target"
         position={Position.Left}
-        style={{ top: "35%" }}
+        style={{ top: inputCount === 1 ? "50%" : "35%" }}
         id="in-1"
         dataType={in1Type}
         typeMask={in1Mask}
         className="absolute -left-1 h-2 w-2 -translate-y-1/2"
         indicatorClassName="border-sky-700"
       />
-      <CustomTypedHandle
-        type="target"
-        position={Position.Left}
-        style={{ top: "65%" }}
-        id="in-2"
-        dataType={in2Type}
-        typeMask={in2Mask}
-        className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-sky-700"
-      />
+      {inputCount === 2 && (
+        <CustomTypedHandle
+          type="target"
+          position={Position.Left}
+          style={{ top: "65%" }}
+          id="in-2"
+          dataType={in2Type}
+          typeMask={in2Mask}
+          className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+          indicatorClassName="border-sky-700"
+        />
+      )}
       <CustomTypedHandle
         type="source"
         position={Position.Right}

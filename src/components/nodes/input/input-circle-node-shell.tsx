@@ -34,6 +34,8 @@ export function InputCircleNodeShell({
   sublabel,
   disableRuntimeStyles = true,
 }: InputCircleNodeShellProps) {
+  const inputMask = getPortTypeMask({ nodeType, handleType: "target", handleId: null });
+  const inputType = maskToVisualPortDataType(inputMask);
   const outputMask = getPortTypeMask({ nodeType, handleType: "source", handleId: null });
   const outputType = maskToVisualPortDataType(outputMask);
 
@@ -57,10 +59,13 @@ export function InputCircleNodeShell({
       ) : null}
 
       {variant === "inputOutput" && (
-        <Handle
+        <CustomTypedHandle
           type="target"
           position={Position.Left}
-          className="absolute left-1 top-1/2 h-2 w-2 rounded-full border border-emerald-600 bg-white"
+          dataType={inputType}
+          typeMask={inputMask}
+          className="absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2"
+          indicatorClassName="border-emerald-600"
         />
       )}
 
