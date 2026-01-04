@@ -41,6 +41,8 @@ export function ArrowConnectionLine(props: ConnectionLineComponentProps) {
 
   const pathStyle: CSSProperties = {
     ...connectionLineStyle,
+    strokeDasharray: "none",
+    strokeDashoffset: 0,
   };
 
   return (

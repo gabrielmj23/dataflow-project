@@ -124,29 +124,11 @@ export function LabeledEdge(props: EdgeProps) {
     })
   );
 
-  const dashFor = (t: typeof visualType): string | undefined => {
-    switch (t) {
-      case "text":
-        // dotted
-        return "1 6";
-      case "boolean":
-        // dashed
-        return "6 4";
-      case "any":
-        // mixed/unknown
-        return "3 3";
-      case "number":
-      default:
-        return undefined;
-    }
-  };
-
-  const dash = dashFor(visualType);
   const mergedStyle = {
     ...(style ?? {}),
-    ...(dash && !(style && "strokeDasharray" in style)
-      ? { strokeDasharray: dash }
-      : {}),
+    // Force all edges to be solid.
+    strokeDasharray: "none",
+    strokeDashoffset: 0,
   };
 
   const label = getSwitchEdgeLabel({ sourceNode, sourceHandleId });
