@@ -14,7 +14,12 @@ type IterationRectNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
   label: string;
-  variant?: "multi" | "singleInSingleOut" | "doubleInSingleOut" | "source";
+  variant?:
+    | "multi"
+    | "singleInSingleOut"
+    | "doubleInSingleOut"
+    | "tripleInSingleOut"
+    | "source";
   onConfigClick?: () => void;
 };
 
@@ -68,47 +73,47 @@ export function IterationRectNodeShell({
 
       {variant === "multi" && (
         <>
-          {offsets.map((offset, index) => (
+          {offsets.map((offset, index) =>
             (() => {
               const id = `in-${index}`;
               const mask = maskFor({ handleType: "target", handleId: id });
               const dt = maskToVisualPortDataType(mask);
               return (
-            <CustomTypedHandle
-              key={`l-${offset}`}
-              type="target"
-              position={Position.Left}
-              style={{ top: offset }}
-              id={id}
-              dataType={dt}
-              typeMask={mask}
-              className="h-2 w-2 -translate-y-1/2"
-              indicatorClassName="border-teal-800"
-            />
+                <CustomTypedHandle
+                  key={`l-${offset}`}
+                  type="target"
+                  position={Position.Left}
+                  style={{ top: offset }}
+                  id={id}
+                  dataType={dt}
+                  typeMask={mask}
+                  className="h-2 w-2 -translate-y-1/2"
+                  indicatorClassName="border-teal-800"
+                />
               );
             })()
-          ))}
+          )}
 
-          {offsets.map((offset, index) => (
+          {offsets.map((offset, index) =>
             (() => {
               const id = `out-${index}`;
               const mask = maskFor({ handleType: "source", handleId: id });
               const dt = maskToVisualPortDataType(mask);
               return (
-            <CustomTypedHandle
-              key={`r-${offset}`}
-              type="source"
-              position={Position.Right}
-              style={{ top: offset }}
-              id={id}
-              dataType={dt}
-              typeMask={mask}
-              className="h-2 w-2 -translate-y-1/2"
-              indicatorClassName="border-teal-800"
-            />
+                <CustomTypedHandle
+                  key={`r-${offset}`}
+                  type="source"
+                  position={Position.Right}
+                  style={{ top: offset }}
+                  id={id}
+                  dataType={dt}
+                  typeMask={mask}
+                  className="h-2 w-2 -translate-y-1/2"
+                  indicatorClassName="border-teal-800"
+                />
               );
             })()
-          ))}
+          )}
         </>
       )}
 
@@ -154,6 +159,50 @@ export function IterationRectNodeShell({
             id="in-2"
             dataType={typeFor({ handleType: "target", handleId: "in-2" })}
             typeMask={maskFor({ handleType: "target", handleId: "in-2" })}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-teal-800"
+          />
+          <CustomTypedHandle
+            type="source"
+            position={Position.Right}
+            id="out"
+            dataType={typeFor({ handleType: "source", handleId: "out" })}
+            typeMask={maskFor({ handleType: "source", handleId: "out" })}
+            className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-teal-800"
+          />
+        </>
+      )}
+
+      {variant === "tripleInSingleOut" && (
+        <>
+          <CustomTypedHandle
+            type="target"
+            position={Position.Left}
+            style={{ top: "25%" }}
+            id="in-1"
+            dataType={typeFor({ handleType: "target", handleId: "in-1" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in-1" })}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-teal-800"
+          />
+          <CustomTypedHandle
+            type="target"
+            position={Position.Left}
+            style={{ top: "50%" }}
+            id="in-2"
+            dataType={typeFor({ handleType: "target", handleId: "in-2" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in-2" })}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-teal-800"
+          />
+          <CustomTypedHandle
+            type="target"
+            position={Position.Left}
+            style={{ top: "75%" }}
+            id="in-3"
+            dataType={typeFor({ handleType: "target", handleId: "in-3" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in-3" })}
             className="absolute -left-1 h-2 w-2 -translate-y-1/2"
             indicatorClassName="border-teal-800"
           />
