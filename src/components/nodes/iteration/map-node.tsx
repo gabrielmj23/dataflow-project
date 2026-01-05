@@ -216,11 +216,6 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
 
-      // Prevent the main canvas key handler (in App.tsx) from also deleting
-      // whatever is selected there while we're interacting with this modal.
-      e.preventDefault();
-      e.stopImmediatePropagation();
-
       const target = e.target as HTMLElement | null;
       if (
         target &&
@@ -230,6 +225,11 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
       ) {
         return;
       }
+
+      // Prevent the main canvas key handler (in App.tsx) from also deleting
+      // whatever is selected there while we're interacting with this modal.
+      e.preventDefault();
+      e.stopImmediatePropagation();
 
       setDraftNodes((prev) => {
         const removedIds = new Set(
@@ -331,7 +331,9 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                   selectionOnDrag={editorCanvasMode === "select"}
                   selectionMode={SelectionMode.Partial}
                   className={
-                    editorCanvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                    editorCanvasMode === "pan"
+                      ? "rf-mode-pan"
+                      : "rf-mode-select"
                   }
                   onInit={(instance) => {
                     editorInstanceRef.current = instance;
