@@ -10,7 +10,7 @@ import { ArcStore, NodeStore, TokenStore } from "./stores";
 
 // Global artificial delay (in ms) applied before each node execution.
 // Set to 0 to disable the slowdown effect.
-export const ENGINE_STEP_DELAY_MS = 500;
+export const ENGINE_STEP_DELAY_MS = 0;
 
 export type EngineNodeStatus = "waiting" | "running" | "done" | "error";
 export type EngineLogLevel = "info" | "error";
@@ -474,7 +474,13 @@ export class DataflowEngine {
     outputPortIds: string[]
   ): DataToken<unknown>[] {
     // If the node returns local tokens already, keep them.
-    if (Array.isArray(result) && result.every((r) => r instanceof DataToken)) {
+    // NOTE: `[].every(...)` is `true`, so we must require a non-empty array to
+    // avoid interpreting an empty list value (`[]`) as "no output tokens".
+    if (
+      Array.isArray(result) &&
+      result.length > 0 &&
+      result.every((r) => r instanceof DataToken)
+    ) {
       return result as DataToken<unknown>[];
     }
 
