@@ -10,7 +10,7 @@ import { ArcStore, NodeStore, TokenStore } from "./stores";
 
 // Global artificial delay (in ms) applied before each node execution.
 // Set to 0 to disable the slowdown effect.
-export const ENGINE_STEP_DELAY_MS = 0;
+export const ENGINE_STEP_DELAY_MS = 50;
 
 export type EngineNodeStatus = "waiting" | "running" | "done" | "error";
 export type EngineLogLevel = "info" | "error";
