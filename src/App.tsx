@@ -802,8 +802,13 @@ export default function App() {
         return;
       }
 
-      const sourceNode = nodes.find((n) => String(n.id) === String(params.nodeId));
-      const nodeType = sourceNode && typeof sourceNode.type === "string" ? sourceNode.type : null;
+      const sourceNode = nodes.find(
+        (n) => String(n.id) === String(params.nodeId)
+      );
+      const nodeType =
+        sourceNode && typeof sourceNode.type === "string"
+          ? sourceNode.type
+          : null;
       const sourceMask = getPortTypeMask({
         nodeType,
         handleType: "source",
@@ -1096,7 +1101,18 @@ export default function App() {
         }))
       );
 
-      const stores = deserializeProgramToEngineStores(program);
+      const stores = deserializeProgramToEngineStores(program, {
+        onLog: ({ level, nodeId, message, data }) => {
+          const payload = message === "write" ? data : data ?? message;
+          const baseText = formatLogText(payload);
+          const text = level === "error" ? `Error: ${baseText}` : baseText;
+          setEngineLogs((prev) => {
+            const next = [...prev, { ts: Date.now(), level, nodeId, text }];
+            const MAX = 200;
+            return next.length > MAX ? next.slice(next.length - MAX) : next;
+          });
+        },
+      });
       const engine = new DataflowEngine();
 
       engine.setObserver({
@@ -1695,149 +1711,149 @@ export default function App() {
           >
             <ConnectionHighlightProvider value={connectionHighlight}>
               <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              nodeTypes={nodeTypes}
-              edgeTypes={{ default: LabeledEdge }}
-              connectionLineComponent={ArrowConnectionLine}
-              isValidConnection={connectionTooltip.isValidConnection}
-              defaultEdgeOptions={{
-                markerEnd: {
-                  type: MarkerType.ArrowClosed,
-                  width: 14,
-                  height: 14,
-                },
-              }}
-              onInit={setReactFlowInstance}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              onConnect={onConnect}
-              onConnectStart={onConnectStart}
-              onConnectEnd={onConnectEnd}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              onNodeDragStart={onNodeDragStart}
-              onNodeDragStop={onNodeDragStop}
-              panOnDrag={canvasMode === "pan"}
-              selectionOnDrag={canvasMode === "select"}
-              selectionMode={SelectionMode.Partial}
-              className={
-                canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
-              }
-              fitView
-              proOptions={{ hideAttribution: true }}
-            >
-              <ConnectionErrorTooltip
-                open={connectionTooltip.tooltip.open}
-                message={connectionTooltip.tooltip.message}
-                x={connectionTooltip.tooltip.x}
-                y={connectionTooltip.tooltip.y}
-                onClose={connectionTooltip.hide}
-              />
-              <CreateSubflowOverlay
-                selectedNodes={selectedNodes}
+                nodes={nodes}
                 edges={edges}
-                onCreateClick={openCreateSubflow}
-              />
-              <Background variant={BackgroundVariant.Dots} />
-              <Controls>
-                <ControlButton
-                  onClick={() => setCanvasMode("pan")}
-                  aria-pressed={canvasMode === "pan"}
-                  title="Modo arrastrar (mover canvas)"
-                  className="rf-mode-toggle"
-                >
-                  <Hand className="rf-icon-hand" />
-                </ControlButton>
-                <ControlButton
-                  onClick={() => setCanvasMode("select")}
-                  aria-pressed={canvasMode === "select"}
-                  title="Modo selección (cuadro)"
-                  className="rf-mode-toggle"
-                >
-                  <MousePointer2 />
-                </ControlButton>
-                <ControlButton title="Mejorar formato" onClick={onLayout}>
-                  <BrushCleaning className="fill-none!" />
-                </ControlButton>
-              </Controls>
-              <MiniMap />
-              <Panel position="top-right" className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  className="hover:cursor-pointer shadow-md"
-                  type="button"
-                  onClick={onRunClick}
-                  disabled={nodes.length === 0}
-                >
-                  Ejecutar
-                  <Play
-                    fill="oklch(72.3% 0.219 149.579)"
-                    className="text-green-500"
-                  />
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="hover:cursor-pointer shadow-md"
-                  type="button"
-                  onClick={onDownloadClick}
-                  disabled={nodes.length === 0}
-                >
-                  Descargar
-                  <Download />
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="hover:cursor-pointer shadow-md"
-                  type="button"
-                  onClick={onLoadClick}
-                >
-                  Cargar
-                  <Upload />
-                </Button>
-              </Panel>
-
-              <Panel
-                position="bottom-left"
-                className="w-80"
-                style={{
-                  left: "50%",
-                  transform: "translateX(-50%)",
-                  bottom: 16,
+                nodeTypes={nodeTypes}
+                edgeTypes={{ default: LabeledEdge }}
+                connectionLineComponent={ArrowConnectionLine}
+                isValidConnection={connectionTooltip.isValidConnection}
+                defaultEdgeOptions={{
+                  markerEnd: {
+                    type: MarkerType.ArrowClosed,
+                    width: 14,
+                    height: 14,
+                  },
                 }}
+                onInit={setReactFlowInstance}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                onConnect={onConnect}
+                onConnectStart={onConnectStart}
+                onConnectEnd={onConnectEnd}
+                onDrop={onDrop}
+                onDragOver={onDragOver}
+                onNodeDragStart={onNodeDragStart}
+                onNodeDragStop={onNodeDragStop}
+                panOnDrag={canvasMode === "pan"}
+                selectionOnDrag={canvasMode === "select"}
+                selectionMode={SelectionMode.Partial}
+                className={
+                  canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                }
+                fitView
+                proOptions={{ hideAttribution: true }}
               >
-                <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
-                  <div className="border-b px-2 py-1 text-sm font-medium">
-                    Consola
+                <ConnectionErrorTooltip
+                  open={connectionTooltip.tooltip.open}
+                  message={connectionTooltip.tooltip.message}
+                  x={connectionTooltip.tooltip.x}
+                  y={connectionTooltip.tooltip.y}
+                  onClose={connectionTooltip.hide}
+                />
+                <CreateSubflowOverlay
+                  selectedNodes={selectedNodes}
+                  edges={edges}
+                  onCreateClick={openCreateSubflow}
+                />
+                <Background variant={BackgroundVariant.Dots} />
+                <Controls>
+                  <ControlButton
+                    onClick={() => setCanvasMode("pan")}
+                    aria-pressed={canvasMode === "pan"}
+                    title="Modo arrastrar (mover canvas)"
+                    className="rf-mode-toggle"
+                  >
+                    <Hand className="rf-icon-hand" />
+                  </ControlButton>
+                  <ControlButton
+                    onClick={() => setCanvasMode("select")}
+                    aria-pressed={canvasMode === "select"}
+                    title="Modo selección (cuadro)"
+                    className="rf-mode-toggle"
+                  >
+                    <MousePointer2 />
+                  </ControlButton>
+                  <ControlButton title="Mejorar formato" onClick={onLayout}>
+                    <BrushCleaning className="fill-none!" />
+                  </ControlButton>
+                </Controls>
+                <MiniMap />
+                <Panel position="top-right" className="flex gap-2">
+                  <Button
+                    variant="secondary"
+                    className="hover:cursor-pointer shadow-md"
+                    type="button"
+                    onClick={onRunClick}
+                    disabled={nodes.length === 0}
+                  >
+                    Ejecutar
+                    <Play
+                      fill="oklch(72.3% 0.219 149.579)"
+                      className="text-green-500"
+                    />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="hover:cursor-pointer shadow-md"
+                    type="button"
+                    onClick={onDownloadClick}
+                    disabled={nodes.length === 0}
+                  >
+                    Descargar
+                    <Download />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="hover:cursor-pointer shadow-md"
+                    type="button"
+                    onClick={onLoadClick}
+                  >
+                    Cargar
+                    <Upload />
+                  </Button>
+                </Panel>
+
+                <Panel
+                  position="bottom-left"
+                  className="w-80"
+                  style={{
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    bottom: 16,
+                  }}
+                >
+                  <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
+                    <div className="border-b px-2 py-1 text-sm font-medium">
+                      Consola
+                    </div>
+                    <div className="max-h-52 overflow-auto p-2 text-xs font-mono">
+                      {engineLogs.length === 0 ? (
+                        <div className="text-muted-foreground">Sin salida</div>
+                      ) : (
+                        engineLogs.map((l, idx) => (
+                          <div
+                            key={`${l.ts}-${idx}`}
+                            className={
+                              l.level === "error"
+                                ? "text-destructive"
+                                : "text-foreground"
+                            }
+                          >
+                            {l.text}
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                  <div className="max-h-52 overflow-auto p-2 text-xs font-mono">
-                    {engineLogs.length === 0 ? (
-                      <div className="text-muted-foreground">Sin salida</div>
-                    ) : (
-                      engineLogs.map((l, idx) => (
-                        <div
-                          key={`${l.ts}-${idx}`}
-                          className={
-                            l.level === "error"
-                              ? "text-destructive"
-                              : "text-foreground"
-                          }
-                        >
-                          {l.text}
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </Panel>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="application/json,.json"
-                className="hidden"
-                onChange={onProgramFileChange}
-              />
-            </ReactFlow>
+                </Panel>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="application/json,.json"
+                  className="hidden"
+                  onChange={onProgramFileChange}
+                />
+              </ReactFlow>
             </ConnectionHighlightProvider>
           </SubflowTemplateContext.Provider>
         </div>

@@ -40,6 +40,155 @@ import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 
+function parseWriteTargetHandleIndex(handle: unknown): number {
+  const m = /^in-(\d+)$/.exec(String(handle ?? ""));
+  const idx = m ? parseInt(m[1] ?? "", 10) : NaN;
+  return Number.isFinite(idx) ? idx : 0;
+}
+
+function clampWriteTemplateToMaxVar(
+  template: unknown,
+  maxVar: number
+): string | undefined {
+  if (typeof template !== "string") return undefined;
+  if (!Number.isFinite(maxVar) || maxVar < 1) {
+    return template.replace(/\{\d+\}/g, "");
+  }
+
+  return template.replace(/\{(\d+)\}/g, (full, raw) => {
+    const idx = parseInt(String(raw), 10);
+    if (!Number.isFinite(idx)) return "";
+    return idx >= 1 && idx <= maxVar ? full : "";
+  });
+}
+
+function reconcileWriteGraph(
+  nodes: Node[],
+  edges: Edge[]
+): {
+  nodes: Node[];
+  edges: Edge[];
+  changedNodes: boolean;
+  changedEdges: boolean;
+} {
+  const writeMaps = new Map<
+    string,
+    {
+      map: Map<number, number>;
+      desiredInputCount: number;
+      maxVarAllowed: number;
+    }
+  >();
+
+  for (const n of nodes) {
+    if (n.type !== "write") continue;
+    const nodeId = String(n.id);
+
+    const uniqueConnected = new Set<number>();
+    for (const e of edges) {
+      if (String(e.target) !== nodeId) continue;
+      const idx = parseWriteTargetHandleIndex(e.targetHandle);
+      if (idx > 0) uniqueConnected.add(idx);
+    }
+
+    const sorted = Array.from(uniqueConnected).sort((a, b) => a - b);
+    const map = new Map<number, number>();
+    for (let i = 0; i < sorted.length; i++) {
+      const oldIdx = sorted[i];
+      if (!oldIdx) continue;
+      map.set(oldIdx, i + 1);
+    }
+
+    const desiredInputCount = sorted.length === 0 ? 1 : sorted.length + 1;
+    const maxVarAllowed = desiredInputCount - 1;
+    writeMaps.set(nodeId, { map, desiredInputCount, maxVarAllowed });
+  }
+
+  let changedEdges = false;
+  const nextEdges = edges.map((e) => {
+    const targetId = String(e.target);
+    const info = writeMaps.get(targetId);
+    if (!info) return e;
+
+    const oldIdx = parseWriteTargetHandleIndex(e.targetHandle);
+    if (oldIdx <= 0) return e;
+
+    const newIdx = info.map.get(oldIdx);
+    if (!newIdx || newIdx === oldIdx) return e;
+
+    changedEdges = true;
+    return {
+      ...e,
+      targetHandle: `in-${newIdx}`,
+    } as Edge;
+  });
+
+  let changedNodes = false;
+  const nextNodes = nodes.map((n) => {
+    if (n.type !== "write") return n;
+    const nodeId = String(n.id);
+    const info = writeMaps.get(nodeId);
+    if (!info) return n;
+
+    const data =
+      n.data && typeof n.data === "object"
+        ? (n.data as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
+
+    const currentRaw =
+      typeof data.inputCount === "number" ? data.inputCount : 1;
+    const current = Number.isFinite(currentRaw)
+      ? Math.max(1, Math.floor(currentRaw))
+      : 1;
+
+    const template = data.template;
+    const remappedTemplate =
+      typeof template !== "string"
+        ? undefined
+        : template.replace(/\{(\d+)\}/g, (_full, raw) => {
+            const oldIdx = parseInt(String(raw), 10);
+            if (!Number.isFinite(oldIdx)) return "";
+            const newIdx = info.map.get(oldIdx);
+            if (!newIdx) return "";
+            return newIdx >= 1 && newIdx <= info.maxVarAllowed
+              ? `{${newIdx}}`
+              : "";
+          });
+
+    const clampedTemplate = clampWriteTemplateToMaxVar(
+      remappedTemplate ?? template,
+      info.maxVarAllowed
+    );
+
+    const needsInputCountUpdate = current !== info.desiredInputCount;
+    const needsTemplateUpdate =
+      typeof template === "string" && typeof clampedTemplate === "string"
+        ? template !== clampedTemplate
+        : false;
+
+    if (!needsInputCountUpdate && !needsTemplateUpdate) return n;
+
+    changedNodes = true;
+    return {
+      ...n,
+      data: {
+        ...data,
+        ...(needsInputCountUpdate
+          ? { inputCount: info.desiredInputCount }
+          : null),
+        ...(needsTemplateUpdate ? { template: clampedTemplate } : null),
+      },
+    } as Node;
+  });
+
+  return {
+    nodes: changedNodes ? nextNodes : nodes,
+    edges: changedEdges ? nextEdges : edges,
+    changedNodes,
+    changedEdges,
+  };
+}
+
 export type MapNodeData = {
   label?: string;
   mapNodes?: Node[];
@@ -60,6 +209,14 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   );
   const [draftNodes, setDraftNodes] = useState<Node[]>(() => mapNodes ?? []);
   const [draftEdges, setDraftEdges] = useState<Edge[]>(() => mapEdges ?? []);
+
+  // Keep Write nodes' input handles + variable list in sync with connections
+  // inside the embedded editor (same behavior as the main canvas).
+  useEffect(() => {
+    const result = reconcileWriteGraph(draftNodes, draftEdges);
+    if (result.changedEdges) setDraftEdges(result.edges);
+    if (result.changedNodes) setDraftNodes(result.nodes);
+  }, [draftEdges, draftNodes]);
 
   const connectionTooltip = useConnectionValidationTooltip(draftNodes);
 

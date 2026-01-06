@@ -13,7 +13,7 @@ import {
   NodeDefinition,
 } from "./program-elements";
 import { ArcStore, NodeStore } from "./stores";
-import { DataflowEngine } from "./engine";
+import { DataflowEngine, type EngineObserver } from "./engine";
 
 import {
   EngineSumNode,
@@ -146,6 +146,7 @@ function parseIndexHandle(handleId: string | null | undefined): number | null {
 function buildEngineStoresFromFlowGraph(params: {
   nodes: Node[];
   edges: Edge[];
+  onLog?: EngineObserver["onLog"];
 }): EngineProgramStores {
   const nodeById = new Map<string, Node>();
   for (const node of params.nodes) {
@@ -197,6 +198,7 @@ function buildEngineStoresFromFlowGraph(params: {
       writeSinkInputCountByNodeId,
       timerHasIncomingByNodeId,
       sequenceIncomingByNodeId,
+      onLog: params.onLog,
     });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
@@ -335,6 +337,7 @@ function compileSingleInputGraph(params: {
   inputNodeId: string;
   inputPortId?: string;
   maxSteps?: number;
+  onLog?: EngineObserver["onLog"];
 }): (value: unknown) => Promise<unknown> {
   const inputPortId = params.inputPortId ?? "input";
 
@@ -344,9 +347,15 @@ function compileSingleInputGraph(params: {
       const stores = buildEngineStoresFromFlowGraph({
         nodes: params.graphNodes,
         edges: params.graphEdges,
+        onLog: params.onLog,
       });
 
       const engine = new DataflowEngine();
+      if (params.onLog) {
+        engine.setObserver({
+          onLog: params.onLog,
+        });
+      }
       const engineNodes = stores.nodeStore.getNodes();
       const engineArcs = stores.arcStore.getArcs();
 
@@ -362,8 +371,21 @@ function compileSingleInputGraph(params: {
         excludeNodeIds: new Set([params.inputNodeId]),
       });
 
+      // Even if the embedded graph has no open output port (e.g. it ends in a
+      // Write node which is a sink), we still want to *run* it so side effects
+      // (logs) are surfaced. In that case, fall back to identity.
       if (!chosen) {
-        return undefined;
+        engine.loadProgram({ nodes: engineNodes, arcs: engineArcs });
+        await engine.run({
+          initialTokens: [
+            new DataToken(
+              value,
+              new PortAddress(params.inputNodeId, inputPortId)
+            ),
+          ],
+          maxSteps: params.maxSteps,
+        });
+        return value;
       }
 
       const OUT_PORT = "result";
@@ -476,10 +498,12 @@ function compileSubflowNodeDefinition(params: {
    * If omitted, all open outputs in the inner graph are exposed.
    */
   outCount?: number;
+  onLog?: EngineObserver["onLog"];
 }): NodeDefinition {
   const stores = buildEngineStoresFromFlowGraph({
     nodes: params.subflowNodes,
     edges: params.subflowEdges,
+    onLog: params.onLog,
   });
 
   const engineNodes = stores.nodeStore.getNodes();
@@ -506,6 +530,11 @@ function compileSubflowNodeDefinition(params: {
   return new NodeDefinition(
     async (...args: unknown[]) => {
       const engine = new DataflowEngine();
+      if (params.onLog) {
+        engine.setObserver({
+          onLog: params.onLog,
+        });
+      }
 
       const augmentedArcs = [...engineArcs];
       for (let i = 0; i < selectedOutputs.length; i += 1) {
@@ -869,6 +898,7 @@ function flowNodeToEngineDefinition(
       string,
       { start: boolean; end: boolean; step: boolean }
     >;
+    onLog?: EngineObserver["onLog"];
   }
 ): NodeDefinition {
   const nodeType = flowNode.type;
@@ -1042,6 +1072,7 @@ function flowNodeToEngineDefinition(
           graphNodes: filterNodes,
           graphEdges: filterEdges as Edge[],
           inputNodeId: "filter-input-value",
+          onLog: context?.onLog,
         });
 
         return new EngineFilterNode(async (item: unknown) =>
@@ -1061,6 +1092,7 @@ function flowNodeToEngineDefinition(
           graphNodes: mapNodes,
           graphEdges: mapEdges as Edge[],
           inputNodeId: "map-input-value",
+          onLog: context?.onLog,
         });
 
         return new EngineMapNode(
@@ -1097,6 +1129,7 @@ function flowNodeToEngineDefinition(
           subflowEdges: subflowEdges as Edge[],
           inCount,
           outCount,
+          onLog: context?.onLog,
         });
       }
 
@@ -1129,12 +1162,16 @@ function flowNodeToEngineDefinition(
  *   are compiled into predicates/mappers.
  */
 export function deserializeProgramToEngineStores(
-  serialized: SerializedProgramV1
+  serialized: SerializedProgramV1,
+  options?: {
+    onLog?: EngineObserver["onLog"];
+  }
 ): EngineProgramStores {
   const { nodes, edges } = deserializeProgram(serialized);
 
   return buildEngineStoresFromFlowGraph({
     nodes: nodes as Node[],
     edges: edges as Edge[],
+    onLog: options?.onLog,
   });
 }
