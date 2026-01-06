@@ -61,7 +61,8 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
 
   const [draftMin, setDraftMin] = useState<number>(min);
   const [draftMax, setDraftMax] = useState<number>(max);
-  const [draftIntegerOnly, setDraftIntegerOnly] = useState<boolean>(integerOnly);
+  const [draftIntegerOnly, setDraftIntegerOnly] =
+    useState<boolean>(integerOnly);
 
   const minInputId = useId();
   const maxInputId = useId();
@@ -170,8 +171,8 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                   type="number"
                   value={draftMin}
                   onChange={(e) => {
-                    const v = e.currentTarget.valueAsNumber;
-                    setDraftMin(Number.isFinite(v) ? v : DEFAULT_MIN);
+                    const v = e.currentTarget.value;
+                    setDraftMin(Number(v));
                   }}
                   className="rounded-none"
                   step={1}
@@ -210,8 +211,8 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                   type="number"
                   value={draftMax}
                   onChange={(e) => {
-                    const v = e.currentTarget.valueAsNumber;
-                    setDraftMax(Number.isFinite(v) ? v : DEFAULT_MAX);
+                    const v = e.currentTarget.value;
+                    setDraftMax(Number(v));
                   }}
                   className="rounded-none"
                   step={1}
