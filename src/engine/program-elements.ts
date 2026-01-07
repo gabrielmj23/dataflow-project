@@ -4,6 +4,17 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type ActivationFunction = (...args: any[]) => unknown;
 
+export type NodeMeta = {
+  kind?: string;
+  template?: string;
+  /**
+   * Optional list of input port IDs that keep the last received value
+   * ("sticky" inputs). If no new token arrives on that port, the last
+   * value is reused on subsequent executions.
+   */
+  stickyInputPorts?: string[];
+};
+
 export const FirePatterns = {
   EXISTS: "EXISTS",
   EMPTY: "EMPTY",
@@ -68,13 +79,13 @@ export class NodeDefinition {
   private _activationFunction: ActivationFunction;
   private _firePatterns: FirePatterns[];
   private _ports: string[];
-  private _meta: { kind?: string; template?: string };
+  private _meta: NodeMeta;
 
   constructor(
     activationFunction: ActivationFunction,
     firePatterns: FirePatterns[],
     ports: string[],
-    meta?: { kind?: string; template?: string }
+    meta?: NodeMeta
   ) {
     this._activationFunction = activationFunction;
     this._firePatterns = firePatterns;
@@ -94,7 +105,7 @@ export class NodeDefinition {
     return [...this._ports];
   }
 
-  get meta(): { kind?: string; template?: string } {
+  get meta(): NodeMeta {
     return { ...this._meta };
   }
 

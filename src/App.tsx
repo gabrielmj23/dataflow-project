@@ -475,6 +475,10 @@ function CreateSubflowOverlay({
             const selectedSet = new Set(selectedNodeIds);
 
             for (const nodeId of selectedNodeIds) {
+              const node = selectedNodes.find(
+                (n) => String(n.id) === String(nodeId)
+              );
+              const nodeType = node?.type;
               const { targets, sources } = getHandleIds(nodeLookup, nodeId);
 
               for (const targetHandle of targets) {
@@ -488,7 +492,23 @@ function CreateSubflowOverlay({
                   }
                   return (e.targetHandle ?? null) === targetHandle;
                 });
+
+                const hasAnyIncoming = edges.some(
+                  (e) =>
+                    String(e.target) === nodeId &&
+                    (e.targetHandle ?? null) === targetHandle
+                );
+
                 if (!hasInternalIncoming) {
+                  // Para nodos "write": solo considerar la entrada
+                  // como puerto del subflujo si realmente recibe
+                  // alguna conexión (desde fuera de la selección).
+                  // Los puertos dinámicos vacíos de Escribir no
+                  // deben contarse como entradas posibles.
+                  if (nodeType === "write" && !hasAnyIncoming) {
+                    continue;
+                  }
+
                   openInputs.push(`${nodeId}:${String(targetHandle)}`);
                 }
               }

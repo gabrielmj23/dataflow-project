@@ -42,6 +42,7 @@ import {
   EngineCountNode,
   EngineFilterNode,
   EngineGenerateSequenceNode,
+  EnginePulseSequenceNode,
   EngineMapNode,
   EngineReduceNode,
   EngineZipNode,
@@ -161,6 +162,10 @@ function buildEngineStoresFromFlowGraph(params: {
     string,
     { start: boolean; end: boolean; step: boolean }
   >();
+  const pulseSequenceIncomingByNodeId = new Map<
+    string,
+    { start: boolean; end: boolean; step: boolean }
+  >();
   for (const edge of params.edges) {
     const targetId = String(edge.target);
     const targetNode = nodeById.get(targetId);
@@ -182,6 +187,18 @@ function buildEngineStoresFromFlowGraph(params: {
       sequenceIncomingByNodeId.set(targetId, next);
     }
 
+    if (targetNode.type === NODE_TYPES.PULSE_SEQUENCE_NODE) {
+      const handle = edge.targetHandle ?? "in-1";
+      const entry =
+        pulseSequenceIncomingByNodeId.get(targetId) ??
+        ({ start: false, end: false, step: false } as const);
+      const next = { ...entry };
+      if (handle === "in-1" || handle == null) next.start = true;
+      if (handle === "in-2") next.end = true;
+      if (handle === "in-3") next.step = true;
+      pulseSequenceIncomingByNodeId.set(targetId, next);
+    }
+
     if (targetNode.type !== NODE_TYPES.WRITE_SINK) continue;
 
     const handleId = edge.targetHandle ?? null;
@@ -198,6 +215,7 @@ function buildEngineStoresFromFlowGraph(params: {
       writeSinkInputCountByNodeId,
       timerHasIncomingByNodeId,
       sequenceIncomingByNodeId,
+      pulseSequenceIncomingByNodeId,
       onLog: params.onLog,
     });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
@@ -859,7 +877,10 @@ function mapHandleToPortId(params: {
     );
   }
 
-  if (nodeType === NODE_TYPES.GENERATE_SEQUENCE_NODE) {
+  if (
+    nodeType === NODE_TYPES.GENERATE_SEQUENCE_NODE ||
+    nodeType === NODE_TYPES.PULSE_SEQUENCE_NODE
+  ) {
     if (direction === "target") {
       if (handleId === "in-1" || handleId == null) return "start";
       if (handleId === "in-2") return "end";
@@ -895,6 +916,10 @@ function flowNodeToEngineDefinition(
     writeSinkInputCountByNodeId?: Map<string, number>;
     timerHasIncomingByNodeId?: Map<string, boolean>;
     sequenceIncomingByNodeId?: Map<
+      string,
+      { start: boolean; end: boolean; step: boolean }
+    >;
+    pulseSequenceIncomingByNodeId?: Map<
       string,
       { start: boolean; end: boolean; step: boolean }
     >;
@@ -1054,6 +1079,28 @@ function flowNodeToEngineDefinition(
       ];
 
       return new EngineGenerateSequenceNode({
+        defaultStart: 1,
+        defaultEnd: 10,
+        defaultStep: 1,
+        firePatterns,
+      });
+    }
+    case NODE_TYPES.PULSE_SEQUENCE_NODE: {
+      const incoming = context?.pulseSequenceIncomingByNodeId?.get(
+        String(flowNode.id)
+      ) ?? {
+        start: false,
+        end: false,
+        step: false,
+      };
+
+      const firePatterns: [FirePatterns, FirePatterns, FirePatterns] = [
+        incoming.start ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
+        incoming.end ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
+        incoming.step ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
+      ];
+
+      return new EnginePulseSequenceNode({
         defaultStart: 1,
         defaultEnd: 10,
         defaultStep: 1,

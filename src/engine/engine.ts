@@ -58,6 +58,8 @@ export class DataflowEngine {
   private nodeStore: NodeStore;
   private tokenStore: TokenStore;
   private observer: EngineObserver | null = null;
+  // Tracks last input values per node/port for sticky inputs.
+  private lastInputValues: Map<string, Map<string, unknown>> = new Map();
 
   /**
    * Creates a new in-memory dataflow engine with empty stores.
@@ -66,6 +68,7 @@ export class DataflowEngine {
     this.arcStore = new ArcStore();
     this.nodeStore = new NodeStore();
     this.tokenStore = new TokenStore();
+    this.lastInputValues = new Map();
   }
 
   setObserver(observer: EngineObserver | null): void {
@@ -82,6 +85,7 @@ export class DataflowEngine {
     this.arcStore = new ArcStore();
     this.nodeStore = new NodeStore();
     this.tokenStore = new TokenStore();
+    this.lastInputValues = new Map();
 
     for (const node of params.nodes) {
       this.nodeStore.addNode(node);
@@ -527,6 +531,30 @@ export class DataflowEngine {
     const firePatterns = nodeDefinition.firePatterns;
     const ports = nodeDefinition.ports;
     const collectedTokens: DataToken<unknown>[] = [];
+    const stickyPorts = nodeDefinition.meta.stickyInputPorts ?? [];
+
+    // For nodes with sticky inputs, only allow firing when there is at least
+    // one *new* token available on an EXISTS port. Sticky values are then
+    // reused for other EXISTS ports that lack a fresh token in this step.
+    if (stickyPorts.length > 0) {
+      let hasRealToken = false;
+      for (let index = 0; index < firePatterns.length; index += 1) {
+        const portName = ports[index];
+        const pattern = firePatterns[index];
+        if (!portName || pattern !== FirePatterns.EXISTS) continue;
+
+        const address = new PortAddress(node.id, portName);
+        const portTokens = this.tokenStore.getTokensByAddress(address);
+        if (portTokens.length > 0) {
+          hasRealToken = true;
+          break;
+        }
+      }
+
+      if (!hasRealToken) {
+        return null;
+      }
+    }
 
     for (let index = 0; index < firePatterns.length; index += 1) {
       const portName = ports[index];
@@ -538,15 +566,78 @@ export class DataflowEngine {
 
       const address = new PortAddress(node.id, portName);
       const portTokens = this.tokenStore.getTokensByAddress(address);
+      const isSticky = stickyPorts.includes(portName);
 
-      if (!this.matchesFirePattern(pattern, portTokens)) {
-        return null;
+      // Queue-style semantics per port, with optional sticky behavior.
+      switch (pattern) {
+        case FirePatterns.EXISTS: {
+          if (portTokens.length > 0) {
+            // Consume only the oldest token for this port in this execution.
+            const token = portTokens[0];
+            collectedTokens.push(token);
+
+            if (isSticky) {
+              this.rememberLastInput(node.id, portName, token.value);
+            }
+            break;
+          }
+
+          if (isSticky) {
+            const stickyToken = this.getStickyToken(node.id, portName);
+            if (!stickyToken) {
+              return null;
+            }
+            collectedTokens.push(stickyToken);
+            break;
+          }
+
+          return null;
+        }
+        case FirePatterns.EMPTY: {
+          if (portTokens.length !== 0) {
+            return null;
+          }
+          break;
+        }
+        case FirePatterns.ALWAYS:
+        case FirePatterns.DONT_CARE: {
+          // These patterns never block firing and do not consume tokens.
+          break;
+        }
+        default: {
+          if (!this.matchesFirePattern(pattern, portTokens)) {
+            return null;
+          }
+        }
       }
-
-      collectedTokens.push(...portTokens);
     }
 
     return collectedTokens;
+  }
+
+  private rememberLastInput(
+    nodeId: string,
+    portId: string,
+    value: unknown
+  ): void {
+    let byPort = this.lastInputValues.get(nodeId);
+    if (!byPort) {
+      byPort = new Map<string, unknown>();
+      this.lastInputValues.set(nodeId, byPort);
+    }
+    byPort.set(portId, value);
+  }
+
+  private getStickyToken(
+    nodeId: string,
+    portId: string
+  ): DataToken<unknown> | null {
+    const byPort = this.lastInputValues.get(nodeId);
+    const value = byPort?.get(portId);
+    if (value === undefined) {
+      return null;
+    }
+    return new DataToken<unknown>(value, new PortAddress(nodeId, portId));
   }
 
   /**

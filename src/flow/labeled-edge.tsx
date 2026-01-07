@@ -96,7 +96,9 @@ function getSequenceEdgeLabel(params: {
   const { targetNode, targetHandleId } = params;
   if (!targetNode || typeof targetNode !== "object") return null;
   const type = (targetNode as { type?: unknown }).type;
-  if (type !== "sequence") return null;
+
+  // Apply the same labels to both sequence and pulseSequence nodes.
+  if (type !== "sequence" && type !== "pulseSequence") return null;
 
   switch (targetHandleId) {
     case "in-1":

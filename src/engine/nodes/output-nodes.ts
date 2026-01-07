@@ -16,6 +16,9 @@ export class EngineWriteNode extends NodeDefinition {
       {
         kind: "write",
         template: typeof template === "string" ? template : undefined,
+        stickyInputPorts: Array.from({ length: safeCount }, (_, i) =>
+          `input${i + 1}`
+        ),
       }
     );
   }

@@ -30,4 +30,5 @@ export const NODE_TYPES = {
   COUNT_NODE: "count",
   REDUCE_NODE: "accumulate",
   GENERATE_SEQUENCE_NODE: "sequence",
+  PULSE_SEQUENCE_NODE: "pulseSequence",
 } as const;

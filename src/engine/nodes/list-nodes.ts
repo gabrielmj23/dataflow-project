@@ -1,4 +1,4 @@
-import { FirePatterns, NodeDefinition } from "../program-elements";
+import { DataToken, FirePatterns, NodeDefinition, PortAddress } from "../program-elements";
 
 export class EngineGenerateSequenceNode extends NodeDefinition {
   constructor(params?: {
@@ -45,6 +45,60 @@ export class EngineGenerateSequenceNode extends NodeDefinition {
           sequence.push(i);
         }
         return sequence;
+      },
+      [...firePatterns],
+      ["start", "end", "step", "output"]
+    );
+  }
+}
+
+export class EnginePulseSequenceNode extends NodeDefinition {
+  constructor(params?: {
+    defaultStart?: number;
+    defaultEnd?: number;
+    defaultStep?: number;
+    firePatterns?: [FirePatterns, FirePatterns, FirePatterns];
+  }) {
+    const defaultStart =
+      typeof params?.defaultStart === "number" ? params.defaultStart : 1;
+    const defaultEnd =
+      typeof params?.defaultEnd === "number" ? params.defaultEnd : 10;
+    const defaultStep =
+      typeof params?.defaultStep === "number" && params.defaultStep > 0
+        ? params.defaultStep
+        : 1;
+    const firePatterns: [FirePatterns, FirePatterns, FirePatterns] =
+      params?.firePatterns ?? [
+        FirePatterns.DONT_CARE,
+        FirePatterns.DONT_CARE,
+        FirePatterns.DONT_CARE,
+      ];
+
+    super(
+      (startArg?: number, endArg?: number, stepArg?: number) => {
+        const start = typeof startArg === "number" ? startArg : defaultStart;
+        const end = typeof endArg === "number" ? endArg : defaultEnd;
+        const stepRaw = typeof stepArg === "number" ? stepArg : defaultStep;
+        const step = Number.isFinite(stepRaw) && stepRaw != 0 ? stepRaw : 1;
+
+        if (start > end && step > 0) {
+          throw new Error(
+            "El valor de inicio no puede ser mayor que el valor de fin cuando el paso es positivo."
+          );
+        }
+        if (start < end && step < 0) {
+          throw new Error(
+            "El valor de inicio no puede ser menor que el valor de fin cuando el paso es negativo."
+          );
+        }
+
+        const pulses: DataToken<number>[] = [];
+        for (let i = start; i <= end; i += step) {
+          pulses.push(
+            new DataToken<number>(i, new PortAddress("", "output"))
+          );
+        }
+        return pulses;
       },
       [...firePatterns],
       ["start", "end", "step", "output"]
