@@ -148,6 +148,7 @@ function buildEngineStoresFromFlowGraph(params: {
   nodes: Node[];
   edges: Edge[];
   onLog?: EngineObserver["onLog"];
+  signal?: AbortSignal;
 }): EngineProgramStores {
   const nodeById = new Map<string, Node>();
   for (const node of params.nodes) {
@@ -217,6 +218,7 @@ function buildEngineStoresFromFlowGraph(params: {
       sequenceIncomingByNodeId,
       pulseSequenceIncomingByNodeId,
       onLog: params.onLog,
+      signal: params.signal,
     });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
@@ -356,16 +358,24 @@ function compileSingleInputGraph(params: {
   inputPortId?: string;
   maxSteps?: number;
   onLog?: EngineObserver["onLog"];
+  signal?: AbortSignal;
 }): (value: unknown) => Promise<unknown> {
   const inputPortId = params.inputPortId ?? "input";
 
   // We compile to a nested engine execution. If compilation fails, fall back to identity.
   return async (value: unknown) => {
     try {
+      if (params.signal?.aborted) {
+        const err = new Error("Aborted");
+        (err as { name?: string }).name = "AbortError";
+        throw err;
+      }
+
       const stores = buildEngineStoresFromFlowGraph({
         nodes: params.graphNodes,
         edges: params.graphEdges,
         onLog: params.onLog,
+        signal: params.signal,
       });
 
       const engine = new DataflowEngine();
@@ -402,6 +412,7 @@ function compileSingleInputGraph(params: {
             ),
           ],
           maxSteps: params.maxSteps,
+          signal: params.signal,
         });
         return value;
       }
@@ -424,6 +435,7 @@ function compileSingleInputGraph(params: {
           ),
         ],
         maxSteps: params.maxSteps,
+        signal: params.signal,
       });
 
       const result = emitted
@@ -434,6 +446,10 @@ function compileSingleInputGraph(params: {
 
       return result?.value;
     } catch (err) {
+      // Never swallow aborts; they must bubble up to stop the outer run.
+      if ((err as { name?: unknown } | null)?.name === "AbortError") {
+        throw err;
+      }
       console.warn("Failed to compile/run inner graph:", err);
       return value;
     }
@@ -517,11 +533,13 @@ function compileSubflowNodeDefinition(params: {
    */
   outCount?: number;
   onLog?: EngineObserver["onLog"];
+  signal?: AbortSignal;
 }): NodeDefinition {
   const stores = buildEngineStoresFromFlowGraph({
     nodes: params.subflowNodes,
     edges: params.subflowEdges,
     onLog: params.onLog,
+    signal: params.signal,
   });
 
   const engineNodes = stores.nodeStore.getNodes();
@@ -573,7 +591,7 @@ function compileSubflowNodeDefinition(params: {
           new DataToken(args[idx], new PortAddress(addr.nodeId, addr.portId))
       );
 
-      const emitted = await engine.run({ initialTokens });
+      const emitted = await engine.run({ initialTokens, signal: params.signal });
 
       const outputs: unknown[] = [];
       for (let i = 0; i < selectedOutputs.length; i += 1) {
@@ -924,6 +942,7 @@ function flowNodeToEngineDefinition(
       { start: boolean; end: boolean; step: boolean }
     >;
     onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
   }
 ): NodeDefinition {
   const nodeType = flowNode.type;
@@ -1120,6 +1139,7 @@ function flowNodeToEngineDefinition(
           graphEdges: filterEdges as Edge[],
           inputNodeId: "filter-input-value",
           onLog: context?.onLog,
+          signal: context?.signal,
         });
 
         return new EngineFilterNode(async (item: unknown) =>
@@ -1140,6 +1160,7 @@ function flowNodeToEngineDefinition(
           graphEdges: mapEdges as Edge[],
           inputNodeId: "map-input-value",
           onLog: context?.onLog,
+          signal: context?.signal,
         });
 
         return new EngineMapNode(
@@ -1177,6 +1198,7 @@ function flowNodeToEngineDefinition(
           inCount,
           outCount,
           onLog: context?.onLog,
+          signal: context?.signal,
         });
       }
 
@@ -1212,6 +1234,7 @@ export function deserializeProgramToEngineStores(
   serialized: SerializedProgramV1,
   options?: {
     onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
   }
 ): EngineProgramStores {
   const { nodes, edges } = deserializeProgram(serialized);
@@ -1220,5 +1243,6 @@ export function deserializeProgramToEngineStores(
     nodes: nodes as Node[],
     edges: edges as Edge[],
     onLog: options?.onLog,
+    signal: options?.signal,
   });
 }

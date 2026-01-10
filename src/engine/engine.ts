@@ -31,6 +31,48 @@ export type EngineObserver = {
   }) => void;
 };
 
+function createAbortError(): Error {
+  try {
+    // Prefer the standard DOMException shape when available.
+    // eslint-disable-next-line no-undef
+    return new DOMException("Aborted", "AbortError") as unknown as Error;
+  } catch {
+    const err = new Error("Aborted");
+    (err as { name?: string }).name = "AbortError";
+    return err;
+  }
+}
+
+function throwIfAborted(signal?: AbortSignal): void {
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+}
+
+async function abortableDelay(ms: number, signal?: AbortSignal): Promise<void> {
+  if (ms <= 0) return;
+  throwIfAborted(signal);
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const onAbort = () => {
+      cleanup();
+      reject(createAbortError());
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", onAbort);
+    };
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 function formatWriteValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -107,11 +149,13 @@ export class DataflowEngine {
   async run(params: {
     initialTokens: DataToken<unknown>[];
     maxSteps?: number;
+    signal?: AbortSignal;
     trace?: {
       executedNodeIds?: string[];
       batches?: number;
     };
   }): Promise<DataToken<unknown>[]> {
+    throwIfAborted(params.signal);
     this.observer?.onRunStart?.();
 
     const maxSteps =
@@ -133,6 +177,7 @@ export class DataflowEngine {
     // overlapping tokens are executed together.
     try {
       while (executedSteps < maxSteps) {
+        throwIfAborted(params.signal);
         const batch = this.tryEnableBatch({
           maxExecutions: maxSteps - executedSteps,
           skipIfNoConsumptionAndPreviouslyFired: firedWithoutConsumingTokens,
@@ -163,7 +208,7 @@ export class DataflowEngine {
         executedSteps += batch.length;
 
         const batchOutputs = await Promise.all(
-          batch.map((t) => this.executeUnit(t))
+          batch.map((t) => this.executeUnit(t, params.signal))
         );
         for (const outputTokens of batchOutputs) {
           for (const outputToken of outputTokens) {
@@ -364,7 +409,11 @@ export class DataflowEngine {
    * - Invokes the node's activation function.
    * - Normalizes the result into local output tokens and re-attaches the node id.
    */
-  async executeUnit(token: ExecuteToken): Promise<DataToken<unknown>[]> {
+  async executeUnit(
+    token: ExecuteToken,
+    signal?: AbortSignal
+  ): Promise<DataToken<unknown>[]> {
+    throwIfAborted(signal);
     const node = token.node;
     const nodeDefinition = node.nodeDefinition;
 
@@ -389,8 +438,10 @@ export class DataflowEngine {
 
     // Optional slow-motion delay to visualize program execution.
     if (ENGINE_STEP_DELAY_MS > 0) {
-      await new Promise((resolve) => setTimeout(resolve, ENGINE_STEP_DELAY_MS));
+      await abortableDelay(ENGINE_STEP_DELAY_MS, signal);
     }
+
+    throwIfAborted(signal);
 
     // Surface write-node outputs to observers (frontend console)
     if (nodeDefinition.meta.kind === "write") {
@@ -408,6 +459,10 @@ export class DataflowEngine {
       // Invoke activation function with locals
       rawResult = await nodeDefinition.activationFunction(...argValues);
     } catch (error) {
+      // Cancellation should not be surfaced as a node error/log.
+      if ((error as { name?: unknown } | null)?.name === "AbortError") {
+        throw error;
+      }
       this.observer?.onNodeStatus?.({
         nodeId: node.id,
         status: "error",
@@ -425,6 +480,8 @@ export class DataflowEngine {
       // continue executing.
       return [];
     }
+
+    throwIfAborted(signal);
 
     // Normalize outputs to local tokens
     const inferredInputCount = (() => {
