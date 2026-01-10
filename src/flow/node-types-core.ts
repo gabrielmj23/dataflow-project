@@ -28,6 +28,7 @@ import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { WriteNode } from "@/components/nodes/io/write-node";
 
 import { SequenceNode } from "@/components/nodes/iteration/sequence-node";
+import { PulseSequenceNode } from "@/components/nodes/iteration/pulse-sequence-node";
 import { ZipNode } from "@/components/nodes/iteration/zip-node";
 import { FilterNode } from "@/components/nodes/iteration/filter-node";
 import { MapNode } from "@/components/nodes/iteration/map-node";
@@ -61,6 +62,7 @@ export const nodeTypesCore: NodeTypes = {
   switch: SwitchNode,
   write: WriteNode,
   sequence: SequenceNode,
+  pulseSequence: PulseSequenceNode,
   zip: ZipNode,
   filter: FilterNode,
   map: MapNode,

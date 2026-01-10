@@ -350,6 +350,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         );
       }
       case "sequence":
+      case "pulseSequence":
       case "zip":
       case "filter":
       case "map":
@@ -357,6 +358,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "count": {
         const symbolMap: Record<string, string> = {
           sequence: "1..N",
+          pulseSequence: "1..N",
           zip: "⇆",
           filter: "↓",
           map: "↦",

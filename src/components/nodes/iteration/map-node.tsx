@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import type { Edge, Node, NodeProps } from "@xyflow/react";
+import type { Edge, Node, NodeProps, OnConnectStartParams } from "@xyflow/react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -39,6 +39,12 @@ import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
+import { LabeledEdge } from "@/flow/labeled-edge";
+import {
+  ConnectionHighlightProvider,
+  type ConnectionHighlightState,
+} from "@/flow/connection-highlight-context";
+import { getPortTypeMask } from "@/flow/port-data-type";
 
 function parseWriteTargetHandleIndex(handle: unknown): number {
   const m = /^in-(\d+)$/.exec(String(handle ?? ""));
@@ -219,6 +225,8 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   }, [draftEdges, draftNodes]);
 
   const connectionTooltip = useConnectionValidationTooltip(draftNodes);
+  const [connectionHighlight, setConnectionHighlight] =
+    useState<ConnectionHighlightState>(null);
 
   const onEditorNodesChange = useCallback((changes: NodeChange[]) => {
     const removingMandatoryInput = changes.some(
@@ -263,6 +271,40 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
       setDraftEdges((snapshot) => addEdge(connection, snapshot));
     },
     [connectionTooltip, draftNodes]
+  );
+
+  const onEditorConnectStart = useCallback(
+    (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+      connectionTooltip.onConnectStart(event, params);
+
+      if (!params.nodeId || params.handleType !== "source") {
+        setConnectionHighlight(null);
+        return;
+      }
+
+      const sourceNode = draftNodes.find(
+        (n) => String(n.id) === String(params.nodeId)
+      );
+      const nodeType =
+        sourceNode && typeof sourceNode.type === "string"
+          ? sourceNode.type
+          : null;
+      const sourceMask = getPortTypeMask({
+        nodeType,
+        handleType: "source",
+        handleId: params.handleId ?? null,
+      });
+      setConnectionHighlight({ sourceMask });
+    },
+    [connectionTooltip, draftNodes]
+  );
+
+  const onEditorConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      connectionTooltip.onConnectEnd(event);
+      setConnectionHighlight(null);
+    },
+    [connectionTooltip]
   );
 
   const editorFlowId = useMemo(() => `map-editor-${id}`, [id]);
@@ -465,7 +507,8 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
 
             <div className="h-[60vh] w-full overflow-hidden rounded-md border">
               <ReactFlowProvider>
-                <ReactFlow
+                <ConnectionHighlightProvider value={connectionHighlight}>
+                  <ReactFlow
                   id={editorFlowId}
                   nodes={draftNodes}
                   edges={draftEdges}
@@ -481,9 +524,10 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                   onNodesChange={onEditorNodesChange}
                   onEdgesChange={onEditorEdgesChange}
                   onConnect={onEditorConnect}
+                  edgeTypes={{ default: LabeledEdge }}
                   isValidConnection={connectionTooltip.isValidConnection}
-                  onConnectStart={connectionTooltip.onConnectStart}
-                  onConnectEnd={connectionTooltip.onConnectEnd}
+                  onConnectStart={onEditorConnectStart}
+                  onConnectEnd={onEditorConnectEnd}
                   panOnDrag={editorCanvasMode === "pan"}
                   selectionOnDrag={editorCanvasMode === "select"}
                   selectionMode={SelectionMode.Partial}
@@ -527,6 +571,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                     </ControlButton>
                   </Controls>
                 </ReactFlow>
+                </ConnectionHighlightProvider>
               </ReactFlowProvider>
             </div>
 

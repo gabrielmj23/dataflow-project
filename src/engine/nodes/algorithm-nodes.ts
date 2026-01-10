@@ -5,7 +5,10 @@ export class EngineSumNode extends NodeDefinition {
     super(
       (a: number, b: number) => a + b,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      }
     );
   }
 }
@@ -15,7 +18,10 @@ export class EngineSubstractNode extends NodeDefinition {
     super(
       (a: number, b: number) => a - b,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      }
     );
   }
 }
@@ -25,7 +31,10 @@ export class EngineMultiplyNode extends NodeDefinition {
     super(
       (a: number, b: number) => a * b,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      }
     );
   }
 }
@@ -41,7 +50,10 @@ export class EngineDivideNode extends NodeDefinition {
         return result;
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      }
     );
   }
 }
@@ -51,7 +63,10 @@ export class EngineModNode extends NodeDefinition {
     super(
       (a: number, b: number) => a % b,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      }
     );
   }
 }
@@ -72,7 +87,10 @@ export class EnginePowerNode extends NodeDefinition {
         return result;
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      }
     );
   }
 }
@@ -82,7 +100,10 @@ export class EngineConcatNode extends NodeDefinition {
     super(
       (a: string, b: string) => a + b,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      }
     );
   }
 }
@@ -92,7 +113,10 @@ export class EngineFloorNode extends NodeDefinition {
     super(
       (a: number) => Math.floor(a),
       [FirePatterns.EXISTS],
-      ["input1", "output"]
+      ["input1", "output"],
+      {
+        stickyInputPorts: ["input1"],
+      }
     );
   }
 }
@@ -102,7 +126,10 @@ export class EngineCeilingNode extends NodeDefinition {
     super(
       (a: number) => Math.ceil(a),
       [FirePatterns.EXISTS],
-      ["input1", "output"]
+      ["input1", "output"],
+      {
+        stickyInputPorts: ["input1"],
+      }
     );
   }
 }
@@ -112,7 +139,10 @@ export class EngineRoundNode extends NodeDefinition {
     super(
       (a: number) => Math.round(a),
       [FirePatterns.EXISTS],
-      ["input1", "output"]
+      ["input1", "output"],
+      {
+        stickyInputPorts: ["input1"],
+      }
     );
   }
 }

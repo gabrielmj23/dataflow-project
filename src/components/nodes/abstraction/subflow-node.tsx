@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import type { Edge, Node, NodeProps } from "@xyflow/react";
+import type { Edge, Node, NodeProps, OnConnectStartParams } from "@xyflow/react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -19,10 +19,9 @@ import {
   type ReactFlowInstance,
   useReactFlow,
   useStore,
-  Position,
   useUpdateNodeInternals,
+  Position,
 } from "@xyflow/react";
-
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Hand, MousePointer2, PictureInPicture2 } from "lucide-react";
@@ -44,6 +43,12 @@ import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
+import { LabeledEdge } from "@/flow/labeled-edge";
+import {
+  ConnectionHighlightProvider,
+  type ConnectionHighlightState,
+} from "@/flow/connection-highlight-context";
+import { getPortTypeMask } from "@/flow/port-data-type";
 
 export type SubflowNodeData = {
   label?: string;
@@ -126,6 +131,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [nameError, setNameError] = useState<string | null>(null);
 
   const connectionTooltip = useConnectionValidationTooltip(draftNodes);
+  const [connectionHighlight, setConnectionHighlight] =
+    useState<ConnectionHighlightState>(null);
 
   // Delete selected nodes/edges with Backspace/Delete when editor is open
   useEffect(() => {
@@ -194,6 +201,40 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       setDraftEdges((snapshot) => addEdge(connection, snapshot));
     },
     [connectionTooltip, draftNodes]
+  );
+
+  const onEditorConnectStart = useCallback(
+    (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
+      connectionTooltip.onConnectStart(event, params);
+
+      if (!params.nodeId || params.handleType !== "source") {
+        setConnectionHighlight(null);
+        return;
+      }
+
+      const sourceNode = draftNodes.find(
+        (n) => String(n.id) === String(params.nodeId)
+      );
+      const nodeType =
+        sourceNode && typeof sourceNode.type === "string"
+          ? sourceNode.type
+          : null;
+      const sourceMask = getPortTypeMask({
+        nodeType,
+        handleType: "source",
+        handleId: params.handleId ?? null,
+      });
+      setConnectionHighlight({ sourceMask });
+    },
+    [connectionTooltip, draftNodes]
+  );
+
+  const onEditorConnectEnd = useCallback(
+    (event: MouseEvent | TouchEvent) => {
+      connectionTooltip.onConnectEnd(event);
+      setConnectionHighlight(null);
+    },
+    [connectionTooltip]
   );
 
   const editorFlowId = useMemo(() => `subflow-editor-${id}`, [id]);
@@ -386,74 +427,81 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
             <div className="h-[60vh] w-full overflow-hidden rounded-md border">
               <ReactFlowProvider>
-                <ReactFlow
-                  id={editorFlowId}
-                  nodes={draftNodes}
-                  edges={draftEdges}
-                  defaultEdgeOptions={{
-                    markerEnd: {
-                      type: MarkerType.ArrowClosed,
-                      width: 14,
-                      height: 14,
-                    },
-                  }}
-                  connectionLineComponent={ArrowConnectionLine}
-                  nodeTypes={{
-                    ...nodeTypesCore,
-                    subflow: NestedSubflowNode,
-                  }}
-                  onNodesChange={onEditorNodesChange}
-                  onEdgesChange={onEditorEdgesChange}
-                  onConnect={onEditorConnect}
-                  isValidConnection={connectionTooltip.isValidConnection}
-                  onConnectStart={connectionTooltip.onConnectStart}
-                  onConnectEnd={connectionTooltip.onConnectEnd}
-                  onInit={(instance) => {
-                    editorInstanceRef.current = instance;
-                  }}
-                  onDrop={onEditorDrop}
-                  onDragOver={onEditorDragOver}
-                  panOnDrag={editorCanvasMode === "pan"}
-                  selectionOnDrag={editorCanvasMode === "select"}
-                  selectionMode={SelectionMode.Partial}
-                  className={
-                    editorCanvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
-                  }
-                  fitView
-                  proOptions={{ hideAttribution: true }}
-                >
-                  <ConnectionErrorTooltip
-                    open={connectionTooltip.tooltip.open}
-                    message={connectionTooltip.tooltip.message}
-                    x={connectionTooltip.tooltip.x}
-                    y={connectionTooltip.tooltip.y}
-                    onClose={connectionTooltip.hide}
-                  />
-                  <EditorStoreBridge
-                    onNodeLookup={(lookup) => {
-                      editorLookupRef.current = lookup;
+                <ConnectionHighlightProvider value={connectionHighlight}>
+                  <ReactFlow
+                    id={editorFlowId}
+                    nodes={draftNodes}
+                    edges={draftEdges}
+                    defaultEdgeOptions={{
+                      markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: 14,
+                        height: 14,
+                      },
                     }}
-                  />
-                  <Background variant={BackgroundVariant.Dots} />
-                  <Controls>
-                    <ControlButton
-                      onClick={() => setEditorCanvasMode("pan")}
-                      aria-pressed={editorCanvasMode === "pan"}
-                      title="Modo arrastrar (mover canvas)"
-                      className="rf-mode-toggle"
-                    >
-                      <Hand className="rf-icon-hand" />
-                    </ControlButton>
-                    <ControlButton
-                      onClick={() => setEditorCanvasMode("select")}
-                      aria-pressed={editorCanvasMode === "select"}
-                      title="Modo selección (cuadro)"
-                      className="rf-mode-toggle"
-                    >
-                      <MousePointer2 />
-                    </ControlButton>
-                  </Controls>
-                </ReactFlow>
+                    connectionLineComponent={ArrowConnectionLine}
+                    nodeTypes={{
+                      ...nodeTypesCore,
+                      subflow: NestedSubflowNode,
+                    }}
+                    edgeTypes={{
+                      default: LabeledEdge,
+                    }}
+                    onNodesChange={onEditorNodesChange}
+                    onEdgesChange={onEditorEdgesChange}
+                    onConnect={onEditorConnect}
+                    isValidConnection={connectionTooltip.isValidConnection}
+                    onConnectStart={onEditorConnectStart}
+                    onConnectEnd={onEditorConnectEnd}
+                    onInit={(instance) => {
+                      editorInstanceRef.current = instance;
+                    }}
+                    onDrop={onEditorDrop}
+                    onDragOver={onEditorDragOver}
+                    panOnDrag={editorCanvasMode === "pan"}
+                    selectionOnDrag={editorCanvasMode === "select"}
+                    selectionMode={SelectionMode.Partial}
+                    className={
+                      editorCanvasMode === "pan"
+                        ? "rf-mode-pan"
+                        : "rf-mode-select"
+                    }
+                    fitView
+                    proOptions={{ hideAttribution: true }}
+                  >
+                    <ConnectionErrorTooltip
+                      open={connectionTooltip.tooltip.open}
+                      message={connectionTooltip.tooltip.message}
+                      x={connectionTooltip.tooltip.x}
+                      y={connectionTooltip.tooltip.y}
+                      onClose={connectionTooltip.hide}
+                    />
+                    <EditorStoreBridge
+                      onNodeLookup={(lookup) => {
+                        editorLookupRef.current = lookup;
+                      }}
+                    />
+                    <Background variant={BackgroundVariant.Dots} />
+                    <Controls>
+                      <ControlButton
+                        onClick={() => setEditorCanvasMode("pan")}
+                        aria-pressed={editorCanvasMode === "pan"}
+                        title="Modo arrastrar (mover canvas)"
+                        className="rf-mode-toggle"
+                      >
+                        <Hand className="rf-icon-hand" />
+                      </ControlButton>
+                      <ControlButton
+                        onClick={() => setEditorCanvasMode("select")}
+                        aria-pressed={editorCanvasMode === "select"}
+                        title="Modo selección (cuadro)"
+                        className="rf-mode-toggle"
+                      >
+                        <MousePointer2 />
+                      </ControlButton>
+                    </Controls>
+                  </ReactFlow>
+                </ConnectionHighlightProvider>
               </ReactFlowProvider>
             </div>
 

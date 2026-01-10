@@ -145,6 +145,12 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Genera una secuencia de números (ej. 0..N).",
       },
       {
+        type: "pulseSequence",
+        label: "Generar pulsos",
+        description:
+          "Genera una secuencia de números como pulsos individuales.",
+      },
+      {
         type: "zip",
         label: "Zip",
         description: "Combina listas elemento a elemento.",

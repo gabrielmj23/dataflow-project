@@ -48,6 +48,8 @@ export function computeOpenPortsFromLookup(
   let ready = true;
 
   for (const nodeId of nodeIds) {
+    const node = nodes.find((n) => String(n.id) === String(nodeId));
+    const nodeType = node?.type;
     const { targets, sources, hasBounds } = getHandleIds(nodeLookup, nodeId);
     if (!hasBounds) {
       ready = false;
@@ -66,6 +68,13 @@ export function computeOpenPortsFromLookup(
       });
 
       if (!hasInternalIncoming) {
+        // Los nodos de escritura son sumideros internos. Sus entradas
+        // vacías (in-1, in-2, ...) son puertos dinámicos para permitir
+        // múltiples conexiones, pero no deberían contar como "entradas
+        // abiertas" del subflujo hacia el exterior.
+        if (nodeType === "write") {
+          continue;
+        }
         openInputs.push(`${nodeId}:${String(targetHandle)}`);
       }
     }

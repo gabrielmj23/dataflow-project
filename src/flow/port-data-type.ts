@@ -307,6 +307,11 @@ export function getPortTypeMask(params: {
     return isOutput ? TYPE_ANY : TYPE_NUMBER;
   }
 
+  if (nodeType === "pulseSequence") {
+    // Inputs (Inicio/Fin/Paso) are numbers; output are numeric pulses.
+    return isOutput ? TYPE_NUMBER : TYPE_NUMBER;
+  }
+
   return TYPE_ANY;
 }
 
