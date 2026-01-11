@@ -30,6 +30,8 @@ import {
   Play,
   Upload,
   BrushCleaning,
+  Square,
+  Trash2,
 } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
@@ -594,6 +596,9 @@ export default function App() {
     useState<ReactFlowInstance | null>(null);
   const [canvasMode, setCanvasMode] = useState<"pan" | "select">("pan");
 
+  const [isEngineRunning, setIsEngineRunning] = useState(false);
+  const runAbortControllerRef = useRef<AbortController | null>(null);
+
   const [subflowTemplates, setSubflowTemplates] = useState<
     SavedSubflowTemplate[]
   >([]);
@@ -661,6 +666,41 @@ export default function App() {
       return String(data);
     }
   }, []);
+
+  const setAllNodesRuntimeState = useCallback((status?: EngineNodeStatus) => {
+    // Prevent history snapshots/reconciliation from treating these as edits.
+    isRuntimeUpdateRef.current = true;
+
+    setNodes((prev) =>
+      prev.map((n) => ({
+        ...n,
+        className:
+          status === undefined
+            ? stripRuntimeClasses(n.className)
+            : `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus(
+                status
+              )}`.trim(),
+        data:
+          n.data && typeof n.data === "object"
+            ? {
+                ...(n.data as Record<string, unknown>),
+                runtimeError: undefined,
+              }
+            : n.data,
+      }))
+    );
+  }, [runtimeClassForStatus, setNodes, stripRuntimeClasses]);
+
+  const onClearConsoleClick = useCallback(() => {
+    setEngineLogs([]);
+  }, []);
+
+  const onStopClick = useCallback(() => {
+    runAbortControllerRef.current?.abort();
+    runAbortControllerRef.current = null;
+    setIsEngineRunning(false);
+    setAllNodesRuntimeState(undefined);
+  }, [setAllNodesRuntimeState]);
 
   const addOrUpdateTemplate = useCallback((payload: SubflowTemplatePayload) => {
     setSubflowTemplates((prev) => {
@@ -1093,6 +1133,16 @@ export default function App() {
   );
 
   const onRunClick = useCallback(async () => {
+    if (isEngineRunning) return;
+    if (!reactFlowInstance) return;
+
+    // Reset visual runtime state for a new execution.
+    setAllNodesRuntimeState("waiting");
+
+    const abortController = new AbortController();
+    runAbortControllerRef.current = abortController;
+    setIsEngineRunning(true);
+
     const viewport = reactFlowInstance?.getViewport?.();
     const program = serializeProgram({
       nodes,
@@ -1102,25 +1152,6 @@ export default function App() {
     });
 
     try {
-      // Reset runtime UI state
-      setEngineLogs([]);
-      isRuntimeUpdateRef.current = true;
-      setNodes((prev) =>
-        prev.map((n) => ({
-          ...n,
-          className: `${stripRuntimeClasses(
-            n.className
-          )} ${runtimeClassForStatus("waiting")}`.trim(),
-          data:
-            n.data && typeof n.data === "object"
-              ? {
-                  ...(n.data as Record<string, unknown>),
-                  runtimeError: undefined,
-                }
-              : n.data,
-        }))
-      );
-
       const stores = deserializeProgramToEngineStores(program, {
         onLog: ({ level, nodeId, message, data }) => {
           const payload = message === "write" ? data : data ?? message;
@@ -1132,6 +1163,7 @@ export default function App() {
             return next.length > MAX ? next.slice(next.length - MAX) : next;
           });
         },
+        signal: abortController.signal,
       });
       const engine = new DataflowEngine();
 
@@ -1179,9 +1211,14 @@ export default function App() {
       await engine.run({
         initialTokens: [],
         maxSteps: 10_000,
+        signal: abortController.signal,
         trace,
       });
     } catch (err) {
+      if ((err as { name?: unknown } | null)?.name === "AbortError") {
+        // User-triggered stop/reset.
+        return;
+      }
       console.error("Failed to load program into engine:", err);
       setEngineLogs((prev) => [
         ...prev,
@@ -1191,14 +1228,21 @@ export default function App() {
           text: formatLogText(err),
         },
       ]);
+    } finally {
+      if (runAbortControllerRef.current === abortController) {
+        runAbortControllerRef.current = null;
+      }
+      setIsEngineRunning(false);
     }
   }, [
     edges,
     formatLogText,
+    isEngineRunning,
     nodes,
     programName,
     reactFlowInstance,
     runtimeClassForStatus,
+    setAllNodesRuntimeState,
     stripRuntimeClasses,
   ]);
 
@@ -1804,13 +1848,24 @@ export default function App() {
                     className="hover:cursor-pointer shadow-md"
                     type="button"
                     onClick={onRunClick}
-                    disabled={nodes.length === 0}
+                    disabled={nodes.length === 0 || isEngineRunning}
                   >
                     Ejecutar
                     <Play
                       fill="oklch(72.3% 0.219 149.579)"
                       className="text-green-500"
                     />
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="hover:cursor-pointer shadow-md"
+                    type="button"
+                    onClick={onStopClick}
+                    disabled={nodes.length === 0}
+                    title="Detener ejecución y resetear nodos"
+                  >
+                    Detener
+                    <Square className="text-red-500" />
                   </Button>
                   <Button
                     variant="secondary"
@@ -1843,8 +1898,18 @@ export default function App() {
                   }}
                 >
                   <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
-                    <div className="border-b px-2 py-1 text-sm font-medium">
-                      Consola
+                    <div className="flex items-center justify-between border-b px-2 py-1 text-sm font-medium">
+                      <span>Consola</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={onClearConsoleClick}
+                        title="Limpiar consola"
+                        aria-label="Limpiar consola"
+                      >
+                        <Trash2 />
+                      </Button>
                     </div>
                     <div className="max-h-52 overflow-auto p-2 text-xs font-mono">
                       {engineLogs.length === 0 ? (
