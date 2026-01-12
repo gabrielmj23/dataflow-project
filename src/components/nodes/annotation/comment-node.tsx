@@ -5,7 +5,7 @@ export type CommentNodeData = {
   text?: string;
 };
 
-export const CommentNode = memo(({ id, data }: NodeProps) => {
+export const CommentNode = memo(({ id, data, selected }: NodeProps) => {
   const { text = "" } = (data ?? {}) as CommentNodeData;
   const { setNodes } = useReactFlow();
   const [value, setValue] = useState<string>(String(text ?? ""));
@@ -36,7 +36,7 @@ export const CommentNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <NodeResizer nodeId={id} />
+      <NodeResizer nodeId={id} isVisible={selected} />
       <div
         style={{
           width: "100%",
