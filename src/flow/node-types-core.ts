@@ -34,6 +34,7 @@ import { FilterNode } from "@/components/nodes/iteration/filter-node";
 import { MapNode } from "@/components/nodes/iteration/map-node";
 import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
 import { CountNode } from "@/components/nodes/iteration/count-node";
+import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
 // NOTE: This is intentionally the nodeTypes map WITHOUT the `subflow` entry.
 // We use this inside the Subflow editor to avoid circular imports.
@@ -68,4 +69,5 @@ export const nodeTypesCore: NodeTypes = {
   map: MapNode,
   accumulate: AccumulateNode,
   count: CountNode,
+  comment: CommentNode,
 };

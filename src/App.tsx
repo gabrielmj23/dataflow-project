@@ -32,6 +32,7 @@ import {
   BrushCleaning,
   Square,
   Trash2,
+  MessageCircleMore,
 } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
@@ -77,6 +78,12 @@ import {
 } from "@/engine/engine";
 import { nanoid } from "nanoid";
 import dagre from "@dagrejs/dagre";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "./components/ui/context-menu";
 
 const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
@@ -594,6 +601,10 @@ export default function App() {
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
+  const [contextPoint, setContextPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [canvasMode, setCanvasMode] = useState<"pan" | "select">("pan");
 
   const [isEngineRunning, setIsEngineRunning] = useState(false);
@@ -667,29 +678,32 @@ export default function App() {
     }
   }, []);
 
-  const setAllNodesRuntimeState = useCallback((status?: EngineNodeStatus) => {
-    // Prevent history snapshots/reconciliation from treating these as edits.
-    isRuntimeUpdateRef.current = true;
+  const setAllNodesRuntimeState = useCallback(
+    (status?: EngineNodeStatus) => {
+      // Prevent history snapshots/reconciliation from treating these as edits.
+      isRuntimeUpdateRef.current = true;
 
-    setNodes((prev) =>
-      prev.map((n) => ({
-        ...n,
-        className:
-          status === undefined
-            ? stripRuntimeClasses(n.className)
-            : `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus(
-                status
-              )}`.trim(),
-        data:
-          n.data && typeof n.data === "object"
-            ? {
-                ...(n.data as Record<string, unknown>),
-                runtimeError: undefined,
-              }
-            : n.data,
-      }))
-    );
-  }, [runtimeClassForStatus, setNodes, stripRuntimeClasses]);
+      setNodes((prev) =>
+        prev.map((n) => ({
+          ...n,
+          className:
+            status === undefined
+              ? stripRuntimeClasses(n.className)
+              : `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus(
+                  status
+                )}`.trim(),
+          data:
+            n.data && typeof n.data === "object"
+              ? {
+                  ...(n.data as Record<string, unknown>),
+                  runtimeError: undefined,
+                }
+              : n.data,
+        }))
+      );
+    },
+    [runtimeClassForStatus, setNodes, stripRuntimeClasses]
+  );
 
   const onClearConsoleClick = useCallback(() => {
     setEngineLogs([]);
@@ -1131,6 +1145,38 @@ export default function App() {
     },
     [paletteLabelByType, reactFlowInstance, setNodes, subflowTemplates]
   );
+
+  const addCommentAtContext = useCallback(() => {
+    if (!reactFlowInstance) return;
+    if (!contextPoint) return;
+
+    const instance = reactFlowInstance as
+      | (ReactFlowInstance & {
+          screenToFlowPosition?: (pos: { x: number; y: number }) => {
+            x: number;
+            y: number;
+          };
+          project?: (pos: { x: number; y: number }) => {
+            x: number;
+            y: number;
+          };
+        })
+      | null;
+
+    const screenPos = { x: contextPoint.x, y: contextPoint.y };
+    const position = instance?.screenToFlowPosition?.(screenPos) ??
+      instance?.project?.(screenPos) ?? { x: 0, y: 0 };
+
+    const newNode: FlowNode = {
+      id: createNodeId(),
+      type: "comment",
+      position,
+      data: { text: "" },
+    };
+
+    setNodes((prev) => [...prev, newNode]);
+    setContextPoint(null);
+  }, [reactFlowInstance, contextPoint, setNodes]);
 
   const onRunClick = useCallback(async () => {
     if (isEngineRunning) return;
@@ -1774,171 +1820,194 @@ export default function App() {
             value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
           >
             <ConnectionHighlightProvider value={connectionHighlight}>
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                nodeTypes={nodeTypes}
-                edgeTypes={{ default: LabeledEdge }}
-                connectionLineComponent={ArrowConnectionLine}
-                isValidConnection={connectionTooltip.isValidConnection}
-                defaultEdgeOptions={{
-                  markerEnd: {
-                    type: MarkerType.ArrowClosed,
-                    width: 14,
-                    height: 14,
-                  },
-                }}
-                onInit={setReactFlowInstance}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                onConnectStart={onConnectStart}
-                onConnectEnd={onConnectEnd}
-                onDrop={onDrop}
-                onDragOver={onDragOver}
-                onNodeDragStart={onNodeDragStart}
-                onNodeDragStop={onNodeDragStop}
-                panOnDrag={canvasMode === "pan"}
-                selectionOnDrag={canvasMode === "select"}
-                selectionMode={SelectionMode.Partial}
-                className={
-                  canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
-                }
-                fitView
-                proOptions={{ hideAttribution: true }}
-              >
-                <ConnectionErrorTooltip
-                  open={connectionTooltip.tooltip.open}
-                  message={connectionTooltip.tooltip.message}
-                  x={connectionTooltip.tooltip.x}
-                  y={connectionTooltip.tooltip.y}
-                  onClose={connectionTooltip.hide}
-                />
-                <CreateSubflowOverlay
-                  selectedNodes={selectedNodes}
-                  edges={edges}
-                  onCreateClick={openCreateSubflow}
-                />
-                <Background variant={BackgroundVariant.Dots} />
-                <Controls>
-                  <ControlButton
-                    onClick={() => setCanvasMode("pan")}
-                    aria-pressed={canvasMode === "pan"}
-                    title="Modo arrastrar (mover canvas)"
-                    className="rf-mode-toggle"
-                  >
-                    <Hand className="rf-icon-hand" />
-                  </ControlButton>
-                  <ControlButton
-                    onClick={() => setCanvasMode("select")}
-                    aria-pressed={canvasMode === "select"}
-                    title="Modo selección (cuadro)"
-                    className="rf-mode-toggle"
-                  >
-                    <MousePointer2 />
-                  </ControlButton>
-                  <ControlButton title="Mejorar formato" onClick={onLayout}>
-                    <BrushCleaning className="fill-none!" />
-                  </ControlButton>
-                </Controls>
-                <MiniMap />
-                <Panel position="top-right" className="flex gap-2">
-                  <Button
-                    variant="secondary"
-                    className="hover:cursor-pointer shadow-md"
-                    type="button"
-                    onClick={onRunClick}
-                    disabled={nodes.length === 0 || isEngineRunning}
-                  >
-                    Ejecutar
-                    <Play
-                      fill="oklch(72.3% 0.219 149.579)"
-                      className="text-green-500"
-                    />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="hover:cursor-pointer shadow-md"
-                    type="button"
-                    onClick={onStopClick}
-                    disabled={nodes.length === 0}
-                    title="Detener ejecución y resetear nodos"
-                  >
-                    Detener
-                    <Square className="text-red-500" />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="hover:cursor-pointer shadow-md"
-                    type="button"
-                    onClick={onDownloadClick}
-                    disabled={nodes.length === 0}
-                  >
-                    Descargar
-                    <Download />
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    className="hover:cursor-pointer shadow-md"
-                    type="button"
-                    onClick={onLoadClick}
-                  >
-                    Cargar
-                    <Upload />
-                  </Button>
-                </Panel>
-
-                <Panel
-                  position="bottom-left"
-                  className="w-80"
-                  style={{
-                    left: "50%",
-                    transform: "translateX(-50%)",
-                    bottom: 16,
+              <ContextMenu>
+                <ContextMenuTrigger
+                  className="flex h-full w-full"
+                  onContextMenu={(e: React.MouseEvent) => {
+                    setContextPoint({ x: e.clientX, y: e.clientY });
                   }}
                 >
-                  <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
-                    <div className="flex items-center justify-between border-b px-2 py-1 text-sm font-medium">
-                      <span>Consola</span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        onClick={onClearConsoleClick}
-                        title="Limpiar consola"
-                        aria-label="Limpiar consola"
+                  <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    edgeTypes={{ default: LabeledEdge }}
+                    connectionLineComponent={ArrowConnectionLine}
+                    isValidConnection={connectionTooltip.isValidConnection}
+                    defaultEdgeOptions={{
+                      markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: 14,
+                        height: 14,
+                      },
+                    }}
+                    onInit={setReactFlowInstance}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onConnectStart={onConnectStart}
+                    onConnectEnd={onConnectEnd}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onNodeDragStart={onNodeDragStart}
+                    onNodeDragStop={onNodeDragStop}
+                    panOnDrag={canvasMode === "pan"}
+                    selectionOnDrag={canvasMode === "select"}
+                    selectionMode={SelectionMode.Partial}
+                    className={
+                      canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                    }
+                    fitView
+                    proOptions={{ hideAttribution: true }}
+                  >
+                    <ConnectionErrorTooltip
+                      open={connectionTooltip.tooltip.open}
+                      message={connectionTooltip.tooltip.message}
+                      x={connectionTooltip.tooltip.x}
+                      y={connectionTooltip.tooltip.y}
+                      onClose={connectionTooltip.hide}
+                    />
+                    <CreateSubflowOverlay
+                      selectedNodes={selectedNodes}
+                      edges={edges}
+                      onCreateClick={openCreateSubflow}
+                    />
+                    <Background variant={BackgroundVariant.Dots} />
+                    <Controls>
+                      <ControlButton
+                        onClick={() => setCanvasMode("pan")}
+                        aria-pressed={canvasMode === "pan"}
+                        title="Modo arrastrar (mover canvas)"
+                        className="rf-mode-toggle"
                       >
-                        <Trash2 />
+                        <Hand className="rf-icon-hand" />
+                      </ControlButton>
+                      <ControlButton
+                        onClick={() => setCanvasMode("select")}
+                        aria-pressed={canvasMode === "select"}
+                        title="Modo selección (cuadro)"
+                        className="rf-mode-toggle"
+                      >
+                        <MousePointer2 />
+                      </ControlButton>
+                      <ControlButton title="Mejorar formato" onClick={onLayout}>
+                        <BrushCleaning className="fill-none!" />
+                      </ControlButton>
+                    </Controls>
+                    <MiniMap />
+                    <Panel position="top-right" className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        className="hover:cursor-pointer shadow-md"
+                        type="button"
+                        onClick={onRunClick}
+                        disabled={nodes.length === 0 || isEngineRunning}
+                      >
+                        Ejecutar
+                        <Play
+                          fill="oklch(72.3% 0.219 149.579)"
+                          className="text-green-500"
+                        />
                       </Button>
-                    </div>
-                    <div className="max-h-52 overflow-auto p-2 text-xs font-mono">
-                      {engineLogs.length === 0 ? (
-                        <div className="text-muted-foreground">Sin salida</div>
-                      ) : (
-                        engineLogs.map((l, idx) => (
-                          <div
-                            key={`${l.ts}-${idx}`}
-                            className={
-                              l.level === "error"
-                                ? "text-destructive"
-                                : "text-foreground"
-                            }
+                      <Button
+                        variant="secondary"
+                        className="hover:cursor-pointer shadow-md"
+                        type="button"
+                        onClick={onStopClick}
+                        disabled={nodes.length === 0}
+                        title="Detener ejecución y resetear nodos"
+                      >
+                        Detener
+                        <Square className="text-red-500" />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="hover:cursor-pointer shadow-md"
+                        type="button"
+                        onClick={onDownloadClick}
+                        disabled={nodes.length === 0}
+                      >
+                        Descargar
+                        <Download />
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        className="hover:cursor-pointer shadow-md"
+                        type="button"
+                        onClick={onLoadClick}
+                      >
+                        Cargar
+                        <Upload />
+                      </Button>
+                    </Panel>
+
+                    <Panel
+                      position="bottom-left"
+                      className="w-80"
+                      style={{
+                        left: "50%",
+                        transform: "translateX(-50%)",
+                        bottom: 16,
+                      }}
+                    >
+                      <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
+                        <div className="flex items-center justify-between border-b px-2 py-1 text-sm font-medium">
+                          <span>Consola</span>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon-sm"
+                            onClick={onClearConsoleClick}
+                            title="Limpiar consola"
+                            aria-label="Limpiar consola"
                           >
-                            {l.text}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </Panel>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="application/json,.json"
-                  className="hidden"
-                  onChange={onProgramFileChange}
-                />
-              </ReactFlow>
+                            <Trash2 />
+                          </Button>
+                        </div>
+                        <div className="max-h-52 overflow-auto p-2 text-xs font-mono">
+                          {engineLogs.length === 0 ? (
+                            <div className="text-muted-foreground">
+                              Sin salida
+                            </div>
+                          ) : (
+                            engineLogs.map((l, idx) => (
+                              <div
+                                key={`${l.ts}-${idx}`}
+                                className={
+                                  l.level === "error"
+                                    ? "text-destructive"
+                                    : "text-foreground"
+                                }
+                              >
+                                {l.text}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </Panel>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={onProgramFileChange}
+                    />
+                  </ReactFlow>
+                </ContextMenuTrigger>
+                <ContextMenuContent className="bg-neutral-800 text-white">
+                  <ContextMenuItem
+                    className="hover:bg-neutral-700! hover:text-white!"
+                    onSelect={(e: Event) => {
+                      e?.preventDefault?.();
+                      addCommentAtContext();
+                    }}
+                  >
+                    <MessageCircleMore className="text-white hover:text-white!" />{" "}
+                    Agregar comentario
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
             </ConnectionHighlightProvider>
           </SubflowTemplateContext.Provider>
         </div>
