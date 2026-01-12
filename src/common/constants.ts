@@ -31,4 +31,5 @@ export const NODE_TYPES = {
   REDUCE_NODE: "accumulate",
   GENERATE_SEQUENCE_NODE: "sequence",
   PULSE_SEQUENCE_NODE: "pulseSequence",
+  COMMENT_NODE: "comment",
 } as const;

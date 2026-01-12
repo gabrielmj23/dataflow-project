@@ -150,8 +150,12 @@ function buildEngineStoresFromFlowGraph(params: {
   onLog?: EngineObserver["onLog"];
   signal?: AbortSignal;
 }): EngineProgramStores {
+  // Exclude UI-only nodes (e.g., comments) from engine stores.
+  const uiNodes = params.nodes.filter(
+    (n) => String(n.type) !== NODE_TYPES.COMMENT_NODE
+  );
   const nodeById = new Map<string, Node>();
-  for (const node of params.nodes) {
+  for (const node of uiNodes) {
     nodeById.set(String(node.id), node);
   }
 
@@ -211,7 +215,7 @@ function buildEngineStoresFromFlowGraph(params: {
   const nodeStore = new NodeStore();
   const arcStore = new ArcStore();
 
-  for (const flowNode of params.nodes) {
+  for (const flowNode of uiNodes) {
     const engineDef = flowNodeToEngineDefinition(flowNode, {
       writeSinkInputCountByNodeId,
       timerHasIncomingByNodeId,
@@ -591,7 +595,10 @@ function compileSubflowNodeDefinition(params: {
           new DataToken(args[idx], new PortAddress(addr.nodeId, addr.portId))
       );
 
-      const emitted = await engine.run({ initialTokens, signal: params.signal });
+      const emitted = await engine.run({
+        initialTokens,
+        signal: params.signal,
+      });
 
       const outputs: unknown[] = [];
       for (let i = 0; i < selectedOutputs.length; i += 1) {
