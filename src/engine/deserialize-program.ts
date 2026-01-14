@@ -32,6 +32,10 @@ import { EngineTimerNode } from "./nodes/event-nodes";
 import { EngineWriteNode } from "./nodes/output-nodes";
 import { EngineMicrobitReadButtonNode } from "./nodes/microbit-nodes";
 import {
+  EngineMicrobitSoundNode,
+  EngineMicrobitWriteNode,
+} from "./nodes/microbit-nodes";
+import {
   EngineAndNode,
   EngineComparisonNode,
   EngineNotNode,
@@ -729,6 +733,21 @@ function mapHandleToPortId(params: {
     throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
   }
 
+  // micro:bit sinks (no-op for now)
+  if (nodeType === NODE_TYPES.MICROBIT_WRITE || nodeType === NODE_TYPES.MICROBIT_SOUND) {
+    if (direction === "target") {
+      if (handleId == null) return "input1";
+      const idx = parseIndexHandle(handleId);
+      if (handleId.startsWith("in-") && idx) return `input${idx}`;
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId
+        )}' for node ${nodeId} (${nodeType}).`
+      );
+    }
+    throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
+  }
+
   // Processing nodes (2-in 1-out)
   if (
     nodeType === NODE_TYPES.SUM_NODE ||
@@ -1104,6 +1123,18 @@ function flowNodeToEngineDefinition(
         context?.writeSinkInputCountByNodeId?.get(String(flowNode.id)) ?? 1,
         typeof data.template === "string" ? data.template : undefined
       );
+
+    case NODE_TYPES.MICROBIT_WRITE:
+      return new EngineMicrobitWriteNode({
+        slot: (data as { microbitSlot?: unknown } | null)?.microbitSlot,
+        connectionType: (data as { connectionType?: unknown } | null)?.connectionType,
+      });
+
+    case NODE_TYPES.MICROBIT_SOUND:
+      return new EngineMicrobitSoundNode({
+        slot: (data as { microbitSlot?: unknown } | null)?.microbitSlot,
+        connectionType: (data as { connectionType?: unknown } | null)?.connectionType,
+      });
 
     case NODE_TYPES.GENERATE_SEQUENCE_NODE: {
       const incoming = context?.sequenceIncomingByNodeId?.get(

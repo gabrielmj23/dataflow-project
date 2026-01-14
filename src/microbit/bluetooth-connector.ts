@@ -23,33 +23,79 @@ export class BluetoothConnection implements MicrobitConnection {
    * Establece la conexión de bluetooth con micro:bit
    */
   async connect(): Promise<void> {
-    // Escanear dispositivos que tengan el servicio UART
+    // Pre-checks para dar mensajes más útiles al usuario.
+    if (typeof navigator === "undefined" || !(navigator as any).bluetooth) {
+      throw new Error(
+        "Web Bluetooth no está disponible en este navegador. Usa Chrome o Edge en HTTPS/localhost con Bluetooth habilitado."
+      );
+    }
+
+    // Petición de dispositivo Bluetooth (solo si no tenemos uno ya).
+    // Nota: Web Bluetooth requiere gesto de usuario para abrir el selector.
     if (!this.device) {
-      this.device = await navigator.bluetooth.requestDevice({
-        filters: [{ namePrefix: "BBC micro:bit" }],
-        optionalServices: [this.UART_SERVICE_UUID],
-      });
+      try {
+        // Filtramos por nombre/servicio para reducir ruido de otros periféricos.
+        this.device = await navigator.bluetooth.requestDevice({
+          filters: [
+            {
+              namePrefix: "BBC micro:bit",
+              services: [this.UART_SERVICE_UUID],
+            },
+          ],
+          optionalServices: [this.UART_SERVICE_UUID],
+        });
+      } catch (err: unknown) {
+        const name = err instanceof Error ? err.name : String(err);
+        console.error("BluetoothConnection.requestDevice ->", err);
+
+        if (name === "NotFoundError") {
+          throw new Error(
+            "No se encontraron micro:bit en el selector. Asegúrate de que el micro:bit esté encendido, con Bluetooth activo y exponga el servicio UART."
+          );
+        }
+
+        throw new Error(`No se pudo abrir el selector Bluetooth: ${name}`);
+      }
     }
 
     // Conectar al servidor GATT
-    this.server = await this.device.gatt!.connect();
-    const service = await this.server.getPrimaryService(this.UART_SERVICE_UUID);
-
-    // Obtener características de lectura y escritura
-    this.txChar = await service.getCharacteristic(this.UART_TX_UUID);
-    this.rxChar = await service.getCharacteristic(this.UART_RX_UUID);
-
-    // Suscribirse a notificaciones (Eventos Push)
-    await this.rxChar.startNotifications();
-    this.rxChar.addEventListener(
-      "characteristicvaluechanged",
-      (event: Event) => {
-        const value = (event.target as BluetoothRemoteGATTCharacteristic).value;
-        const decoder = new TextDecoder();
-        const text = decoder.decode(value);
-        this.handleDataChunk(text);
+    try {
+      if (!this.device.gatt) {
+        throw new Error(
+          "GATT no disponible (device.gatt es nulo). Comprueba compatibilidad BLE y permisos del navegador."
+        );
       }
-    );
+
+      this.server = await this.device.gatt.connect();
+
+      // Intenta obtener el servicio UART; si no está presente lanzaremos un error claro
+      const service = await this.server.getPrimaryService(this.UART_SERVICE_UUID);
+
+      // Obtener características de lectura y escritura
+      this.txChar = await service.getCharacteristic(this.UART_TX_UUID);
+      this.rxChar = await service.getCharacteristic(this.UART_RX_UUID);
+
+      // Suscribirse a notificaciones (Eventos Push)
+      await this.rxChar.startNotifications();
+      this.rxChar.addEventListener(
+        "characteristicvaluechanged",
+        (event: Event) => {
+          const value = (event.target as BluetoothRemoteGATTCharacteristic).value;
+          const decoder = new TextDecoder();
+          const text = decoder.decode(value);
+          this.handleDataChunk(text);
+        }
+      );
+    } catch (err) {
+      // Re-lanzamos un error con más contexto para el usuario
+      const deviceLabel = this.device
+        ? this.device.name || this.device.id
+        : "(desconocido)";
+      const baseMessage = err instanceof Error ? err.message : String(err);
+      const message = `GATT Error conectando a ${deviceLabel}: ${baseMessage}`;
+      console.error("BluetoothConnection.connect ->", message, err);
+      throw new Error(message);
+    }
   }
 
   /**
@@ -70,6 +116,10 @@ export class BluetoothConnection implements MicrobitConnection {
     if (this.device && this.device.gatt?.connected) {
       this.device.gatt.disconnect();
     }
+  }
+
+  getDeviceLabel(): string | undefined {
+    return this.device ? (this.device.name || this.device.id) : undefined;
   }
 
   /**
@@ -95,4 +145,5 @@ export class BluetoothConnection implements MicrobitConnection {
       }
     }
   }
+
 }

@@ -297,6 +297,11 @@ export function getPortTypeMask(params: {
     return TYPE_ANY;
   }
 
+  // micro:bit sinks (accept any input for now)
+  if (nodeType === "microbitWrite" || nodeType === "microbitSound") {
+    return TYPE_ANY;
+  }
+
   // Lists / iteration: keep permissive for now.
   if (
     nodeType === "zip" ||

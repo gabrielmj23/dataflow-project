@@ -29,6 +29,9 @@ import { SwitchNode } from "@/components/nodes/control/switch-node";
 
 import { WriteNode } from "@/components/nodes/io/write-node";
 
+import { MicrobitWriteNode } from "@/components/nodes/microbit/microbit-write-node";
+import { MicrobitSoundNode } from "@/components/nodes/microbit/microbit-sound-node";
+
 import { SequenceNode } from "@/components/nodes/iteration/sequence-node";
 import { PulseSequenceNode } from "@/components/nodes/iteration/pulse-sequence-node";
 import { ZipNode } from "@/components/nodes/iteration/zip-node";
@@ -65,6 +68,8 @@ export const nodeTypesCore: NodeTypes = {
   not: NotNode,
   switch: SwitchNode,
   write: WriteNode,
+  microbitWrite: MicrobitWriteNode,
+  microbitSound: MicrobitSoundNode,
   sequence: SequenceNode,
   pulseSequence: PulseSequenceNode,
   zip: ZipNode,
