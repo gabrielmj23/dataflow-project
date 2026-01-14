@@ -684,6 +684,7 @@ function mapHandleToPortId(params: {
     nodeType === NODE_TYPES.CONSTANT_NUMBER_INPUT ||
     nodeType === NODE_TYPES.CONSTANT_BOOLEAN_INPUT ||
     nodeType === NODE_TYPES.CONSTANT_TEXT_INPUT ||
+    nodeType === NODE_TYPES.RUNTIME_INPUT ||
     nodeType === NODE_TYPES.RANDOM_INPUT ||
     nodeType === NODE_TYPES.MICROBIT_READ_BUTTON_INPUT
   ) {
@@ -973,6 +974,32 @@ function flowNodeToEngineDefinition(
     case NODE_TYPES.CONSTANT_TEXT_INPUT: {
       const value = typeof data.value === "string" ? data.value : "";
       return new EngineConstantNode(value);
+    }
+    case NODE_TYPES.RUNTIME_INPUT: {
+      const prompt = typeof data.prompt === "string" ? data.prompt : undefined;
+      const valueTypeRaw = data.valueType;
+      const valueType = valueTypeRaw === "text" ? "text" : "number";
+
+      const defaultValue =
+        valueType === "text"
+          ? typeof data.defaultValue === "string"
+            ? data.defaultValue
+            : undefined
+          : typeof data.defaultValue === "number"
+            ? data.defaultValue
+            : undefined;
+
+      return new NodeDefinition(
+        () => defaultValue ?? (valueType === "text" ? "" : 0),
+        [FirePatterns.ALWAYS],
+        ["output"],
+        {
+          kind: "runtimeInput",
+          runtimePrompt: prompt,
+          runtimeInputType: valueType,
+          runtimeDefaultValue: defaultValue,
+        }
+      );
     }
     case NODE_TYPES.RANDOM_INPUT: {
       const min = typeof data.min === "number" ? data.min : 0;

@@ -13,6 +13,7 @@ import {
   Shuffle,
   Timer,
   ToggleRight,
+  Keyboard,
   X,
   Cpu,
 } from "lucide-react";
@@ -240,6 +241,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "constantNumber":
       case "constantBoolean":
       case "constantText":
+      case "runtimeInput":
       case "timerInput":
       case "randomInput": {
         return (
@@ -247,11 +249,12 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             data-drag-preview
             className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md"
           >
-            {type === "timerInput" || type === "randomInput" ? (
+            {type === "timerInput" || type === "randomInput" || type === "runtimeInput" ? (
               <>
                 <span className="mb-1 flex items-center justify-center">
                   {type === "timerInput" && <Timer className="h-6 w-6" />}
                   {type === "randomInput" && <Shuffle className="h-6 w-6" />}
+                  {type === "runtimeInput" && <Keyboard className="h-6 w-6" />}
                 </span>
                 <span className="px-1 text-[0.7rem] leading-tight">
                   {label}

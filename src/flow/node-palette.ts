@@ -22,6 +22,12 @@ export const nodePalette: NodePaletteCategory[] = [
     title: "Entradas y eventos",
     items: [
       {
+        type: "runtimeInput",
+        label: "Input",
+        description:
+          "Pausa la ejecución y solicita un número al usuario en tiempo real.",
+      },
+      {
         type: "constantNumber",
         label: "Constante numérica",
         description: "Emite siempre el mismo número configurado.",

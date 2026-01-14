@@ -7,6 +7,7 @@ import { ConstantBooleanInputNode } from "@/components/nodes/input/constant-bool
 import { ConstantTextInputNode } from "@/components/nodes/input/constant-text-input-node";
 import { RandomInputNode } from "@/components/nodes/input/random-input-node";
 import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
+import { RuntimeInputNode } from "@/components/nodes/input/runtime-input-node";
 
 import { MicrobitReadButtonInputNode } from "@/components/nodes/microbit/microbit-read-button-input-node";
 
@@ -46,6 +47,7 @@ export const nodeTypesCore: NodeTypes = {
   constantNumber: ConstantNumberInputNode,
   constantBoolean: ConstantBooleanInputNode,
   constantText: ConstantTextInputNode,
+  runtimeInput: RuntimeInputNode,
   randomInput: RandomInputNode,
   timerInput: TimerInputNode,
   microbitReadButton: MicrobitReadButtonInputNode,

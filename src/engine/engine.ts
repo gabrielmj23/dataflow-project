@@ -29,7 +29,21 @@ export type EngineObserver = {
     message: string;
     data?: unknown;
   }) => void;
+  onPrompt?: (event: {
+    nodeId: string;
+    prompt: string;
+    type: "number" | "text";
+    defaultValue?: unknown;
+    submit: (value: unknown) => void;
+    cancel: () => void;
+  }) => void;
 };
+
+function coerceTextInput(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  return String(value);
+}
 
 function createAbortError(): Error {
   try {
@@ -95,6 +109,29 @@ function applyWriteTemplate(template: string, values: unknown[]): string {
   });
 }
 
+function coerceNumberInput(value: unknown): number {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("Número inválido.");
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) throw new Error("Número inválido.");
+    const n = Number(trimmed);
+    if (!Number.isFinite(n)) throw new Error("Número inválido.");
+    return n;
+  }
+
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  }
+
+  const n = Number(value);
+  if (!Number.isFinite(n)) throw new Error("Número inválido.");
+  return n;
+}
+
 export class DataflowEngine {
   private arcStore: ArcStore;
   private nodeStore: NodeStore;
@@ -102,6 +139,154 @@ export class DataflowEngine {
   private observer: EngineObserver | null = null;
   // Tracks last input values per node/port for sticky inputs.
   private lastInputValues: Map<string, Map<string, unknown>> = new Map();
+
+  private async awaitRuntimeNumberInput(params: {
+    nodeId: string;
+    prompt?: string;
+    defaultValue?: unknown;
+    signal?: AbortSignal;
+  }): Promise<number> {
+    throwIfAborted(params.signal);
+
+    // If there is no prompt handler, fall back to default value when possible.
+    if (!this.observer?.onPrompt) {
+      if (params.defaultValue !== undefined) {
+        return coerceNumberInput(params.defaultValue);
+      }
+      throw new Error(
+        "No hay UI para solicitar input en runtime (observer.onPrompt no está configurado)."
+      );
+    }
+
+    const promptText =
+      typeof params.prompt === "string" && params.prompt.trim()
+        ? params.prompt.trim()
+        : "Ingrese un número";
+
+    return await new Promise<number>((resolve, reject) => {
+      const signal = params.signal;
+
+      const cleanup = (onAbort?: () => void) => {
+        if (onAbort) {
+          signal?.removeEventListener("abort", onAbort);
+        }
+      };
+
+      const onAbort = () => {
+        cleanup(onAbort);
+        reject(createAbortError());
+      };
+
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+
+      signal?.addEventListener("abort", onAbort, { once: true });
+
+      let settled = false;
+      const submit = (value: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup(onAbort);
+        try {
+          resolve(coerceNumberInput(value));
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      const cancel = () => {
+        if (settled) return;
+        settled = true;
+        cleanup(onAbort);
+        reject(createAbortError());
+      };
+
+      this.observer?.onPrompt?.({
+        nodeId: params.nodeId,
+        prompt: promptText,
+        type: "number",
+        defaultValue: params.defaultValue,
+        submit,
+        cancel,
+      });
+    });
+  }
+
+  private async awaitRuntimeTextInput(params: {
+    nodeId: string;
+    prompt?: string;
+    defaultValue?: unknown;
+    signal?: AbortSignal;
+  }): Promise<string> {
+    throwIfAborted(params.signal);
+
+    // If there is no prompt handler, fall back to default value when possible.
+    if (!this.observer?.onPrompt) {
+      if (params.defaultValue !== undefined) {
+        return coerceTextInput(params.defaultValue);
+      }
+      throw new Error(
+        "No hay UI para solicitar input en runtime (observer.onPrompt no está configurado)."
+      );
+    }
+
+    const promptText =
+      typeof params.prompt === "string" && params.prompt.trim()
+        ? params.prompt.trim()
+        : "Ingrese un texto";
+
+    return await new Promise<string>((resolve, reject) => {
+      const signal = params.signal;
+
+      const cleanup = (onAbort?: () => void) => {
+        if (onAbort) {
+          signal?.removeEventListener("abort", onAbort);
+        }
+      };
+
+      const onAbort = () => {
+        cleanup(onAbort);
+        reject(createAbortError());
+      };
+
+      if (signal?.aborted) {
+        onAbort();
+        return;
+      }
+
+      signal?.addEventListener("abort", onAbort, { once: true });
+
+      let settled = false;
+      const submit = (value: unknown) => {
+        if (settled) return;
+        settled = true;
+        cleanup(onAbort);
+        try {
+          resolve(coerceTextInput(value));
+        } catch (err) {
+          reject(err);
+        }
+      };
+
+      const cancel = () => {
+        if (settled) return;
+        settled = true;
+        cleanup(onAbort);
+        reject(createAbortError());
+      };
+
+      this.observer?.onPrompt?.({
+        nodeId: params.nodeId,
+        prompt: promptText,
+        type: "text",
+        defaultValue: params.defaultValue,
+        submit,
+        cancel,
+      });
+    });
+  }
 
   /**
    * Creates a new in-memory dataflow engine with empty stores.
@@ -244,12 +429,110 @@ export class DataflowEngine {
     const scheduled: ExecuteToken[] = [];
     const scheduledNodeIds = new Set<string>();
 
+    const isRuntimeInputSource = (node: Node): boolean => {
+      const def = node.nodeDefinition;
+      if (def.meta.kind !== "runtimeInput") return false;
+      return (
+        def.firePatterns.length === 1 &&
+        def.firePatterns[0] === FirePatterns.ALWAYS &&
+        def.ports.length === 1
+      );
+    };
+
+    const hasTokenAvailable = (address: PortAddress): boolean => {
+      const present = this.tokenStore.getTokensByAddress(address);
+      if (present.length > 0) return true;
+      for (const t of reserved) {
+        if (
+          t.location.nodeId === address.nodeId &&
+          t.location.portId === address.portId
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const getIncomingArcs = (target: PortAddress) => {
+      return this.arcStore
+        .getArcs()
+        .filter(
+          (a) =>
+            a.target.nodeId === target.nodeId && a.target.portId === target.portId
+        );
+    };
+
+    const computeDemandedRuntimeInputs = (): Set<string> => {
+      const demanded = new Set<string>();
+
+      for (const consumer of this.nodeStore.getNodes()) {
+        const def = consumer.nodeDefinition;
+        const firePatterns = def.firePatterns;
+        const ports = def.ports;
+
+        const missingRuntimeInputs = new Set<string>();
+        let missingCount = 0;
+        let satisfiable = true;
+
+        for (let index = 0; index < firePatterns.length; index += 1) {
+          const portName = ports[index];
+          const pattern = firePatterns[index];
+          if (!portName) {
+            satisfiable = false;
+            break;
+          }
+
+          if (pattern !== FirePatterns.EXISTS) {
+            continue;
+          }
+
+          const address = new PortAddress(consumer.id, portName);
+          if (hasTokenAvailable(address)) {
+            continue;
+          }
+
+          missingCount += 1;
+          const incoming = getIncomingArcs(address);
+          if (incoming.length === 0) {
+            satisfiable = false;
+            break;
+          }
+
+          // If this missing port can be satisfied by a runtimeInput source node,
+          // then we can demand that runtimeInput. Otherwise, defer.
+          const runtimeIncoming = incoming
+            .map((a) => this.nodeStore.getNodeById(a.source.nodeId))
+            .filter((n): n is Node => Boolean(n))
+            .filter((n) => isRuntimeInputSource(n));
+
+          if (runtimeIncoming.length === 0) {
+            satisfiable = false;
+            break;
+          }
+
+          for (const src of runtimeIncoming) {
+            missingRuntimeInputs.add(src.id);
+          }
+        }
+
+        // Only demand prompts when the consumer is actually blocked AND
+        // the only missing inputs are runtimeInput values.
+        if (satisfiable && missingCount > 0) {
+          for (const id of missingRuntimeInputs) demanded.add(id);
+        }
+      }
+
+      return demanded;
+    };
+
     // Repeat scanning until no more nodes can be scheduled in this batch.
     // This helps capture cases where scheduling one node removes tokens that
     // would otherwise allow another node to fire.
     let progressed = true;
     while (progressed && scheduled.length < maxExecutions) {
       progressed = false;
+
+      const demandedRuntimeInputs = computeDemandedRuntimeInputs();
 
       for (const node of this.nodeStore.getNodes()) {
         if (scheduled.length >= maxExecutions) {
@@ -260,6 +543,12 @@ export class DataflowEngine {
         // infinite filling of a batch for nodes that can fire without consuming
         // tokens (e.g. sources with FirePatterns.ALWAYS).
         if (scheduledNodeIds.has(node.id)) {
+          continue;
+        }
+
+        // Runtime inputs are "lazy": only prompt when some downstream node
+        // is blocked solely by missing runtimeInput tokens.
+        if (isRuntimeInputSource(node) && !demandedRuntimeInputs.has(node.id)) {
           continue;
         }
 
@@ -456,8 +745,27 @@ export class DataflowEngine {
 
     let rawResult: unknown;
     try {
-      // Invoke activation function with locals
-      rawResult = await nodeDefinition.activationFunction(...argValues);
+      if (nodeDefinition.meta.kind === "runtimeInput") {
+        const inputType = nodeDefinition.meta.runtimeInputType ?? "number";
+        if (inputType === "text") {
+          rawResult = await this.awaitRuntimeTextInput({
+            nodeId: node.id,
+            prompt: nodeDefinition.meta.runtimePrompt,
+            defaultValue: nodeDefinition.meta.runtimeDefaultValue,
+            signal,
+          });
+        } else {
+          rawResult = await this.awaitRuntimeNumberInput({
+            nodeId: node.id,
+            prompt: nodeDefinition.meta.runtimePrompt,
+            defaultValue: nodeDefinition.meta.runtimeDefaultValue,
+            signal,
+          });
+        }
+      } else {
+        // Invoke activation function with locals
+        rawResult = await nodeDefinition.activationFunction(...argValues);
+      }
     } catch (error) {
       // Cancellation should not be surfaced as a node error/log.
       if ((error as { name?: unknown } | null)?.name === "AbortError") {
