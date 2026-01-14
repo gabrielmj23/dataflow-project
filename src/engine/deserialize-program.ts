@@ -30,6 +30,7 @@ import {
 import { EngineConstantNode, EngineRandomNode } from "./nodes/input-nodes";
 import { EngineTimerNode } from "./nodes/event-nodes";
 import { EngineWriteNode } from "./nodes/output-nodes";
+import { EngineMicrobitReadButtonNode } from "./nodes/microbit-nodes";
 import {
   EngineMicrobitSoundNode,
   EngineMicrobitWriteNode,
@@ -687,7 +688,8 @@ function mapHandleToPortId(params: {
     nodeType === NODE_TYPES.CONSTANT_NUMBER_INPUT ||
     nodeType === NODE_TYPES.CONSTANT_BOOLEAN_INPUT ||
     nodeType === NODE_TYPES.CONSTANT_TEXT_INPUT ||
-    nodeType === NODE_TYPES.RANDOM_INPUT
+    nodeType === NODE_TYPES.RANDOM_INPUT ||
+    nodeType === NODE_TYPES.MICROBIT_READ_BUTTON_INPUT
   ) {
     if (direction === "source") {
       return "output";
@@ -1007,6 +1009,20 @@ function flowNodeToEngineDefinition(
         Math.max(0, Math.round(seconds * 1000)),
         hasIncoming ? "delay" : "source"
       );
+    }
+
+    case NODE_TYPES.MICROBIT_READ_BUTTON_INPUT: {
+      const transportRaw = data.transport;
+      const transport =
+        transportRaw === "bluetooth" || transportRaw === "serial"
+          ? transportRaw
+          : "serial";
+      return new EngineMicrobitReadButtonNode({
+        nodeId: String(flowNode.id),
+        transport,
+        onLog: context?.onLog,
+        signal: context?.signal,
+      });
     }
 
     case NODE_TYPES.FILTER_INPUT_VALUE:

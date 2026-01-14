@@ -8,6 +8,8 @@ import { ConstantTextInputNode } from "@/components/nodes/input/constant-text-in
 import { RandomInputNode } from "@/components/nodes/input/random-input-node";
 import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
 
+import { MicrobitReadButtonInputNode } from "@/components/nodes/microbit/microbit-read-button-input-node";
+
 import { SumNode } from "@/components/nodes/processing/sum-node";
 import { SubtractNode } from "@/components/nodes/processing/subtract-node";
 import { MultiplyNode } from "@/components/nodes/processing/multiply-node";
@@ -49,6 +51,7 @@ export const nodeTypesCore: NodeTypes = {
   constantText: ConstantTextInputNode,
   randomInput: RandomInputNode,
   timerInput: TimerInputNode,
+  microbitReadButton: MicrobitReadButtonInputNode,
   sum: SumNode,
   subtract: SubtractNode,
   multiply: MultiplyNode,

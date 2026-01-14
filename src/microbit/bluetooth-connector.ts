@@ -1,4 +1,4 @@
-/// <reference types="@types/web-bluetooth" />
+/// <reference types="web-bluetooth" />
 
 import type { MessageHandler, MicrobitConnection } from "./types";
 
@@ -15,6 +15,10 @@ export class BluetoothConnection implements MicrobitConnection {
   private readonly UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Escribir hacia micro:bit
   private readonly UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Leer desde micro:bit
 
+  constructor(existingDevice?: BluetoothDevice) {
+    this.device = existingDevice ?? null;
+  }
+
   /**
    * Establece la conexión de bluetooth con micro:bit
    */
@@ -26,41 +30,40 @@ export class BluetoothConnection implements MicrobitConnection {
       );
     }
 
-    // Petición de dispositivo Bluetooth.
-    // Usamos `acceptAllDevices: true` y `optionalServices` para aumentar
-    // la probabilidad de encontrar micro:bit aunque su nombre no sea
-    // exactamente "BBC micro:bit" en algunos firmwares.
-    // Nota: el navegador mostrará un selector donde el usuario debe elegir
-    // el micro:bit. Web Bluetooth requiere gesto de usuario para abrirlo.
-    try {
-      // Preferimos filtrar por nombre/servicio para que el chooser muestre solo
-      // candidatos micro:bit. Usamos namePrefix y el UUID UART como filtros.
-      // Esto reduce el ruido de otros periféricos Bluetooth.
-      this.device = await navigator.bluetooth.requestDevice({
-        filters: [
-          { namePrefix: "BBC micro:bit" },
-          { services: [this.UART_SERVICE_UUID] },
-        ],
-        optionalServices: [this.UART_SERVICE_UUID],
-      });
-    } catch (err: any) {
-      // Si no se encontraron dispositivos con estos filtros, el navegador
-      // lanzará NotFoundError. Proporcionamos un mensaje con indicaciones.
-      const name = err instanceof Error ? err.name : String(err);
-      console.error("BluetoothConnection.requestDevice ->", err);
-      if (name === "NotFoundError") {
-        throw new Error(
-          "No se encontraron micro:bit en el selector. Asegúrate de que el micro:bit esté encendido, con Bluetooth activo y exponga el servicio UART. Si tu micro:bit tiene un nombre distinto, prueba a usar la opción de descubrimiento amplio en ajustes."
-        );
+    // Petición de dispositivo Bluetooth (solo si no tenemos uno ya).
+    // Nota: Web Bluetooth requiere gesto de usuario para abrir el selector.
+    if (!this.device) {
+      try {
+        // Filtramos por nombre/servicio para reducir ruido de otros periféricos.
+        this.device = await navigator.bluetooth.requestDevice({
+          filters: [
+            {
+              namePrefix: "BBC micro:bit",
+              services: [this.UART_SERVICE_UUID],
+            },
+          ],
+          optionalServices: [this.UART_SERVICE_UUID],
+        });
+      } catch (err: unknown) {
+        const name = err instanceof Error ? err.name : String(err);
+        console.error("BluetoothConnection.requestDevice ->", err);
+
+        if (name === "NotFoundError") {
+          throw new Error(
+            "No se encontraron micro:bit en el selector. Asegúrate de que el micro:bit esté encendido, con Bluetooth activo y exponga el servicio UART."
+          );
+        }
+
+        throw new Error(`No se pudo abrir el selector Bluetooth: ${name}`);
       }
-      const message = `No se pudo abrir el selector Bluetooth: ${name}`;
-      throw new Error(message);
     }
 
     // Conectar al servidor GATT
     try {
       if (!this.device.gatt) {
-        throw new Error("GATT no disponible (device.gatt es nulo). Comprueba compatibilidad BLE y permisos del navegador.");
+        throw new Error(
+          "GATT no disponible (device.gatt es nulo). Comprueba compatibilidad BLE y permisos del navegador."
+        );
       }
 
       this.server = await this.device.gatt.connect();
@@ -85,7 +88,9 @@ export class BluetoothConnection implements MicrobitConnection {
       );
     } catch (err) {
       // Re-lanzamos un error con más contexto para el usuario
-      const deviceLabel = this.device ? (this.device.name || this.device.id) : "(desconocido)";
+      const deviceLabel = this.device
+        ? this.device.name || this.device.id
+        : "(desconocido)";
       const baseMessage = err instanceof Error ? err.message : String(err);
       const message = `GATT Error conectando a ${deviceLabel}: ${baseMessage}`;
       console.error("BluetoothConnection.connect ->", message, err);

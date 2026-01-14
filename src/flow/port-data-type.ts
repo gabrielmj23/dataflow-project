@@ -173,6 +173,9 @@ export function inferPortDataType(params: {
   if (nodeType === "constantNumber" || nodeType === "randomInput") {
     return "number";
   }
+  if (nodeType === "microbitReadButton") {
+    return "text";
+  }
   if (nodeType === "constantText") {
     return "text";
   }
@@ -239,6 +242,9 @@ export function getPortTypeMask(params: {
   // Inputs & events
   if (nodeType === "constantNumber" || nodeType === "randomInput") {
     return isOutput ? TYPE_NUMBER : TYPE_ANY;
+  }
+  if (nodeType === "microbitReadButton") {
+    return isOutput ? TYPE_TEXT : TYPE_ANY;
   }
   if (nodeType === "timerInput") {
     // Timer can optionally pass-through any incoming value after a delay.
