@@ -57,6 +57,21 @@ export class SerialConnection implements MicrobitConnection {
     this.messageCallback = callback;
   }
 
+  getDeviceLabel(): string | undefined {
+    try {
+      // Intentamos obtener información del puerto si está disponible
+      const info = (this.port as any)?.getInfo ? (this.port as any).getInfo() : undefined;
+      if (info && (info.usbVendorId || info.usbProductId)) {
+        const vid = info.usbVendorId ? info.usbVendorId.toString(16) : "";
+        const pid = info.usbProductId ? info.usbProductId.toString(16) : "";
+        return `Serial ${vid}:${pid}`;
+      }
+    } catch {
+      // ignore
+    }
+    return this.port ? "Serial" : undefined;
+  }
+
   /**
    * Lógica para leer el flujo de datos continuo
    */

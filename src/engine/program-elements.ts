@@ -7,6 +7,10 @@ type ActivationFunction = (...args: any[]) => unknown;
 export type NodeMeta = {
   kind?: string;
   template?: string;
+  /** micro:bit slot selection for nodes that talk to micro:bit. */
+  microbitSlot?: number;
+  /** Connection transport for micro:bit nodes. */
+  connectionType?: "bluetooth" | "serial";
   /**
    * Optional list of input port IDs that keep the last received value
    * ("sticky" inputs). If no new token arrives on that port, the last

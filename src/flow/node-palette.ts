@@ -201,4 +201,22 @@ export const nodePalette: NodePaletteCategory[] = [
       },
     ],
   },
+  {
+    id: "microbit",
+    title: "micro:bit",
+    items: [
+      {
+        type: "microbitWrite",
+        label: "micro:bit · Escribir",
+        description:
+          "Envía texto/comandos al micro:bit (configurable Bluetooth/Serial).",
+      },
+      {
+        type: "microbitSound",
+        label: "micro:bit · Sonido",
+        description:
+          "Activa un sonido en el micro:bit (configurable Bluetooth/Serial).",
+      },
+    ],
+  },
 ];

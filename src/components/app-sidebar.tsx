@@ -7,12 +7,14 @@ import {
   Circle,
   Divide,
   Link2,
+  MessageSquareText,
   PenSquare,
   Plus,
   Percent,
   Shuffle,
   Timer,
   ToggleRight,
+  Volume2,
   X,
 } from "lucide-react";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -385,6 +387,32 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           >
             <span className="text-xl font-bold leading-none">
               <PenSquare className="h-6 w-6" />
+            </span>
+            <span className="text-[0.75rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "microbitWrite": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-700 bg-blue-600 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              <MessageSquareText className="h-6 w-6" />
+            </span>
+            <span className="text-[0.75rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "microbitSound": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-700 bg-blue-600 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              <Volume2 className="h-6 w-6" />
             </span>
             <span className="text-[0.75rem] leading-tight">{label}</span>
           </div>

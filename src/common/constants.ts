@@ -7,6 +7,8 @@ export const NODE_TYPES = {
   TIMER_INPUT: "timerInput",
   SUBFLOW: "subflow",
   WRITE_SINK: "write",
+  MICROBIT_WRITE: "microbitWrite",
+  MICROBIT_SOUND: "microbitSound",
   SUM_NODE: "sum",
   SUBTRACT_NODE: "subtract",
   MULTIPLY_NODE: "multiply",
