@@ -1,4 +1,4 @@
-/// <reference types="@types/web-bluetooth" />
+/// <reference types="web-bluetooth" />
 
 import type { MessageHandler, MicrobitConnection } from "./types";
 
@@ -15,15 +15,21 @@ export class BluetoothConnection implements MicrobitConnection {
   private readonly UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Escribir hacia micro:bit
   private readonly UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Leer desde micro:bit
 
+  constructor(existingDevice?: BluetoothDevice) {
+    this.device = existingDevice ?? null;
+  }
+
   /**
    * Establece la conexión de bluetooth con micro:bit
    */
   async connect(): Promise<void> {
     // Escanear dispositivos que tengan el servicio UART
-    this.device = await navigator.bluetooth.requestDevice({
-      filters: [{ namePrefix: "BBC micro:bit" }],
-      optionalServices: [this.UART_SERVICE_UUID],
-    });
+    if (!this.device) {
+      this.device = await navigator.bluetooth.requestDevice({
+        filters: [{ namePrefix: "BBC micro:bit" }],
+        optionalServices: [this.UART_SERVICE_UUID],
+      });
+    }
 
     // Conectar al servidor GATT
     this.server = await this.device.gatt!.connect();

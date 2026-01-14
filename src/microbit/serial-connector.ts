@@ -1,4 +1,4 @@
-/// <reference types="@types/dom-serial" />
+/// <reference types="dom-serial" />
 
 import type { MessageHandler, MicrobitConnection } from "./types";
 
@@ -11,12 +11,18 @@ export class SerialConnection implements MicrobitConnection {
   // Buffer para reconstruir mensajes fragmentados
   private buffer: string = "";
 
+  constructor(existingPort?: SerialPort) {
+    this.port = existingPort ?? null;
+  }
+
   /**
    * Establece la conexión serial con el micro:bit
    */
   async connect(): Promise<void> {
-    // Pide al usuario seleccionar el puerto
-    this.port = await navigator.serial.requestPort();
+    // Pide al usuario seleccionar el puerto (solo si no hay uno provisto)
+    if (!this.port) {
+      this.port = await navigator.serial.requestPort();
+    }
 
     // Abre la conexión
     await this.port.open({ baudRate: 115200 });
