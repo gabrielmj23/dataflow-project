@@ -23,7 +23,7 @@ export const nodePalette: NodePaletteCategory[] = [
     items: [
       {
         type: "runtimeInput",
-        label: "Input",
+        label: "Entrada",
         description:
           "Pausa la ejecución y solicita un número al usuario en tiempo real.",
       },

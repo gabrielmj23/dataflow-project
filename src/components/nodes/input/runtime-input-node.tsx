@@ -76,7 +76,7 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Configurar input (runtime)</DialogTitle>
+            <DialogTitle>Configurar entrada</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
