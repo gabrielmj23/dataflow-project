@@ -14,6 +14,7 @@ import {
   Timer,
   ToggleRight,
   X,
+  Cpu,
 } from "lucide-react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -252,11 +253,26 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
                   {type === "timerInput" && <Timer className="h-6 w-6" />}
                   {type === "randomInput" && <Shuffle className="h-6 w-6" />}
                 </span>
-                <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
+                <span className="px-1 text-[0.7rem] leading-tight">
+                  {label}
+                </span>
               </>
             ) : (
               <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
             )}
+          </div>
+        );
+      }
+      case "microbitReadButton": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 px-2 text-center text-white shadow-md"
+          >
+            <span className="mb-1 flex items-center justify-center">
+              <Cpu className="h-6 w-6" />
+            </span>
+            <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
           </div>
         );
       }
@@ -292,21 +308,13 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               {symbolMap[type] === "minus" && <span>-</span>}
               {symbolMap[type] === "x" && <X className="h-6 w-6" />}
               {symbolMap[type] === "divide" && <Divide className="h-6 w-6" />}
-              {symbolMap[type] === "mod" && (
-                <Percent className="h-6 w-6" />
-              )}
+              {symbolMap[type] === "mod" && <Percent className="h-6 w-6" />}
               {symbolMap[type] === "power" && (
                 <span className="text-sm font-bold">x²</span>
               )}
-              {symbolMap[type] === "floor" && (
-                <ArrowDown className="h-6 w-6" />
-              )}
-              {symbolMap[type] === "ceiling" && (
-                <ArrowUp className="h-6 w-6" />
-              )}
-              {symbolMap[type] === "round" && (
-                <Circle className="h-6 w-6" />
-              )}
+              {symbolMap[type] === "floor" && <ArrowDown className="h-6 w-6" />}
+              {symbolMap[type] === "ceiling" && <ArrowUp className="h-6 w-6" />}
+              {symbolMap[type] === "round" && <Circle className="h-6 w-6" />}
               {symbolMap[type] === "concat" && <Link2 className="h-5 w-5" />}
             </span>
             <span className="text-[0.75rem] leading-tight">{label}</span>
