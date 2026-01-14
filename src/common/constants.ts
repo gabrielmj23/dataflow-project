@@ -9,6 +9,8 @@ export const NODE_TYPES = {
   MICROBIT_READ_BUTTON_INPUT: "microbitReadButton",
   SUBFLOW: "subflow",
   WRITE_SINK: "write",
+  MICROBIT_WRITE: "microbitWrite",
+  MICROBIT_SOUND: "microbitSound",
   SUM_NODE: "sum",
   SUBTRACT_NODE: "subtract",
   MULTIPLY_NODE: "multiply",
