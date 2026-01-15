@@ -630,6 +630,10 @@ export default function App() {
   const isDraggingRef = useRef(false);
   const historyTimeoutRef = useRef<number | null>(null);
   const clipboardRef = useRef<SubflowSnapshot | null>(null);
+  const clipboardCopyCenterRef = useRef<{ x: number; y: number } | null>(null);
+  const pasteCountRef = useRef(0);
+  const reactFlowWrapperRef = useRef<HTMLDivElement | null>(null);
+  const lastPointerScreenPosRef = useRef<{ x: number; y: number } | null>(null);
   const isRuntimeUpdateRef = useRef(false);
 
   const [engineLogs, setEngineLogs] = useState<
@@ -1682,6 +1686,12 @@ export default function App() {
 
     const snapshot = buildSubflowSnapshot(selectedNodesNow, edges, bounds);
     clipboardRef.current = snapshot;
+
+    clipboardCopyCenterRef.current = {
+      x: bounds.x + bounds.width / 2,
+      y: bounds.y + bounds.height / 2,
+    };
+    pasteCountRef.current = 0;
   }, [edges, nodes]);
 
   const pasteSelection = useCallback(() => {
@@ -1690,14 +1700,65 @@ export default function App() {
       return;
     }
 
+    const instance = reactFlowInstance as
+      | (ReactFlowInstance & {
+          screenToFlowPosition?: (pos: { x: number; y: number }) => {
+            x: number;
+            y: number;
+          };
+          project?: (pos: { x: number; y: number }) => {
+            x: number;
+            y: number;
+          };
+        })
+      | null;
+
+    const screenToFlow = (pos: { x: number; y: number }) =>
+      instance?.screenToFlowPosition?.(pos) ?? instance?.project?.(pos) ?? null;
+
+    // Anchor selection on paste:
+    // - Prefer cursor position on canvas
+    // - Else center of the canvas viewport
+    // - Else where it was copied from (center)
+    let target =
+      (lastPointerScreenPosRef.current
+        ? screenToFlow(lastPointerScreenPosRef.current)
+        : null) ?? null;
+
+    if (!target && reactFlowWrapperRef.current) {
+      const rect = reactFlowWrapperRef.current.getBoundingClientRect();
+      target = screenToFlow({
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2,
+      });
+    }
+
+    const targetFlow =
+      target ?? clipboardCopyCenterRef.current ?? { x: 0, y: 0 };
+
+    const snapshotBounds = computeBounds(snapshot.nodes);
+    const snapshotCenter = snapshotBounds
+      ? {
+          x: snapshotBounds.x + snapshotBounds.width / 2,
+          y: snapshotBounds.y + snapshotBounds.height / 2,
+        }
+      : { x: 0, y: 0 };
+
+    const OFFSET_STEP = 30;
+    const pasteIndex = pasteCountRef.current;
+    pasteCountRef.current = pasteIndex + 1;
+    const nudge = pasteIndex * OFFSET_STEP;
+
+    const dx = targetFlow.x - snapshotCenter.x + nudge;
+    const dy = targetFlow.y - snapshotCenter.y + nudge;
+
     const idMap = new Map<string, string>();
-    const OFFSET = 30;
 
     const newNodes: FlowNode[] = snapshot.nodes.map((n) => {
       const newId = createNodeId();
       idMap.set(String(n.id), newId);
-      const x = (n.position?.x ?? 0) + OFFSET;
-      const y = (n.position?.y ?? 0) + OFFSET;
+      const x = (n.position?.x ?? 0) + dx;
+      const y = (n.position?.y ?? 0) + dy;
 
       return {
         ...n,
@@ -1733,7 +1794,7 @@ export default function App() {
     });
 
     setEdges((prev) => [...prev, ...newEdges]);
-  }, []);
+  }, [reactFlowInstance]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1965,41 +2026,55 @@ export default function App() {
                   className="flex h-full w-full"
                   onContextMenu={(e: React.MouseEvent) => {
                     setContextPoint({ x: e.clientX, y: e.clientY });
+                    lastPointerScreenPosRef.current = {
+                      x: e.clientX,
+                      y: e.clientY,
+                    };
                   }}
                 >
-                  <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    nodeTypes={nodeTypes}
-                    edgeTypes={{ default: LabeledEdge }}
-                    connectionLineComponent={ArrowConnectionLine}
-                    isValidConnection={connectionTooltip.isValidConnection}
-                    defaultEdgeOptions={{
-                      markerEnd: {
-                        type: MarkerType.ArrowClosed,
-                        width: 14,
-                        height: 14,
-                      },
+                  <div
+                    ref={reactFlowWrapperRef}
+                    className="flex h-full w-full"
+                    onMouseMove={(e) => {
+                      lastPointerScreenPosRef.current = {
+                        x: e.clientX,
+                        y: e.clientY,
+                      };
                     }}
-                    onInit={setReactFlowInstance}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    onConnectStart={onConnectStart}
-                    onConnectEnd={onConnectEnd}
-                    onDrop={onDrop}
-                    onDragOver={onDragOver}
-                    onNodeDragStart={onNodeDragStart}
-                    onNodeDragStop={onNodeDragStop}
-                    panOnDrag={canvasMode === "pan"}
-                    selectionOnDrag={canvasMode === "select"}
-                    selectionMode={SelectionMode.Partial}
-                    className={
-                      canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
-                    }
-                    fitView
-                    proOptions={{ hideAttribution: true }}
                   >
+                    <ReactFlow
+                      nodes={nodes}
+                      edges={edges}
+                      nodeTypes={nodeTypes}
+                      edgeTypes={{ default: LabeledEdge }}
+                      connectionLineComponent={ArrowConnectionLine}
+                      isValidConnection={connectionTooltip.isValidConnection}
+                      defaultEdgeOptions={{
+                        markerEnd: {
+                          type: MarkerType.ArrowClosed,
+                          width: 14,
+                          height: 14,
+                        },
+                      }}
+                      onInit={setReactFlowInstance}
+                      onNodesChange={onNodesChange}
+                      onEdgesChange={onEdgesChange}
+                      onConnect={onConnect}
+                      onConnectStart={onConnectStart}
+                      onConnectEnd={onConnectEnd}
+                      onDrop={onDrop}
+                      onDragOver={onDragOver}
+                      onNodeDragStart={onNodeDragStart}
+                      onNodeDragStop={onNodeDragStop}
+                      panOnDrag={canvasMode === "pan"}
+                      selectionOnDrag={canvasMode === "select"}
+                      selectionMode={SelectionMode.Partial}
+                      className={
+                        canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                      }
+                      fitView
+                      proOptions={{ hideAttribution: true }}
+                    >
                     <ConnectionErrorTooltip
                       open={connectionTooltip.tooltip.open}
                       message={connectionTooltip.tooltip.message}
@@ -2158,7 +2233,8 @@ export default function App() {
                       className="hidden"
                       onChange={onProgramFileChange}
                     />
-                  </ReactFlow>
+                    </ReactFlow>
+                  </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent className="bg-neutral-800 text-white">
                   <ContextMenuItem
