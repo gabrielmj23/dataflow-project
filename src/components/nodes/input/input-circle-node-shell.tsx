@@ -18,6 +18,10 @@ type InputCircleNodeShellProps = {
   variant?: "inputOnly" | "inputOutput";
   /** Optional secondary text line (e.g., countdown). */
   sublabel?: string | null;
+  /** Optional container className override (colors/background). */
+  className?: string;
+  /** Optional handle indicator border class override. */
+  indicatorClassName?: string;
   /**
    * When true, disables visual runtime state styles (borders/halos).
    * Defaults to true for input nodes.
@@ -32,6 +36,8 @@ export function InputCircleNodeShell({
   onConfigClick,
   variant = "inputOnly",
   sublabel,
+  className,
+  indicatorClassName,
   disableRuntimeStyles = true,
 }: InputCircleNodeShellProps) {
   const inputMask = getPortTypeMask({ nodeType, handleType: "target", handleId: null });
@@ -43,7 +49,10 @@ export function InputCircleNodeShell({
     <BaseNode
       hideRuntimeBadges
       disableRuntimeStyles={disableRuntimeStyles}
-      className="relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 text-center text-white shadow-md"
+      className={
+        className ??
+        "relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 text-center text-white shadow-md"
+      }
     >
       {onConfigClick && (
         <BaseNodeHeader className="absolute top-1 right-1">
@@ -65,7 +74,7 @@ export function InputCircleNodeShell({
           dataType={inputType}
           typeMask={inputMask}
           className="absolute left-1 top-1/2 h-2 w-2 -translate-y-1/2"
-          indicatorClassName="border-emerald-600"
+          indicatorClassName={indicatorClassName ?? "border-emerald-600"}
         />
       )}
 
@@ -75,7 +84,7 @@ export function InputCircleNodeShell({
         dataType={outputType}
         typeMask={outputMask}
         className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-emerald-600"
+        indicatorClassName={indicatorClassName ?? "border-emerald-600"}
       />
     </BaseNode>
   );

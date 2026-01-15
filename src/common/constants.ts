@@ -3,6 +3,7 @@ export const NODE_TYPES = {
   CONSTANT_NUMBER_INPUT: "constantNumber",
   CONSTANT_BOOLEAN_INPUT: "constantBoolean",
   CONSTANT_TEXT_INPUT: "constantText",
+  RUNTIME_INPUT: "runtimeInput",
   RANDOM_INPUT: "randomInput",
   TIMER_INPUT: "timerInput",
   MICROBIT_READ_BUTTON_INPUT: "microbitReadButton",

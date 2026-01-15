@@ -636,6 +636,22 @@ export default function App() {
     Array<{ ts: number; level: EngineLogLevel; nodeId?: string; text: string }>
   >([]);
 
+  type RuntimePrompt = {
+    nodeId: string;
+    prompt: string;
+    type: "number" | "text";
+    defaultValue?: unknown;
+    submit: (value: unknown) => void;
+    cancel: () => void;
+  };
+
+  const [runtimePromptQueue, setRuntimePromptQueue] = useState<RuntimePrompt[]>(
+    []
+  );
+  const [runtimePromptInput, setRuntimePromptInput] = useState<string>("");
+  const consoleScrollRef = useRef<HTMLDivElement | null>(null);
+  const consoleInputRef = useRef<HTMLTextAreaElement | null>(null);
+
   const stripRuntimeClasses = useCallback((className?: string) => {
     if (!className) return "";
     return className
@@ -709,7 +725,125 @@ export default function App() {
     setEngineLogs([]);
   }, []);
 
+  const consoleOutputText = useMemo(() => {
+    return engineLogs.map((l) => l.text).join("\n");
+  }, [engineLogs]);
+
+  const activeRuntimePrompt = runtimePromptQueue[0] ?? null;
+
+  useEffect(() => {
+    const el = consoleScrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [consoleOutputText]);
+
+  useEffect(() => {
+    if (activeRuntimePrompt == null) return;
+    // New prompt becomes active: start with empty input.
+    setRuntimePromptInput("");
+    // Ensure focus after the panel is rendered.
+    requestAnimationFrame(() => {
+      consoleInputRef.current?.focus();
+      consoleInputRef.current?.select();
+    });
+  }, [activeRuntimePrompt?.nodeId]);
+
+  const appendConsoleLines = useCallback(
+    (lines: string[], opts?: { level?: EngineLogLevel; nodeId?: string }) => {
+      const ts = Date.now();
+      const level = opts?.level ?? "info";
+      const nodeId = opts?.nodeId;
+      setEngineLogs((prev) => {
+        const next = [
+          ...prev,
+          ...lines.map((text, idx) => ({
+            ts: ts + idx,
+            level,
+            nodeId,
+            text,
+          })),
+        ];
+        const MAX = 200;
+        return next.length > MAX ? next.slice(next.length - MAX) : next;
+      });
+    },
+    []
+  );
+
+  const getRuntimePromptText = useCallback(() => {
+    if (!activeRuntimePrompt) return "";
+    const fallback = activeRuntimePrompt.type === "text" ? "Ingrese un texto" : "Ingrese un número";
+    return activeRuntimePrompt.prompt?.trim() ? activeRuntimePrompt.prompt.trim() : fallback;
+  }, [activeRuntimePrompt]);
+
+  const getRuntimePromptDefaultValue = useCallback(() => {
+    if (!activeRuntimePrompt) return 0;
+    const dv = activeRuntimePrompt.defaultValue;
+    if (activeRuntimePrompt.type === "text") {
+      if (typeof dv === "string") return dv;
+      if (dv === null || dv === undefined) return "";
+      return String(dv);
+    }
+    return typeof dv === "number" && Number.isFinite(dv) ? dv : 0;
+  }, [activeRuntimePrompt]);
+
+  const onCancelRuntimePrompt = useCallback(() => {
+    if (activeRuntimePrompt != null) {
+      appendConsoleLines([getRuntimePromptText(), "> ^C"], {
+        nodeId: activeRuntimePrompt.nodeId,
+      });
+    }
+
+    activeRuntimePrompt?.cancel();
+    setRuntimePromptQueue((prev) => prev.slice(1));
+  }, [activeRuntimePrompt, appendConsoleLines, getRuntimePromptText]);
+
+  const onSubmitRuntimePrompt = useCallback(() => {
+    if (!activeRuntimePrompt) return;
+
+    const raw = runtimePromptInput;
+    const trimmed = raw.trim();
+
+    if (activeRuntimePrompt.type === "text") {
+      const v = trimmed === "" ? getRuntimePromptDefaultValue() : raw;
+      appendConsoleLines([getRuntimePromptText(), `> ${raw}`], {
+        nodeId: activeRuntimePrompt.nodeId,
+      });
+      activeRuntimePrompt.submit(v);
+      setRuntimePromptQueue((prev) => prev.slice(1));
+      return;
+    }
+
+    const dv = getRuntimePromptDefaultValue();
+    const n = trimmed === "" ? Number(dv) : Number(trimmed);
+    if (!Number.isFinite(n)) {
+      appendConsoleLines(
+        ["Entrada inválida. Ingrese un número (ej: 10, 3.14, -2)."],
+        { level: "error", nodeId: activeRuntimePrompt.nodeId }
+      );
+      return;
+    }
+
+    appendConsoleLines([getRuntimePromptText(), `> ${raw}`], {
+      nodeId: activeRuntimePrompt.nodeId,
+    });
+
+    activeRuntimePrompt.submit(n);
+    setRuntimePromptQueue((prev) => prev.slice(1));
+  }, [
+    activeRuntimePrompt,
+    appendConsoleLines,
+    getRuntimePromptDefaultValue,
+    getRuntimePromptText,
+    runtimePromptInput,
+  ]);
+
   const onStopClick = useCallback(() => {
+    // Cancel any pending prompts so the engine isn't left hanging.
+    setRuntimePromptQueue((prev) => {
+      for (const p of prev) p.cancel();
+      return [];
+    });
     runAbortControllerRef.current?.abort();
     runAbortControllerRef.current = null;
     setIsEngineRunning(false);
@@ -1245,6 +1379,12 @@ export default function App() {
             const MAX = 200;
             return next.length > MAX ? next.slice(next.length - MAX) : next;
           });
+        },
+        onPrompt: ({ nodeId, prompt, type, defaultValue, submit, cancel }) => {
+          setRuntimePromptQueue((prev) => [
+            ...prev,
+            { nodeId, prompt, type, defaultValue, submit, cancel },
+          ]);
         },
       });
 
@@ -1964,25 +2104,50 @@ export default function App() {
                             <Trash2 />
                           </Button>
                         </div>
-                        <div className="max-h-52 overflow-auto p-2 text-xs font-mono">
-                          {engineLogs.length === 0 ? (
-                            <div className="text-muted-foreground">
-                              Sin salida
+
+                        <div className="p-2">
+                          <div className="overflow-hidden rounded-md border bg-background/60">
+                            <div
+                              ref={consoleScrollRef}
+                              className="h-48 overflow-auto p-2 text-xs font-mono text-foreground whitespace-pre-wrap"
+                            >
+                              {consoleOutputText}
+
+                              {activeRuntimePrompt != null && (
+                                <>
+                                  {consoleOutputText ? "\n" : ""}
+                                  {getRuntimePromptText()}
+                                  {"\n"}
+                                  <div className="flex items-start gap-2">
+                                    <div className="pt-0.5 text-xs font-mono text-muted-foreground">
+                                      &gt;
+                                    </div>
+                                    <textarea
+                                      ref={consoleInputRef}
+                                      rows={1}
+                                      value={runtimePromptInput}
+                                      onChange={(e) =>
+                                        setRuntimePromptInput(
+                                          e.currentTarget.value
+                                        )
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                          e.preventDefault();
+                                          onSubmitRuntimePrompt();
+                                        } else if (e.key === "Escape") {
+                                          e.preventDefault();
+                                          onCancelRuntimePrompt();
+                                        }
+                                      }}
+                                      placeholder=""
+                                      className="w-full resize-none bg-transparent text-xs font-mono text-foreground outline-none"
+                                    />
+                                  </div>
+                                </>
+                              )}
                             </div>
-                          ) : (
-                            engineLogs.map((l, idx) => (
-                              <div
-                                key={`${l.ts}-${idx}`}
-                                className={
-                                  l.level === "error"
-                                    ? "text-destructive"
-                                    : "text-foreground"
-                                }
-                              >
-                                {l.text}
-                              </div>
-                            ))
-                          )}
+                          </div>
                         </div>
                       </div>
                     </Panel>
@@ -2091,6 +2256,7 @@ export default function App() {
             </div>
           </DialogContent>
         </Dialog>
+
       </SidebarInset>
 
       <Dialog

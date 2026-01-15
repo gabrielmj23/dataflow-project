@@ -7,6 +7,12 @@ type ActivationFunction = (...args: any[]) => unknown;
 export type NodeMeta = {
   kind?: string;
   template?: string;
+  /** Optional prompt text for runtime input nodes. */
+  runtimePrompt?: string;
+  /** Value type for runtime input nodes. Defaults to "number". */
+  runtimeInputType?: "number" | "text";
+  /** Optional default value for runtime input nodes. */
+  runtimeDefaultValue?: unknown;
   /** micro:bit slot selection for nodes that talk to micro:bit. */
   microbitSlot?: number;
   /** Connection transport for micro:bit nodes. */
