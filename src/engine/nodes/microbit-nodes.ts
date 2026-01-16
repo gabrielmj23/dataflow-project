@@ -71,7 +71,6 @@ export class EngineMicrobitWriteNode extends NodeDefinition {
       ["input1"],
       {
         kind: "microbitWrite",
-        transport,
       },
     );
   }
@@ -113,7 +112,6 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
       ["input1"],
       {
         kind: "microbitSound",
-        transport,
       },
     );
   }
