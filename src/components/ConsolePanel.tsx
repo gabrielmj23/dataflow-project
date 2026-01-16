@@ -22,8 +22,8 @@ export function ConsolePanel({
   onSubmitRuntimePrompt: () => void;
   onCancelRuntimePrompt: () => void;
   onClearConsoleClick: () => void;
-  consoleScrollRef: React.RefObject<HTMLDivElement>;
-  consoleInputRef: React.RefObject<HTMLTextAreaElement>;
+  consoleScrollRef: React.RefObject<HTMLDivElement | null>;
+  consoleInputRef: React.RefObject<HTMLTextAreaElement | null>;
 }) {
   return (
     <Panel
