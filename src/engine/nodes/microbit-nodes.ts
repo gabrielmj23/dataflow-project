@@ -1,6 +1,4 @@
-
 import { FirePatterns, NodeDefinition } from "../program-elements";
-import { microbitSlotManager } from "@/microbit/slot-manager";
 
 import {
   ensureMicrobitConnected,
@@ -12,7 +10,8 @@ import type { EngineObserver } from "../engine";
 function formatValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   if (value instanceof Error) return value.message;
   try {
     return JSON.stringify(value);
@@ -21,14 +20,8 @@ function formatValue(value: unknown): string {
   }
 }
 
-function sanitizeSlot(value: unknown): number {
-  const n = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(n)) return 1;
-  return Math.min(8, Math.max(1, Math.floor(n)));
-}
-
-function sanitizeConn(value: unknown): "bluetooth" | "serial" {
-  return value === "serial" ? "serial" : "bluetooth";
+function sanitizeTransport(value: unknown): MicrobitTransport {
+  return value === "bluetooth" ? "bluetooth" : "serial";
 }
 
 function createAbortError(): Error {
@@ -63,35 +56,34 @@ function parseButtonMessage(message: string): "A" | "B" | "AB" | null {
 }
 
 export class EngineMicrobitWriteNode extends NodeDefinition {
-  constructor(params: { slot?: unknown; connectionType?: unknown } = {}) {
-    const slot = sanitizeSlot(params.slot);
-    const connectionType = sanitizeConn(params.connectionType);
+  constructor(params: { transport?: unknown } = {}) {
+    const transport = sanitizeTransport(params.transport);
 
     super(
       async (value: unknown) => {
+        const connection = await ensureMicrobitConnected({ transport });
         const text = formatValue(value).trim();
         const payload = `TXT:${text}`;
-        await microbitSlotManager.send({ slot, data: payload });
+        await connection.send(payload);
         return undefined;
       },
       [FirePatterns.EXISTS],
       ["input1"],
       {
         kind: "microbitWrite",
-        microbitSlot: slot,
-        connectionType,
-      }
+        transport,
+      },
     );
   }
 }
 
 export class EngineMicrobitSoundNode extends NodeDefinition {
-  constructor(params: { slot?: unknown; connectionType?: unknown } = {}) {
-    const slot = sanitizeSlot(params.slot);
-    const connectionType = sanitizeConn(params.connectionType);
+  constructor(params: { transport?: unknown } = {}) {
+    const transport = sanitizeTransport(params.transport);
 
     super(
       async (value: unknown) => {
+        const connection = await ensureMicrobitConnected({ transport });
         // Accept either number (frequency) or "freq,duration".
         const raw = formatValue(value).trim();
         let freq = Number(raw);
@@ -114,16 +106,15 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
         }
 
         const payload = `SND:${Math.floor(freq)},${ms}`;
-        await microbitSlotManager.send({ slot, data: payload });
+        await connection.send(payload);
         return undefined;
       },
       [FirePatterns.EXISTS],
       ["input1"],
       {
         kind: "microbitSound",
-        microbitSlot: slot,
-        connectionType,
-      }
+        transport,
+      },
     );
   }
 }
@@ -185,7 +176,7 @@ export class EngineMicrobitReadButtonNode extends NodeDefinition {
         });
       },
       [FirePatterns.ALWAYS],
-      ["output"]
+      ["output"],
     );
   }
 }
