@@ -3,9 +3,6 @@ import {
   ReactFlow,
   applyNodeChanges,
   applyEdgeChanges,
-  addEdge,
-  type Connection,
-  type OnConnectStartParams,
   MarkerType,
   MiniMap,
   Controls,
@@ -13,588 +10,64 @@ import {
   BackgroundVariant,
   ControlButton,
   SelectionMode,
-  useStore,
-  type Node,
-  type Edge,
   type NodeChange,
   type EdgeChange,
   type ReactFlowInstance,
-  Panel,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
 import {
   Hand,
   MousePointer2,
-  Download,
-  Play,
-  Upload,
   BrushCleaning,
-  Square,
-  Trash2,
-  MessageCircleMore,
 } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
-import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
-import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
-import {
-  ConnectionHighlightProvider,
-  type ConnectionHighlightState,
-} from "@/flow/connection-highlight-context";
-import { getPortTypeMask } from "@/flow/port-data-type";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { ConnectionHighlightProvider } from "@/flow/connection-highlight-context";
 import { AppSidebar } from "@/components/app-sidebar";
+import { CanvasContextMenu } from "@/components/CanvasContextMenu";
+import { ConsolePanel } from "@/components/ConsolePanel";
+import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
+import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
+import { TopActionPanel } from "@/components/TopActionPanel";
+import { TopBar } from "@/components/TopBar";
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@/components/ui/sidebar";
-import { nodePalette, type NodePaletteItem } from "./flow/node-palette";
+import { usePaletteDrag } from "@/hooks/usePaletteDrag";
 import {
   SubflowTemplateContext,
-  type SubflowTemplatePayload,
 } from "@/flow/subflow-templates-context";
+import { useEngineRunner } from "@/hooks/useEngineRunner";
+import { createNodeId } from "@/utils/id";
+import { useFlowHistory } from "@/hooks/useFlowHistory";
+import { useProgramIO } from "@/hooks/useProgramIO";
+import { useRuntimeConsole } from "@/hooks/useRuntimeConsole";
+import { useConnections } from "@/hooks/useConnections";
+import { useClipboardSelection } from "@/hooks/useClipboardSelection";
+import { useWriteNodeReconciliation } from "@/hooks/useWriteNodeReconciliation";
+import { useSubflowTemplates } from "@/hooks/useSubflowTemplates";
 import {
-  serializeProgram,
-  downloadSerializedProgram,
-  deserializeProgram,
-  type SerializedProgramV1,
-} from "@/flow/serialization";
-import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
+  type FlowBounds,
+  type FlowEdge,
+  type FlowNode,
+  type SubflowSnapshot,
+} from "@/utils/flow";
+import { getLayoutedElements } from "@/utils/layout";
 import {
-  DataflowEngine,
-  type EngineLogLevel,
-  type EngineNodeStatus,
-} from "@/engine/engine";
-import { nanoid } from "nanoid";
-import dagre from "@dagrejs/dagre";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "./components/ui/context-menu";
-
-const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-
-type FlowNode = Node;
-type FlowEdge = Edge;
-
-type FlowBounds = { x: number; y: number; width: number; height: number };
+  CreateSubflowOverlay,
+  type CreateSubflowRequest,
+} from "@/components/CreateSubflowOverlay";
 
 type SubflowPorts = { inCount: number; outCount: number };
-
-type SubflowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
-
-type SavedSubflowTemplate = {
-  id: string;
-  name: string;
-  ports: SubflowPorts;
-  snapshot: SubflowSnapshot;
-};
-
-type CreateSubflowRequest =
-  | {
-      ok: true;
-      bounds: FlowBounds;
-      ports: SubflowPorts;
-      snapshot: SubflowSnapshot;
-    }
-  | { ok: false; bounds: FlowBounds; message: string };
-
-type HandleKey = string | null;
-
-function parseWriteTargetHandleIndex(handle: unknown): number {
-  const m = /^in-(\d+)$/.exec(String(handle ?? ""));
-  const idx = m ? parseInt(m[1] ?? "", 10) : NaN;
-  return Number.isFinite(idx) ? idx : 0;
-}
-
-function clampWriteTemplateToMaxVar(
-  template: unknown,
-  maxVar: number
-): string | undefined {
-  if (typeof template !== "string") return undefined;
-  if (!Number.isFinite(maxVar) || maxVar < 1) {
-    // No valid variables allowed; strip all placeholders.
-    return template.replace(/\{\d+\}/g, "");
-  }
-
-  return template.replace(/\{(\d+)\}/g, (full, raw) => {
-    const idx = parseInt(String(raw), 10);
-    if (!Number.isFinite(idx)) return "";
-    return idx >= 1 && idx <= maxVar ? full : "";
-  });
-}
-
-function reconcileWriteGraph(
-  nodes: FlowNode[],
-  edges: FlowEdge[]
-): {
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-  changedNodes: boolean;
-  changedEdges: boolean;
-} {
-  // Build per-write-node compaction maps based on current incoming connections.
-  const writeMaps = new Map<
-    string,
-    {
-      map: Map<number, number>;
-      desiredInputCount: number;
-      maxVarAllowed: number;
-    }
-  >();
-
-  for (const n of nodes) {
-    if (n.type !== "write") continue;
-    const nodeId = String(n.id);
-
-    const uniqueConnected = new Set<number>();
-    for (const e of edges) {
-      if (String(e.target) !== nodeId) continue;
-      const idx = parseWriteTargetHandleIndex(e.targetHandle);
-      if (idx > 0) uniqueConnected.add(idx);
-    }
-
-    const sorted = Array.from(uniqueConnected).sort((a, b) => a - b);
-    const map = new Map<number, number>();
-    for (let i = 0; i < sorted.length; i++) {
-      const oldIdx = sorted[i];
-      if (!oldIdx) continue;
-      map.set(oldIdx, i + 1);
-    }
-
-    // If there are no connected inputs, keep a single empty handle only.
-    // Otherwise keep one extra empty handle beyond the highest connected input.
-    const desiredInputCount = sorted.length === 0 ? 1 : sorted.length + 1;
-    const maxVarAllowed = desiredInputCount - 1;
-    writeMaps.set(nodeId, { map, desiredInputCount, maxVarAllowed });
-  }
-
-  // 1) Update edges: shift targetHandle indices down to compact away gaps.
-  let changedEdges = false;
-  const nextEdges = edges.map((e) => {
-    const targetId = String(e.target);
-    const info = writeMaps.get(targetId);
-    if (!info) return e;
-
-    const oldIdx = parseWriteTargetHandleIndex(e.targetHandle);
-    if (oldIdx <= 0) return e;
-
-    const newIdx = info.map.get(oldIdx);
-    if (!newIdx || newIdx === oldIdx) return e;
-
-    changedEdges = true;
-    return {
-      ...e,
-      targetHandle: `in-${newIdx}`,
-    } as FlowEdge;
-  });
-
-  // 2) Update nodes: shrink inputCount to connectedCount+1 and remap template.
-  let changedNodes = false;
-  const nextNodes = nodes.map((n) => {
-    if (n.type !== "write") return n;
-    const nodeId = String(n.id);
-    const info = writeMaps.get(nodeId);
-    if (!info) return n;
-
-    const data =
-      n.data && typeof n.data === "object"
-        ? (n.data as Record<string, unknown>)
-        : ({} as Record<string, unknown>);
-
-    const currentRaw =
-      typeof data.inputCount === "number" ? data.inputCount : 1;
-    const current = Number.isFinite(currentRaw)
-      ? Math.max(1, Math.floor(currentRaw))
-      : 1;
-
-    const template = data.template;
-    const remappedTemplate =
-      typeof template !== "string"
-        ? undefined
-        : template.replace(/\{(\d+)\}/g, (_full, raw) => {
-            const oldIdx = parseInt(String(raw), 10);
-            if (!Number.isFinite(oldIdx)) return "";
-            const newIdx = info.map.get(oldIdx);
-            if (!newIdx) return "";
-            // Also enforce max vars in case something goes out of bounds.
-            return newIdx >= 1 && newIdx <= info.maxVarAllowed
-              ? `{${newIdx}}`
-              : "";
-          });
-
-    // If there are no connections, we keep only Entrada 1 + empty; strip placeholders.
-    const clampedTemplate = clampWriteTemplateToMaxVar(
-      remappedTemplate ?? template,
-      info.maxVarAllowed
-    );
-
-    const needsInputCountUpdate = current !== info.desiredInputCount;
-    const needsTemplateUpdate =
-      typeof template === "string" && typeof clampedTemplate === "string"
-        ? template !== clampedTemplate
-        : false;
-
-    if (!needsInputCountUpdate && !needsTemplateUpdate) return n;
-
-    changedNodes = true;
-    return {
-      ...n,
-      data: {
-        ...data,
-        ...(needsInputCountUpdate
-          ? { inputCount: info.desiredInputCount }
-          : null),
-        ...(needsTemplateUpdate ? { template: clampedTemplate } : null),
-      },
-    } as FlowNode;
-  });
-
-  return {
-    nodes: changedNodes ? nextNodes : nodes,
-    edges: changedEdges ? nextEdges : edges,
-    changedNodes,
-    changedEdges,
-  };
-}
-
-function createNodeId(): string {
-  return nanoid(16);
-}
-
-function isSelectionConnected(nodeIds: string[], edges: FlowEdge[]): boolean {
-  if (nodeIds.length <= 1) {
-    return true;
-  }
-
-  const idSet = new Set(nodeIds);
-  const adjacency = new Map<string, Set<string>>();
-  for (const nodeId of nodeIds) {
-    adjacency.set(nodeId, new Set());
-  }
-
-  for (const edge of edges) {
-    const source = String(edge.source);
-    const target = String(edge.target);
-    if (!idSet.has(source) || !idSet.has(target)) {
-      continue;
-    }
-    adjacency.get(source)?.add(target);
-    adjacency.get(target)?.add(source);
-  }
-
-  const start = nodeIds[0];
-  if (!start) {
-    return false;
-  }
-
-  const visited = new Set<string>();
-  const queue: string[] = [start];
-  visited.add(start);
-
-  while (queue.length > 0) {
-    const current = queue.shift();
-    if (!current) {
-      continue;
-    }
-    const neighbors = adjacency.get(current);
-    if (!neighbors) {
-      continue;
-    }
-    for (const neighbor of neighbors) {
-      if (visited.has(neighbor)) {
-        continue;
-      }
-      visited.add(neighbor);
-      queue.push(neighbor);
-    }
-  }
-
-  return visited.size === nodeIds.length;
-}
-
-function uniqueCount<T>(values: T[]): number {
-  return new Set(values).size;
-}
-
-function getHandleIds(
-  nodeLookup: unknown,
-  nodeId: string
-): { targets: HandleKey[]; sources: HandleKey[] } {
-  const map = nodeLookup as Map<string, unknown> | undefined;
-  const internalNode = map?.get(nodeId) as
-    | {
-        internals?: {
-          handleBounds?: {
-            target?: Array<{ id?: string | null }>;
-            source?: Array<{ id?: string | null }>;
-          };
-        };
-      }
-    | undefined;
-
-  const targets = (internalNode?.internals?.handleBounds?.target ?? []).map(
-    (h) => h.id ?? null
-  );
-  const sources = (internalNode?.internals?.handleBounds?.source ?? []).map(
-    (h) => h.id ?? null
-  );
-
-  return { targets, sources };
-}
-
-function computeBounds(nodes: FlowNode[]): FlowBounds | null {
-  if (nodes.length === 0) {
-    return null;
-  }
-
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-
-  for (const node of nodes) {
-    const x = node.position?.x ?? 0;
-    const y = node.position?.y ?? 0;
-    const width = node.measured?.width ?? 160;
-    const height = node.measured?.height ?? 80;
-
-    minX = Math.min(minX, x);
-    minY = Math.min(minY, y);
-    maxX = Math.max(maxX, x + width);
-    maxY = Math.max(maxY, y + height);
-  }
-
-  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
-    return null;
-  }
-
-  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
-
-function buildSubflowSnapshot(
-  selectedNodes: FlowNode[],
-  edges: FlowEdge[],
-  bounds: FlowBounds
-): SubflowSnapshot {
-  const selectedSet = new Set(selectedNodes.map((n) => n.id));
-  const padding = 40;
-
-  const nodes = selectedNodes.map((n) => {
-    const x = (n.position?.x ?? 0) - bounds.x + padding;
-    const y = (n.position?.y ?? 0) - bounds.y + padding;
-    return {
-      id: n.id,
-      type: n.type,
-      position: {
-        x: Number.isFinite(x) ? x : 0,
-        y: Number.isFinite(y) ? y : 0,
-      },
-      data: n.data,
-      selected: false,
-    } as FlowNode;
-  });
-
-  const internalEdges = edges
-    .filter(
-      (e) =>
-        selectedSet.has(String(e.source)) && selectedSet.has(String(e.target))
-    )
-    .map(
-      (e) =>
-        ({
-          id: e.id,
-          source: e.source,
-          target: e.target,
-          sourceHandle: e.sourceHandle,
-          targetHandle: e.targetHandle,
-          type: e.type,
-          data: e.data,
-        } as FlowEdge)
-    );
-
-  return { nodes, edges: internalEdges };
-}
-
-function CreateSubflowOverlay({
-  selectedNodes,
-  edges,
-  onCreateClick,
-}: {
-  selectedNodes: FlowNode[];
-  edges: FlowEdge[];
-  onCreateClick: (request: CreateSubflowRequest) => void;
-}) {
-  const transform = useStore((state) => state.transform);
-  const nodeLookup = useStore(
-    (state) => (state as unknown as { nodeLookup: unknown }).nodeLookup
-  );
-
-  const bounds = useMemo(
-    () => (selectedNodes.length > 1 ? computeBounds(selectedNodes) : null),
-    [selectedNodes]
-  );
-
-  if (!bounds) {
-    return null;
-  }
-
-  const selectedNodeIds = selectedNodes.map((n) => n.id);
-
-  const [tx, ty, zoom] = transform;
-  const left = (bounds.x + bounds.width / 2) * zoom + tx;
-  const top = bounds.y * zoom + ty;
-
-  return (
-    <div className="pointer-events-none absolute inset-0 z-20">
-      <div
-        className="pointer-events-auto absolute -translate-x-1/2 -translate-y-full"
-        style={{ left, top }}
-      >
-        <Button
-          size="sm"
-          type="button"
-          onClick={() => {
-            if (!isSelectionConnected(selectedNodeIds, edges)) {
-              onCreateClick({
-                ok: false,
-                bounds,
-                message:
-                  "Los nodos seleccionados deben estar conectados entre sí para crear un subflujo.",
-              });
-              return;
-            }
-
-            const openInputs: HandleKey[] = [];
-            const openOutputs: HandleKey[] = [];
-
-            const selectedSet = new Set(selectedNodeIds);
-
-            for (const nodeId of selectedNodeIds) {
-              const node = selectedNodes.find(
-                (n) => String(n.id) === String(nodeId)
-              );
-              const nodeType = node?.type;
-              const { targets, sources } = getHandleIds(nodeLookup, nodeId);
-
-              for (const targetHandle of targets) {
-                const hasInternalIncoming = edges.some((e) => {
-                  const sourceId = String(e.source);
-                  if (!selectedSet.has(sourceId)) {
-                    return false;
-                  }
-                  if (String(e.target) !== nodeId) {
-                    return false;
-                  }
-                  return (e.targetHandle ?? null) === targetHandle;
-                });
-
-                const hasAnyIncoming = edges.some(
-                  (e) =>
-                    String(e.target) === nodeId &&
-                    (e.targetHandle ?? null) === targetHandle
-                );
-
-                if (!hasInternalIncoming) {
-                  // Para nodos "write": solo considerar la entrada
-                  // como puerto del subflujo si realmente recibe
-                  // alguna conexión (desde fuera de la selección).
-                  // Los puertos dinámicos vacíos de Escribir no
-                  // deben contarse como entradas posibles.
-                  if (nodeType === "write" && !hasAnyIncoming) {
-                    continue;
-                  }
-
-                  openInputs.push(`${nodeId}:${String(targetHandle)}`);
-                }
-              }
-
-              for (const sourceHandle of sources) {
-                const hasInternalOutgoing = edges.some((e) => {
-                  const targetId = String(e.target);
-                  if (!selectedSet.has(targetId)) {
-                    return false;
-                  }
-                  if (String(e.source) !== nodeId) {
-                    return false;
-                  }
-                  return (e.sourceHandle ?? null) === sourceHandle;
-                });
-                if (!hasInternalOutgoing) {
-                  openOutputs.push(`${nodeId}:${String(sourceHandle)}`);
-                }
-              }
-            }
-
-            // If we can't detect handles yet (e.g. nodes not measured), fall back to 0.
-            const inCount = uniqueCount(openInputs);
-            const outCount = uniqueCount(openOutputs);
-
-            const snapshot = buildSubflowSnapshot(selectedNodes, edges, bounds);
-            onCreateClick({
-              ok: true,
-              bounds,
-              ports: { inCount, outCount },
-              snapshot,
-            });
-          }}
-        >
-          Crear Subflujo
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 const initialNodes: FlowNode[] = [];
 
 const initialEdges: FlowEdge[] = [];
 
-function getLayoutedElements(nodes: FlowNode[], edges: FlowEdge[]) {
-  dagreGraph.setGraph({ rankdir: "LR" });
-
-  const NODE_WIDTH = 240;
-  const NODE_HEIGHT = 64;
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
-  });
-
-  edges.forEach((edge) => {
-    dagreGraph.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(dagreGraph);
-
-  const newNodes = nodes.map((node) => {
-    const nodeWithPosition = dagreGraph.node(node.id);
-    const newNode = {
-      ...node,
-      targetPosition: "left",
-      sourcePosition: "right",
-      position: {
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
-        y: nodeWithPosition.y - NODE_HEIGHT / 2,
-      },
-    };
-
-    return newNode;
-  });
-
-  return { nodes: newNodes as Node[], edges: edges as Edge[] };
-}
 
 export default function App() {
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
@@ -607,342 +80,73 @@ export default function App() {
   } | null>(null);
   const [canvasMode, setCanvasMode] = useState<"pan" | "select">("pan");
 
-  const [isEngineRunning, setIsEngineRunning] = useState(false);
-  const runAbortControllerRef = useRef<AbortController | null>(null);
-
-  const [subflowTemplates, setSubflowTemplates] = useState<
-    SavedSubflowTemplate[]
-  >([]);
+  const {
+    subflowTemplates,
+    addOrUpdateTemplate,
+    isNameTaken,
+    resolveTemplate,
+    deleteTemplate,
+  } = useSubflowTemplates();
 
   const [programName, setProgramName] = useState<string>("Sin título");
 
-  type FlowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
-
-  const [, setHistory] = useState<{
-    stack: FlowSnapshot[];
-    index: number;
-  }>(() => ({
-    stack: [{ nodes: initialNodes, edges: initialEdges }],
-    index: 0,
-  }));
-
-  const isRestoringRef = useRef(false);
-  const isDraggingRef = useRef(false);
-  const historyTimeoutRef = useRef<number | null>(null);
-  const clipboardRef = useRef<SubflowSnapshot | null>(null);
-  const clipboardCopyCenterRef = useRef<{ x: number; y: number } | null>(null);
-  const pasteCountRef = useRef(0);
-  const reactFlowWrapperRef = useRef<HTMLDivElement | null>(null);
-  const lastPointerScreenPosRef = useRef<{ x: number; y: number } | null>(null);
   const isRuntimeUpdateRef = useRef(false);
-
-  const [engineLogs, setEngineLogs] = useState<
-    Array<{ ts: number; level: EngineLogLevel; nodeId?: string; text: string }>
-  >([]);
-
-  type RuntimePrompt = {
-    nodeId: string;
-    prompt: string;
-    type: "number" | "text";
-    defaultValue?: unknown;
-    submit: (value: unknown) => void;
-    cancel: () => void;
-  };
-
-  const [runtimePromptQueue, setRuntimePromptQueue] = useState<RuntimePrompt[]>(
-    []
-  );
-  const [runtimePromptInput, setRuntimePromptInput] = useState<string>("");
-  const consoleScrollRef = useRef<HTMLDivElement | null>(null);
-  const consoleInputRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const stripRuntimeClasses = useCallback((className?: string) => {
-    if (!className) return "";
-    return className
-      .split(/\s+/g)
-      .filter(
-        (c) =>
-          c &&
-          c !== "rf-node-waiting" &&
-          c !== "rf-node-running" &&
-          c !== "rf-node-error" &&
-          c !== "rf-node-done"
-      )
-      .join(" ");
-  }, []);
-
-  const runtimeClassForStatus = useCallback((status: EngineNodeStatus) => {
-    switch (status) {
-      case "running":
-        return "rf-node-running";
-      case "error":
-        return "rf-node-error";
-      case "done":
-        return "rf-node-done";
-      case "waiting":
-      default:
-        return "rf-node-waiting";
-    }
-  }, []);
-
-  const formatLogText = useCallback((data: unknown) => {
-    if (typeof data === "string") return data;
-    if (typeof data === "number" || typeof data === "boolean") {
-      return String(data);
-    }
-    if (data instanceof Error) return data.message;
-    try {
-      return JSON.stringify(data);
-    } catch {
-      return String(data);
-    }
-  }, []);
-
-  const setAllNodesRuntimeState = useCallback(
-    (status?: EngineNodeStatus) => {
-      // Prevent history snapshots/reconciliation from treating these as edits.
-      isRuntimeUpdateRef.current = true;
-
-      setNodes((prev) =>
-        prev.map((n) => ({
-          ...n,
-          className:
-            status === undefined
-              ? stripRuntimeClasses(n.className)
-              : `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus(
-                  status
-                )}`.trim(),
-          data:
-            n.data && typeof n.data === "object"
-              ? {
-                  ...(n.data as Record<string, unknown>),
-                  runtimeError: undefined,
-                }
-              : n.data,
-        }))
-      );
-    },
-    [runtimeClassForStatus, setNodes, stripRuntimeClasses]
-  );
-
-  const onClearConsoleClick = useCallback(() => {
-    setEngineLogs([]);
-  }, []);
-
-  const consoleOutputText = useMemo(() => {
-    return engineLogs.map((l) => l.text).join("\n");
-  }, [engineLogs]);
-
-  const activeRuntimePrompt = runtimePromptQueue[0] ?? null;
-
-  useEffect(() => {
-    const el = consoleScrollRef.current;
-    if (!el) return;
-    el.scrollTop = el.scrollHeight;
-  }, [consoleOutputText]);
-
-  useEffect(() => {
-    if (activeRuntimePrompt == null) return;
-    // New prompt becomes active: start with empty input.
-    setRuntimePromptInput("");
-    // Ensure focus after the panel is rendered.
-    requestAnimationFrame(() => {
-      consoleInputRef.current?.focus();
-      consoleInputRef.current?.select();
-    });
-  }, [activeRuntimePrompt?.nodeId]);
-
-  const appendConsoleLines = useCallback(
-    (lines: string[], opts?: { level?: EngineLogLevel; nodeId?: string }) => {
-      const ts = Date.now();
-      const level = opts?.level ?? "info";
-      const nodeId = opts?.nodeId;
-      setEngineLogs((prev) => {
-        const next = [
-          ...prev,
-          ...lines.map((text, idx) => ({
-            ts: ts + idx,
-            level,
-            nodeId,
-            text,
-          })),
-        ];
-        const MAX = 200;
-        return next.length > MAX ? next.slice(next.length - MAX) : next;
-      });
-    },
-    []
-  );
-
-  const getRuntimePromptText = useCallback(() => {
-    if (!activeRuntimePrompt) return "";
-    const fallback = activeRuntimePrompt.type === "text" ? "Ingrese un texto" : "Ingrese un número";
-    return activeRuntimePrompt.prompt?.trim() ? activeRuntimePrompt.prompt.trim() : fallback;
-  }, [activeRuntimePrompt]);
-
-  const getRuntimePromptDefaultValue = useCallback(() => {
-    if (!activeRuntimePrompt) return 0;
-    const dv = activeRuntimePrompt.defaultValue;
-    if (activeRuntimePrompt.type === "text") {
-      if (typeof dv === "string") return dv;
-      if (dv === null || dv === undefined) return "";
-      return String(dv);
-    }
-    return typeof dv === "number" && Number.isFinite(dv) ? dv : 0;
-  }, [activeRuntimePrompt]);
-
-  const onCancelRuntimePrompt = useCallback(() => {
-    if (activeRuntimePrompt != null) {
-      appendConsoleLines([getRuntimePromptText(), "> ^C"], {
-        nodeId: activeRuntimePrompt.nodeId,
-      });
-    }
-
-    activeRuntimePrompt?.cancel();
-    setRuntimePromptQueue((prev) => prev.slice(1));
-  }, [activeRuntimePrompt, appendConsoleLines, getRuntimePromptText]);
-
-  const onSubmitRuntimePrompt = useCallback(() => {
-    if (!activeRuntimePrompt) return;
-
-    const raw = runtimePromptInput;
-    const trimmed = raw.trim();
-
-    if (activeRuntimePrompt.type === "text") {
-      const v = trimmed === "" ? getRuntimePromptDefaultValue() : raw;
-      appendConsoleLines([getRuntimePromptText(), `> ${raw}`], {
-        nodeId: activeRuntimePrompt.nodeId,
-      });
-      activeRuntimePrompt.submit(v);
-      setRuntimePromptQueue((prev) => prev.slice(1));
-      return;
-    }
-
-    const dv = getRuntimePromptDefaultValue();
-    const n = trimmed === "" ? Number(dv) : Number(trimmed);
-    if (!Number.isFinite(n)) {
-      appendConsoleLines(
-        ["Entrada inválida. Ingrese un número (ej: 10, 3.14, -2)."],
-        { level: "error", nodeId: activeRuntimePrompt.nodeId }
-      );
-      return;
-    }
-
-    appendConsoleLines([getRuntimePromptText(), `> ${raw}`], {
-      nodeId: activeRuntimePrompt.nodeId,
-    });
-
-    activeRuntimePrompt.submit(n);
-    setRuntimePromptQueue((prev) => prev.slice(1));
-  }, [
+  const {
+    undo,
+    redo,
+    onNodeDragStart,
+    onNodeDragStop,
+    isRestoringRef,
+    isDraggingRef,
+  } = useFlowHistory({
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    initialNodes,
+    initialEdges,
+    isRuntimeUpdateRef,
+  });
+  const { copySelection, pasteSelection, onPaneMouseMove } = useClipboardSelection({
+    nodes,
+    edges,
+    setNodes,
+    setEdges,
+    reactFlowInstance,
+  });
+  const {
+    consoleScrollRef,
+    consoleInputRef,
+    consoleOutputText,
     activeRuntimePrompt,
-    appendConsoleLines,
-    getRuntimePromptDefaultValue,
-    getRuntimePromptText,
     runtimePromptInput,
-  ]);
+    setRuntimePromptInput,
+    onClearConsoleClick,
+    onSubmitRuntimePrompt,
+    onCancelRuntimePrompt,
+    appendConsoleLines,
+    enqueuePrompt,
+    clearPromptQueue,
+    getRuntimePromptText,
+  } = useRuntimeConsole({
+    setNodes,
+    isRuntimeUpdateRef,
+  });
 
-  const onStopClick = useCallback(() => {
-    // Cancel any pending prompts so the engine isn't left hanging.
-    setRuntimePromptQueue((prev) => {
-      for (const p of prev) p.cancel();
-      return [];
-    });
-    runAbortControllerRef.current?.abort();
-    runAbortControllerRef.current = null;
-    setIsEngineRunning(false);
-    setAllNodesRuntimeState(undefined);
-  }, [setAllNodesRuntimeState]);
+  const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
+    nodes,
+    edges,
+    programName,
+    reactFlowInstance,
+    setNodes,
+    isRuntimeUpdateRef,
+    appendConsoleLines,
+    enqueuePrompt,
+    clearPromptQueue,
+  });
 
-  const addOrUpdateTemplate = useCallback((payload: SubflowTemplatePayload) => {
-    setSubflowTemplates((prev) => {
-      const nextTemplate: SavedSubflowTemplate = {
-        id: payload.id,
-        name: payload.name,
-        ports: {
-          inCount: payload.inCount,
-          outCount: payload.outCount,
-        },
-        snapshot: {
-          nodes: payload.nodes as FlowNode[],
-          edges: payload.edges as FlowEdge[],
-        },
-      };
-
-      const index = prev.findIndex((tpl) => tpl.id === payload.id);
-      if (index >= 0) {
-        const copy = [...prev];
-        copy[index] = nextTemplate;
-        return copy;
-      }
-
-      return [...prev, nextTemplate];
-    });
-  }, []);
-
-  const isNameTaken = useCallback(
-    (name: string) => {
-      const normalized = name.trim().toLowerCase();
-      if (!normalized) return false;
-      return subflowTemplates.some(
-        (tpl) => tpl.name.trim().toLowerCase() === normalized
-      );
-    },
-    [subflowTemplates]
-  );
-
-  const resolveTemplate = useCallback(
-    (id: string) => {
-      const tpl = subflowTemplates.find((t) => t.id === id);
-      if (!tpl) return null;
-      return {
-        id: tpl.id,
-        name: tpl.name,
-        inCount: tpl.ports.inCount,
-        outCount: tpl.ports.outCount,
-        nodes: tpl.snapshot.nodes,
-        edges: tpl.snapshot.edges,
-      };
-    },
-    [subflowTemplates]
-  );
-
-  const draggingTypeRef = useRef<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const paletteLabelByType = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const category of nodePalette) {
-      for (const item of category.items) {
-        map.set(item.type, item.label);
-      }
-    }
-    return map;
-  }, []);
-
-  const paletteCategories = useMemo(() => {
-    if (!subflowTemplates.length) {
-      return nodePalette;
-    }
-
-    return nodePalette.map((category) => {
-      if (category.id !== "abstraction") {
-        return category;
-      }
-
-      const extraItems = subflowTemplates.map<NodePaletteItem>((tpl) => ({
-        type: "subflow",
-        label: tpl.name,
-        description: "Subflujo guardado",
-        templateId: tpl.id,
-      }));
-
-      return {
-        ...category,
-        items: [...category.items, ...extraItems],
-      };
-    });
-  }, [subflowTemplates]);
+  const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
+    usePaletteDrag({ reactFlowInstance, setNodes, subflowTemplates });
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -971,6 +175,19 @@ export default function App() {
     string | null
   >(null);
 
+  const {
+    fileInputRef,
+    onDownloadClick,
+    onLoadClick,
+    onProgramFileChange,
+  } = useProgramIO({
+    reactFlowInstance,
+    programName,
+    setNodes,
+    setEdges,
+    setProgramName,
+  });
+
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
     if (!open) {
@@ -994,295 +211,26 @@ export default function App() {
     []
   );
 
-  const connectionTooltip = useConnectionValidationTooltip(nodes);
-
-  const [connectionHighlight, setConnectionHighlight] =
-    useState<ConnectionHighlightState>(null);
-
-  const onConnectStart = useCallback(
-    (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
-      // Keep existing tooltip behavior.
-      connectionTooltip.onConnectStart(event, params);
-
-      if (!params.nodeId) {
-        setConnectionHighlight(null);
-        return;
-      }
-
-      if (params.handleType !== "source") {
-        setConnectionHighlight(null);
-        return;
-      }
-
-      const sourceNode = nodes.find(
-        (n) => String(n.id) === String(params.nodeId)
-      );
-      const nodeType =
-        sourceNode && typeof sourceNode.type === "string"
-          ? sourceNode.type
-          : null;
-      const sourceMask = getPortTypeMask({
-        nodeType,
-        handleType: "source",
-        handleId: params.handleId ?? null,
-      });
-      setConnectionHighlight({ sourceMask });
-    },
-    [connectionTooltip, nodes]
-  );
-
-  const onConnectEnd = useCallback(
-    (event: MouseEvent | TouchEvent) => {
-      connectionTooltip.onConnectEnd(event);
-      setConnectionHighlight(null);
-    },
-    [connectionTooltip]
-  );
+  const {
+    connectionTooltip,
+    connectionHighlight,
+    onConnectStart,
+    onConnectEnd,
+    onConnect,
+  } = useConnections({ nodes, setNodes, setEdges });
 
   // Keep WriteNode dynamic inputs in sync with actual connections.
   // - On deletions that create gaps (e.g. in-1, in-3), compact indices (→ in-1, in-2)
   // - Shrink inputCount to connectedCount+1 (keep one empty handle)
   // - Remap/remove {k} placeholders accordingly
-  useEffect(() => {
-    // Run reconciliation only when edges change. Running on nodes causes
-    // the effect to fire right after a node is created (nodes list update),
-    // which produced an extra input handle being applied immediately. By
-    // reacting only to `edges` we avoid mutating freshly-created nodes and
-    // only adjust inputs when connections actually change (deletes/rewires).
-    if (isRestoringRef.current) return;
-    if (isRuntimeUpdateRef.current) return;
-    if (isDraggingRef.current) return;
-
-    setNodes((prevNodes) => {
-      const result = reconcileWriteGraph(prevNodes, edges);
-      if (result.changedEdges) {
-        // If edges were remapped (compaction), update them.
-        setEdges(result.edges);
-      }
-      return result.changedNodes ? result.nodes : prevNodes;
-    });
-    // Intentionally only depend on `edges` so new node creation doesn't
-    // trigger compaction immediately.
-  }, [edges, setEdges, setNodes]);
-
-  const onConnect = useCallback(
-    (params: Connection) => {
-      const validation = validateConnection(nodes, params);
-      if (!validation.ok) {
-        connectionTooltip.show(validation.message ?? "Conexión no válida.");
-        return;
-      }
-
-      const typed = params as Connection & { type?: string; data?: unknown };
-
-      const newEdge: Edge = {
-        id: createNodeId(),
-        source: String(typed.source),
-        target: String(typed.target),
-        sourceHandle: typed.sourceHandle ?? null,
-        targetHandle: typed.targetHandle ?? null,
-        type: typed.type,
-        data: (typed.data ?? {}) as Record<string, unknown>,
-      };
-
-      // Dynamic inputs for Write node: when the user connects into the last
-      // available input handle, we append a new one.
-      if (typed.target && (typed.targetHandle ?? null) != null) {
-        const targetId = String(typed.target);
-        const targetHandle = String(typed.targetHandle);
-        setNodes((prev) =>
-          prev.map((n) => {
-            if (String(n.id) !== targetId) return n;
-            if (n.type !== "write") return n;
-            const data = (
-              n.data && typeof n.data === "object" ? n.data : {}
-            ) as Record<string, unknown>;
-            const current =
-              typeof data.inputCount === "number" ? data.inputCount : 1;
-            const currentCount = Number.isFinite(current)
-              ? Math.max(1, Math.floor(current))
-              : 1;
-            const lastHandleId = `in-${currentCount}`;
-            if (targetHandle !== lastHandleId) return n;
-            return {
-              ...n,
-              data: {
-                ...data,
-                inputCount: currentCount + 1,
-              },
-            };
-          })
-        );
-      }
-
-      setEdges((edgesSnapshot) => addEdge(newEdge, edgesSnapshot));
-    },
-    [connectionTooltip, nodes, setEdges, setNodes]
-  );
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key !== "Delete" && e.key !== "Backspace") return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target &&
-        (target.tagName === "INPUT" ||
-          target.tagName === "TEXTAREA" ||
-          target.isContentEditable)
-      ) {
-        return;
-      }
-
-      setNodes((prevNodes) => {
-        const removedIds = new Set(
-          prevNodes.filter((n) => n.selected).map((n) => n.id)
-        );
-
-        const nextNodes = prevNodes.filter((n) => !n.selected);
-
-        setEdges((prevEdges) =>
-          prevEdges.filter((edge) => {
-            if ((edge as Edge).selected) return false;
-            const src = String((edge as Edge).source);
-            const tgt = String((edge as Edge).target);
-            if (removedIds.has(src) || removedIds.has(tgt)) return false;
-            return true;
-          })
-        );
-
-        return nextNodes;
-      });
-    };
-
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [setNodes, setEdges]);
-
-  const onDragOver = useCallback((event: React.DragEvent) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-  }, []);
-
-  const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
-
-      const type =
-        event.dataTransfer.getData("application/reactflow") ||
-        draggingTypeRef.current;
-      if (!type) {
-        return;
-      }
-
-      const templateIdRaw = event.dataTransfer.getData(
-        "application/subflow-template-id"
-      );
-      const templateId = templateIdRaw || null;
-
-      const instance = reactFlowInstance as
-        | (ReactFlowInstance & {
-            screenToFlowPosition?: (pos: { x: number; y: number }) => {
-              x: number;
-              y: number;
-            };
-            project?: (pos: { x: number; y: number }) => {
-              x: number;
-              y: number;
-            };
-          })
-        | null;
-
-      const screenPos = { x: event.clientX, y: event.clientY };
-      const position = instance?.screenToFlowPosition?.(screenPos) ??
-        instance?.project?.(screenPos) ?? { x: 0, y: 0 };
-
-      const label = paletteLabelByType.get(type);
-      let data: Record<string, unknown> = {};
-
-      if (type === "subflow" && templateId) {
-        const template = subflowTemplates.find((tpl) => tpl.id === templateId);
-        if (template) {
-          data = {
-            label: template.name,
-            inCount: template.ports.inCount,
-            outCount: template.ports.outCount,
-            subflowNodes: template.snapshot.nodes,
-            subflowEdges: template.snapshot.edges,
-            templateId: template.id,
-          };
-        } else if (label) {
-          data = { label };
-        }
-      } else {
-        if (label) {
-          data = { label };
-        }
-
-        if (type === "write") {
-          data = {
-            ...(data ?? {}),
-            inputCount: 1,
-            template: "{1}",
-          };
-        }
-
-        // Provide sensible defaults for common input/sequence nodes
-        if (type === "constantInput") {
-          data = {
-            ...(data ?? {}),
-            value: 0,
-          };
-        }
-        if (type === "constantNumber") {
-          data = {
-            ...(data ?? {}),
-            value: 0,
-          };
-        }
-        if (type === "constantBoolean") {
-          data = {
-            ...(data ?? {}),
-            value: true,
-          };
-        }
-        if (type === "constantText") {
-          data = {
-            ...(data ?? {}),
-            value: "texto",
-          };
-        }
-        if (type === "randomInput") {
-          data = {
-            ...(data ?? {}),
-            min: 0,
-            max: 100,
-            integerOnly: false,
-            label: (data.label as string) ?? "Valor Aleatorio",
-          };
-        }
-        if (type === "sequence") {
-          data = {
-            ...(data ?? {}),
-            min: 0,
-            max: 100,
-            step: 1,
-            label: (data.label as string) ?? "Generar Secuencia",
-          };
-        }
-      }
-
-      const newNode: FlowNode = {
-        id: createNodeId(),
-        type,
-        position,
-        data,
-      };
-
-      setNodes((prev) => [...prev, newNode]);
-      draggingTypeRef.current = null;
-    },
-    [paletteLabelByType, reactFlowInstance, setNodes, subflowTemplates]
-  );
+  useWriteNodeReconciliation({
+    edges,
+    setNodes,
+    setEdges,
+    isRestoringRef,
+    isRuntimeUpdateRef,
+    isDraggingRef,
+  });
 
   const addCommentAtContext = useCallback(() => {
     if (!reactFlowInstance) return;
@@ -1315,487 +263,7 @@ export default function App() {
     setNodes((prev) => [...prev, newNode]);
     setContextPoint(null);
   }, [reactFlowInstance, contextPoint, setNodes]);
-
-  const onRunClick = useCallback(async () => {
-    if (isEngineRunning) return;
-    if (!reactFlowInstance) return;
-
-    // Reset visual runtime state for a new execution.
-    setAllNodesRuntimeState("waiting");
-
-    const abortController = new AbortController();
-    runAbortControllerRef.current = abortController;
-    setIsEngineRunning(true);
-
-    const viewport = reactFlowInstance?.getViewport?.();
-    const program = serializeProgram({
-      nodes,
-      edges,
-      viewport,
-      programName,
-    });
-
-    try {
-      const stores = deserializeProgramToEngineStores(program, {
-        onLog: ({ level, nodeId, message, data }) => {
-          const payload = message === "write" ? data : data ?? message;
-          const baseText = formatLogText(payload);
-          const text = level === "error" ? `Error: ${baseText}` : baseText;
-          setEngineLogs((prev) => {
-            const next = [...prev, { ts: Date.now(), level, nodeId, text }];
-            const MAX = 200;
-            return next.length > MAX ? next.slice(next.length - MAX) : next;
-          });
-        },
-        signal: abortController.signal,
-      });
-      const engine = new DataflowEngine();
-
-      engine.setObserver({
-        onNodeStatus: ({ nodeId, status, error }) => {
-          isRuntimeUpdateRef.current = true;
-          const errorText =
-            status === "error" && error !== undefined
-              ? formatLogText(error)
-              : undefined;
-          setNodes((prev) =>
-            prev.map((n) => {
-              if (String(n.id) !== String(nodeId)) return n;
-              const base = stripRuntimeClasses(n.className);
-              const next = `${base} ${runtimeClassForStatus(status)}`.trim();
-              let data = n.data;
-              if (data && typeof data === "object") {
-                data = {
-                  ...(data as Record<string, unknown>),
-                  runtimeError: errorText,
-                };
-              }
-              return { ...n, className: next, data };
-            })
-          );
-        },
-        onLog: ({ level, nodeId, message, data }) => {
-          const payload = message === "write" ? data : data ?? message;
-          const baseText = formatLogText(payload);
-          const text = level === "error" ? `Error: ${baseText}` : baseText;
-          setEngineLogs((prev) => {
-            const next = [...prev, { ts: Date.now(), level, nodeId, text }];
-            const MAX = 200;
-            return next.length > MAX ? next.slice(next.length - MAX) : next;
-          });
-        },
-        onPrompt: ({ nodeId, prompt, type, defaultValue, submit, cancel }) => {
-          setRuntimePromptQueue((prev) => [
-            ...prev,
-            { nodeId, prompt, type, defaultValue, submit, cancel },
-          ]);
-        },
-      });
-
-      engine.loadProgram({
-        nodes: stores.nodeStore.getNodes(),
-        arcs: stores.arcStore.getArcs(),
-      });
-
-      const trace = { executedNodeIds: [] as string[], batches: 0 };
-      await engine.run({
-        initialTokens: [],
-        maxSteps: 10_000,
-        signal: abortController.signal,
-        trace,
-      });
-    } catch (err) {
-      if ((err as { name?: unknown } | null)?.name === "AbortError") {
-        // User-triggered stop/reset.
-        return;
-      }
-      console.error("Failed to load program into engine:", err);
-      setEngineLogs((prev) => [
-        ...prev,
-        {
-          ts: Date.now(),
-          level: "error",
-          text: formatLogText(err),
-        },
-      ]);
-    } finally {
-      if (runAbortControllerRef.current === abortController) {
-        runAbortControllerRef.current = null;
-      }
-      setIsEngineRunning(false);
-    }
-  }, [
-    edges,
-    formatLogText,
-    isEngineRunning,
-    nodes,
-    programName,
-    reactFlowInstance,
-    runtimeClassForStatus,
-    setAllNodesRuntimeState,
-    stripRuntimeClasses,
-  ]);
-
-  const onDownloadClick = useCallback(() => {
-    if (!reactFlowInstance) return;
-    const nodes = reactFlowInstance.getNodes();
-    const edges = reactFlowInstance.getEdges();
-    const viewport = reactFlowInstance.getViewport();
-    const serialized = serializeProgram({
-      nodes,
-      edges,
-      viewport,
-      programName,
-    });
-    const base = programName?.trim() || `dataflow-program-${Date.now()}`;
-    const safe = base.replace(/[^a-zA-Z0-9-_. ]+/g, "_");
-    const filename = `${safe}.json`;
-    downloadSerializedProgram(serialized, filename);
-  }, [reactFlowInstance, programName]);
-
-  const onLoadClick = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const onProgramFileChange = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      if (!file) return;
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        try {
-          const text = String(reader.result ?? "");
-          const parsed = JSON.parse(text) as SerializedProgramV1;
-
-          if (!parsed || typeof parsed !== "object" || parsed.version !== 1) {
-            console.error(
-              "[dataflow] Versión de programa no soportada",
-              parsed
-            );
-            window.alert(
-              "No se pudo cargar el programa: archivo inválido o versión no soportada."
-            );
-            return;
-          }
-
-          const {
-            nodes: desNodes,
-            edges: desEdges,
-            viewport,
-            programName: loadedName,
-          } = deserializeProgram(parsed);
-
-          setNodes(desNodes as FlowNode[]);
-          setEdges(desEdges as FlowEdge[]);
-
-          if (loadedName && typeof loadedName === "string") {
-            setProgramName(loadedName);
-          }
-
-          if (viewport && reactFlowInstance?.setViewport) {
-            reactFlowInstance.setViewport(
-              { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
-              { duration: 0 }
-            );
-          }
-        } catch (error) {
-          console.error("[dataflow] Error al cargar programa", error);
-          window.alert(
-            "No se pudo cargar el programa: el archivo no contiene un JSON válido."
-          );
-        } finally {
-          // Permite volver a seleccionar el mismo archivo si se desea
-          event.target.value = "";
-        }
-      };
-
-      reader.readAsText(file, "utf-8");
-    },
-    [reactFlowInstance, setNodes, setEdges]
-  );
-
-  const onPaletteDragStart = useCallback(
-    (event: React.DragEvent, item: NodePaletteItem) => {
-      draggingTypeRef.current = item.type;
-      event.dataTransfer.setData("application/reactflow", item.type);
-      event.dataTransfer.effectAllowed = "move";
-
-      if (item.templateId) {
-        event.dataTransfer.setData(
-          "application/subflow-template-id",
-          item.templateId
-        );
-      }
-
-      try {
-        const buttonEl = event.currentTarget as unknown as HTMLElement | null;
-        const previewEl = buttonEl?.querySelector<HTMLElement>(
-          "[data-drag-preview]"
-        );
-        if (previewEl) {
-          event.dataTransfer.setDragImage(
-            previewEl,
-            Math.round(previewEl.offsetWidth / 2),
-            Math.round(previewEl.offsetHeight / 2)
-          );
-        }
-      } catch {
-        // ignore
-      }
-    },
-    []
-  );
-  const pushHistorySnapshot = useCallback(
-    (snapshot?: FlowSnapshot) => {
-      const currentSnapshot: FlowSnapshot = snapshot ?? {
-        nodes,
-        edges,
-      };
-
-      setHistory((prev) => {
-        const truncated = prev.stack.slice(0, prev.index + 1);
-        const last = truncated[truncated.length - 1];
-
-        if (
-          last &&
-          last.nodes === currentSnapshot.nodes &&
-          last.edges === currentSnapshot.edges
-        ) {
-          return prev;
-        }
-
-        truncated.push(currentSnapshot);
-
-        const MAX_HISTORY = 50;
-        const limitedStack =
-          truncated.length > MAX_HISTORY
-            ? truncated.slice(truncated.length - MAX_HISTORY)
-            : truncated;
-
-        return {
-          stack: limitedStack,
-          index: limitedStack.length - 1,
-        };
-      });
-    },
-    [edges, nodes]
-  );
-
-  const onNodeDragStart = useCallback(() => {
-    isDraggingRef.current = true;
-    if (historyTimeoutRef.current !== null) {
-      window.clearTimeout(historyTimeoutRef.current);
-      historyTimeoutRef.current = null;
-    }
-  }, []);
-
-  const onNodeDragStop = useCallback(() => {
-    isDraggingRef.current = false;
-    pushHistorySnapshot();
-  }, [pushHistorySnapshot]);
-
-  useEffect(() => {
-    if (isRestoringRef.current) {
-      isRestoringRef.current = false;
-      return;
-    }
-
-    if (isRuntimeUpdateRef.current) {
-      isRuntimeUpdateRef.current = false;
-      return;
-    }
-
-    if (isDraggingRef.current) {
-      return;
-    }
-
-    if (historyTimeoutRef.current !== null) {
-      window.clearTimeout(historyTimeoutRef.current);
-    }
-
-    historyTimeoutRef.current = window.setTimeout(() => {
-      pushHistorySnapshot();
-    }, 200);
-
-    return () => {
-      if (historyTimeoutRef.current !== null) {
-        window.clearTimeout(historyTimeoutRef.current);
-      }
-    };
-  }, [nodes, edges, pushHistorySnapshot]);
-
-  const undo = useCallback(() => {
-    setHistory((prev) => {
-      if (prev.index <= 0) {
-        return prev;
-      }
-
-      const newIndex = prev.index - 1;
-      const snapshot = prev.stack[newIndex];
-
-      if (!snapshot) {
-        return prev;
-      }
-
-      isRestoringRef.current = true;
-      setNodes(snapshot.nodes);
-      setEdges(snapshot.edges);
-
-      return {
-        ...prev,
-        index: newIndex,
-      };
-    });
-  }, []);
-
-  const redo = useCallback(() => {
-    setHistory((prev) => {
-      if (prev.index >= prev.stack.length - 1) {
-        return prev;
-      }
-
-      const newIndex = prev.index + 1;
-      const snapshot = prev.stack[newIndex];
-
-      if (!snapshot) {
-        return prev;
-      }
-
-      isRestoringRef.current = true;
-      setNodes(snapshot.nodes);
-      setEdges(snapshot.edges);
-
-      return {
-        ...prev,
-        index: newIndex,
-      };
-    });
-  }, []);
-
-  const copySelection = useCallback(() => {
-    const selectedNodesNow = nodes.filter((node) => node.selected);
-    if (!selectedNodesNow.length) {
-      return;
-    }
-
-    const bounds = computeBounds(selectedNodesNow);
-    if (!bounds) {
-      return;
-    }
-
-    const snapshot = buildSubflowSnapshot(selectedNodesNow, edges, bounds);
-    clipboardRef.current = snapshot;
-
-    clipboardCopyCenterRef.current = {
-      x: bounds.x + bounds.width / 2,
-      y: bounds.y + bounds.height / 2,
-    };
-    pasteCountRef.current = 0;
-  }, [edges, nodes]);
-
-  const pasteSelection = useCallback(() => {
-    const snapshot = clipboardRef.current;
-    if (!snapshot) {
-      return;
-    }
-
-    const instance = reactFlowInstance as
-      | (ReactFlowInstance & {
-          screenToFlowPosition?: (pos: { x: number; y: number }) => {
-            x: number;
-            y: number;
-          };
-          project?: (pos: { x: number; y: number }) => {
-            x: number;
-            y: number;
-          };
-        })
-      | null;
-
-    const screenToFlow = (pos: { x: number; y: number }) =>
-      instance?.screenToFlowPosition?.(pos) ?? instance?.project?.(pos) ?? null;
-
-    // Anchor selection on paste:
-    // - Prefer cursor position on canvas
-    // - Else center of the canvas viewport
-    // - Else where it was copied from (center)
-    let target =
-      (lastPointerScreenPosRef.current
-        ? screenToFlow(lastPointerScreenPosRef.current)
-        : null) ?? null;
-
-    if (!target && reactFlowWrapperRef.current) {
-      const rect = reactFlowWrapperRef.current.getBoundingClientRect();
-      target = screenToFlow({
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      });
-    }
-
-    const targetFlow =
-      target ?? clipboardCopyCenterRef.current ?? { x: 0, y: 0 };
-
-    const snapshotBounds = computeBounds(snapshot.nodes);
-    const snapshotCenter = snapshotBounds
-      ? {
-          x: snapshotBounds.x + snapshotBounds.width / 2,
-          y: snapshotBounds.y + snapshotBounds.height / 2,
-        }
-      : { x: 0, y: 0 };
-
-    const OFFSET_STEP = 30;
-    const pasteIndex = pasteCountRef.current;
-    pasteCountRef.current = pasteIndex + 1;
-    const nudge = pasteIndex * OFFSET_STEP;
-
-    const dx = targetFlow.x - snapshotCenter.x + nudge;
-    const dy = targetFlow.y - snapshotCenter.y + nudge;
-
-    const idMap = new Map<string, string>();
-
-    const newNodes: FlowNode[] = snapshot.nodes.map((n) => {
-      const newId = createNodeId();
-      idMap.set(String(n.id), newId);
-      const x = (n.position?.x ?? 0) + dx;
-      const y = (n.position?.y ?? 0) + dy;
-
-      return {
-        ...n,
-        id: newId,
-        position: {
-          x,
-          y,
-        },
-        selected: true,
-      } as FlowNode;
-    });
-
-    const newEdges: FlowEdge[] = snapshot.edges.map((e) => {
-      const newId = createNodeId();
-      const src = String(e.source);
-      const tgt = String(e.target);
-
-      return {
-        ...e,
-        id: newId,
-        source: idMap.get(src) ?? src,
-        target: idMap.get(tgt) ?? tgt,
-        selected: false,
-      } as FlowEdge;
-    });
-
-    setNodes((prev) => {
-      const deselected = prev.map((n) => ({
-        ...n,
-        selected: false,
-      }));
-      return [...deselected, ...newNodes];
-    });
-
-    setEdges((prev) => [...prev, ...newEdges]);
-  }, [reactFlowInstance]);
-
+  
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -2005,390 +473,173 @@ export default function App() {
 
       <SidebarInset>
         <div className="relative flex h-svh w-full">
-          <div className="absolute left-3 top-3 z-30 flex items-center gap-2">
-            <SidebarTrigger />
-            <div className="flex items-center">
-              <Input
-                value={programName}
-                onChange={(e) => setProgramName(e.currentTarget.value)}
-                placeholder="Nombre del programa"
-                className="w-40 text-sm bg-white"
-              />
-            </div>
-          </div>
+          <TopBar
+            programName={programName}
+            onProgramNameChange={setProgramName}
+          />
 
           <SubflowTemplateContext.Provider
             value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
           >
             <ConnectionHighlightProvider value={connectionHighlight}>
-              <ContextMenu>
-                <ContextMenuTrigger
-                  className="flex h-full w-full"
-                  onContextMenu={(e: React.MouseEvent) => {
-                    setContextPoint({ x: e.clientX, y: e.clientY });
-                    lastPointerScreenPosRef.current = {
-                      x: e.clientX,
-                      y: e.clientY,
-                    };
+              <CanvasContextMenu
+                onContextMenu={(e: React.MouseEvent) => {
+                  setContextPoint({ x: e.clientX, y: e.clientY });
+                }}
+                onAddComment={addCommentAtContext}
+              >
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={{ default: LabeledEdge }}
+                  connectionLineComponent={ArrowConnectionLine}
+                  isValidConnection={connectionTooltip.isValidConnection}
+                  defaultEdgeOptions={{
+                    markerEnd: {
+                      type: MarkerType.ArrowClosed,
+                      width: 14,
+                      height: 14,
+                    },
                   }}
+                  onInit={setReactFlowInstance}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  onConnectStart={onConnectStart}
+                  onConnectEnd={onConnectEnd}
+                  onDrop={onDrop}
+                  onDragOver={onDragOver}
+                  onNodeDragStart={onNodeDragStart}
+                  onNodeDragStop={onNodeDragStop}
+                  onPaneMouseMove={onPaneMouseMove}
+                  panOnDrag={canvasMode === "pan"}
+                  selectionOnDrag={canvasMode === "select"}
+                  selectionMode={SelectionMode.Partial}
+                  className={
+                    canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                  }
+                  fitView
+                  proOptions={{ hideAttribution: true }}
                 >
-                  <div
-                    ref={reactFlowWrapperRef}
-                    className="flex h-full w-full"
-                    onMouseMove={(e) => {
-                      lastPointerScreenPosRef.current = {
-                        x: e.clientX,
-                        y: e.clientY,
-                      };
-                    }}
-                  >
-                    <ReactFlow
-                      nodes={nodes}
-                      edges={edges}
-                      nodeTypes={nodeTypes}
-                      edgeTypes={{ default: LabeledEdge }}
-                      connectionLineComponent={ArrowConnectionLine}
-                      isValidConnection={connectionTooltip.isValidConnection}
-                      defaultEdgeOptions={{
-                        markerEnd: {
-                          type: MarkerType.ArrowClosed,
-                          width: 14,
-                          height: 14,
-                        },
-                      }}
-                      onInit={setReactFlowInstance}
-                      onNodesChange={onNodesChange}
-                      onEdgesChange={onEdgesChange}
-                      onConnect={onConnect}
-                      onConnectStart={onConnectStart}
-                      onConnectEnd={onConnectEnd}
-                      onDrop={onDrop}
-                      onDragOver={onDragOver}
-                      onNodeDragStart={onNodeDragStart}
-                      onNodeDragStop={onNodeDragStop}
-                      panOnDrag={canvasMode === "pan"}
-                      selectionOnDrag={canvasMode === "select"}
-                      selectionMode={SelectionMode.Partial}
-                      className={
-                        canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
-                      }
-                      fitView
-                      proOptions={{ hideAttribution: true }}
+                  <ConnectionErrorTooltip
+                    open={connectionTooltip.tooltip.open}
+                    message={connectionTooltip.tooltip.message}
+                    x={connectionTooltip.tooltip.x}
+                    y={connectionTooltip.tooltip.y}
+                    onClose={connectionTooltip.hide}
+                  />
+                  <CreateSubflowOverlay
+                    selectedNodes={selectedNodes}
+                    edges={edges}
+                    onCreateClick={openCreateSubflow}
+                  />
+                  <Background variant={BackgroundVariant.Dots} />
+                  <Controls>
+                    <ControlButton
+                      onClick={() => setCanvasMode("pan")}
+                      aria-pressed={canvasMode === "pan"}
+                      title="Modo arrastrar (mover canvas)"
+                      className="rf-mode-toggle"
                     >
-                    <ConnectionErrorTooltip
-                      open={connectionTooltip.tooltip.open}
-                      message={connectionTooltip.tooltip.message}
-                      x={connectionTooltip.tooltip.x}
-                      y={connectionTooltip.tooltip.y}
-                      onClose={connectionTooltip.hide}
-                    />
-                    <CreateSubflowOverlay
-                      selectedNodes={selectedNodes}
-                      edges={edges}
-                      onCreateClick={openCreateSubflow}
-                    />
-                    <Background variant={BackgroundVariant.Dots} />
-                    <Controls>
-                      <ControlButton
-                        onClick={() => setCanvasMode("pan")}
-                        aria-pressed={canvasMode === "pan"}
-                        title="Modo arrastrar (mover canvas)"
-                        className="rf-mode-toggle"
-                      >
-                        <Hand className="rf-icon-hand" />
-                      </ControlButton>
-                      <ControlButton
-                        onClick={() => setCanvasMode("select")}
-                        aria-pressed={canvasMode === "select"}
-                        title="Modo selección (cuadro)"
-                        className="rf-mode-toggle"
-                      >
-                        <MousePointer2 />
-                      </ControlButton>
-                      <ControlButton title="Mejorar formato" onClick={onLayout}>
-                        <BrushCleaning className="fill-none!" />
-                      </ControlButton>
-                    </Controls>
-                    <MiniMap />
-                    <Panel position="top-right" className="flex gap-2">
-                      <Button
-                        variant="secondary"
-                        className="hover:cursor-pointer shadow-md"
-                        type="button"
-                        onClick={onRunClick}
-                        disabled={nodes.length === 0 || isEngineRunning}
-                      >
-                        Ejecutar
-                        <Play
-                          fill="oklch(72.3% 0.219 149.579)"
-                          className="text-green-500"
-                        />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="hover:cursor-pointer shadow-md"
-                        type="button"
-                        onClick={onStopClick}
-                        disabled={nodes.length === 0}
-                        title="Detener ejecución y resetear nodos"
-                      >
-                        Detener
-                        <Square className="text-red-500" />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="hover:cursor-pointer shadow-md"
-                        type="button"
-                        onClick={onDownloadClick}
-                        disabled={nodes.length === 0}
-                      >
-                        Descargar
-                        <Download />
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        className="hover:cursor-pointer shadow-md"
-                        type="button"
-                        onClick={onLoadClick}
-                      >
-                        Cargar
-                        <Upload />
-                      </Button>
-                    </Panel>
-
-                    <Panel
-                      position="bottom-left"
-                      className="w-80"
-                      style={{
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        bottom: 16,
-                      }}
+                      <Hand className="rf-icon-hand" />
+                    </ControlButton>
+                    <ControlButton
+                      onClick={() => setCanvasMode("select")}
+                      aria-pressed={canvasMode === "select"}
+                      title="Modo selección (cuadro)"
+                      className="rf-mode-toggle"
                     >
-                      <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
-                        <div className="flex items-center justify-between border-b px-2 py-1 text-sm font-medium">
-                          <span>Consola</span>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={onClearConsoleClick}
-                            title="Limpiar consola"
-                            aria-label="Limpiar consola"
-                          >
-                            <Trash2 />
-                          </Button>
-                        </div>
+                      <MousePointer2 />
+                    </ControlButton>
+                    <ControlButton title="Mejorar formato" onClick={onLayout}>
+                      <BrushCleaning className="fill-none!" />
+                    </ControlButton>
+                  </Controls>
+                  <MiniMap />
+                  <TopActionPanel
+                    nodesCount={nodes.length}
+                    isEngineRunning={isEngineRunning}
+                    onRunClick={onRunClick}
+                    onStopClick={onStopClick}
+                    onDownloadClick={onDownloadClick}
+                    onLoadClick={onLoadClick}
+                  />
 
-                        <div className="p-2">
-                          <div className="overflow-hidden rounded-md border bg-background/60">
-                            <div
-                              ref={consoleScrollRef}
-                              className="h-48 overflow-auto p-2 text-xs font-mono text-foreground whitespace-pre-wrap"
-                            >
-                              {consoleOutputText}
-
-                              {activeRuntimePrompt != null && (
-                                <>
-                                  {consoleOutputText ? "\n" : ""}
-                                  {getRuntimePromptText()}
-                                  {"\n"}
-                                  <div className="flex items-start gap-2">
-                                    <div className="pt-0.5 text-xs font-mono text-muted-foreground">
-                                      &gt;
-                                    </div>
-                                    <textarea
-                                      ref={consoleInputRef}
-                                      rows={1}
-                                      value={runtimePromptInput}
-                                      onChange={(e) =>
-                                        setRuntimePromptInput(
-                                          e.currentTarget.value
-                                        )
-                                      }
-                                      onKeyDown={(e) => {
-                                        if (e.key === "Enter" && !e.shiftKey) {
-                                          e.preventDefault();
-                                          onSubmitRuntimePrompt();
-                                        } else if (e.key === "Escape") {
-                                          e.preventDefault();
-                                          onCancelRuntimePrompt();
-                                        }
-                                      }}
-                                      placeholder=""
-                                      className="w-full resize-none bg-transparent text-xs font-mono text-foreground outline-none"
-                                    />
-                                  </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </Panel>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="application/json,.json"
-                      className="hidden"
-                      onChange={onProgramFileChange}
-                    />
-                    </ReactFlow>
-                  </div>
-                </ContextMenuTrigger>
-                <ContextMenuContent className="bg-neutral-800 text-white">
-                  <ContextMenuItem
-                    className="hover:bg-neutral-700! hover:text-white!"
-                    onSelect={(e: Event) => {
-                      e?.preventDefault?.();
-                      addCommentAtContext();
-                    }}
-                  >
-                    <MessageCircleMore className="text-white hover:text-white!" />{" "}
-                    Agregar comentario
-                  </ContextMenuItem>
-                </ContextMenuContent>
-              </ContextMenu>
+                  <ConsolePanel
+                    consoleOutputText={consoleOutputText}
+                    activeRuntimePrompt={activeRuntimePrompt}
+                    getRuntimePromptText={getRuntimePromptText}
+                    runtimePromptInput={runtimePromptInput}
+                    setRuntimePromptInput={setRuntimePromptInput}
+                    onSubmitRuntimePrompt={onSubmitRuntimePrompt}
+                    onCancelRuntimePrompt={onCancelRuntimePrompt}
+                    onClearConsoleClick={onClearConsoleClick}
+                    consoleScrollRef={consoleScrollRef}
+                    consoleInputRef={consoleInputRef}
+                  />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={onProgramFileChange}
+                  />
+                </ReactFlow>
+              </CanvasContextMenu>
             </ConnectionHighlightProvider>
           </SubflowTemplateContext.Provider>
         </div>
 
-        <Dialog
+        <CreateSubflowDialog
           open={isCreateSubflowOpen}
           onOpenChange={onCreateSubflowDialogChange}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Crear Subflujo</DialogTitle>
-            </DialogHeader>
-
-            <div className="space-y-4">
-              {createSubflowError ? (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  {createSubflowError}
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-foreground">
-                    Entradas: {pendingSubflowPorts?.inCount ?? 0} · Salidas:{" "}
-                    {pendingSubflowPorts?.outCount ?? 0}
-                  </p>
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-gray-900">
-                      Nombre del subflujo:
-                    </label>
-                    <Input
-                      value={subflowName}
-                      onChange={(e) => {
-                        setSubflowName(e.currentTarget.value);
-                        setCreateSubflowNameError(null);
-                      }}
-                      placeholder="Ej: Validar datos"
-                    />
-                  </div>
-                  {createSubflowNameError && (
-                    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-                      {createSubflowNameError}
-                    </div>
-                  )}
-                  <label className="mt-1 flex items-center gap-2 text-sm text-gray-900">
-                    <input
-                      type="checkbox"
-                      className="h-3 w-3"
-                      checked={addSubflowToPalette}
-                      onChange={(e) => {
-                        setAddSubflowToPalette(e.currentTarget.checked);
-                        setCreateSubflowNameError(null);
-                      }}
-                    />
-                    <span>Añadir este subflujo a la paleta</span>
-                  </label>
-                </>
-              )}
-
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => onCreateSubflowDialogChange(false)}
-                >
-                  {createSubflowError ? "Cerrar" : "Cancelar"}
-                </Button>
-                {!createSubflowError && (
-                  <Button
-                    type="button"
-                    disabled={
-                      !subflowName.trim() ||
-                      !pendingSubflowBounds ||
-                      !pendingSubflowPorts ||
-                      (addSubflowToPalette && !!createSubflowNameError)
-                    }
-                    onClick={createSubflow}
-                  >
-                    Guardar
-                  </Button>
-                )}
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+          createSubflowError={createSubflowError}
+          pendingSubflowPorts={pendingSubflowPorts}
+          subflowName={subflowName}
+          onSubflowNameChange={(value) => {
+            setSubflowName(value);
+            setCreateSubflowNameError(null);
+          }}
+          createSubflowNameError={createSubflowNameError}
+          addSubflowToPalette={addSubflowToPalette}
+          onAddSubflowToPaletteChange={(checked) => {
+            setAddSubflowToPalette(checked);
+            setCreateSubflowNameError(null);
+          }}
+          canSave={
+            !!subflowName.trim() &&
+            !!pendingSubflowBounds &&
+            !!pendingSubflowPorts &&
+            !(addSubflowToPalette && !!createSubflowNameError)
+          }
+          onCancel={() => onCreateSubflowDialogChange(false)}
+          onSave={createSubflow}
+        />
 
       </SidebarInset>
 
-      <Dialog
+      <DeleteSubflowDialog
         open={pendingDeleteTemplateId !== null}
+        templateName={pendingDeleteTemplateName}
         onOpenChange={(open) => {
           if (!open) {
             setPendingDeleteTemplateId(null);
             setPendingDeleteTemplateName(null);
           }
         }}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Eliminar subflujo de la paleta</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              ¿Seguro que quieres eliminar{" "}
-              {pendingDeleteTemplateName
-                ? `"${pendingDeleteTemplateName}"`
-                : "este subflujo"}{" "}
-              de la paleta? Los nodos ya colocados en el diagrama no se
-              borrarán.
-            </p>
-
-            <div className="flex items-center justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setPendingDeleteTemplateId(null);
-                  setPendingDeleteTemplateName(null);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() => {
-                  if (pendingDeleteTemplateId) {
-                    setSubflowTemplates((prev) =>
-                      prev.filter((tpl) => tpl.id !== pendingDeleteTemplateId)
-                    );
-                  }
-                  setPendingDeleteTemplateId(null);
-                  setPendingDeleteTemplateName(null);
-                }}
-              >
-                Eliminar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+        onCancel={() => {
+          setPendingDeleteTemplateId(null);
+          setPendingDeleteTemplateName(null);
+        }}
+        onConfirm={() => {
+          if (pendingDeleteTemplateId) {
+            deleteTemplate(pendingDeleteTemplateId);
+          }
+          setPendingDeleteTemplateId(null);
+          setPendingDeleteTemplateName(null);
+        }}
+      />
     </SidebarProvider>
   );
 }

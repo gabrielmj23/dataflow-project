@@ -153,6 +153,7 @@ function buildEngineStoresFromFlowGraph(params: {
   nodes: Node[];
   edges: Edge[];
   onLog?: EngineObserver["onLog"];
+  onPrompt?: EngineObserver["onPrompt"];
   signal?: AbortSignal;
 }): EngineProgramStores {
   // Exclude UI-only nodes (e.g., comments) from engine stores.
@@ -227,6 +228,7 @@ function buildEngineStoresFromFlowGraph(params: {
       sequenceIncomingByNodeId,
       pulseSequenceIncomingByNodeId,
       onLog: params.onLog,
+      onPrompt: params.onPrompt,
       signal: params.signal,
     });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
@@ -367,6 +369,7 @@ function compileSingleInputGraph(params: {
   inputPortId?: string;
   maxSteps?: number;
   onLog?: EngineObserver["onLog"];
+  onPrompt?: EngineObserver["onPrompt"];
   signal?: AbortSignal;
 }): (value: unknown) => Promise<unknown> {
   const inputPortId = params.inputPortId ?? "input";
@@ -384,13 +387,15 @@ function compileSingleInputGraph(params: {
         nodes: params.graphNodes,
         edges: params.graphEdges,
         onLog: params.onLog,
+        onPrompt: params.onPrompt,
         signal: params.signal,
       });
 
       const engine = new DataflowEngine();
-      if (params.onLog) {
+      if (params.onLog || params.onPrompt) {
         engine.setObserver({
           onLog: params.onLog,
+          onPrompt: params.onPrompt,
         });
       }
       const engineNodes = stores.nodeStore.getNodes();
@@ -542,12 +547,14 @@ function compileSubflowNodeDefinition(params: {
    */
   outCount?: number;
   onLog?: EngineObserver["onLog"];
+  onPrompt?: EngineObserver["onPrompt"];
   signal?: AbortSignal;
 }): NodeDefinition {
   const stores = buildEngineStoresFromFlowGraph({
     nodes: params.subflowNodes,
     edges: params.subflowEdges,
     onLog: params.onLog,
+    onPrompt: params.onPrompt,
     signal: params.signal,
   });
 
@@ -575,9 +582,10 @@ function compileSubflowNodeDefinition(params: {
   return new NodeDefinition(
     async (...args: unknown[]) => {
       const engine = new DataflowEngine();
-      if (params.onLog) {
+      if (params.onLog || params.onPrompt) {
         engine.setObserver({
           onLog: params.onLog,
+          onPrompt: params.onPrompt,
         });
       }
 
@@ -971,6 +979,7 @@ function flowNodeToEngineDefinition(
       { start: boolean; end: boolean; step: boolean }
     >;
     onLog?: EngineObserver["onLog"];
+    onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
   }
 ): NodeDefinition {
@@ -1220,6 +1229,7 @@ function flowNodeToEngineDefinition(
           graphEdges: filterEdges as Edge[],
           inputNodeId: "filter-input-value",
           onLog: context?.onLog,
+          onPrompt: context?.onPrompt,
           signal: context?.signal,
         });
 
@@ -1241,6 +1251,7 @@ function flowNodeToEngineDefinition(
           graphEdges: mapEdges as Edge[],
           inputNodeId: "map-input-value",
           onLog: context?.onLog,
+          onPrompt: context?.onPrompt,
           signal: context?.signal,
         });
 
@@ -1279,6 +1290,7 @@ function flowNodeToEngineDefinition(
           inCount,
           outCount,
           onLog: context?.onLog,
+          onPrompt: context?.onPrompt,
           signal: context?.signal,
         });
       }
@@ -1315,6 +1327,7 @@ export function deserializeProgramToEngineStores(
   serialized: SerializedProgramV1,
   options?: {
     onLog?: EngineObserver["onLog"];
+    onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
   }
 ): EngineProgramStores {
@@ -1324,6 +1337,7 @@ export function deserializeProgramToEngineStores(
     nodes: nodes as Node[],
     edges: edges as Edge[],
     onLog: options?.onLog,
+    onPrompt: options?.onPrompt,
     signal: options?.signal,
   });
 }
