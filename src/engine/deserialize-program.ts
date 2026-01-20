@@ -158,7 +158,7 @@ function buildEngineStoresFromFlowGraph(params: {
 }): EngineProgramStores {
   // Exclude UI-only nodes (e.g., comments) from engine stores.
   const uiNodes = params.nodes.filter(
-    (n) => String(n.type) !== NODE_TYPES.COMMENT_NODE
+    (n) => String(n.type) !== NODE_TYPES.COMMENT_NODE,
   );
   const nodeById = new Map<string, Node>();
   for (const node of uiNodes) {
@@ -213,7 +213,7 @@ function buildEngineStoresFromFlowGraph(params: {
     if (targetNode.type !== NODE_TYPES.WRITE_SINK) continue;
 
     const handleId = edge.targetHandle ?? null;
-    const idx = handleId == null ? 1 : parseIndexHandle(handleId) ?? 1;
+    const idx = handleId == null ? 1 : (parseIndexHandle(handleId) ?? 1);
     const current = writeSinkInputCountByNodeId.get(targetId) ?? 1;
     writeSinkInputCountByNodeId.set(targetId, Math.max(current, idx));
   }
@@ -243,12 +243,12 @@ function buildEngineStoresFromFlowGraph(params: {
 
     if (!sourceNode) {
       throw new Error(
-        `Edge ${edge.id} references missing source node '${sourceId}'.`
+        `Edge ${edge.id} references missing source node '${sourceId}'.`,
       );
     }
     if (!targetNode) {
       throw new Error(
-        `Edge ${edge.id} references missing target node '${targetId}'.`
+        `Edge ${edge.id} references missing target node '${targetId}'.`,
       );
     }
 
@@ -269,8 +269,8 @@ function buildEngineStoresFromFlowGraph(params: {
     arcStore.addArc(
       new Arc(
         new PortAddress(sourceId, sourcePortId),
-        new PortAddress(targetId, targetPortId)
-      )
+        new PortAddress(targetId, targetPortId),
+      ),
     );
   }
 
@@ -346,7 +346,7 @@ function chooseSingleOutputPort(params: {
   candidates.sort((a, b) =>
     a.nodeId === b.nodeId
       ? a.portId.localeCompare(b.portId)
-      : a.nodeId.localeCompare(b.nodeId)
+      : a.nodeId.localeCompare(b.nodeId),
   );
 
   return candidates[0] ?? null;
@@ -422,7 +422,7 @@ function compileSingleInputGraph(params: {
           initialTokens: [
             new DataToken(
               value,
-              new PortAddress(params.inputNodeId, inputPortId)
+              new PortAddress(params.inputNodeId, inputPortId),
             ),
           ],
           maxSteps: params.maxSteps,
@@ -436,7 +436,7 @@ function compileSingleInputGraph(params: {
         ...engineArcs,
         new Arc(
           new PortAddress(chosen.nodeId, chosen.portId),
-          new PortAddress("", OUT_PORT)
+          new PortAddress("", OUT_PORT),
         ),
       ];
 
@@ -445,7 +445,7 @@ function compileSingleInputGraph(params: {
         initialTokens: [
           new DataToken(
             value,
-            new PortAddress(params.inputNodeId, inputPortId)
+            new PortAddress(params.inputNodeId, inputPortId),
           ),
         ],
         maxSteps: params.maxSteps,
@@ -454,7 +454,7 @@ function compileSingleInputGraph(params: {
 
       const result = emitted
         .filter(
-          (t) => t.location.nodeId === "" && t.location.portId === OUT_PORT
+          (t) => t.location.nodeId === "" && t.location.portId === OUT_PORT,
         )
         .at(-1);
 
@@ -507,7 +507,7 @@ function computeOpenPorts(params: { nodes: EngineNode[]; arcs: Arc[] }): {
 
   const byKey = (
     a: { nodeId: string; portId: string },
-    b: { nodeId: string; portId: string }
+    b: { nodeId: string; portId: string },
   ) =>
     a.nodeId === b.nodeId
       ? a.portId.localeCompare(b.portId)
@@ -596,8 +596,8 @@ function compileSubflowNodeDefinition(params: {
         augmentedArcs.push(
           new Arc(
             new PortAddress(out.nodeId, out.portId),
-            new PortAddress("", portId)
-          )
+            new PortAddress("", portId),
+          ),
         );
       }
 
@@ -605,7 +605,7 @@ function compileSubflowNodeDefinition(params: {
 
       const initialTokens = selectedInputs.map(
         (addr, idx) =>
-          new DataToken(args[idx], new PortAddress(addr.nodeId, addr.portId))
+          new DataToken(args[idx], new PortAddress(addr.nodeId, addr.portId)),
       );
 
       const emitted = await engine.run({
@@ -618,7 +618,7 @@ function compileSubflowNodeDefinition(params: {
         const portId = `out-${i + 1}`;
         const token = emitted
           .filter(
-            (t) => t.location.nodeId === "" && t.location.portId === portId
+            (t) => t.location.nodeId === "" && t.location.portId === portId,
           )
           .at(-1);
         outputs.push(token?.value);
@@ -634,7 +634,7 @@ function compileSubflowNodeDefinition(params: {
       return outputs;
     },
     firePatterns,
-    [...inputPorts, ...outputPorts]
+    [...inputPorts, ...outputPorts],
   );
 }
 
@@ -661,13 +661,13 @@ function mapHandleToPortId(params: {
       if (handleId === "value" || handleId == null) return "output";
       throw new Error(
         `Unknown output handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     throw new Error(
-      `Node ${nodeId} (${nodeType}) should not have input connections.`
+      `Node ${nodeId} (${nodeType}) should not have input connections.`,
     );
   }
 
@@ -677,16 +677,16 @@ function mapHandleToPortId(params: {
       if (handleId?.startsWith("in-") && idx) return `input${idx}`;
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId?.startsWith("out-") && idx) return `output${idx}`;
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -704,7 +704,7 @@ function mapHandleToPortId(params: {
       return "output";
     }
     throw new Error(
-      `Node ${nodeId} (${nodeType}) should not have input connections.`
+      `Node ${nodeId} (${nodeType}) should not have input connections.`,
     );
   }
 
@@ -714,16 +714,16 @@ function mapHandleToPortId(params: {
       if (handleId == null) return "input";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -735,23 +735,26 @@ function mapHandleToPortId(params: {
       if (handleId.startsWith("in-") && idx) return `input${idx}`;
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
     throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
   }
 
   // micro:bit sinks (no-op for now)
-  if (nodeType === NODE_TYPES.MICROBIT_WRITE || nodeType === NODE_TYPES.MICROBIT_SOUND) {
+  if (
+    nodeType === NODE_TYPES.MICROBIT_WRITE ||
+    nodeType === NODE_TYPES.MICROBIT_SOUND
+  ) {
     if (direction === "target") {
       if (handleId == null) return "input1";
       const idx = parseIndexHandle(handleId);
       if (handleId.startsWith("in-") && idx) return `input${idx}`;
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
     throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
@@ -772,16 +775,16 @@ function mapHandleToPortId(params: {
       if (handleId === "in-2") return "input2";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -795,16 +798,16 @@ function mapHandleToPortId(params: {
       if (handleId === "in-1") return "input1";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -819,16 +822,16 @@ function mapHandleToPortId(params: {
       if (handleId === "in-2") return "input2";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -837,8 +840,8 @@ function mapHandleToPortId(params: {
       if (handleId === "in" || handleId == null) return "input";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
@@ -847,8 +850,8 @@ function mapHandleToPortId(params: {
     }
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -857,8 +860,8 @@ function mapHandleToPortId(params: {
       if (handleId === "in" || handleId == null) return "value";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
@@ -868,8 +871,8 @@ function mapHandleToPortId(params: {
     if (handleId?.startsWith("out-") && idx) return `output${idx}`;
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -880,16 +883,16 @@ function mapHandleToPortId(params: {
       if (handleId === "in-2") return "listB";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -898,16 +901,16 @@ function mapHandleToPortId(params: {
       if (handleId === "in" || handleId == null) return "inputList";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId === "out" || handleId == null) return "outputList";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -919,16 +922,16 @@ function mapHandleToPortId(params: {
       if (handleId === "in" || handleId == null) return "inputList";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
@@ -942,21 +945,21 @@ function mapHandleToPortId(params: {
       if (handleId === "in-3") return "step";
       throw new Error(
         `Unknown input handle '${String(
-          handleId
-        )}' for node ${nodeId} (${nodeType}).`
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
       );
     }
 
     if (handleId === "out" || handleId == null) return "output";
     throw new Error(
       `Unknown output handle '${String(
-        handleId
-      )}' for node ${nodeId} (${nodeType}).`
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
     );
   }
 
   throw new Error(
-    `Unsupported node type '${String(nodeType)}' for node ${nodeId}.`
+    `Unsupported node type '${String(nodeType)}' for node ${nodeId}.`,
   );
 }
 
@@ -981,7 +984,7 @@ function flowNodeToEngineDefinition(
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
-  }
+  },
 ): NodeDefinition {
   const nodeType = flowNode.type;
   const data = asRecord(flowNode.data);
@@ -1026,7 +1029,7 @@ function flowNodeToEngineDefinition(
           runtimePrompt: prompt,
           runtimeInputType: valueType,
           runtimeDefaultValue: defaultValue,
-        }
+        },
       );
     }
     case NODE_TYPES.RANDOM_INPUT: {
@@ -1039,11 +1042,11 @@ function flowNodeToEngineDefinition(
       // UI stores seconds; engine expects milliseconds.
       const seconds = typeof data.timeValue === "number" ? data.timeValue : 0;
       const hasIncoming = Boolean(
-        context?.timerHasIncomingByNodeId?.get(String(flowNode.id))
+        context?.timerHasIncomingByNodeId?.get(String(flowNode.id)),
       );
       return new EngineTimerNode(
         Math.max(0, Math.round(seconds * 1000)),
-        hasIncoming ? "delay" : "source"
+        hasIncoming ? "delay" : "source",
       );
     }
 
@@ -1067,7 +1070,7 @@ function flowNodeToEngineDefinition(
       return new NodeDefinition(
         (v: unknown) => v,
         [FirePatterns.EXISTS],
-        ["input", "output"]
+        ["input", "output"],
       );
     }
 
@@ -1118,7 +1121,9 @@ function flowNodeToEngineDefinition(
       const conditions: SwitchCondition[] = Array.isArray(raw)
         ? raw
             .map((c) =>
-              c && typeof c === "object" ? (c as Record<string, unknown>) : null
+              c && typeof c === "object"
+                ? (c as Record<string, unknown>)
+                : null,
             )
             .filter((c): c is Record<string, unknown> => Boolean(c))
             .map((c): SwitchCondition => {
@@ -1150,31 +1155,35 @@ function flowNodeToEngineDefinition(
       return new EngineSwitchNode(
         conditions.length > 0
           ? conditions
-          : [{ operator: "truthy" }, { operator: "falsy" }]
+          : [{ operator: "truthy" }, { operator: "falsy" }],
       );
     }
 
     case NODE_TYPES.WRITE_SINK:
       return new EngineWriteNode(
         context?.writeSinkInputCountByNodeId?.get(String(flowNode.id)) ?? 1,
-        typeof data.template === "string" ? data.template : undefined
+        typeof data.template === "string" ? data.template : undefined,
       );
 
     case NODE_TYPES.MICROBIT_WRITE:
       return new EngineMicrobitWriteNode({
-        slot: (data as { microbitSlot?: unknown } | null)?.microbitSlot,
-        connectionType: (data as { connectionType?: unknown } | null)?.connectionType,
+        transport:
+          (data as { transport?: unknown; connectionType?: unknown } | null)
+            ?.transport ??
+          (data as { connectionType?: unknown } | null)?.connectionType,
       });
 
     case NODE_TYPES.MICROBIT_SOUND:
       return new EngineMicrobitSoundNode({
-        slot: (data as { microbitSlot?: unknown } | null)?.microbitSlot,
-        connectionType: (data as { connectionType?: unknown } | null)?.connectionType,
+        transport:
+          (data as { transport?: unknown; connectionType?: unknown } | null)
+            ?.transport ??
+          (data as { connectionType?: unknown } | null)?.connectionType,
       });
 
     case NODE_TYPES.GENERATE_SEQUENCE_NODE: {
       const incoming = context?.sequenceIncomingByNodeId?.get(
-        String(flowNode.id)
+        String(flowNode.id),
       ) ?? {
         start: false,
         end: false,
@@ -1196,7 +1205,7 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.PULSE_SEQUENCE_NODE: {
       const incoming = context?.pulseSequenceIncomingByNodeId?.get(
-        String(flowNode.id)
+        String(flowNode.id),
       ) ?? {
         start: false,
         end: false,
@@ -1234,7 +1243,7 @@ function flowNodeToEngineDefinition(
         });
 
         return new EngineFilterNode(async (item: unknown) =>
-          Boolean(await runPredicate(item))
+          Boolean(await runPredicate(item)),
         );
       }
 
@@ -1256,7 +1265,7 @@ function flowNodeToEngineDefinition(
         });
 
         return new EngineMapNode(
-          async (item: unknown) => await runMapper(item)
+          async (item: unknown) => await runMapper(item),
         );
       }
 
@@ -1297,16 +1306,16 @@ function flowNodeToEngineDefinition(
 
       throw new Error(
         `Subflow node '${String(
-          flowNode.id
-        )}' is missing subflowNodes/subflowEdges.`
+          flowNode.id,
+        )}' is missing subflowNodes/subflowEdges.`,
       );
     }
 
     default:
       throw new Error(
         `Unsupported node type '${String(
-          nodeType
-        )}' for engine deserialization (node id: ${flowNode.id}).`
+          nodeType,
+        )}' for engine deserialization (node id: ${flowNode.id}).`,
       );
   }
 }
@@ -1329,7 +1338,7 @@ export function deserializeProgramToEngineStores(
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
-  }
+  },
 ): EngineProgramStores {
   const { nodes, edges } = deserializeProgram(serialized);
 

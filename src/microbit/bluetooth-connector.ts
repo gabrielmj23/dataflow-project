@@ -1,139 +1,68 @@
-/// <reference types="web-bluetooth" />
+/// <reference types="@types/web-bluetooth" />
 
+import * as microbit from "microbit-web-bluetooth";
 import type { MessageHandler, MicrobitConnection } from "./types";
 
+type UartServiceLike = {
+  addEventListener: (
+    type: "receiveText",
+    listener: (event: { detail?: unknown }) => void,
+  ) => void;
+  sendText: (value: string) => Promise<void>;
+};
+
 export class BluetoothConnection implements MicrobitConnection {
-  private device: BluetoothDevice | null = null;
-  private server: BluetoothRemoteGATTServer | null = null;
-  private rxChar: BluetoothRemoteGATTCharacteristic | null = null; // Para leer
-  private txChar: BluetoothRemoteGATTCharacteristic | null = null; // Para escribir
+  private device: BluetoothDevice | undefined = undefined;
+  private uartService: UartServiceLike | null = null;
   private messageCallback: MessageHandler | null = null;
   private buffer: string = "";
 
-  // UUIDs del servicio UART de Nordic (usado por micro:bit)
-  private readonly UART_SERVICE_UUID = "6e400001-b5a3-f393-e0a9-e50e24dcca9e";
-  private readonly UART_TX_UUID = "6e400002-b5a3-f393-e0a9-e50e24dcca9e"; // Escribir hacia micro:bit
-  private readonly UART_RX_UUID = "6e400003-b5a3-f393-e0a9-e50e24dcca9e"; // Leer desde micro:bit
-
-  constructor(existingDevice?: BluetoothDevice) {
-    this.device = existingDevice ?? null;
-  }
-
-  /**
-   * Establece la conexión de bluetooth con micro:bit
-   */
   async connect(): Promise<void> {
-    // Pre-checks para dar mensajes más útiles al usuario.
-    if (typeof navigator === "undefined" || !(navigator as any).bluetooth) {
-      throw new Error(
-        "Web Bluetooth no está disponible en este navegador. Usa Chrome o Edge en HTTPS/localhost con Bluetooth habilitado."
-      );
-    }
-
-    // Petición de dispositivo Bluetooth (solo si no tenemos uno ya).
-    // Nota: Web Bluetooth requiere gesto de usuario para abrir el selector.
+    // Descubrir micro:bit
+    this.device = await microbit.requestMicrobit(window.navigator.bluetooth);
     if (!this.device) {
-      try {
-        // Filtramos por nombre/servicio para reducir ruido de otros periféricos.
-        this.device = await navigator.bluetooth.requestDevice({
-          filters: [
-            {
-              namePrefix: "BBC micro:bit",
-              services: [this.UART_SERVICE_UUID],
-            },
-          ],
-          optionalServices: [this.UART_SERVICE_UUID],
-        });
-      } catch (err: unknown) {
-        const name = err instanceof Error ? err.name : String(err);
-        console.error("BluetoothConnection.requestDevice ->", err);
-
-        if (name === "NotFoundError") {
-          throw new Error(
-            "No se encontraron micro:bit en el selector. Asegúrate de que el micro:bit esté encendido, con Bluetooth activo y exponga el servicio UART."
-          );
-        }
-
-        throw new Error(`No se pudo abrir el selector Bluetooth: ${name}`);
-      }
+      throw new Error("No se selecciono un micro:bit");
     }
 
-    // Conectar al servidor GATT
-    try {
-      if (!this.device.gatt) {
-        throw new Error(
-          "GATT no disponible (device.gatt es nulo). Comprueba compatibilidad BLE y permisos del navegador."
-        );
-      }
-
-      this.server = await this.device.gatt.connect();
-
-      // Intenta obtener el servicio UART; si no está presente lanzaremos un error claro
-      const service = await this.server.getPrimaryService(this.UART_SERVICE_UUID);
-
-      // Obtener características de lectura y escritura
-      this.txChar = await service.getCharacteristic(this.UART_TX_UUID);
-      this.rxChar = await service.getCharacteristic(this.UART_RX_UUID);
-
-      // Suscribirse a notificaciones (Eventos Push)
-      await this.rxChar.startNotifications();
-      this.rxChar.addEventListener(
-        "characteristicvaluechanged",
-        (event: Event) => {
-          const value = (event.target as BluetoothRemoteGATTCharacteristic).value;
-          const decoder = new TextDecoder();
-          const text = decoder.decode(value);
-          this.handleDataChunk(text);
-        }
-      );
-    } catch (err) {
-      // Re-lanzamos un error con más contexto para el usuario
-      const deviceLabel = this.device
-        ? this.device.name || this.device.id
-        : "(desconocido)";
-      const baseMessage = err instanceof Error ? err.message : String(err);
-      const message = `GATT Error conectando a ${deviceLabel}: ${baseMessage}`;
-      console.error("BluetoothConnection.connect ->", message, err);
-      throw new Error(message);
+    // Obtener servicios y UART
+    const services = await microbit.getServices(this.device);
+    const uartService = services.uartService as UartServiceLike | undefined;
+    if (!uartService) {
+      throw new Error("El servicio UART no esta disponible");
     }
+    this.uartService = uartService;
+
+    // Suscribirse a eventos UART
+    uartService.addEventListener(
+      "receiveText",
+      (event: { detail?: unknown }) => {
+        const text =
+          typeof event.detail === "string"
+            ? event.detail
+            : String(event.detail ?? "");
+        this.handleDataChunk(text);
+      },
+    );
+
+    console.log("Conectado via Bluetooth (BLE)");
   }
 
-  /**
-   * Enviar datos a la micro:bit
-   * @param data
-   */
   async send(data: string): Promise<void> {
-    if (!this.txChar) throw new Error("No conectado");
-    const encoder = new TextEncoder();
-    // Añadimos \n al final
-    await this.txChar.writeValue(encoder.encode(data + "\n"));
+    if (!this.uartService) throw new Error("No conectado");
+    await this.uartService.sendText(data + "\n");
   }
 
-  /**
-   * Desconectar de la micro:bit
-   */
   async disconnect(): Promise<void> {
     if (this.device && this.device.gatt?.connected) {
       this.device.gatt.disconnect();
     }
+    this.uartService = null;
   }
 
-  getDeviceLabel(): string | undefined {
-    return this.device ? (this.device.name || this.device.id) : undefined;
-  }
-
-  /**
-   * Registra un callback para recibir mensajes del micro:bit
-   * @param callback
-   */
   onMessage(callback: MessageHandler): void {
     this.messageCallback = callback;
   }
 
-  /**
-   * Maneja fragmentos de datos recibidos y reconstruye mensajes completos
-   * @param chunk
-   */
   private handleDataChunk(chunk: string) {
     this.buffer += chunk;
     const lines = this.buffer.split("\n");
@@ -145,5 +74,4 @@ export class BluetoothConnection implements MicrobitConnection {
       }
     }
   }
-
 }

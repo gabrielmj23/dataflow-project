@@ -407,7 +407,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-700 bg-blue-600 px-3 text-center text-white shadow-md"
+            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl border border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
           >
             <span className="text-xl font-bold leading-none">
               <MessageSquareText className="h-6 w-6" />
@@ -420,7 +420,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-700 bg-blue-600 px-3 text-center text-white shadow-md"
+            className="node-preview flex h-18 w-32 flex-col items-center justify-center gap-0.5 rounded-2xl border border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
           >
             <span className="text-xl font-bold leading-none">
               <Volume2 className="h-6 w-6" />
