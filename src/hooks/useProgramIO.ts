@@ -30,12 +30,15 @@ export function useProgramIO({
     const nodes = reactFlowInstance.getNodes();
     const edges = reactFlowInstance.getEdges();
     const viewport = reactFlowInstance.getViewport();
-    const serialized = serializeProgram({
-      nodes,
-      edges,
-      viewport,
-      programName,
-    });
+    const serialized = serializeProgram(
+      {
+        nodes,
+        edges,
+        viewport,
+        programName,
+      },
+      true,
+    );
     const base = programName?.trim() || `dataflow-program-${Date.now()}`;
     const safe = base.replace(/[^a-zA-Z0-9-_. ]+/g, "_");
     const filename = `${safe}.json`;
@@ -60,10 +63,10 @@ export function useProgramIO({
           if (!parsed || typeof parsed !== "object" || parsed.version !== 1) {
             console.error(
               "[dataflow] Versión de programa no soportada",
-              parsed
+              parsed,
             );
             window.alert(
-              "No se pudo cargar el programa: archivo inválido o versión no soportada."
+              "No se pudo cargar el programa: archivo inválido o versión no soportada.",
             );
             return;
           }
@@ -85,13 +88,13 @@ export function useProgramIO({
           if (viewport && reactFlowInstance?.setViewport) {
             reactFlowInstance.setViewport(
               { x: viewport.x, y: viewport.y, zoom: viewport.zoom },
-              { duration: 0 }
+              { duration: 0 },
             );
           }
         } catch (error) {
           console.error("[dataflow] Error al cargar programa", error);
           window.alert(
-            "No se pudo cargar el programa: el archivo no contiene un JSON válido."
+            "No se pudo cargar el programa: el archivo no contiene un JSON válido.",
           );
         } finally {
           // Permite volver a seleccionar el mismo archivo si se desea
@@ -101,7 +104,7 @@ export function useProgramIO({
 
       reader.readAsText(file, "utf-8");
     },
-    [reactFlowInstance, setEdges, setNodes, setProgramName]
+    [reactFlowInstance, setEdges, setNodes, setProgramName],
   );
 
   return {

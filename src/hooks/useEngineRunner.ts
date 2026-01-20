@@ -17,7 +17,10 @@ type UseEngineRunnerParams = {
   reactFlowInstance: ReactFlowInstance | null;
   setNodes: React.Dispatch<React.SetStateAction<FlowNode[]>>;
   isRuntimeUpdateRef: React.MutableRefObject<boolean>;
-  appendConsoleLines: (lines: string[], opts?: { level?: EngineLogLevel; nodeId?: string }) => void;
+  appendConsoleLines: (
+    lines: string[],
+    opts?: { level?: EngineLogLevel; nodeId?: string },
+  ) => void;
   enqueuePrompt: (prompt: RuntimePrompt) => void;
   clearPromptQueue: () => void;
 };
@@ -46,7 +49,7 @@ export function useEngineRunner({
           c !== "rf-node-waiting" &&
           c !== "rf-node-running" &&
           c !== "rf-node-error" &&
-          c !== "rf-node-done"
+          c !== "rf-node-done",
       )
       .join(" ");
   }, []);
@@ -90,7 +93,7 @@ export function useEngineRunner({
             status === undefined
               ? stripRuntimeClasses(n.className)
               : `${stripRuntimeClasses(n.className)} ${runtimeClassForStatus(
-                  status
+                  status,
                 )}`.trim(),
           data:
             n.data && typeof n.data === "object"
@@ -99,10 +102,10 @@ export function useEngineRunner({
                   runtimeError: undefined,
                 }
               : n.data,
-        }))
+        })),
       );
     },
-    [isRuntimeUpdateRef, runtimeClassForStatus, setNodes, stripRuntimeClasses]
+    [isRuntimeUpdateRef, runtimeClassForStatus, setNodes, stripRuntimeClasses],
   );
 
   const onStopClick = useCallback(() => {
@@ -125,13 +128,14 @@ export function useEngineRunner({
     runAbortControllerRef.current = abortController;
     setIsEngineRunning(true);
 
-    const viewport = reactFlowInstance?.getViewport?.();
-    const program = serializeProgram({
-      nodes,
-      edges,
-      viewport,
-      programName,
-    });
+    const program = serializeProgram(
+      {
+        nodes,
+        edges,
+        programName,
+      },
+      false,
+    );
 
     try {
       const onLogHandler = ({
@@ -145,7 +149,7 @@ export function useEngineRunner({
         message: string;
         data?: unknown;
       }) => {
-        const payload = message === "write" ? data : data ?? message;
+        const payload = message === "write" ? data : (data ?? message);
         const baseText = formatLogText(payload);
         const text = level === "error" ? `Error: ${baseText}` : baseText;
         appendConsoleLines([text], { level, nodeId });
@@ -196,7 +200,7 @@ export function useEngineRunner({
                 };
               }
               return { ...n, className: next, data };
-            })
+            }),
           );
         },
         onLog: onLogHandler,
