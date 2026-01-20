@@ -56,21 +56,26 @@ function jsonClone<T>(value: T): T {
  * reimportado con `deserializeProgram`.
  *
  * @param params Objeto con `nodes`, `edges`, opcionalmente `viewport` y `programName`.
+ * @param forUi Si es `true`, prepara la serialización para uso en UI (por defecto: `true`).
  * @returns Un `SerializedProgramV1` listo para guardarse como JSON.
  */
-export function serializeProgram(params: {
-  nodes: Node[];
-  edges: Edge[];
-  viewport?: Viewport | SerializedViewport;
-  programName?: string;
-}): SerializedProgramV1 {
-  const viewport = params.viewport
-    ? {
-        x: params.viewport.x,
-        y: params.viewport.y,
-        zoom: params.viewport.zoom,
-      }
-    : undefined;
+export function serializeProgram(
+  params: {
+    nodes: Node[];
+    edges: Edge[];
+    viewport?: Viewport | SerializedViewport;
+    programName?: string;
+  },
+  forUi: boolean = true,
+): SerializedProgramV1 {
+  const viewport =
+    forUi && params.viewport
+      ? {
+          x: params.viewport.x,
+          y: params.viewport.y,
+          zoom: params.viewport.zoom,
+        }
+      : undefined;
 
   const nodes: SerializedNode[] = params.nodes.map((n) => ({
     id: String(n.id),
@@ -97,7 +102,7 @@ export function serializeProgram(params: {
     programName: params.programName,
     nodes,
     edges,
-    viewport,
+    ...(forUi ? { viewport } : {}),
   };
 }
 
@@ -160,7 +165,7 @@ export function deserializeProgram(serialized: SerializedProgramV1): {
  */
 export function downloadSerializedProgram(
   serialized: SerializedProgramV1,
-  filename = "program.json"
+  filename = "program.json",
 ) {
   const text = JSON.stringify(serialized, null, 2);
   const blob = new Blob([text], { type: "application/json" });
