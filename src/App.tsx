@@ -488,6 +488,8 @@ export default function App() {
                   setContextPoint({ x: e.clientX, y: e.clientY });
                 }}
                 onAddComment={addCommentAtContext}
+                copySelection={copySelection}
+                pasteSelection={pasteSelection}
               >
                 <ReactFlow
                   nodes={nodes}
