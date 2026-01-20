@@ -9,7 +9,7 @@ export type SerializedViewport = {
 export type SerializedNode = {
   id: string;
   type?: string;
-  position: { x: number; y: number };
+  position?: { x: number; y: number };
   data?: unknown;
 };
 
@@ -80,10 +80,12 @@ export function serializeProgram(
   const nodes: SerializedNode[] = params.nodes.map((n) => ({
     id: String(n.id),
     type: n.type,
-    position: {
-      x: Number(n.position?.x ?? 0),
-      y: Number(n.position?.y ?? 0),
-    },
+    position: forUi
+      ? {
+          x: Number(n.position?.x ?? 0),
+          y: Number(n.position?.y ?? 0),
+        }
+      : undefined,
     data: n.data === undefined ? undefined : jsonClone(n.data),
   }));
 
@@ -129,7 +131,9 @@ export function deserializeProgram(serialized: SerializedProgramV1): {
     return {
       id: n.id,
       type: n.type,
-      position: { x: n.position.x, y: n.position.y },
+      position: n.position
+        ? { x: n.position.x, y: n.position.y }
+        : { x: 0, y: 0 },
       data: (data ?? {}) as Record<string, unknown>,
     };
   });
