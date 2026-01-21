@@ -153,7 +153,7 @@ export function AppSidebar({
                         onDragStart={(event: DragEvent) =>
                           onDragStart(event, item)
                         }
-                        className={`items-start justify-start gap-1 text-xs h-auto min-h-[3rem] overflow-visible py-1.5 ${
+                        className={`items-start justify-start gap-1 text-xs h-auto min-h-12 overflow-visible py-1.5 ${
                           viewMode === "nodes"
                             ? "bg-transparent hover:bg-transparent active:bg-transparent shadow-none"
                             : ""
@@ -251,7 +251,9 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             data-drag-preview
             className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md"
           >
-            {type === "timerInput" || type === "randomInput" || type === "runtimeInput" ? (
+            {type === "timerInput" ||
+            type === "randomInput" ||
+            type === "runtimeInput" ? (
               <>
                 <span className="mb-1 flex items-center justify-center">
                   {type === "timerInput" && <Timer className="h-6 w-6" />}
@@ -290,6 +292,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "floor":
       case "ceiling":
       case "round":
+      case "formulaEditor":
       case "concat": {
         const symbolMap: Record<string, string> = {
           sum: "plus",
@@ -301,6 +304,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           floor: "floor",
           ceiling: "ceiling",
           round: "round",
+          formulaEditor: "formula",
           concat: "concat",
         };
         return (
@@ -320,6 +324,9 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               {symbolMap[type] === "floor" && <ArrowDown className="h-6 w-6" />}
               {symbolMap[type] === "ceiling" && <ArrowUp className="h-6 w-6" />}
               {symbolMap[type] === "round" && <Circle className="h-6 w-6" />}
+              {symbolMap[type] === "formula" && (
+                <span className="text-sm font-bold">ƒx</span>
+              )}
               {symbolMap[type] === "concat" && <Link2 className="h-5 w-5" />}
             </span>
             <span className="text-[0.75rem] leading-tight">{label}</span>

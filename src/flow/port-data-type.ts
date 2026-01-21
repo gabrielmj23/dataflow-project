@@ -196,7 +196,8 @@ export function inferPortDataType(params: {
     nodeType === "power" ||
     nodeType === "floor" ||
     nodeType === "ceiling" ||
-    nodeType === "round"
+    nodeType === "round" ||
+    nodeType === "formulaEditor"
   ) {
     return "number";
   }
@@ -276,7 +277,8 @@ export function getPortTypeMask(params: {
     nodeType === "power" ||
     nodeType === "floor" ||
     nodeType === "ceiling" ||
-    nodeType === "round"
+    nodeType === "round" ||
+    nodeType === "formulaEditor"
   ) {
     return isOutput ? TYPE_NUMBER : TYPE_NUMBER;
   }

@@ -1,4 +1,5 @@
 import { FirePatterns, NodeDefinition } from "../program-elements";
+import { evaluateFormulaExpression, validateFormula } from "@/utils/formula";
 
 export class EngineSumNode extends NodeDefinition {
   constructor() {
@@ -8,7 +9,7 @@ export class EngineSumNode extends NodeDefinition {
       ["input1", "input2", "output"],
       {
         stickyInputPorts: ["input1", "input2"],
-      }
+      },
     );
   }
 }
@@ -21,7 +22,7 @@ export class EngineSubstractNode extends NodeDefinition {
       ["input1", "input2", "output"],
       {
         stickyInputPorts: ["input1", "input2"],
-      }
+      },
     );
   }
 }
@@ -34,7 +35,7 @@ export class EngineMultiplyNode extends NodeDefinition {
       ["input1", "input2", "output"],
       {
         stickyInputPorts: ["input1", "input2"],
-      }
+      },
     );
   }
 }
@@ -45,7 +46,9 @@ export class EngineDivideNode extends NodeDefinition {
       (a: number, b: number) => {
         const result = a / b;
         if (!Number.isFinite(result)) {
-          throw new Error("División no definida (dividir entre cero u otro caso inválido)");
+          throw new Error(
+            "División no definida (dividir entre cero u otro caso inválido)",
+          );
         }
         return result;
       },
@@ -53,7 +56,7 @@ export class EngineDivideNode extends NodeDefinition {
       ["input1", "input2", "output"],
       {
         stickyInputPorts: ["input1", "input2"],
-      }
+      },
     );
   }
 }
@@ -66,7 +69,7 @@ export class EngineModNode extends NodeDefinition {
       ["input1", "input2", "output"],
       {
         stickyInputPorts: ["input1", "input2"],
-      }
+      },
     );
   }
 }
@@ -90,7 +93,7 @@ export class EnginePowerNode extends NodeDefinition {
       ["input1", "input2", "output"],
       {
         stickyInputPorts: ["input1", "input2"],
-      }
+      },
     );
   }
 }
@@ -103,7 +106,7 @@ export class EngineConcatNode extends NodeDefinition {
       ["input1", "input2", "output"],
       {
         stickyInputPorts: ["input1", "input2"],
-      }
+      },
     );
   }
 }
@@ -116,7 +119,7 @@ export class EngineFloorNode extends NodeDefinition {
       ["input1", "output"],
       {
         stickyInputPorts: ["input1"],
-      }
+      },
     );
   }
 }
@@ -129,7 +132,7 @@ export class EngineCeilingNode extends NodeDefinition {
       ["input1", "output"],
       {
         stickyInputPorts: ["input1"],
-      }
+      },
     );
   }
 }
@@ -142,7 +145,77 @@ export class EngineRoundNode extends NodeDefinition {
       ["input1", "output"],
       {
         stickyInputPorts: ["input1"],
-      }
+      },
+    );
+  }
+}
+
+export class EngineFormulaNode extends NodeDefinition {
+  constructor(params: { formula?: unknown; variables?: unknown }) {
+    const rawFormula =
+      typeof params.formula === "string" ? params.formula.trim() : "";
+    const validation = validateFormula(rawFormula);
+
+    const providedVariables = Array.isArray(params.variables)
+      ? params.variables.filter(
+          (value): value is string =>
+            typeof value === "string" && value.trim() !== "",
+        )
+      : [];
+
+    const effectiveVariables =
+      providedVariables.length > 0 ? providedVariables : validation.variables;
+
+    const inputPorts =
+      effectiveVariables.length > 0
+        ? effectiveVariables.map((_, index) => `input${index + 1}`)
+        : ["input1"];
+
+    const firePatterns = inputPorts.map(() => FirePatterns.EXISTS);
+    const ports = [...inputPorts, "output"];
+    const errorMessage =
+      rawFormula === ""
+        ? "Fórmula vacía."
+        : validation.ok
+          ? null
+          : (validation.error ?? "Fórmula inválida.");
+
+    const compiled = validation.compiled;
+
+    super(
+      (...args: unknown[]) => {
+        if (errorMessage) {
+          throw new Error(errorMessage);
+        }
+        if (!validation.ok || !compiled) {
+          throw new Error(validation.error ?? "Fórmula inválida.");
+        }
+
+        const scope: Record<string, number> = {};
+        for (let index = 0; index < effectiveVariables.length; index += 1) {
+          const name = effectiveVariables[index] ?? `var${index + 1}`;
+          const value = args[index];
+          const numericValue = Number(value);
+          if (!Number.isFinite(numericValue)) {
+            throw new Error(`Entrada no numérica para ${name}.`);
+          }
+          scope[name] = numericValue;
+        }
+
+        try {
+          return evaluateFormulaExpression({ compiled, scope });
+        } catch (error) {
+          if (error instanceof Error) {
+            throw new Error(error.message);
+          }
+          throw error;
+        }
+      },
+      firePatterns,
+      ports,
+      {
+        stickyInputPorts: inputPorts,
+      },
     );
   }
 }
