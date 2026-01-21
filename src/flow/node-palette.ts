@@ -110,6 +110,11 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Redondea al entero más cercano.",
       },
       {
+        type: "formulaEditor",
+        label: "Editor de fórmulas",
+        description: "Calcula una expresión con variables numéricas.",
+      },
+      {
         type: "concat",
         label: "Concatenar",
         description: "Une dos cadenas o listas en una sola.",

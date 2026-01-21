@@ -25,6 +25,7 @@ import {
   EngineFloorNode,
   EngineCeilingNode,
   EngineRoundNode,
+  EngineFormulaNode,
   EngineConcatNode,
 } from "./nodes/algorithm-nodes";
 import { EngineConstantNode, EngineRandomNode } from "./nodes/input-nodes";
@@ -770,6 +771,26 @@ function mapHandleToPortId(params: {
     throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
   }
 
+  // Formula editor (dynamic inputs)
+  if (nodeType === NODE_TYPES.FORMULA_EDITOR_NODE) {
+    if (direction === "target") {
+      const idx = parseIndexHandle(handleId);
+      if (handleId?.startsWith("in-") && idx) return `input${idx}`;
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
+      );
+    }
+
+    if (handleId === "out" || handleId == null) return "output";
+    throw new Error(
+      `Unknown output handle '${String(
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
+    );
+  }
+
   // Processing nodes (2-in 1-out)
   if (
     nodeType === NODE_TYPES.SUM_NODE ||
@@ -1236,6 +1257,11 @@ function flowNodeToEngineDefinition(
         });
       }
       return new EngineRoundNode();
+    }
+    case NODE_TYPES.FORMULA_EDITOR_NODE: {
+      const formula = data.formula;
+      const variables = data.variables;
+      return new EngineFormulaNode({ formula, variables });
     }
     case NODE_TYPES.CONCAT_NODE: {
       const executionTarget = data.executionTarget;

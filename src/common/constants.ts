@@ -20,6 +20,7 @@ export const NODE_TYPES = {
   FLOOR_NODE: "floor",
   CEILING_NODE: "ceiling",
   ROUND_NODE: "round",
+  FORMULA_EDITOR_NODE: "formulaEditor",
   CONCAT_NODE: "concat",
   COMPARISON_NODE: "comparison",
   AND_NODE: "and",
