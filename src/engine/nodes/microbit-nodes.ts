@@ -7,6 +7,9 @@ import {
 } from "@/microbit/connection-manager";
 import type { EngineObserver } from "../engine";
 
+const MICROBIT_SEND_TIMEOUT_MS = 5000;
+const MICROBIT_RESPONSE_TIMEOUT_MS = 10000;
+
 function formatValue(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value;
@@ -32,6 +35,70 @@ function createAbortError(): Error {
     (err as { name?: string }).name = "AbortError";
     return err;
   }
+}
+
+function createTimeoutError(message: string): Error {
+  const err = new Error(message);
+  (err as { name?: string }).name = "TimeoutError";
+  return err;
+}
+
+async function withTimeout<T>(params: {
+  promise: Promise<T>;
+  timeoutMs: number;
+  signal?: AbortSignal;
+  message: string;
+}): Promise<T> {
+  const { promise, timeoutMs, signal, message } = params;
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    return await promise;
+  }
+
+  return await new Promise<T>((resolve, reject) => {
+    let settled = false;
+
+    function cleanup(onAbort?: () => void) {
+      window.clearTimeout(timeoutId);
+      if (onAbort) {
+        signal?.removeEventListener("abort", onAbort);
+      }
+    }
+
+    const onAbort = () => {
+      if (settled) return;
+      settled = true;
+      cleanup(onAbort);
+      reject(createAbortError());
+    };
+
+    const timeoutId = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      cleanup(onAbort);
+      reject(createTimeoutError(message));
+    }, timeoutMs);
+
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    promise
+      .then((value) => {
+        if (settled) return;
+        settled = true;
+        cleanup(onAbort);
+        resolve(value);
+      })
+      .catch((error) => {
+        if (settled) return;
+        settled = true;
+        cleanup(onAbort);
+        reject(error);
+      });
+  });
 }
 
 function parseButtonMessage(message: string): "A" | "B" | "AB" | null {
@@ -85,13 +152,25 @@ function coerceFiniteNumber(value: unknown, label: string): number {
 async function waitForPrefixedNumber(params: {
   prefix: string;
   signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<number> {
   return await new Promise<number>((resolve, reject) => {
     const signal = params.signal;
+    const timeoutMs =
+      typeof params.timeoutMs === "number"
+        ? params.timeoutMs
+        : MICROBIT_RESPONSE_TIMEOUT_MS;
 
-    const cleanup = (onAbort?: () => void, off?: () => void) => {
+    const cleanup = (
+      onAbort?: () => void,
+      off?: () => void,
+      onTimeout?: () => void,
+    ) => {
       if (onAbort) {
         signal?.removeEventListener("abort", onAbort);
+      }
+      if (onTimeout) {
+        window.clearTimeout(timeoutId);
       }
       if (off) off();
     };
@@ -99,13 +178,22 @@ async function waitForPrefixedNumber(params: {
     const off = onMicrobitMessage((msg) => {
       const parsed = parsePrefixedNumber(msg, params.prefix);
       if (parsed == null) return;
-      cleanup(onAbort, off);
+      cleanup(onAbort, off, onTimeout);
       resolve(parsed);
     });
 
     const onAbort = () => {
-      cleanup(onAbort, off);
+      cleanup(onAbort, off, onTimeout);
       reject(createAbortError());
+    };
+
+    const onTimeout = () => {
+      cleanup(onAbort, off, onTimeout);
+      reject(
+        createTimeoutError(
+          "Tiempo de espera agotado esperando respuesta de la micro:bit.",
+        ),
+      );
     };
 
     if (signal?.aborted) {
@@ -114,19 +202,33 @@ async function waitForPrefixedNumber(params: {
     }
 
     signal?.addEventListener("abort", onAbort, { once: true });
+
+    const timeoutId = window.setTimeout(onTimeout, timeoutMs);
   });
 }
 
 async function waitForPrefixedText(params: {
   prefix: string;
   signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<string> {
   return await new Promise<string>((resolve, reject) => {
     const signal = params.signal;
+    const timeoutMs =
+      typeof params.timeoutMs === "number"
+        ? params.timeoutMs
+        : MICROBIT_RESPONSE_TIMEOUT_MS;
 
-    const cleanup = (onAbort?: () => void, off?: () => void) => {
+    const cleanup = (
+      onAbort?: () => void,
+      off?: () => void,
+      onTimeout?: () => void,
+    ) => {
       if (onAbort) {
         signal?.removeEventListener("abort", onAbort);
+      }
+      if (onTimeout) {
+        window.clearTimeout(timeoutId);
       }
       if (off) off();
     };
@@ -134,13 +236,22 @@ async function waitForPrefixedText(params: {
     const off = onMicrobitMessage((msg) => {
       const parsed = parsePrefixedText(msg, params.prefix);
       if (parsed == null) return;
-      cleanup(onAbort, off);
+      cleanup(onAbort, off, onTimeout);
       resolve(parsed);
     });
 
     const onAbort = () => {
-      cleanup(onAbort, off);
+      cleanup(onAbort, off, onTimeout);
       reject(createAbortError());
+    };
+
+    const onTimeout = () => {
+      cleanup(onAbort, off, onTimeout);
+      reject(
+        createTimeoutError(
+          "Tiempo de espera agotado esperando respuesta de la micro:bit.",
+        ),
+      );
     };
 
     if (signal?.aborted) {
@@ -149,11 +260,13 @@ async function waitForPrefixedText(params: {
     }
 
     signal?.addEventListener("abort", onAbort, { once: true });
+
+    const timeoutId = window.setTimeout(onTimeout, timeoutMs);
   });
 }
 
 export class EngineMicrobitWriteNode extends NodeDefinition {
-  constructor(params: { transport?: unknown } = {}) {
+  constructor(params: { transport?: unknown; signal?: AbortSignal } = {}) {
     const transport = sanitizeTransport(params.transport);
 
     super(
@@ -161,7 +274,12 @@ export class EngineMicrobitWriteNode extends NodeDefinition {
         const connection = await ensureMicrobitConnected({ transport });
         const text = formatValue(value).trim();
         const payload = `TXT:${text}`;
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
         return undefined;
       },
       [FirePatterns.EXISTS],
@@ -174,7 +292,7 @@ export class EngineMicrobitWriteNode extends NodeDefinition {
 }
 
 export class EngineMicrobitSoundNode extends NodeDefinition {
-  constructor(params: { transport?: unknown } = {}) {
+  constructor(params: { transport?: unknown; signal?: AbortSignal } = {}) {
     const transport = sanitizeTransport(params.transport);
 
     super(
@@ -202,7 +320,12 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
         }
 
         const payload = `SND:${Math.floor(freq)},${ms}`;
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
         return undefined;
       },
       [FirePatterns.EXISTS],
@@ -241,11 +364,17 @@ export class EngineMicrobitSumNode extends NodeDefinition {
               : "Calculando suma (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "SUM",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -287,11 +416,17 @@ export class EngineMicrobitSubtractNode extends NodeDefinition {
               : "Calculando resta (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "SUB",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -333,11 +468,17 @@ export class EngineMicrobitMultiplyNode extends NodeDefinition {
               : "Calculando multiplicación (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "MUL",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -379,11 +520,17 @@ export class EngineMicrobitDivideNode extends NodeDefinition {
               : "Calculando división (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "DIV",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -425,11 +572,17 @@ export class EngineMicrobitModNode extends NodeDefinition {
               : "Calculando módulo (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "MOD",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -471,11 +624,17 @@ export class EngineMicrobitPowerNode extends NodeDefinition {
               : "Calculando potencia (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "POW",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -516,11 +675,17 @@ export class EngineMicrobitFloorNode extends NodeDefinition {
               : "Calculando piso (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "FLOOR",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -561,11 +726,17 @@ export class EngineMicrobitCeilingNode extends NodeDefinition {
               : "Calculando techo (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "CEIL",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -606,11 +777,17 @@ export class EngineMicrobitRoundNode extends NodeDefinition {
               : "Calculando redondeo (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedNumber({
           prefix: "ROUND",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;
@@ -652,11 +829,17 @@ export class EngineMicrobitConcatNode extends NodeDefinition {
               : "Concatenando (Serial)…",
         });
 
-        await connection.send(payload);
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
 
         const result = await waitForPrefixedText({
           prefix: "CONCAT",
           signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
         void connection;
         return result;

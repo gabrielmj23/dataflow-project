@@ -48,7 +48,6 @@ function coerceTextInput(value: unknown): string {
 function createAbortError(): Error {
   try {
     // Prefer the standard DOMException shape when available.
-    // eslint-disable-next-line no-undef
     return new DOMException("Aborted", "AbortError") as unknown as Error;
   } catch {
     const err = new Error("Aborted");
