@@ -3,6 +3,28 @@ input.onButtonPressed(Button.A, function () {
     serial.writeLine("BTN:A")
     bluetooth.uartWriteLine("BTN:A")
 })
+// Indicador mientras la tarjeta procesa una operación
+let operationIndicator = false
+let indicatorRunning = false
+
+function startIndicator() {
+    if (indicatorRunning) return
+    indicatorRunning = true
+    control.inBackground(function () {
+        while (operationIndicator) {
+            led.toggle(3, 0)
+            led.toggle(4, 0)
+            led.toggle(3, 1)
+            led.toggle(4, 1)
+            basic.pause(300)
+        }
+        led.unplot(3, 0)
+        led.unplot(4, 0)
+        led.unplot(3, 1)
+        led.unplot(4, 1)
+        indicatorRunning = false
+    })
+}
 function handleCommand (msg: string) {
     msg = (msg || "").trim()
 if (!(true)) {
@@ -10,7 +32,7 @@ if (!(true)) {
     }
     if (msg.indexOf("TXT:") == 0) {
         contenido = msg.substr(4)
-        if (contenido.length > 0) {
+        if (contenido.length > 0) {            
             basic.showString(contenido)
         }
         return
@@ -22,7 +44,10 @@ if (!(true)) {
         b = parseFloat((parts[1] || "").trim())
         if (!(isNaN(a)) && !(isNaN(b))) {
             sum = a + b
+            operationIndicator = true
+            startIndicator()
             basic.showNumber(sum)
+            operationIndicator = false
             const out = "SUM:" + sum
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
@@ -36,9 +61,12 @@ if (!(true)) {
         b = parseFloat((parts[1] || "").trim())
         if (!(isNaN(a)) && !(isNaN(b))) {
             result = a - b
+            operationIndicator = true
+            startIndicator()
             const out = "SUB:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -49,9 +77,12 @@ if (!(true)) {
         b = parseFloat((parts[1] || "").trim())
         if (!(isNaN(a)) && !(isNaN(b))) {
             result = a * b
+            operationIndicator = true
+            startIndicator()
             const out = "MUL:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -66,9 +97,12 @@ if (!(true)) {
             } else {
                 result = a / b
             }
+            operationIndicator = true
+            startIndicator()
             const out = "DIV:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -83,9 +117,12 @@ if (!(true)) {
             } else {
                 result = a % b
             }
+            operationIndicator = true
+            startIndicator()
             const out = "MOD:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -96,9 +133,12 @@ if (!(true)) {
         b = parseFloat((parts[1] || "").trim())
         if (!(isNaN(a)) && !(isNaN(b))) {
             result = Math.pow(a, b)
+            operationIndicator = true
+            startIndicator()
             const out = "POW:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -107,9 +147,12 @@ if (!(true)) {
         a = parseFloat(payload)
         if (!(isNaN(a))) {
             result = Math.floor(a)
+            operationIndicator = true
+            startIndicator()
             const out = "FLOOR:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -118,9 +161,12 @@ if (!(true)) {
         a = parseFloat(payload)
         if (!(isNaN(a))) {
             result = Math.ceil(a)
+            operationIndicator = true
+            startIndicator()
             const out = "CEIL:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -129,9 +175,12 @@ if (!(true)) {
         a = parseFloat(payload)
         if (!(isNaN(a))) {
             result = Math.round(a)
+            operationIndicator = true
+            startIndicator()
             const out = "ROUND:" + result
             serial.writeLine(out)
             bluetooth.uartWriteLine(out)
+            operationIndicator = false
         }
         return
     }
@@ -140,9 +189,12 @@ if (!(true)) {
         parts = payload.split("|")
         textA = parts[0] || ""
         textB = parts[1] || ""
+        operationIndicator = true
+        startIndicator()
         const out = "CONCAT:" + textA + textB
         serial.writeLine(out)
         bluetooth.uartWriteLine(out)
+        operationIndicator = false
         return
     }
     if (msg.indexOf("SND:") == 0) {
@@ -159,7 +211,10 @@ ms = 250
             freq = parseInt(payload)
         }
         if (!(isNaN(freq)) && freq > 0) {
+            operationIndicator = true
+            startIndicator()
             music.playTone(freq, ms)
+            operationIndicator = false
         }
         return
     }
