@@ -55,6 +55,103 @@ function parseButtonMessage(message: string): "A" | "B" | "AB" | null {
     : null;
 }
 
+function parsePrefixedNumber(message: string, prefix: string): number | null {
+  const trimmed = message.trim();
+  if (!trimmed) return null;
+  const regex = new RegExp(`^${prefix}\\s*:`, "i");
+  if (!regex.test(trimmed)) return null;
+  const raw = trimmed.replace(regex, "").trim();
+  if (!raw) return null;
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
+}
+
+function parsePrefixedText(message: string, prefix: string): string | null {
+  const trimmed = message.trim();
+  if (!trimmed) return null;
+  const regex = new RegExp(`^${prefix}\\s*:`, "i");
+  if (!regex.test(trimmed)) return null;
+  return trimmed.replace(regex, "");
+}
+
+function coerceFiniteNumber(value: unknown, label: string): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) {
+    throw new Error(`${label} inválido.`);
+  }
+  return n;
+}
+
+async function waitForPrefixedNumber(params: {
+  prefix: string;
+  signal?: AbortSignal;
+}): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    const signal = params.signal;
+
+    const cleanup = (onAbort?: () => void, off?: () => void) => {
+      if (onAbort) {
+        signal?.removeEventListener("abort", onAbort);
+      }
+      if (off) off();
+    };
+
+    const off = onMicrobitMessage((msg) => {
+      const parsed = parsePrefixedNumber(msg, params.prefix);
+      if (parsed == null) return;
+      cleanup(onAbort, off);
+      resolve(parsed);
+    });
+
+    const onAbort = () => {
+      cleanup(onAbort, off);
+      reject(createAbortError());
+    };
+
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
+async function waitForPrefixedText(params: {
+  prefix: string;
+  signal?: AbortSignal;
+}): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const signal = params.signal;
+
+    const cleanup = (onAbort?: () => void, off?: () => void) => {
+      if (onAbort) {
+        signal?.removeEventListener("abort", onAbort);
+      }
+      if (off) off();
+    };
+
+    const off = onMicrobitMessage((msg) => {
+      const parsed = parsePrefixedText(msg, params.prefix);
+      if (parsed == null) return;
+      cleanup(onAbort, off);
+      resolve(parsed);
+    });
+
+    const onAbort = () => {
+      cleanup(onAbort, off);
+      reject(createAbortError());
+    };
+
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
+}
+
 export class EngineMicrobitWriteNode extends NodeDefinition {
   constructor(params: { transport?: unknown } = {}) {
     const transport = sanitizeTransport(params.transport);
@@ -112,6 +209,463 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
       ["input1"],
       {
         kind: "microbitSound",
+      },
+    );
+  }
+}
+
+export class EngineMicrobitSumNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (a: number, b: number) => {
+        const left = coerceFiniteNumber(a, "Entrada 1");
+        const right = coerceFiniteNumber(b, "Entrada 2");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `SUM:${left},${right}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando suma (Bluetooth)…"
+              : "Calculando suma (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "SUM",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        kind: "microbitSum",
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitSubtractNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (a: number, b: number) => {
+        const left = coerceFiniteNumber(a, "Entrada 1");
+        const right = coerceFiniteNumber(b, "Entrada 2");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `SUB:${left},${right}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando resta (Bluetooth)…"
+              : "Calculando resta (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "SUB",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        kind: "microbitSubtract",
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitMultiplyNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (a: number, b: number) => {
+        const left = coerceFiniteNumber(a, "Entrada 1");
+        const right = coerceFiniteNumber(b, "Entrada 2");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `MUL:${left},${right}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando multiplicación (Bluetooth)…"
+              : "Calculando multiplicación (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "MUL",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        kind: "microbitMultiply",
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitDivideNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (a: number, b: number) => {
+        const left = coerceFiniteNumber(a, "Entrada 1");
+        const right = coerceFiniteNumber(b, "Entrada 2");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `DIV:${left},${right}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando división (Bluetooth)…"
+              : "Calculando división (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "DIV",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        kind: "microbitDivide",
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitModNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (a: number, b: number) => {
+        const left = coerceFiniteNumber(a, "Entrada 1");
+        const right = coerceFiniteNumber(b, "Entrada 2");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `MOD:${left},${right}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando módulo (Bluetooth)…"
+              : "Calculando módulo (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "MOD",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        kind: "microbitMod",
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitPowerNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (a: number, b: number) => {
+        const left = coerceFiniteNumber(a, "Entrada 1");
+        const right = coerceFiniteNumber(b, "Entrada 2");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `POW:${left},${right}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando potencia (Bluetooth)…"
+              : "Calculando potencia (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "POW",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        kind: "microbitPower",
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitFloorNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (value: number) => {
+        const input = coerceFiniteNumber(value, "Entrada");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `FLOOR:${input}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando piso (Bluetooth)…"
+              : "Calculando piso (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "FLOOR",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS],
+      ["input1", "output"],
+      {
+        kind: "microbitFloor",
+        stickyInputPorts: ["input1"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitCeilingNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (value: number) => {
+        const input = coerceFiniteNumber(value, "Entrada");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `CEIL:${input}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando techo (Bluetooth)…"
+              : "Calculando techo (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "CEIL",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS],
+      ["input1", "output"],
+      {
+        kind: "microbitCeiling",
+        stickyInputPorts: ["input1"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitRoundNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (value: number) => {
+        const input = coerceFiniteNumber(value, "Entrada");
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `ROUND:${input}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Calculando redondeo (Bluetooth)…"
+              : "Calculando redondeo (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedNumber({
+          prefix: "ROUND",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS],
+      ["input1", "output"],
+      {
+        kind: "microbitRound",
+        stickyInputPorts: ["input1"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitConcatNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const transport = sanitizeTransport(params.transport);
+
+    super(
+      async (a: unknown, b: unknown) => {
+        const left = formatValue(a);
+        const right = formatValue(b);
+
+        const connection = await ensureMicrobitConnected({ transport });
+        const payload = `CONCAT:${left}|${right}`;
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            transport === "bluetooth"
+              ? "Concatenando (Bluetooth)…"
+              : "Concatenando (Serial)…",
+        });
+
+        await connection.send(payload);
+
+        const result = await waitForPrefixedText({
+          prefix: "CONCAT",
+          signal: params.signal,
+        });
+        void connection;
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        kind: "microbitConcat",
+        stickyInputPorts: ["input1", "input2"],
       },
     );
   }

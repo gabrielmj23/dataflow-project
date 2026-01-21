@@ -32,7 +32,17 @@ import { EngineTimerNode } from "./nodes/event-nodes";
 import { EngineWriteNode } from "./nodes/output-nodes";
 import { EngineMicrobitReadButtonNode } from "./nodes/microbit-nodes";
 import {
+  EngineMicrobitCeilingNode,
+  EngineMicrobitConcatNode,
+  EngineMicrobitDivideNode,
+  EngineMicrobitFloorNode,
+  EngineMicrobitModNode,
+  EngineMicrobitMultiplyNode,
+  EngineMicrobitPowerNode,
+  EngineMicrobitRoundNode,
   EngineMicrobitSoundNode,
+  EngineMicrobitSubtractNode,
+  EngineMicrobitSumNode,
   EngineMicrobitWriteNode,
 } from "./nodes/microbit-nodes";
 import {
@@ -1074,26 +1084,176 @@ function flowNodeToEngineDefinition(
       );
     }
 
-    case NODE_TYPES.SUM_NODE:
+    case NODE_TYPES.SUM_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitSumNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineSumNode();
-    case NODE_TYPES.SUBTRACT_NODE:
+    }
+    case NODE_TYPES.SUBTRACT_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitSubtractNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineSubstractNode();
-    case NODE_TYPES.MULTIPLY_NODE:
+    }
+    case NODE_TYPES.MULTIPLY_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitMultiplyNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineMultiplyNode();
-    case NODE_TYPES.DIVIDE_NODE:
+    }
+    case NODE_TYPES.DIVIDE_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitDivideNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineDivideNode();
-    case NODE_TYPES.MOD_NODE:
+    }
+    case NODE_TYPES.MOD_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitModNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineModNode();
-    case NODE_TYPES.POWER_NODE:
+    }
+    case NODE_TYPES.POWER_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitPowerNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EnginePowerNode();
-    case NODE_TYPES.FLOOR_NODE:
+    }
+    case NODE_TYPES.FLOOR_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitFloorNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineFloorNode();
-    case NODE_TYPES.CEILING_NODE:
+    }
+    case NODE_TYPES.CEILING_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitCeilingNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineCeilingNode();
-    case NODE_TYPES.ROUND_NODE:
+    }
+    case NODE_TYPES.ROUND_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitRoundNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineRoundNode();
-    case NODE_TYPES.CONCAT_NODE:
+    }
+    case NODE_TYPES.CONCAT_NODE: {
+      const executionTarget = data.executionTarget;
+      if (executionTarget === "microbit") {
+        const transportRaw = data.transport ?? data.connectionType;
+        const transport =
+          transportRaw === "bluetooth" || transportRaw === "serial"
+            ? transportRaw
+            : "serial";
+        return new EngineMicrobitConcatNode({
+          nodeId: String(flowNode.id),
+          transport,
+          onLog: context?.onLog,
+          signal: context?.signal,
+        });
+      }
       return new EngineConcatNode();
+    }
 
     case NODE_TYPES.COMPARISON_NODE: {
       const operator = data.operator;

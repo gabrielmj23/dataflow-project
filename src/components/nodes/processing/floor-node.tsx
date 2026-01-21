@@ -3,23 +3,43 @@ import type { NodeProps } from "@xyflow/react";
 import { ArrowDown } from "lucide-react";
 
 import { ProcessingRectNodeShell } from "@/components/nodes/processing/processing-rect-node-shell";
+import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 
 export type FloorNodeData = {
   label?: string;
   runtimeError?: string | null;
+  executionTarget?: "local" | "microbit";
+  transport?: "serial" | "bluetooth";
 };
 
-export const FloorNode = memo(({ data }: NodeProps) => {
-  const { label = "Piso", runtimeError } = (data ?? {}) as FloorNodeData;
+export const FloorNode = memo(({ id, data }: NodeProps) => {
+  const {
+    label = "Piso",
+    runtimeError,
+    executionTarget,
+    transport,
+  } = (data ?? {}) as FloorNodeData;
+
+  const config = useMicrobitExecutionConfig({
+    nodeId: id,
+    title: "Configurar · Piso",
+    executionTarget,
+    transport,
+  });
 
   return (
-    <ProcessingRectNodeShell
-      nodeType="floor"
-      icon={<ArrowDown className="h-6 w-6" />}
-      label={label}
-      runtimeError={runtimeError}
-      inputCount={1}
-    />
+    <>
+      <ProcessingRectNodeShell
+        nodeType="floor"
+        icon={<ArrowDown className="h-6 w-6" />}
+        label={label}
+        subtitle={config.subtitle}
+        runtimeError={runtimeError}
+        inputCount={1}
+        onConfigClick={config.onConfigClick}
+      />
+      {config.dialog}
+    </>
   );
 });
 
