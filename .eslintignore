@@ -1,0 +1,2 @@
+# Ignore MakeCode build file (contains TypeScript-like annotations)
+makecode/

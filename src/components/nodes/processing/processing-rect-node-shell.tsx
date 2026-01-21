@@ -2,8 +2,9 @@ import type { ReactNode } from "react";
 
 import { Position } from "@xyflow/react";
 
-import { BaseNode } from "@/components/base-node";
+import { BaseNode, BaseNodeHeader } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
+import NodeSettingsButton from "@/components/ui/node-settings-button";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
@@ -13,11 +14,13 @@ type ProcessingRectNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
   label: string;
+  subtitle?: string;
   runtimeError?: string | null;
   inputCount?: 1 | 2;
+  onConfigClick?: () => void;
 };
 
-export function ProcessingRectNodeShell({ nodeType, icon, label, runtimeError, inputCount = 2 }: ProcessingRectNodeShellProps) {
+export function ProcessingRectNodeShell({ nodeType, icon, label, subtitle, runtimeError, inputCount = 2, onConfigClick }: ProcessingRectNodeShellProps) {
   const in1Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-1" });
   const in2Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-2" });
   const outMask = getPortTypeMask({ nodeType, handleType: "source", handleId: "out" });
@@ -31,9 +34,17 @@ export function ProcessingRectNodeShell({ nodeType, icon, label, runtimeError, i
       runtimeError={runtimeError}
       className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 px-5 text-center text-white shadow-md"
     >
+      {onConfigClick && (
+        <BaseNodeHeader className="absolute top-1 right-1">
+          <NodeSettingsButton onClick={onConfigClick} />
+        </BaseNodeHeader>
+      )}
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
+        {subtitle && (
+          <div className="text-xs leading-tight text-white/85">{subtitle}</div>
+        )}
       </div>
 
       <CustomTypedHandle

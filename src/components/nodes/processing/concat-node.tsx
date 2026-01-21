@@ -3,22 +3,42 @@ import type { NodeProps } from "@xyflow/react";
 import { Link2 } from "lucide-react";
 
 import { ProcessingRectNodeShell } from "@/components/nodes/processing/processing-rect-node-shell";
+import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 
 export type ConcatNodeData = {
   label?: string;
   runtimeError?: string | null;
+  executionTarget?: "local" | "microbit";
+  transport?: "serial" | "bluetooth";
 };
 
-export const ConcatNode = memo(({ data }: NodeProps) => {
-  const { label = "Concatenar", runtimeError } = (data ?? {}) as ConcatNodeData;
+export const ConcatNode = memo(({ id, data }: NodeProps) => {
+  const {
+    label = "Concatenar",
+    runtimeError,
+    executionTarget,
+    transport,
+  } = (data ?? {}) as ConcatNodeData;
+
+  const config = useMicrobitExecutionConfig({
+    nodeId: id,
+    title: "Configurar · Concatenar",
+    executionTarget,
+    transport,
+  });
 
   return (
-    <ProcessingRectNodeShell
-      nodeType="concat"
-      icon={<Link2 className="h-5 w-5" />}
-      label={label}
-      runtimeError={runtimeError}
-    />
+    <>
+      <ProcessingRectNodeShell
+        nodeType="concat"
+        icon={<Link2 className="h-5 w-5" />}
+        label={label}
+        subtitle={config.subtitle}
+        runtimeError={runtimeError}
+        onConfigClick={config.onConfigClick}
+      />
+      {config.dialog}
+    </>
   );
 });
 

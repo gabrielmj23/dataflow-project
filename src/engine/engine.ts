@@ -48,7 +48,6 @@ function coerceTextInput(value: unknown): string {
 function createAbortError(): Error {
   try {
     // Prefer the standard DOMException shape when available.
-    // eslint-disable-next-line no-undef
     return new DOMException("Aborted", "AbortError") as unknown as Error;
   } catch {
     const err = new Error("Aborted");
@@ -358,25 +357,39 @@ export class DataflowEngine {
       this.tokenStore.addToken(token);
     }
 
-    // Execute in concurrent batches: any nodes that can fire without consuming
-    // overlapping tokens are executed together.
+    // Execute concurrently: any nodes that can fire without consuming
+    // overlapping tokens are executed together, and newly-unblocked nodes
+    // are scheduled as soon as their dependencies complete.
     try {
-      while (executedSteps < maxSteps) {
-        throwIfAborted(params.signal);
+      // Active tasks = nodes currently running in parallel.
+      // We track them with stable ids so we can remove the first one that
+      // completes from the map (Promise.race doesn't tell us which resolved).
+      type ActiveResult = { id: number; outputTokens: DataToken<unknown>[] };
+      const active = new Map<number, Promise<ActiveResult>>();
+      let nextActiveId = 1;
+
+      // Try to schedule as many ready nodes as possible in this moment.
+      // Returns true if at least one node was scheduled.
+      const scheduleAvailable = (): boolean => {
+        if (executedSteps >= maxSteps) return false;
+
+        // Ask the scheduler to produce a batch of nodes that can run now.
         const batch = this.tryEnableBatch({
           maxExecutions: maxSteps - executedSteps,
           skipIfNoConsumptionAndPreviouslyFired: firedWithoutConsumingTokens,
         });
 
         if (batch.length === 0) {
-          break;
+          return false;
         }
 
+        // Track how many batches we've asked the scheduler for.
         batches += 1;
         if (params.trace && params.trace.batches !== undefined) {
           params.trace.batches = batches;
         }
 
+        // Append scheduled node ids to the trace (if enabled).
         const executed = params.trace?.executedNodeIds;
         if (executed) {
           for (const t of batch) {
@@ -384,22 +397,49 @@ export class DataflowEngine {
           }
         }
 
+        // Mark nodes that fire without consuming tokens so they don't repeat.
         for (const t of batch) {
           if (t.dataTokens.length === 0) {
             firedWithoutConsumingTokens.add(t.node.id);
           }
+
+          // Start the node immediately and keep a handle to its completion.
+          const id = nextActiveId++;
+          const promise = this.executeUnit(t, params.signal).then(
+            (outputTokens) => ({ id, outputTokens })
+          );
+          active.set(id, promise);
         }
 
+        // Count scheduled nodes toward the step budget.
         executedSteps += batch.length;
+        return true;
+      };
 
-        const batchOutputs = await Promise.all(
-          batch.map((t) => this.executeUnit(t, params.signal))
-        );
-        for (const outputTokens of batchOutputs) {
-          for (const outputToken of outputTokens) {
-            externalOutputs.push(...this.transmitToken(outputToken));
+      // Prime the engine: schedule anything that is immediately runnable.
+      scheduleAvailable();
+
+      while (executedSteps < maxSteps) {
+        throwIfAborted(params.signal);
+
+        if (active.size === 0) {
+          // Nothing running: try scheduling new work. If none, we are done.
+          const scheduled = scheduleAvailable();
+          if (!scheduled) {
+            break;
           }
         }
+
+        // Wait for the first running node to finish, then propagate its outputs.
+        const { id, outputTokens } = await Promise.race(active.values());
+        active.delete(id);
+
+        for (const outputToken of outputTokens) {
+          externalOutputs.push(...this.transmitToken(outputToken));
+        }
+
+        // Newly produced tokens may unblock more nodes; schedule them now.
+        scheduleAvailable();
       }
 
       this.observer?.onRunEnd?.({ ok: true });
@@ -428,6 +468,7 @@ export class DataflowEngine {
     const reserved = new Set<DataToken<unknown>>();
     const scheduled: ExecuteToken[] = [];
     const scheduledNodeIds = new Set<string>();
+    let runtimeInputScheduled = false;
 
     const isRuntimeInputSource = (node: Node): boolean => {
       const def = node.nodeDefinition;
@@ -534,41 +575,35 @@ export class DataflowEngine {
 
       const demandedRuntimeInputs = computeDemandedRuntimeInputs();
 
-      for (const node of this.nodeStore.getNodes()) {
+      const tryScheduleNode = (node: Node): boolean => {
         if (scheduled.length >= maxExecutions) {
-          break;
+          return false;
         }
 
         // Never schedule the same node more than once per batch. This avoids
         // infinite filling of a batch for nodes that can fire without consuming
         // tokens (e.g. sources with FirePatterns.ALWAYS).
         if (scheduledNodeIds.has(node.id)) {
-          continue;
-        }
-
-        // Runtime inputs are "lazy": only prompt when some downstream node
-        // is blocked solely by missing runtimeInput tokens.
-        if (isRuntimeInputSource(node) && !demandedRuntimeInputs.has(node.id)) {
-          continue;
+          return false;
         }
 
         const activationTokens = this.collectTokensForNode(node);
         if (!activationTokens) {
-          continue;
+          return false;
         }
 
         if (
           activationTokens.length === 0 &&
           params.skipIfNoConsumptionAndPreviouslyFired?.has(node.id)
         ) {
-          continue;
+          return false;
         }
 
         // If this node would consume any token already reserved for another
         // node in the batch, skip it for this batch.
         const overlaps = activationTokens.some((t) => reserved.has(t));
         if (overlaps) {
-          continue;
+          return false;
         }
 
         // Reserve and consume tokens now.
@@ -581,6 +616,28 @@ export class DataflowEngine {
         scheduled.push(new ExecuteToken(activationTokens, executeNode));
         scheduledNodeIds.add(node.id);
         progressed = true;
+        return true;
+      };
+
+      // First, schedule non-runtime nodes. This allows ready flows to proceed
+      // before asking for the next runtime input.
+      for (const node of this.nodeStore.getNodes()) {
+        if (scheduled.length >= maxExecutions) break;
+        if (isRuntimeInputSource(node)) continue;
+        tryScheduleNode(node);
+      }
+
+      // If nothing else could run, schedule a single runtime input (if demanded).
+      if (!progressed && !runtimeInputScheduled) {
+        for (const node of this.nodeStore.getNodes()) {
+          if (scheduled.length >= maxExecutions) break;
+          if (!isRuntimeInputSource(node)) continue;
+          if (!demandedRuntimeInputs.has(node.id)) continue;
+          if (tryScheduleNode(node)) {
+            runtimeInputScheduled = true;
+            break;
+          }
+        }
       }
     }
 
