@@ -2,6 +2,7 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   getBezierPath,
+  getStraightPath,
   type EdgeProps,
   useStore,
 } from "@xyflow/react";
@@ -169,14 +170,26 @@ export function LabeledEdge(props: EdgeProps) {
     getSwitchEdgeLabel({ sourceNode, sourceHandleId }) ??
     getSequenceEdgeLabel({ targetNode, targetHandleId });
 
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX: props.sourceX,
-    sourceY: props.sourceY,
-    sourcePosition: props.sourcePosition,
-    targetX: props.targetX,
-    targetY: props.targetY,
-    targetPosition: props.targetPosition,
-  });
+  const useStraight =
+    Boolean(props.data) &&
+    typeof props.data === "object" &&
+    (props.data as { edgeType?: unknown }).edgeType === "straight";
+
+  const [edgePath, labelX, labelY] = useStraight
+    ? getStraightPath({
+        sourceX: props.sourceX,
+        sourceY: props.sourceY,
+        targetX: props.targetX,
+        targetY: props.targetY,
+      })
+    : getBezierPath({
+        sourceX: props.sourceX,
+        sourceY: props.sourceY,
+        sourcePosition: props.sourcePosition,
+        targetX: props.targetX,
+        targetY: props.targetY,
+        targetPosition: props.targetPosition,
+      });
 
   return (
     <>

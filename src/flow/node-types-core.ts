@@ -27,6 +27,8 @@ import { AndNode } from "@/components/nodes/control/and-node";
 import { OrNode } from "@/components/nodes/control/or-node";
 import { NotNode } from "@/components/nodes/control/not-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
+import { ConditionalNode } from "@/components/nodes/control/conditional-node";
+import { SelectorNode } from "@/components/nodes/control/selector-node";
 
 import { WriteNode } from "@/components/nodes/io/write-node";
 
@@ -69,6 +71,8 @@ export const nodeTypesCore: NodeTypes = {
   or: OrNode,
   not: NotNode,
   switch: SwitchNode,
+  conditional: ConditionalNode,
+  selector: SelectorNode,
   write: WriteNode,
   microbitWrite: MicrobitWriteNode,
   microbitSound: MicrobitSoundNode,

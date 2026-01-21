@@ -211,6 +211,12 @@ export function inferPortDataType(params: {
   if (nodeType === "comparison") {
     return handleType === "source" ? "boolean" : "number";
   }
+  if (nodeType === "conditional") {
+    return handleType === "source" ? "number" : "any";
+  }
+  if (nodeType === "selector") {
+    return "number";
+  }
 
   // IO
   if (nodeType === "write") {
@@ -292,6 +298,12 @@ export function getPortTypeMask(params: {
   if (nodeType === "comparison") {
     // Inputs can be anything; output is boolean.
     return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
+  }
+  if (nodeType === "conditional") {
+    return isOutput ? TYPE_NUMBER : TYPE_ANY;
+  }
+  if (nodeType === "selector") {
+    return TYPE_NUMBER;
   }
   if (nodeType === "switch") {
     // Switch passes through the incoming value.

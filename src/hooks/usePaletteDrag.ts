@@ -18,12 +18,14 @@ type SubflowTemplate = {
 type UsePaletteDragParams = {
   reactFlowInstance: ReactFlowInstance | null;
   setNodes: React.Dispatch<React.SetStateAction<FlowNode[]>>;
+  setEdges: React.Dispatch<React.SetStateAction<FlowEdge[]>>;
   subflowTemplates: SubflowTemplate[];
 };
 
 export function usePaletteDrag({
   reactFlowInstance,
   setNodes,
+  setEdges,
   subflowTemplates,
 }: UsePaletteDragParams) {
   const draggingTypeRef = useRef<string | null>(null);
@@ -208,6 +210,43 @@ export function usePaletteDrag({
         }
       }
 
+      if (type === "conditionalPair") {
+        const conditionalId = createNodeId();
+        const selectorId = createNodeId();
+
+        const pairId = createNodeId();
+
+        const conditionalNode: FlowNode = {
+          id: conditionalId,
+          type: "conditional",
+          position,
+          data: { label: "Condicional", pairId, pairRole: "conditional", pairOffsetY: 160 },
+        };
+
+        const selectorNode: FlowNode = {
+          id: selectorId,
+          type: "selector",
+          position: { x: position.x, y: position.y + 160 },
+          data: { label: "Selector", pairId, pairRole: "selector", pairOffsetY: 160 },
+        };
+
+        const edgeId = createNodeId();
+        const edge: FlowEdge = {
+          id: edgeId,
+          source: conditionalId,
+          sourceHandle: "out",
+          target: selectorId,
+          targetHandle: "token",
+          type: "default",
+          data: { edgeType: "straight", pairId, locked: true },
+        };
+
+        setNodes((prev) => [...prev, conditionalNode, selectorNode]);
+        setEdges((prev) => [...prev, edge]);
+        draggingTypeRef.current = null;
+        return;
+      }
+
       const newNode: FlowNode = {
         id: createNodeId(),
         type,
@@ -218,7 +257,7 @@ export function usePaletteDrag({
       setNodes((prev) => [...prev, newNode]);
       draggingTypeRef.current = null;
     },
-    [paletteLabelByType, reactFlowInstance, setNodes, subflowTemplates]
+    [paletteLabelByType, reactFlowInstance, setEdges, setNodes, subflowTemplates]
   );
 
   return {

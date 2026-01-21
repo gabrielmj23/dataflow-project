@@ -50,6 +50,7 @@ import { useRuntimeConsole } from "@/hooks/useRuntimeConsole";
 import { useConnections } from "@/hooks/useConnections";
 import { useClipboardSelection } from "@/hooks/useClipboardSelection";
 import { useWriteNodeReconciliation } from "@/hooks/useWriteNodeReconciliation";
+import { useConditionalNodeReconciliation } from "@/hooks/useConditionalNodeReconciliation";
 import { useSubflowTemplates } from "@/hooks/useSubflowTemplates";
 import {
   type FlowBounds,
@@ -147,7 +148,7 @@ export default function App() {
   });
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
-    usePaletteDrag({ reactFlowInstance, setNodes, subflowTemplates });
+    usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -201,15 +202,106 @@ export default function App() {
     }
   }, []);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) =>
-      setNodes((nodesSnapshot) => applyNodeChanges(changes, nodesSnapshot)),
-    []
-  );
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setNodes((nodesSnapshot) => {
+      const next = applyNodeChanges(changes, nodesSnapshot);
+
+      const movedIds = new Set(
+        changes
+          .filter((change) => change.type === "position")
+          .map((change) => String(change.id))
+      );
+
+      if (movedIds.size === 0) return next;
+
+      const pairs = new Map<
+        string,
+        { conditional?: FlowNode; selector?: FlowNode; offset: number }
+      >();
+
+      for (const node of next) {
+        const data =
+          node.data && typeof node.data === "object"
+            ? (node.data as Record<string, unknown>)
+            : null;
+        const pairId = data?.pairId ? String(data.pairId) : null;
+        if (!pairId) continue;
+
+        const role = data?.pairRole ? String(data.pairRole) : null;
+        const offsetRaw = data?.pairOffsetY;
+        const offset = Number.isFinite(Number(offsetRaw))
+          ? Number(offsetRaw)
+          : 160;
+
+        const entry = pairs.get(pairId) ?? { offset };
+        entry.offset = offset;
+        if (role === "conditional") entry.conditional = node;
+        if (role === "selector") entry.selector = node;
+        pairs.set(pairId, entry);
+      }
+
+      if (pairs.size === 0) return next;
+
+      const overrides = new Map<string, { x: number; y: number }>();
+
+      for (const [pairId, pair] of pairs.entries()) {
+        const conditional = pair.conditional;
+        const selector = pair.selector;
+        if (!conditional || !selector) continue;
+
+        const conditionalMoved = movedIds.has(String(conditional.id));
+        const selectorMoved = movedIds.has(String(selector.id));
+        if (!conditionalMoved && !selectorMoved) continue;
+
+        const offset = pair.offset;
+
+        if (conditionalMoved) {
+          overrides.set(String(selector.id), {
+            x: conditional.position.x,
+            y: conditional.position.y + offset,
+          });
+        } else if (selectorMoved) {
+          overrides.set(String(conditional.id), {
+            x: selector.position.x,
+            y: selector.position.y - offset,
+          });
+        }
+      }
+
+      if (overrides.size === 0) return next;
+
+      return next.map((node) => {
+        const nextPos = overrides.get(String(node.id));
+        if (!nextPos) return node;
+        return {
+          ...node,
+          position: nextPos,
+        } as FlowNode;
+      });
+    });
+  }, []);
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) =>
-      setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
-    []
+      setEdges((edgesSnapshot) => {
+        const lockedEdgeIds = new Set(
+          edgesSnapshot
+            .filter(
+              (edge) =>
+                edge.data &&
+                typeof edge.data === "object" &&
+                (edge.data as { locked?: unknown }).locked === true,
+            )
+            .map((edge) => String(edge.id)),
+        );
+
+        const filteredChanges = changes.filter((change) => {
+          if (change.type !== "remove") return true;
+          return !lockedEdgeIds.has(String(change.id));
+        });
+
+        return applyEdgeChanges(filteredChanges, edgesSnapshot);
+      }),
+    [],
   );
 
   const {
@@ -225,6 +317,15 @@ export default function App() {
   // - Shrink inputCount to connectedCount+1 (keep one empty handle)
   // - Remap/remove {k} placeholders accordingly
   useWriteNodeReconciliation({
+    edges,
+    setNodes,
+    setEdges,
+    isRestoringRef,
+    isRuntimeUpdateRef,
+    isDraggingRef,
+  });
+
+  useConditionalNodeReconciliation({
     edges,
     setNodes,
     setEdges,
