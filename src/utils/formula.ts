@@ -13,7 +13,21 @@ export type FormulaValidationResult = {
   compiled?: FormulaCompiled;
 };
 
-const ALLOWED_OPERATORS = new Set(["+", "-", "*", "/", "^"]);
+const ALLOWED_OPERATORS = new Set([
+  "+",
+  "-",
+  "*",
+  "/",
+  "^",
+  ">",
+  "<",
+  ">=",
+  "<=",
+  "==",
+  "!=",
+  "and",
+  "or",
+]);
 
 const ALLOWED_FUNCTIONS = new Map<string, { min: number; max?: number }>([
   ["sqrt", { min: 1, max: 1 }],
@@ -116,6 +130,9 @@ function validateNode(params: {
 
   if ((anyNode as { isConstantNode?: boolean }).isConstantNode) {
     const value = (anyNode as { value?: unknown }).value;
+    if (typeof value === "boolean") {
+      return { ok: true };
+    }
     if (!isFiniteNumber(value)) {
       return { ok: false, error: "Constante numérica inválida." };
     }

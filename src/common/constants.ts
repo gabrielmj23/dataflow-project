@@ -27,6 +27,8 @@ export const NODE_TYPES = {
   OR_NODE: "or",
   NOT_NODE: "not",
   SWITCH_NODE: "switch",
+  CONDITIONAL_NODE: "conditional",
+  SELECTOR_NODE: "selector",
   FILTER_INPUT_VALUE: "filterInputValue",
   MAP_INPUT_VALUE: "mapInputValue",
   ZIP_NODE: "zip",

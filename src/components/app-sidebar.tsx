@@ -18,6 +18,7 @@ import {
   Volume2,
   X,
   Cpu,
+  ListChecks,
 } from "lucide-react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
@@ -337,13 +338,15 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "and":
       case "or":
       case "not":
-      case "switch": {
+      case "switch":
+      case "conditionalPair": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           and: "and",
           or: "or",
           not: "not",
           switch: "switch",
+          conditionalPair: "conditionalPair",
         };
         return (
           <div
@@ -363,6 +366,12 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-5 w-5" />
+              )}
+              {symbolMap[type] === "conditionalPair" && (
+                <span className="flex items-center gap-1">
+                  <ListChecks className="h-5 w-5" />
+                  <Shuffle className="h-5 w-5" />
+                </span>
               )}
             </span>
             <span className="text-[0.75rem] leading-tight">{label}</span>

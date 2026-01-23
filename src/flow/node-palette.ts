@@ -150,6 +150,12 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Switch",
         description: "Activa una de varias salidas según una condición.",
       },
+      {
+        type: "conditionalPair",
+        label: "Condicional",
+        description:
+          "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
+      },
     ],
   },
   {

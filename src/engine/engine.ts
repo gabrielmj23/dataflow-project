@@ -775,12 +775,11 @@ export class DataflowEngine {
     );
 
     // Order arguments by the node's declared port order.
-    const argValues = nodeDefinition.ports
-      .map((portId) =>
-        localInputTokens.find((t) => t.location.portId === portId)
-      )
-      .filter((t): t is DataToken<unknown> => Boolean(t))
-      .map((t) => t.value);
+    // Keep positional alignment with declared ports; allow missing inputs as undefined
+    const argValues = nodeDefinition.ports.map((portId) => {
+      const tok = localInputTokens.find((t) => t.location.portId === portId);
+      return tok ? tok.value : undefined;
+    });
 
     // Optional slow-motion delay to visualize program execution.
     if (ENGINE_STEP_DELAY_MS > 0) {

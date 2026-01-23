@@ -63,6 +63,7 @@ import {
   EngineReduceNode,
   EngineZipNode,
 } from "./nodes/list-nodes";
+import { validateFormula } from "@/utils/formula";
 
 export type EngineProgramStores = {
   nodeStore: NodeStore;
@@ -188,6 +189,8 @@ function buildEngineStoresFromFlowGraph(params: {
     string,
     { start: boolean; end: boolean; step: boolean }
   >();
+  const selectorIncomingByNodeId = new Map<string, Set<string>>();
+  const conditionalIncomingByNodeId = new Map<string, Set<string>>();
   for (const edge of params.edges) {
     const targetId = String(edge.target);
     const targetNode = nodeById.get(targetId);
@@ -221,6 +224,34 @@ function buildEngineStoresFromFlowGraph(params: {
       pulseSequenceIncomingByNodeId.set(targetId, next);
     }
 
+    if (targetNode.type === NODE_TYPES.SELECTOR_NODE) {
+      const portId = mapHandleToPortId({
+        nodeId: targetId,
+        nodeType: targetNode.type,
+        handleId: edge.targetHandle ?? null,
+        direction: "target",
+      });
+      if (portId) {
+        const set = selectorIncomingByNodeId.get(targetId) ?? new Set<string>();
+        set.add(portId);
+        selectorIncomingByNodeId.set(targetId, set);
+      }
+    }
+
+    if (targetNode.type === NODE_TYPES.CONDITIONAL_NODE) {
+      const portId = mapHandleToPortId({
+        nodeId: targetId,
+        nodeType: targetNode.type,
+        handleId: edge.targetHandle ?? null,
+        direction: "target",
+      });
+      if (portId) {
+        const set = conditionalIncomingByNodeId.get(targetId) ?? new Set<string>();
+        set.add(portId);
+        conditionalIncomingByNodeId.set(targetId, set);
+      }
+    }
+
     if (targetNode.type !== NODE_TYPES.WRITE_SINK) continue;
 
     const handleId = edge.targetHandle ?? null;
@@ -238,6 +269,8 @@ function buildEngineStoresFromFlowGraph(params: {
       timerHasIncomingByNodeId,
       sequenceIncomingByNodeId,
       pulseSequenceIncomingByNodeId,
+      selectorIncomingByNodeId,
+      conditionalIncomingByNodeId,
       onLog: params.onLog,
       onPrompt: params.onPrompt,
       signal: params.signal,
@@ -907,6 +940,47 @@ function mapHandleToPortId(params: {
     );
   }
 
+  if (nodeType === NODE_TYPES.CONDITIONAL_NODE) {
+    if (direction === "target") {
+      const idx = parseIndexHandle(handleId) ?? 1;
+      if (handleId?.startsWith("in-") || handleId == null) {
+        return `input${idx}`;
+      }
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
+      );
+    }
+
+    if (handleId === "out" || handleId == null) return "output";
+    throw new Error(
+      `Unknown output handle '${String(
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
+    );
+  }
+
+  if (nodeType === NODE_TYPES.SELECTOR_NODE) {
+    if (direction === "target") {
+      if (handleId === "token") return "token";
+      // Value handles use the token string as handle id; preserve as port id.
+      if (handleId) return String(handleId);
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
+      );
+    }
+
+    if (handleId === "out" || handleId == null) return "output";
+    throw new Error(
+      `Unknown output handle '${String(
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
+    );
+  }
+
   // Iteration/list nodes
   if (nodeType === NODE_TYPES.ZIP_NODE) {
     if (direction === "target") {
@@ -1012,6 +1086,8 @@ function flowNodeToEngineDefinition(
       string,
       { start: boolean; end: boolean; step: boolean }
     >;
+    selectorIncomingByNodeId?: Map<string, Set<string>>;
+    conditionalIncomingByNodeId?: Map<string, Set<string>>;
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
@@ -1342,6 +1418,131 @@ function flowNodeToEngineDefinition(
         conditions.length > 0
           ? conditions
           : [{ operator: "truthy" }, { operator: "falsy" }],
+      );
+    }
+
+    case NODE_TYPES.CONDITIONAL_NODE: {
+      const inputsRaw = isNonEmptyArray(data.inputs)
+        ? data.inputs
+        : [{ label: "a" }];
+      const inputs = inputsRaw.map((it, idx) => {
+        const labelRaw =
+          it && typeof it === "object" ? (it as { label?: unknown }).label : null;
+        const label =
+          typeof labelRaw === "string" && labelRaw.trim().length > 0
+            ? labelRaw.trim()
+            : String.fromCharCode(97 + idx);
+        return { label, portId: `input${idx + 1}` };
+      });
+
+      const conditionsRaw = isNonEmptyArray(data.conditions)
+        ? data.conditions
+        : [{ outputToken: "Salida 1", formula: inputs[0]?.label ?? "a" }];
+      const conditions = conditionsRaw.map((cond, idx) => {
+        const outputTokenRaw =
+          cond && typeof cond === "object"
+            ? (cond as { outputToken?: unknown }).outputToken
+            : null;
+        const formulaRaw =
+          cond && typeof cond === "object"
+            ? (cond as { formula?: unknown }).formula
+            : null;
+
+        const outputToken =
+          typeof outputTokenRaw === "string" && outputTokenRaw.trim().length > 0
+            ? outputTokenRaw.trim()
+            : `Salida ${idx + 1}`;
+
+        const formula = typeof formulaRaw === "string" ? formulaRaw.trim() : "";
+        const validation = validateFormula(formula === "" ? "0" : formula);
+
+        return {
+          outputToken,
+          compiled: validation.ok ? validation.compiled ?? null : null,
+        };
+      });
+
+      const inputPorts = inputs.map((i) => i.portId);
+      const ports = [...inputPorts, "output"];
+
+      const incoming = context?.conditionalIncomingByNodeId?.get(String(flowNode.id));
+      const firePatterns = inputPorts.map((portId) =>
+        incoming?.has(portId) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
+      );
+
+      return new NodeDefinition(
+        (...args: unknown[]) => {
+          const scope: Record<string, number> = {};
+          for (let i = 0; i < inputs.length; i += 1) {
+            const name = inputs[i]?.label ?? `var${i + 1}`;
+            const value = args[i];
+            const num = Number(value);
+            scope[name] = Number.isFinite(num) ? num : 0;
+          }
+
+          for (const cond of conditions) {
+            if (!cond.compiled) continue;
+            const result = cond.compiled.evaluate(scope);
+            const truthy = typeof result === "boolean" ? result : Number(result) !== 0;
+            if (truthy) {
+              return [
+                new DataToken(
+                  cond.outputToken,
+                  new PortAddress("", "output"),
+                ),
+              ];
+            }
+          }
+
+          return [new DataToken(undefined, new PortAddress("", "output"))];
+        },
+        firePatterns,
+        ports,
+      );
+    }
+
+    case NODE_TYPES.SELECTOR_NODE: {
+      const optionsRaw = Array.isArray(data.options) ? data.options : [];
+      const options = optionsRaw.length > 0 ? optionsRaw : [
+        { token: "Salida 1", value: 0 },
+        { token: "Salida 2", value: 0 },
+      ];
+
+      const tokens = options.map((opt, idx) => {
+        const tokenRaw =
+          opt && typeof opt === "object"
+            ? (opt as { token?: unknown }).token
+            : null;
+        return typeof tokenRaw === "string" && tokenRaw.trim().length > 0
+          ? tokenRaw.trim()
+          : `Salida ${idx + 1}`;
+      });
+
+      const ports = ["token", ...tokens, "output"];
+
+      const incoming = context?.selectorIncomingByNodeId?.get(String(flowNode.id));
+      const firePatterns = [
+        FirePatterns.EXISTS,
+        ...tokens.map((t) =>
+          incoming?.has(t) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
+        ),
+      ];
+
+      return new NodeDefinition(
+        (token: unknown, ...values: unknown[]) => {
+          const tokenStr = String(token ?? "");
+          const matchIdx = tokens.findIndex((t) => t === tokenStr);
+          const selected = matchIdx >= 0 ? values[matchIdx] : undefined;
+
+          return [
+            new DataToken(
+              selected,
+              new PortAddress("", "output"),
+            ),
+          ];
+        },
+        firePatterns,
+        ports,
       );
     }
 
