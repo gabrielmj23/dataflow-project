@@ -6,6 +6,7 @@ import { ConstantNumberInputNode } from "@/components/nodes/input/constant-numbe
 import { ConstantBooleanInputNode } from "@/components/nodes/input/constant-boolean-input-node";
 import { ConstantTextInputNode } from "@/components/nodes/input/constant-text-input-node";
 import { RandomInputNode } from "@/components/nodes/input/random-input-node";
+import { ChoiceInputNode } from "@/components/nodes/input/choice-input-node";
 import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
 import { RuntimeInputNode } from "@/components/nodes/input/runtime-input-node";
 
@@ -55,6 +56,7 @@ export const nodeTypesCore: NodeTypes = {
   constantText: ConstantTextInputNode,
   runtimeInput: RuntimeInputNode,
   randomInput: RandomInputNode,
+  choiceInput: ChoiceInputNode,
   timerInput: TimerInputNode,
   microbitReadButton: MicrobitReadButtonInputNode,
   sum: SumNode,

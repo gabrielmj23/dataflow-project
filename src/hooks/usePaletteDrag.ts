@@ -199,6 +199,13 @@ export function usePaletteDrag({
             label: (data.label as string) ?? "Valor Aleatorio",
           };
         }
+        if (type === "choiceInput") {
+          data = {
+            ...(data ?? {}),
+            choices: ["roca", "papel", "tijera"],
+            label: (data.label as string) ?? "Seleccionador",
+          };
+        }
         if (type === "sequence") {
           data = {
             ...(data ?? {}),

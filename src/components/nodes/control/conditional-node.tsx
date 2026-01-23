@@ -444,7 +444,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
             <DialogTitle id={titleId}>Configurar Condicional</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-6 max-h-[80vh] overflow-y-auto">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium">Condiciones</div>
