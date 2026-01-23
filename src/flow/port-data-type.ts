@@ -216,7 +216,8 @@ export function inferPortDataType(params: {
     return handleType === "source" ? "number" : "any";
   }
   if (nodeType === "selector") {
-    return handleType === "source" ? "number" : "any";
+    // Selector passes through the selected value; accept/emit any type.
+    return "any";
   }
 
   // IO
@@ -305,7 +306,8 @@ export function getPortTypeMask(params: {
     return isOutput ? TYPE_NUMBER : TYPE_ANY;
   }
   if (nodeType === "selector") {
-    return isOutput ? TYPE_NUMBER : TYPE_ANY;
+    // Selector inputs and output accept any type (token + routed value).
+    return TYPE_ANY;
   }
   if (nodeType === "switch") {
     // Switch passes through the incoming value.

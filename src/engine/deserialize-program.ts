@@ -63,6 +63,7 @@ import {
   EngineReduceNode,
   EngineZipNode,
 } from "./nodes/list-nodes";
+import { validateFormula } from "@/utils/formula";
 
 export type EngineProgramStores = {
   nodeStore: NodeStore;
@@ -907,6 +908,47 @@ function mapHandleToPortId(params: {
     );
   }
 
+  if (nodeType === NODE_TYPES.CONDITIONAL_NODE) {
+    if (direction === "target") {
+      const idx = parseIndexHandle(handleId) ?? 1;
+      if (handleId?.startsWith("in-") || handleId == null) {
+        return `input${idx}`;
+      }
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
+      );
+    }
+
+    if (handleId === "out" || handleId == null) return "output";
+    throw new Error(
+      `Unknown output handle '${String(
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
+    );
+  }
+
+  if (nodeType === NODE_TYPES.SELECTOR_NODE) {
+    if (direction === "target") {
+      if (handleId === "token") return "token";
+      // Value handles use the token string as handle id; preserve as port id.
+      if (handleId) return String(handleId);
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
+      );
+    }
+
+    if (handleId === "out" || handleId == null) return "output";
+    throw new Error(
+      `Unknown output handle '${String(
+        handleId,
+      )}' for node ${nodeId} (${nodeType}).`,
+    );
+  }
+
   // Iteration/list nodes
   if (nodeType === NODE_TYPES.ZIP_NODE) {
     if (direction === "target") {
@@ -1342,6 +1384,116 @@ function flowNodeToEngineDefinition(
         conditions.length > 0
           ? conditions
           : [{ operator: "truthy" }, { operator: "falsy" }],
+      );
+    }
+
+    case NODE_TYPES.CONDITIONAL_NODE: {
+      const inputsRaw = Array.isArray(data.inputs) ? data.inputs : [];
+      const inputs = inputsRaw.map((it, idx) => {
+        const labelRaw =
+          it && typeof it === "object" ? (it as { label?: unknown }).label : null;
+        const label =
+          typeof labelRaw === "string" && labelRaw.trim().length > 0
+            ? labelRaw.trim()
+            : String.fromCharCode(97 + idx);
+        return { label, portId: `input${idx + 1}` };
+      });
+
+      const conditionsRaw = Array.isArray(data.conditions) ? data.conditions : [];
+      const conditions = conditionsRaw.map((cond, idx) => {
+        const outputTokenRaw =
+          cond && typeof cond === "object"
+            ? (cond as { outputToken?: unknown }).outputToken
+            : null;
+        const formulaRaw =
+          cond && typeof cond === "object"
+            ? (cond as { formula?: unknown }).formula
+            : null;
+
+        const outputToken =
+          typeof outputTokenRaw === "string" && outputTokenRaw.trim().length > 0
+            ? outputTokenRaw.trim()
+            : `Salida ${idx + 1}`;
+
+        const formula = typeof formulaRaw === "string" ? formulaRaw.trim() : "";
+        const validation = validateFormula(formula === "" ? "0" : formula);
+
+        return {
+          outputToken,
+          compiled: validation.ok ? validation.compiled ?? null : null,
+        };
+      });
+
+      const inputPorts = inputs.map((i) => i.portId);
+      const ports = [...inputPorts, "output"];
+      const firePatterns = inputPorts.map(() => FirePatterns.EXISTS);
+
+      return new NodeDefinition(
+        (...args: unknown[]) => {
+          const scope: Record<string, number> = {};
+          for (let i = 0; i < inputs.length; i += 1) {
+            const name = inputs[i]?.label ?? `var${i + 1}`;
+            const value = args[i];
+            const num = Number(value);
+            scope[name] = Number.isFinite(num) ? num : 0;
+          }
+
+          for (const cond of conditions) {
+            if (!cond.compiled) continue;
+            const result = cond.compiled.evaluate(scope);
+            const truthy = typeof result === "boolean" ? result : Number(result) !== 0;
+            if (truthy) {
+              return [
+                new DataToken(
+                  cond.outputToken,
+                  new PortAddress("", "output"),
+                ),
+              ];
+            }
+          }
+
+          return [new DataToken(undefined, new PortAddress("", "output"))];
+        },
+        firePatterns,
+        ports,
+      );
+    }
+
+    case NODE_TYPES.SELECTOR_NODE: {
+      const optionsRaw = Array.isArray(data.options) ? data.options : [];
+      const options = optionsRaw.length > 0 ? optionsRaw : [
+        { token: "Salida 1", value: 0 },
+        { token: "Salida 2", value: 0 },
+      ];
+
+      const tokens = options.map((opt, idx) => {
+        const tokenRaw =
+          opt && typeof opt === "object"
+            ? (opt as { token?: unknown }).token
+            : null;
+        return typeof tokenRaw === "string" && tokenRaw.trim().length > 0
+          ? tokenRaw.trim()
+          : `Salida ${idx + 1}`;
+      });
+
+      const ports = ["token", ...tokens, "output"];
+      const firePatterns = [FirePatterns.EXISTS, ...tokens.map(() => FirePatterns.DONT_CARE)];
+
+      return new NodeDefinition(
+        (token: unknown, ...values: unknown[]) => {
+          const tokenStr = String(token ?? "");
+          const matchIdx = tokens.findIndex((t) => t === tokenStr);
+          const selected = matchIdx >= 0 ? values[matchIdx] : undefined;
+
+          return [
+            new DataToken(
+              selected,
+              new PortAddress("", "output"),
+            ),
+          ];
+        },
+        firePatterns,
+        ports,
       );
     }
 
