@@ -204,10 +204,64 @@ export default function App() {
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nodesSnapshot) => {
-      const next = applyNodeChanges(changes, nodesSnapshot);
+      const removedChanges = changes.filter((change) => change.type === "remove");
+      let expandedChanges = changes;
+
+      if (removedChanges.length > 0) {
+        const removedIds = new Set(removedChanges.map((change) => String(change.id)));
+        const removedPairIds = new Set<string>();
+
+        for (const node of nodesSnapshot) {
+          const nodeId = String(node.id);
+          if (!removedIds.has(nodeId)) continue;
+
+          const data =
+            node.data && typeof node.data === "object"
+              ? (node.data as Record<string, unknown>)
+              : null;
+          const pairId = data?.pairId ? String(data.pairId) : null;
+          if (pairId) removedPairIds.add(pairId);
+        }
+
+        if (removedPairIds.size > 0) {
+          for (const node of nodesSnapshot) {
+            const data =
+              node.data && typeof node.data === "object"
+                ? (node.data as Record<string, unknown>)
+                : null;
+            const pairId = data?.pairId ? String(data.pairId) : null;
+            if (pairId && removedPairIds.has(pairId)) {
+              removedIds.add(String(node.id));
+            }
+          }
+
+          expandedChanges = changes.concat(
+            Array.from(removedIds)
+              .filter((id) => !removedChanges.some((c) => String(c.id) === id))
+              .map((id) => ({ type: "remove", id } as NodeChange))
+          );
+
+          setEdges((edgesSnapshot) =>
+            edgesSnapshot.filter((edge) => {
+              const data =
+                edge.data && typeof edge.data === "object"
+                  ? (edge.data as Record<string, unknown>)
+                  : null;
+              const edgePairId = data?.pairId ? String(data.pairId) : null;
+              if (edgePairId && removedPairIds.has(edgePairId)) return false;
+              if (removedIds.has(String(edge.source)) || removedIds.has(String(edge.target))) {
+                return false;
+              }
+              return true;
+            })
+          );
+        }
+      }
+
+      const next = applyNodeChanges(expandedChanges, nodesSnapshot);
 
       const movedIds = new Set(
-        changes
+        expandedChanges
           .filter((change) => change.type === "position")
           .map((change) => String(change.id))
       );

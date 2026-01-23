@@ -13,7 +13,21 @@ export type FormulaValidationResult = {
   compiled?: FormulaCompiled;
 };
 
-const ALLOWED_OPERATORS = new Set(["+", "-", "*", "/", "^"]);
+const ALLOWED_OPERATORS = new Set([
+  "+",
+  "-",
+  "*",
+  "/",
+  "^",
+  ">",
+  "<",
+  ">=",
+  "<=",
+  "==",
+  "!=",
+  "and",
+  "or",
+]);
 
 const ALLOWED_FUNCTIONS = new Map<string, { min: number; max?: number }>([
   ["sqrt", { min: 1, max: 1 }],

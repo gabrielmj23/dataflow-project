@@ -1,17 +1,9 @@
-import { memo, useCallback, useId, useState } from "react";
-import { Position, useReactFlow, type NodeProps } from "@xyflow/react";
+import { memo, useEffect, useMemo } from "react";
+import { Position, useReactFlow, useStore, type NodeProps } from "@xyflow/react";
 import { Shuffle } from "lucide-react";
 
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   getPortTypeMask,
@@ -20,7 +12,7 @@ import {
 
 export type SelectorOption = {
   label?: string;
-  token: number;
+  token: string;
   value: number;
 };
 
@@ -32,9 +24,19 @@ export type SelectorNodeData = {
 };
 
 const DEFAULT_OPTIONS: SelectorOption[] = [
-  { label: "Token 1", token: 1, value: 10 },
-  { label: "Token 2", token: 2, value: 20 },
+  { label: "Salida 1", token: "Salida 1", value: 10 },
+  { label: "Salida 2", token: "Salida 2", value: 20 },
 ];
+
+function offsets(count: number): string[] {
+  const safe = Math.max(0, Math.floor(count));
+  if (safe === 0) return [];
+  if (safe === 1) return ["50%"];
+  const start = 15;
+  const end = 85;
+  const step = (end - start) / (safe - 1);
+  return Array.from({ length: safe }, (_, i) => `${start + step * i}%`);
+}
 
 function sanitizeOptions(value: unknown): SelectorOption[] {
   if (!Array.isArray(value)) return DEFAULT_OPTIONS;
@@ -47,12 +49,11 @@ function sanitizeOptions(value: unknown): SelectorOption[] {
     const valueRaw = (item as { value?: unknown }).value;
     const labelRaw = (item as { label?: unknown }).label;
 
-    const token = Number.isFinite(Number(tokenRaw))
-      ? Math.floor(Number(tokenRaw))
-      : i + 1;
-    const val = Number.isFinite(Number(valueRaw))
-      ? Number(valueRaw)
-      : 0;
+    const token =
+      tokenRaw === undefined || tokenRaw === null
+        ? `${i + 1}`
+        : String(tokenRaw);
+    const val = Number.isFinite(Number(valueRaw)) ? Number(valueRaw) : 0;
 
     out.push({
       label: typeof labelRaw === "string" ? labelRaw : undefined,
@@ -65,55 +66,92 @@ function sanitizeOptions(value: unknown): SelectorOption[] {
 }
 
 export const SelectorNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Selector", runtimeError, options: rawOptions, defaultValue } =
+  const { label = "Selector", runtimeError, options: rawOptions } =
     (data ?? {}) as SelectorNodeData;
 
   const options = sanitizeOptions(rawOptions);
+  const pairId = (data as { pairId?: string | null })?.pairId ?? null;
 
   const { setNodes } = useReactFlow();
-  const setNodeData = useCallback(
-    (next: { options: SelectorOption[]; defaultValue?: number }) => {
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === id
-            ? {
-                ...node,
-                data: {
-                  ...(node.data ?? {}),
-                  options: next.options,
-                  defaultValue: next.defaultValue,
-                },
-              }
-            : node,
-        ),
+  const nodes = useStore((state) => state.nodes);
+  const edges = useStore((state) => state.edges);
+
+  const pairedConditional = useMemo(() => {
+    if (pairId) {
+      return nodes.find(
+        (n) => n.type === "conditional" && (n.data as { pairId?: string | null })?.pairId === pairId,
       );
-    },
-    [id, setNodes],
-  );
+    }
 
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [draftOptions, setDraftOptions] = useState<SelectorOption[]>(options);
-  const [draftDefaultValue, setDraftDefaultValue] = useState<number | undefined>(
-    typeof defaultValue === "number" ? defaultValue : undefined,
-  );
-
-  const openDialog = useCallback(() => {
-    setDraftOptions(options);
-    setDraftDefaultValue(
-      typeof defaultValue === "number" ? defaultValue : undefined,
+    const edge = edges.find(
+      (e) => String(e.target) === String(id) && e.targetHandle === "token",
     );
-    setIsDialogOpen(true);
-  }, [defaultValue, options]);
+    if (!edge) return null;
+    const candidate = nodes.find((n) => String(n.id) === String(edge.source));
+    return candidate?.type === "conditional" ? candidate : null;
+  }, [edges, id, nodes, pairId]);
 
-  const saveDialog = useCallback(() => {
-    setNodeData({
-      options: sanitizeOptions(draftOptions),
-      defaultValue: draftDefaultValue,
+  const syncedOptions = useMemo(() => {
+    const conditional = pairedConditional;
+    if (!conditional) return options;
+
+    const condsRaw = conditional?.data && Array.isArray((conditional.data as { conditions?: unknown }).conditions)
+      ? ((conditional.data as { conditions?: unknown }).conditions as Array<{ outputToken?: unknown }> )
+      : null;
+    if (!condsRaw || condsRaw.length === 0) return options.slice(0, 1);
+
+    return condsRaw.map((cond, idx) => {
+      const labelText =
+        typeof cond.outputToken === "string" && cond.outputToken.trim()
+          ? cond.outputToken.trim()
+          : `Salida ${idx + 1}`;
+      const existing = options[idx];
+      return {
+        label: labelText,
+        token: typeof cond.outputToken === "string" && cond.outputToken.trim() ? cond.outputToken.trim() : `${idx + 1}`,
+        value: typeof existing?.value === "number" ? existing.value : 0,
+      } as SelectorOption;
     });
-    setIsDialogOpen(false);
-  }, [draftDefaultValue, draftOptions, setNodeData]);
+  }, [nodes, options, pairedConditional]);
 
-  const titleId = useId();
+  const valueHandleOffsets = useMemo(
+    () => offsets(syncedOptions.length),
+    [syncedOptions.length],
+  );
+
+  const minHeight = useMemo(
+    () => 110 + Math.max(0, syncedOptions.length - 2) * 8,
+    [syncedOptions.length],
+  );
+
+  // Persist synced options into node data when they change.
+  useEffect(() => {
+    const isEqual =
+      options.length === syncedOptions.length &&
+      options.every((opt, idx) => {
+        const other = syncedOptions[idx];
+        return (
+          opt?.label === other?.label &&
+          opt?.token === other?.token &&
+          opt?.value === other?.value
+        );
+      });
+    if (isEqual) return;
+
+    setNodes((prev) =>
+      prev.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: {
+                ...(node.data ?? {}),
+                options: syncedOptions,
+              },
+            }
+          : node,
+      ),
+    );
+  }, [id, options, setNodes, syncedOptions]);
 
   const maskFor = (params: {
     handleType: "source" | "target";
@@ -131,211 +169,82 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
   }) => maskToVisualPortDataType(maskFor(params));
 
   return (
-    <>
-      <BaseNode
-        runtimeError={runtimeError}
-        className="relative flex h-20 w-64 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
-      >
-        <BaseNodeHeader className="absolute top-1 right-1">
-          <NodeSettingsButton onClick={openDialog} />
-        </BaseNodeHeader>
+    <BaseNode
+      runtimeError={runtimeError}
+      className="relative flex w-72 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+      style={{ minHeight: `${minHeight}px` }}
+    >
+      <CustomTypedHandle
+        type="target"
+        position={Position.Top}
+        id="token"
+        dataType={typeFor({ handleType: "target", handleId: "token" })}
+        typeMask={maskFor({ handleType: "target", handleId: "token" })}
+        className="h-2 w-2"
+        indicatorClassName="border-orange-600"
+      />
 
-        <div className="flex flex-col items-center gap-0.5">
-          <div className="text-xl font-bold leading-none">
-            <Shuffle className="h-5 w-5" />
-          </div>
-          <div className="text-sm leading-tight">{label}</div>
+      <div className="flex flex-col items-center gap-0.5">
+        <div className="text-xl font-bold leading-none">
+          <Shuffle className="h-5 w-5" />
         </div>
+        <div className="text-sm leading-tight">{label}</div>
+        {runtimeError ? (
+          <div className="text-[11px] text-red-200">{runtimeError}</div>
+        ) : null}
+      </div>
 
-        <div className="mt-1 w-full text-left text-[11px] text-white/85">
-          {options.slice(0, 4).map((opt, idx) => (
-            <div key={`opt-${idx}`} className="flex items-center justify-between">
-              <span>{opt.label ?? `Token ${opt.token}`}</span>
-              <span className="font-semibold">{opt.value}</span>
-            </div>
-          ))}
-          {options.length > 4 && (
-            <div className="text-[10px] text-white/70">
-              +{options.length - 4} más
-            </div>
-          )}
-        </div>
+      {/* Handles anchored to the node edge (use token string as handle id) */}
+      {syncedOptions.map((opt, idx) => {
+        const tokenId = String(opt.token ?? `${idx + 1}`);
+        return (
+          <CustomTypedHandle
+            key={`handle-${tokenId}-${idx}`}
+            type="target"
+            position={Position.Left}
+            id={tokenId}
+            style={{ top: valueHandleOffsets[idx] ?? "50%" }}
+            dataType={typeFor({ handleType: "target", handleId: tokenId })}
+            typeMask={maskFor({ handleType: "target", handleId: tokenId })}
+            className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
+          />
+        );
+      })}
 
-        <CustomTypedHandle
-          type="target"
-          position={Position.Top}
-          id="token"
-          dataType={typeFor({ handleType: "target", handleId: "token" })}
-          typeMask={maskFor({ handleType: "target", handleId: "token" })}
-          className="absolute left-1/2 top-0 h-2 w-2 -translate-x-1/2"
-          indicatorClassName="border-orange-600"
-        />
-        <CustomTypedHandle
-          type="source"
-          position={Position.Right}
-          id="out"
-          dataType={typeFor({ handleType: "source", handleId: "out" })}
-          typeMask={maskFor({ handleType: "source", handleId: "out" })}
-          className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-          indicatorClassName="border-orange-600"
-        />
-      </BaseNode>
+      {/* Labels aligned with handles (absolute, same offsets) */}
+      {syncedOptions.map((opt, idx) => {
+        const label = opt.label ?? String(opt.token);
+        const trimmed = String(label ?? "").trim();
+        const len = Math.max(0, trimmed.length);
+        const widthPx = len <= 1 ? 36 : Math.min(120, 12 + len * 8);
 
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle id={titleId}>Configurar Selector</DialogTitle>
-          </DialogHeader>
+        return (
+          <Input
+            key={`label-${idx}`}
+            value={label}
+            readOnly
+            tabIndex={-1}
+            className="nodrag absolute left-2 h-6 -translate-y-1/2 border-transparent bg-transparent px-1 text-center text-[10px] text-white placeholder:text-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none pointer-events-none"
+            style={{
+              top: `calc(${valueHandleOffsets[idx] ?? "50%"} + 9px)`,
+              width: `${widthPx}px`,
+              transform: "translateY(-50%)",
+            }}
+          />
+        );
+      })}
 
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Valores por token</div>
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() =>
-                  setDraftOptions((prev) => [
-                    ...prev,
-                    {
-                      label: `Token ${prev.length + 1}`,
-                      token: prev.length + 1,
-                      value: 0,
-                    },
-                  ])
-                }
-              >
-                Agregar token
-              </Button>
-            </div>
-
-            <div className="space-y-2">
-              {draftOptions.map((opt, idx) => (
-                <div
-                  key={`opt-${idx}`}
-                  className="grid grid-cols-1 gap-2 rounded-md border p-2 sm:grid-cols-4"
-                >
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-900">
-                      Etiqueta
-                    </label>
-                    <Input
-                      value={opt.label ?? ""}
-                      placeholder={`Token ${idx + 1}`}
-                      onChange={(e) => {
-                        const next = e.currentTarget.value;
-                        setDraftOptions((prev) =>
-                          prev.map((o, i) =>
-                            i === idx
-                              ? { ...o, label: next.trim() ? next : undefined }
-                              : o,
-                          ),
-                        );
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-900">
-                      Token
-                    </label>
-                    <Input
-                      type="number"
-                      value={String(opt.token)}
-                      onChange={(e) => {
-                        const next = Number(e.currentTarget.value);
-                        setDraftOptions((prev) =>
-                          prev.map((o, i) =>
-                            i === idx
-                              ? {
-                                  ...o,
-                                  token: Number.isFinite(next)
-                                    ? Math.floor(next)
-                                    : o.token,
-                                }
-                              : o,
-                          ),
-                        );
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="mb-1 block text-xs font-medium text-gray-900">
-                      Valor
-                    </label>
-                    <Input
-                      type="number"
-                      value={String(opt.value)}
-                      onChange={(e) => {
-                        const next = Number(e.currentTarget.value);
-                        setDraftOptions((prev) =>
-                          prev.map((o, i) =>
-                            i === idx
-                              ? {
-                                  ...o,
-                                  value: Number.isFinite(next) ? next : o.value,
-                                }
-                              : o,
-                          ),
-                        );
-                      }}
-                    />
-                  </div>
-                  <div className="flex items-end">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() =>
-                        setDraftOptions((prev) =>
-                          prev.length <= 1
-                            ? prev
-                            : prev.filter((_, i) => i !== idx),
-                        )
-                      }
-                      disabled={draftOptions.length <= 1}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-900">
-                Valor por defecto (si no hay coincidencia)
-              </label>
-              <Input
-                type="number"
-                value={
-                  typeof draftDefaultValue === "number"
-                    ? String(draftDefaultValue)
-                    : ""
-                }
-                placeholder="(opcional)"
-                onChange={(e) => {
-                  const next = Number(e.currentTarget.value);
-                  setDraftDefaultValue(
-                    Number.isFinite(next) ? next : undefined,
-                  );
-                }}
-              />
-            </div>
-
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
-              <Button type="button" onClick={saveDialog}>
-                Guardar
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
+      <CustomTypedHandle
+        type="source"
+        position={Position.Right}
+        id="out"
+        dataType={typeFor({ handleType: "source", handleId: "out" })}
+        typeMask={maskFor({ handleType: "source", handleId: "out" })}
+        className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+        indicatorClassName="border-orange-600"
+      />
+    </BaseNode>
   );
 });
 

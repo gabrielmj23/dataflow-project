@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
   Position,
   useReactFlow,
+  useStore,
   useUpdateNodeInternals,
   type NodeProps,
 } from "@xyflow/react";
@@ -19,48 +20,20 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   getPortTypeMask,
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
-
-export type ConditionalOperator =
-  | "=="
-  | "!="
-  | ">"
-  | ">="
-  | "<"
-  | "<="
-  | "contains"
-  | "startsWith"
-  | "endsWith"
-  | "truthy"
-  | "falsy";
-
-export type ConditionalJoin = "AND" | "OR";
+import { validateFormula } from "@/utils/formula";
 
 export type ConditionalInput = {
   id: string;
   label: string;
 };
 
-export type ConditionalRule = {
-  variableId: string;
-  operator: ConditionalOperator;
-  value?: string;
-  join?: ConditionalJoin;
-};
-
 export type ConditionalCase = {
   label?: string;
-  outputToken: number;
-  rules: ConditionalRule[];
+  outputToken: string;
+  formula?: string;
 };
 
 export type ConditionalNodeData = {
@@ -71,14 +44,14 @@ export type ConditionalNodeData = {
 };
 
 const DEFAULT_INPUTS: ConditionalInput[] = [
-  { id: "in-1", label: "A" },
+  { id: "in-1", label: "a" },
 ];
 
 const DEFAULT_CONDITIONS: ConditionalCase[] = [
   {
     label: "Caso 1",
-    outputToken: 1,
-    rules: [{ variableId: "in-1", operator: "truthy" }],
+    outputToken: "Salida 1",
+    formula: "a",
   },
 ];
 
@@ -93,26 +66,6 @@ function offsets(count: number): string[] {
   return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
 }
 
-function isOperator(value: unknown): value is ConditionalOperator {
-  return (
-    value === "==" ||
-    value === "!=" ||
-    value === ">" ||
-    value === ">=" ||
-    value === "<" ||
-    value === "<=" ||
-    value === "contains" ||
-    value === "startsWith" ||
-    value === "endsWith" ||
-    value === "truthy" ||
-    value === "falsy"
-  );
-}
-
-function requiresTarget(operator: ConditionalOperator): boolean {
-  return operator !== "truthy" && operator !== "falsy";
-}
-
 function sanitizeInputs(value: unknown): ConditionalInput[] {
   if (!Array.isArray(value)) return DEFAULT_INPUTS;
 
@@ -124,13 +77,41 @@ function sanitizeInputs(value: unknown): ConditionalInput[] {
         ? (item as { label?: unknown }).label
         : undefined;
     const label =
-      typeof labelRaw === "string" && labelRaw.trim()
+      typeof labelRaw === "string"
         ? labelRaw.trim()
-        : String.fromCharCode(65 + index);
+        : String.fromCharCode(97 + index);
     out.push({ id: `in-${index + 1}`, label });
   }
 
   return out.length > 0 ? out : DEFAULT_INPUTS;
+}
+
+function nextUnusedLabel(inputs: ConditionalInput[]): string {
+  const used = new Set(
+    inputs
+      .map((item) => item.label.trim().toLowerCase())
+      .filter((label) => label.length > 0),
+  );
+
+  for (let code = 97; code <= 122; code += 1) {
+    const letter = String.fromCharCode(code);
+    if (!used.has(letter)) return letter;
+  }
+
+  return "var";
+}
+
+function normalizeConditionExpression(raw: string): string {
+  let expr = String(raw ?? "");
+
+  // Replace Spanish logical keywords with mathjs-friendly operators.
+  expr = expr.replace(/\b[yY]\b/g, " and ");
+  expr = expr.replace(/\b[oO]\b/g, " or ");
+
+  // Replace lone '=' (not part of >=, <=, !=, ==) with '=='.
+  expr = expr.replace(/(^|[^<>!=])=([^=])/g, "$1==$2");
+
+  return expr.trim();
 }
 
 function sanitizeConditions(
@@ -138,7 +119,6 @@ function sanitizeConditions(
   inputs: ConditionalInput[],
 ): ConditionalCase[] {
   if (!Array.isArray(value)) return DEFAULT_CONDITIONS;
-  const inputIds = new Set(inputs.map((i) => i.id));
 
   const out: ConditionalCase[] = [];
   for (let i = 0; i < value.length; i += 1) {
@@ -146,40 +126,23 @@ function sanitizeConditions(
     if (!item || typeof item !== "object") continue;
     const label = (item as { label?: unknown }).label;
     const outputTokenRaw = (item as { outputToken?: unknown }).outputToken;
-    const rulesRaw = (item as { rules?: unknown }).rules;
 
-    const rules: ConditionalRule[] = [];
-    if (Array.isArray(rulesRaw)) {
-      for (let r = 0; r < rulesRaw.length; r += 1) {
-        const rule = rulesRaw[r];
-        if (!rule || typeof rule !== "object") continue;
-        const operator = (rule as { operator?: unknown }).operator;
-        const variableIdRaw = (rule as { variableId?: unknown }).variableId;
-        if (!isOperator(operator)) continue;
-        const variableId = inputIds.has(String(variableIdRaw))
-          ? String(variableIdRaw)
-          : inputs[0]?.id ?? "in-1";
-        const joinRaw = (rule as { join?: unknown }).join;
-        const join: ConditionalJoin | undefined =
-          joinRaw === "AND" || joinRaw === "OR" ? joinRaw : undefined;
-        const valueRaw = (rule as { value?: unknown }).value;
-        rules.push({
-          variableId,
-          operator,
-          value: typeof valueRaw === "string" ? valueRaw : undefined,
-          ...(join ? { join } : null),
-        });
-      }
-    }
+    const formulaRaw = (item as { formula?: unknown }).formula;
+    const defaultFormula = inputs[0]?.label ?? "a";
+    const formula =
+      typeof formulaRaw === "string" && formulaRaw.trim().length > 0
+        ? normalizeConditionExpression(formulaRaw)
+        : defaultFormula;
 
-    const outputToken = Number.isFinite(Number(outputTokenRaw))
-      ? Math.floor(Number(outputTokenRaw))
-      : i + 1;
+    const outputToken =
+      typeof outputTokenRaw === "string" && outputTokenRaw.trim()
+        ? outputTokenRaw.trim()
+        : `Salida ${i + 1}`;
 
     out.push({
       label: typeof label === "string" ? label : undefined,
       outputToken,
-      rules: rules.length > 0 ? rules : [{ variableId: inputs[0]?.id ?? "in-1", operator: "truthy" }],
+      formula,
     });
   }
 
@@ -189,6 +152,8 @@ function sanitizeConditions(
 export const ConditionalNode = memo(({ id, data }: NodeProps) => {
   const { label = "Condicional", runtimeError, inputs: rawInputs, conditions: rawConditions } =
     (data ?? {}) as ConditionalNodeData;
+  const pairId = (data as { pairId?: string | null })?.pairId ?? null;
+  const pairOffsetY = (data as { pairOffsetY?: number })?.pairOffsetY ?? 160;
 
   const inputs = useMemo(() => sanitizeInputs(rawInputs), [rawInputs]);
   const conditions = useMemo(
@@ -203,25 +168,54 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
     updateNodeInternals(id);
   }, [id, inputs.length, updateNodeInternals]);
 
+  const minHeight = useMemo(
+    () => 110 + Math.max(0, inputs.length - 2) * 8,
+    [inputs.length],
+  );
+
   const { setNodes } = useReactFlow();
-  const setNodeData = useCallback(
-    (next: { inputs: ConditionalInput[]; conditions: ConditionalCase[] }) => {
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === id
-            ? {
-                ...node,
-                data: {
-                  ...(node.data ?? {}),
-                  inputs: next.inputs,
-                  conditions: next.conditions,
-                },
-              }
-            : node,
-        ),
-      );
-    },
-    [id, setNodes],
+  const edges = useStore((state) => state.edges);
+  const nodes = useStore((state) => state.nodes);
+
+  // Keep paired selector at a consistent vertical gap as this node grows.
+  useEffect(() => {
+    if (!pairId) return;
+    const self = nodes.find((n) => n.id === id);
+    if (!self) return;
+
+    const targetY = (self.position?.y ?? 0) + minHeight + Math.max(20, pairOffsetY - 110);
+
+    setNodes((prev) =>
+      prev.map((node) => {
+        const isPairedSelector =
+          node.type === "selector" && (node.data as { pairId?: string | null })?.pairId === pairId;
+        if (!isPairedSelector) return node;
+
+        const currentY = node.position?.y ?? 0;
+        if (Math.abs(currentY - targetY) < 1) return node;
+
+        return {
+          ...node,
+          position: {
+            x: node.position?.x ?? 0,
+            y: targetY,
+          },
+        };
+      }),
+    );
+  }, [id, minHeight, nodes, pairId, pairOffsetY, setNodes]);
+  const connectedTargets = useMemo(() => {
+    const set = new Set<string>();
+    for (const edge of edges) {
+      if (String(edge.target) !== String(id)) continue;
+      if (!edge.targetHandle) continue;
+      set.add(String(edge.targetHandle));
+    }
+    return set;
+  }, [edges, id]);
+  const connectedInputCount = useMemo(
+    () => inputs.filter((input) => connectedTargets.has(input.id)).length,
+    [connectedTargets, inputs],
   );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -229,22 +223,74 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
   const [draftConditions, setDraftConditions] = useState<ConditionalCase[]>(
     conditions,
   );
+  const [dialogError, setDialogError] = useState<string | null>(null);
+
+  const validationResults = useMemo(() => {
+    const inputNames = new Set(
+      draftInputs.map((i) => String(i.label ?? "").trim().toLowerCase()),
+    );
+
+    return draftConditions.map((cond) => {
+      const normalized = normalizeConditionExpression(cond.formula ?? "");
+      const validation = validateFormula(normalized);
+      const usedVars = validation.variables.map((v) => String(v).trim()).filter(Boolean);
+      const unknownVars = usedVars.filter((v) => !inputNames.has(v.toLowerCase()));
+      return { normalized, validation, unknownVars };
+    });
+  }, [draftConditions, draftInputs]);
 
   const openDialog = useCallback(() => {
     setDraftInputs(inputs);
     setDraftConditions(conditions);
+    setDialogError(null);
     setIsDialogOpen(true);
   }, [conditions, inputs]);
 
   const saveDialog = useCallback(() => {
-    const normalizedInputs = sanitizeInputs(draftInputs);
-    const normalizedConditions = sanitizeConditions(
-      draftConditions,
-      normalizedInputs,
+    const hasInvalid = validationResults.some((res) => !res.validation.ok);
+    const hasUnknown = validationResults.some((res) => (res.unknownVars ?? []).length > 0);
+    if (hasInvalid) {
+      setDialogError("Revisa las condiciones: hay expresiones inválidas.");
+      return;
+    }
+    if (hasUnknown) {
+      const missing = Array.from(
+        new Set(
+          validationResults.flatMap((r) => r.unknownVars ?? []),
+        ),
+      );
+      setDialogError(`Variables no definidas: ${missing.join(", ")}`);
+      return;
+    }
+
+    const baseInputs = sanitizeInputs(rawInputs ?? inputs);
+    const labelById = new Map(draftInputs.map((i) => [i.id, i.label]));
+    const mergedInputs = baseInputs.map((input) => ({
+      ...input,
+      label: labelById.get(input.id) ?? input.label,
+    }));
+    const normalizedConditions = draftConditions.map((cond, idx) => ({
+      ...cond,
+      formula: validationResults[idx]?.normalized ?? cond.formula ?? "",
+    }));
+
+    setNodes((prev) =>
+      prev.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: {
+                ...(node.data ?? {}),
+                inputs: mergedInputs,
+                conditions: normalizedConditions,
+              },
+            }
+          : node,
+      ),
     );
-    setNodeData({ inputs: normalizedInputs, conditions: normalizedConditions });
+    setDialogError(null);
     setIsDialogOpen(false);
-  }, [draftConditions, draftInputs, setNodeData]);
+  }, [draftConditions, draftInputs, id, inputs, rawInputs, setNodes, validationResults]);
 
   const titleId = useId();
 
@@ -267,7 +313,8 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
     <>
       <BaseNode
         runtimeError={runtimeError}
-        className="relative flex h-20 w-64 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+        className="relative flex w-72 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+        style={{ minHeight: `${minHeight}px` }}
       >
         <BaseNodeHeader className="absolute top-1 right-1">
           <NodeSettingsButton onClick={openDialog} />
@@ -279,9 +326,87 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
           </div>
           <div className="text-sm leading-tight">{label}</div>
           <div className="text-[11px] leading-tight text-white/85">
-            {inputs.length} entradas · {conditions.length} condiciones
+            {connectedInputCount} entradas · {conditions.length} condiciones
           </div>
         </div>
+
+        {inputs.map((input, index) => {
+          if (!connectedTargets.has(input.id)) return null;
+          const offset = inputOffsets[index] ?? "50%";
+
+          const trimmed = String(input.label ?? "").trim();
+          const len = Math.max(0, trimmed.length);
+          // Compute width: small pill for single letter, grow with length, cap at 120px
+          const widthPx = len <= 1 ? 36 : Math.min(120, 12 + len * 8);
+
+          return (
+            <Input
+              key={`label-${input.id}`}
+              value={input.label}
+              onChange={(e) => {
+                const next = e.currentTarget.value;
+                setNodes((prev) =>
+                  prev.map((node) =>
+                    node.id === id
+                      ? {
+                          ...node,
+                          data: {
+                            ...(node.data ?? {}),
+                            inputs: inputs.map((it) =>
+                              it.id === input.id
+                                ? {
+                                    ...it,
+                                    label: next,
+                                  }
+                                : it,
+                            ),
+                          },
+                        }
+                      : node,
+                  ),
+                );
+              }}
+              onBlur={(e) => {
+                const raw = e.currentTarget.value;
+                const next = String(raw ?? "").trim();
+
+                setNodes((prev) =>
+                  prev.map((node) => {
+                    if (node.id !== id) return node;
+
+                    // Build current labels excluding this input
+                    const otherInputs = inputs.filter((it) => it.id !== input.id);
+                    const otherLower = new Set(
+                      otherInputs
+                        .map((it) => it.label.trim().toLowerCase())
+                        .filter(Boolean),
+                    );
+
+                    let finalLabel = next;
+                    if (!finalLabel) {
+                      finalLabel = nextUnusedLabel(otherInputs);
+                    } else if (otherLower.has(finalLabel.toLowerCase())) {
+                      // Duplicate found (case-insensitive) — pick next unused
+                      finalLabel = nextUnusedLabel(otherInputs);
+                    }
+
+                    return {
+                      ...node,
+                      data: {
+                        ...(node.data ?? {}),
+                        inputs: inputs.map((it) =>
+                          it.id === input.id ? { ...it, label: finalLabel } : it,
+                        ),
+                      },
+                    };
+                  }),
+                );
+              }}
+              className="nodrag absolute left-2 h-6 -translate-y-1/2 border-transparent bg-transparent px-1 text-center text-[10px] text-white placeholder:text-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
+              style={{ top: offset, width: `${widthPx}px` }}
+            />
+          );
+        })}
 
         {inputs.map((input, index) => {
           const offset = inputOffsets[index] ?? "50%";
@@ -322,71 +447,6 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
           <div className="space-y-6">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Variables de entrada</div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() =>
-                    setDraftInputs((prev) => [
-                      ...prev,
-                      {
-                        id: `in-${prev.length + 1}`,
-                        label: String.fromCharCode(65 + prev.length),
-                      },
-                    ])
-                  }
-                >
-                  Agregar variable
-                </Button>
-              </div>
-
-              <div className="space-y-2">
-                {draftInputs.map((input, idx) => (
-                  <div
-                    key={input.id}
-                    className="flex items-center gap-2 rounded-md border p-2"
-                  >
-                    <div className="text-xs text-muted-foreground">
-                      {input.id}
-                    </div>
-                    <Input
-                      value={input.label}
-                      onChange={(e) => {
-                        const next = e.currentTarget.value;
-                        setDraftInputs((prev) =>
-                          prev.map((item, i) =>
-                            i === idx
-                              ? {
-                                  ...item,
-                                  label: next.trim() ? next : item.label,
-                                }
-                              : item,
-                          ),
-                        );
-                      }}
-                      placeholder={`Variable ${idx + 1}`}
-                    />
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() =>
-                        setDraftInputs((prev) =>
-                          prev.length <= 1
-                            ? prev
-                            : prev.filter((_, i) => i !== idx),
-                        )
-                      }
-                      disabled={draftInputs.length <= 1}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
                 <div className="text-sm font-medium">Condiciones</div>
                 <Button
                   type="button"
@@ -396,13 +456,8 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
                       ...prev,
                       {
                         label: `Caso ${prev.length + 1}`,
-                        outputToken: prev.length + 1,
-                        rules: [
-                          {
-                            variableId: draftInputs[0]?.id ?? "in-1",
-                            operator: "truthy",
-                          },
-                        ],
+                        outputToken: `Salida ${prev.length + 1}`,
+                        formula: draftInputs[0]?.label ?? "a",
                       },
                     ])
                   }
@@ -412,289 +467,126 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
               </div>
 
               <div className="space-y-4">
-                {draftConditions.map((cond, condIdx) => (
-                  <div key={`cond-${condIdx}`} className="rounded-md border p-3">
-                    <div className="mb-2 flex items-center justify-between">
-                      <div className="text-sm font-medium">
-                        Condición {condIdx + 1}
-                      </div>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() =>
-                          setDraftConditions((prev) =>
-                            prev.length <= 1
-                              ? prev
-                              : prev.filter((_, i) => i !== condIdx),
-                          )
-                        }
-                        disabled={draftConditions.length <= 1}
-                      >
-                        Eliminar
-                      </Button>
-                    </div>
+                {draftConditions.map((cond, condIdx) => {
+                  const validation = validationResults[condIdx]?.validation;
+                  const normalized = validationResults[condIdx]?.normalized ?? "";
+                  const variablesText =
+                    validation?.variables && validation.variables.length > 0
+                      ? `Variables: ${validation.variables.join(", ")}`
+                      : "Sin variables detectadas";
 
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-900">
-                          Etiqueta
-                        </label>
-                        <Input
-                          value={cond.label ?? ""}
-                          placeholder={`Caso ${condIdx + 1}`}
-                          onChange={(e) => {
-                            const next = e.currentTarget.value;
-                            setDraftConditions((prev) =>
-                              prev.map((c, i) =>
-                                i === condIdx
-                                  ? {
-                                      ...c,
-                                      label: next.trim() ? next : undefined,
-                                    }
-                                  : c,
-                              ),
-                            );
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label className="mb-1 block text-sm font-medium text-gray-900">
-                          Token de salida
-                        </label>
-                        <Input
-                          type="number"
-                          value={String(cond.outputToken ?? "")}
-                          onChange={(e) => {
-                            const next = Number(e.currentTarget.value);
-                            setDraftConditions((prev) =>
-                              prev.map((c, i) =>
-                                i === condIdx
-                                  ? {
-                                      ...c,
-                                      outputToken: Number.isFinite(next)
-                                        ? Math.floor(next)
-                                        : c.outputToken,
-                                    }
-                                  : c,
-                              ),
-                            );
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-3 space-y-2">
-                      {cond.rules.map((rule, ruleIdx) => (
-                        <div
-                          key={`rule-${condIdx}-${ruleIdx}`}
-                          className="grid grid-cols-1 gap-2 rounded-md bg-muted/20 p-2 sm:grid-cols-5"
-                        >
-                          {ruleIdx > 0 ? (
-                            <div>
-                              <label className="mb-1 block text-xs font-medium text-gray-900">
-                                Unión
-                              </label>
-                              <Select
-                                value={rule.join ?? "AND"}
-                                onValueChange={(value) => {
-                                  if (value !== "AND" && value !== "OR") return;
-                                  setDraftConditions((prev) =>
-                                    prev.map((c, i) =>
-                                      i === condIdx
-                                        ? {
-                                            ...c,
-                                            rules: c.rules.map((r, ri) =>
-                                              ri === ruleIdx
-                                                ? { ...r, join: value }
-                                                : r,
-                                            ),
-                                          }
-                                        : c,
-                                    ),
-                                  );
-                                }}
-                              >
-                                <SelectTrigger className="h-9">
-                                  <SelectValue placeholder="AND" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="AND">AND</SelectItem>
-                                  <SelectItem value="OR">OR</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          ) : (
-                            <div className="hidden sm:block" />
-                          )}
-
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-900">
-                              Variable
-                            </label>
-                            <Select
-                              value={rule.variableId}
-                              onValueChange={(value) => {
-                                setDraftConditions((prev) =>
-                                  prev.map((c, i) =>
-                                    i === condIdx
-                                      ? {
-                                          ...c,
-                                          rules: c.rules.map((r, ri) =>
-                                            ri === ruleIdx
-                                              ? { ...r, variableId: value }
-                                              : r,
-                                          ),
-                                        }
-                                      : c,
-                                  ),
-                                );
-                              }}
-                            >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Variable" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {draftInputs.map((input) => (
-                                  <SelectItem key={input.id} value={input.id}>
-                                    {input.label} ({input.id})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-900">
-                              Operador
-                            </label>
-                            <Select
-                              value={rule.operator}
-                              onValueChange={(value) => {
-                                if (!isOperator(value)) return;
-                                setDraftConditions((prev) =>
-                                  prev.map((c, i) =>
-                                    i === condIdx
-                                      ? {
-                                          ...c,
-                                          rules: c.rules.map((r, ri) =>
-                                            ri === ruleIdx
-                                              ? {
-                                                  ...r,
-                                                  operator: value,
-                                                  value: requiresTarget(value)
-                                                    ? r.value
-                                                    : undefined,
-                                                }
-                                              : r,
-                                          ),
-                                        }
-                                      : c,
-                                  ),
-                                );
-                              }}
-                            >
-                              <SelectTrigger className="h-9">
-                                <SelectValue placeholder="Operador" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="truthy">Es verdadero</SelectItem>
-                                <SelectItem value="falsy">Es falso</SelectItem>
-                                <SelectItem value="==">=</SelectItem>
-                                <SelectItem value="!=">≠</SelectItem>
-                                <SelectItem value=">">&gt;</SelectItem>
-                                <SelectItem value=">=">&gt;=</SelectItem>
-                                <SelectItem value="<">&lt;</SelectItem>
-                                <SelectItem value="<=">&lt;=</SelectItem>
-                                <SelectItem value="contains">Contiene</SelectItem>
-                                <SelectItem value="startsWith">Empieza con</SelectItem>
-                                <SelectItem value="endsWith">Termina con</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-gray-900">
-                              Valor
-                            </label>
-                            <Input
-                              value={rule.value ?? ""}
-                              disabled={!requiresTarget(rule.operator)}
-                              placeholder={requiresTarget(rule.operator) ? "Valor" : "-"}
-                              onChange={(e) => {
-                                const next = e.currentTarget.value;
-                                setDraftConditions((prev) =>
-                                  prev.map((c, i) =>
-                                    i === condIdx
-                                      ? {
-                                          ...c,
-                                          rules: c.rules.map((r, ri) =>
-                                            ri === ruleIdx
-                                              ? { ...r, value: next }
-                                              : r,
-                                          ),
-                                        }
-                                      : c,
-                                  ),
-                                );
-                              }}
-                            />
-                          </div>
-
-                          <div className="flex items-end">
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              onClick={() =>
-                                setDraftConditions((prev) =>
-                                  prev.map((c, i) =>
-                                    i === condIdx
-                                      ? {
-                                          ...c,
-                                          rules:
-                                            c.rules.length <= 1
-                                              ? c.rules
-                                              : c.rules.filter((_, ri) => ri !== ruleIdx),
-                                        }
-                                      : c,
-                                  ),
-                                )
-                              }
-                              disabled={cond.rules.length <= 1}
-                            >
-                              Quitar
-                            </Button>
-                          </div>
+                  return (
+                    <div key={`cond-${condIdx}`} className="rounded-md border p-3">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="text-sm font-medium">
+                          Condición {condIdx + 1}
                         </div>
-                      ))}
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={() =>
+                            setDraftConditions((prev) =>
+                              prev.length <= 1
+                                ? prev
+                                : prev.filter((_, i) => i !== condIdx),
+                            )
+                          }
+                          disabled={draftConditions.length <= 1}
+                        >
+                          Eliminar
+                        </Button>
+                      </div>
 
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() =>
-                          setDraftConditions((prev) =>
-                            prev.map((c, i) =>
-                              i === condIdx
-                                ? {
-                                    ...c,
-                                    rules: [
-                                      ...c.rules,
-                                      {
-                                        variableId: draftInputs[0]?.id ?? "in-1",
-                                        operator: "truthy",
-                                        join: "AND",
-                                      },
-                                    ],
-                                  }
-                                : c,
-                            ),
-                          )
-                        }
-                      >
-                        Agregar regla
-                      </Button>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-900">
+                            Etiqueta
+                          </label>
+                          <Input
+                            value={cond.label ?? ""}
+                            placeholder={`Caso ${condIdx + 1}`}
+                            onChange={(e) => {
+                              const next = e.currentTarget.value;
+                              setDraftConditions((prev) =>
+                                prev.map((c, i) =>
+                                  i === condIdx
+                                    ? {
+                                        ...c,
+                                        label: next.trim() ? next : undefined,
+                                      }
+                                    : c,
+                                ),
+                              );
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-900">
+                            Salida
+                          </label>
+                          <Input
+                            value={cond.outputToken ?? ""}
+                            placeholder={`Salida ${condIdx + 1}`}
+                            onChange={(e) => {
+                              const next = e.currentTarget.value;
+                              setDraftConditions((prev) =>
+                                prev.map((c, i) =>
+                                  i === condIdx
+                                    ? {
+                                        ...c,
+                                        outputToken: next.trim() ? next : c.outputToken,
+                                      }
+                                    : c,
+                                ),
+                              );
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-sm font-medium text-gray-900">
+                            Expresión
+                          </label>
+                          <textarea
+                            value={cond.formula ?? ""}
+                            placeholder="a > b y c = 5"
+                            onChange={(e) => {
+                              const next = e.currentTarget.value;
+                              setDraftConditions((prev) =>
+                                prev.map((c, i) =>
+                                  i === condIdx
+                                    ? {
+                                        ...c,
+                                        formula: next,
+                                      }
+                                    : c,
+                                ),
+                              );
+                              setDialogError(null);
+                            }}
+                            className="w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            rows={2}
+                          />
+                          <div className="mt-1 text-[11px] text-gray-600">
+                            Usa Y/O para and/or. Se normaliza a: <span className="font-semibold">{normalized || ""}</span>
+                          </div>
+                          {validation?.ok ? (
+                            <div className="mt-1 text-[11px] text-green-700">{variablesText}</div>
+                          ) : (
+                            <div className="mt-1 text-[11px] text-red-600">
+                                          {validation?.error ?? "Expresión inválida"}
+                                          {Array.isArray(validation?.variables) && (validation?.variables.length>0) ? (
+                                            <div className="mt-1 text-[11px]">Variables detectadas: {validation.variables.join(", ")}</div>
+                                          ) : null}
+                                          {Array.isArray(validationResults[condIdx]?.unknownVars) && validationResults[condIdx].unknownVars.length>0 ? (
+                                            <div className="mt-1 text-[11px] font-medium text-red-700">Variables no definidas: {validationResults[condIdx].unknownVars.join(", ")}</div>
+                                          ) : null}
+                                        </div>
+                                      )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
@@ -706,6 +598,11 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
               >
                 Cancelar
               </Button>
+              {dialogError ? (
+                <div className="mr-auto self-center text-sm text-red-600">
+                  {dialogError}
+                </div>
+              ) : null}
               <Button type="button" onClick={saveDialog}>
                 Guardar
               </Button>
