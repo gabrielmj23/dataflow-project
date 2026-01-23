@@ -20,6 +20,7 @@ import { PowerNode } from "@/components/nodes/processing/power-node";
 import { FloorNode } from "@/components/nodes/processing/floor-node";
 import { CeilingNode } from "@/components/nodes/processing/ceiling-node";
 import { RoundNode } from "@/components/nodes/processing/round-node";
+import { FormulaEditorNode } from "@/components/nodes/processing/formula-editor-node";
 import { ConcatNode } from "@/components/nodes/processing/concat-node";
 
 import { ComparisonNode } from "@/components/nodes/control/comparison-node";
@@ -63,6 +64,7 @@ export const nodeTypesCore: NodeTypes = {
   floor: FloorNode,
   ceiling: CeilingNode,
   round: RoundNode,
+  formulaEditor: FormulaEditorNode,
   concat: ConcatNode,
   comparison: ComparisonNode,
   and: AndNode,
