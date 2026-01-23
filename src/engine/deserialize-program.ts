@@ -189,6 +189,8 @@ function buildEngineStoresFromFlowGraph(params: {
     string,
     { start: boolean; end: boolean; step: boolean }
   >();
+  const selectorIncomingByNodeId = new Map<string, Set<string>>();
+  const conditionalIncomingByNodeId = new Map<string, Set<string>>();
   for (const edge of params.edges) {
     const targetId = String(edge.target);
     const targetNode = nodeById.get(targetId);
@@ -222,6 +224,34 @@ function buildEngineStoresFromFlowGraph(params: {
       pulseSequenceIncomingByNodeId.set(targetId, next);
     }
 
+    if (targetNode.type === NODE_TYPES.SELECTOR_NODE) {
+      const portId = mapHandleToPortId({
+        nodeId: targetId,
+        nodeType: targetNode.type,
+        handleId: edge.targetHandle ?? null,
+        direction: "target",
+      });
+      if (portId) {
+        const set = selectorIncomingByNodeId.get(targetId) ?? new Set<string>();
+        set.add(portId);
+        selectorIncomingByNodeId.set(targetId, set);
+      }
+    }
+
+    if (targetNode.type === NODE_TYPES.CONDITIONAL_NODE) {
+      const portId = mapHandleToPortId({
+        nodeId: targetId,
+        nodeType: targetNode.type,
+        handleId: edge.targetHandle ?? null,
+        direction: "target",
+      });
+      if (portId) {
+        const set = conditionalIncomingByNodeId.get(targetId) ?? new Set<string>();
+        set.add(portId);
+        conditionalIncomingByNodeId.set(targetId, set);
+      }
+    }
+
     if (targetNode.type !== NODE_TYPES.WRITE_SINK) continue;
 
     const handleId = edge.targetHandle ?? null;
@@ -239,6 +269,8 @@ function buildEngineStoresFromFlowGraph(params: {
       timerHasIncomingByNodeId,
       sequenceIncomingByNodeId,
       pulseSequenceIncomingByNodeId,
+      selectorIncomingByNodeId,
+      conditionalIncomingByNodeId,
       onLog: params.onLog,
       onPrompt: params.onPrompt,
       signal: params.signal,
@@ -1054,6 +1086,8 @@ function flowNodeToEngineDefinition(
       string,
       { start: boolean; end: boolean; step: boolean }
     >;
+    selectorIncomingByNodeId?: Map<string, Set<string>>;
+    conditionalIncomingByNodeId?: Map<string, Set<string>>;
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
@@ -1388,7 +1422,9 @@ function flowNodeToEngineDefinition(
     }
 
     case NODE_TYPES.CONDITIONAL_NODE: {
-      const inputsRaw = Array.isArray(data.inputs) ? data.inputs : [];
+      const inputsRaw = isNonEmptyArray(data.inputs)
+        ? data.inputs
+        : [{ label: "a" }];
       const inputs = inputsRaw.map((it, idx) => {
         const labelRaw =
           it && typeof it === "object" ? (it as { label?: unknown }).label : null;
@@ -1399,7 +1435,9 @@ function flowNodeToEngineDefinition(
         return { label, portId: `input${idx + 1}` };
       });
 
-      const conditionsRaw = Array.isArray(data.conditions) ? data.conditions : [];
+      const conditionsRaw = isNonEmptyArray(data.conditions)
+        ? data.conditions
+        : [{ outputToken: "Salida 1", formula: inputs[0]?.label ?? "a" }];
       const conditions = conditionsRaw.map((cond, idx) => {
         const outputTokenRaw =
           cond && typeof cond === "object"
@@ -1426,7 +1464,11 @@ function flowNodeToEngineDefinition(
 
       const inputPorts = inputs.map((i) => i.portId);
       const ports = [...inputPorts, "output"];
-      const firePatterns = inputPorts.map(() => FirePatterns.EXISTS);
+
+      const incoming = context?.conditionalIncomingByNodeId?.get(String(flowNode.id));
+      const firePatterns = inputPorts.map((portId) =>
+        incoming?.has(portId) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
+      );
 
       return new NodeDefinition(
         (...args: unknown[]) => {
@@ -1477,7 +1519,14 @@ function flowNodeToEngineDefinition(
       });
 
       const ports = ["token", ...tokens, "output"];
-      const firePatterns = [FirePatterns.EXISTS, ...tokens.map(() => FirePatterns.DONT_CARE)];
+
+      const incoming = context?.selectorIncomingByNodeId?.get(String(flowNode.id));
+      const firePatterns = [
+        FirePatterns.EXISTS,
+        ...tokens.map((t) =>
+          incoming?.has(t) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
+        ),
+      ];
 
       return new NodeDefinition(
         (token: unknown, ...values: unknown[]) => {

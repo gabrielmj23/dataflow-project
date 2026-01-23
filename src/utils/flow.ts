@@ -75,7 +75,7 @@ export function reconcileWriteGraph(
 
     // If there are no connected inputs, keep a single empty handle only.
     // Otherwise keep one extra empty handle beyond the highest connected input.
-    const desiredInputCount = sorted.length === 0 ? 1 : sorted.length;
+    const desiredInputCount = sorted.length === 0 ? 1 : sorted.length + 1;
     const maxVarAllowed = desiredInputCount - 1;
     writeMaps.set(nodeId, { map, desiredInputCount, maxVarAllowed });
   }

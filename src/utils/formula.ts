@@ -130,6 +130,9 @@ function validateNode(params: {
 
   if ((anyNode as { isConstantNode?: boolean }).isConstantNode) {
     const value = (anyNode as { value?: unknown }).value;
+    if (typeof value === "boolean") {
+      return { ok: true };
+    }
     if (!isFiniteNumber(value)) {
       return { ok: false, error: "Constante numérica inválida." };
     }
