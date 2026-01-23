@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "ws:dev": "pnpm --filter @dataflow/ws-server dev",
+    "ws:build": "pnpm --filter @dataflow/ws-server build",
+    "ws:start": "pnpm --filter @dataflow/ws-server start",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
