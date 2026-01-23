@@ -107,7 +107,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
         icon={
           <div className="flex flex-col items-center leading-none">
             <Shuffle className="size-6" />
-            <span className="mt-1 text-[10px] font-semibold">
+            <span className="mt-1 text-[10px] ">
               {min} – {max}
             </span>
           </div>

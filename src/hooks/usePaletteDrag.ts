@@ -202,8 +202,8 @@ export function usePaletteDrag({
         if (type === "choiceInput") {
           data = {
             ...(data ?? {}),
-            choices: ["roca", "papel", "tijera"],
-            label: (data.label as string) ?? "Seleccionador",
+            choices: ["opción 1", "opción 2", "opción 3"],
+            label: (data.label as string) ?? "Selección aleatoria",
           };
         }
         if (type === "sequence") {

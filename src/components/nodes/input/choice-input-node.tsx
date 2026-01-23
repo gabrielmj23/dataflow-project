@@ -17,10 +17,10 @@ export type ChoiceInputNodeData = {
   choices?: string[];
 };
 
-const DEFAULT_CHOICES = ["roca", "papel", "tijera"];
+const DEFAULT_CHOICES = ["opción 1", "opción 2", "opción 3"];
 
 export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Selector Aleatorio", choices: rawChoices } = (data ?? {}) as ChoiceInputNodeData;
+  const { label = "Selección aleatoria", choices: rawChoices } = (data ?? {}) as ChoiceInputNodeData;
 
   const choices = Array.isArray(rawChoices) && rawChoices.length > 0 ? rawChoices : DEFAULT_CHOICES;
 
@@ -70,7 +70,7 @@ export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
         icon={
           <div className="flex flex-col items-center leading-none">
             <Shuffle className="size-6" />
-            <span className="mt-1 text-[10px] font-semibold">{choices.length} opciones</span>
+            <span className="mt-1 text-[10px] ">{choices.length} opciones</span>
           </div>
         }
         label={label}

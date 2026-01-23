@@ -54,7 +54,7 @@ export const nodePalette: NodePaletteCategory[] = [
       },
       {
         type: "choiceInput",
-        label: "Seleccionador",
+        label: "Selección aleatoria",
         description: "Elige un elemento aleatorio de una lista de opciones configurables.",
       },
       {
