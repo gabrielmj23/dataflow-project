@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { globalIsDragging } from "@/lib/globalRefs";
 import {
   Position,
   useReactFlow,
@@ -178,6 +179,8 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
   const nodes = useStore((state) => state.nodes);
 
   // Keep paired selector at a consistent vertical gap as this node grows.
+  const pairAdjustTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!pairId) return;
     const self = nodes.find((n) => n.id === id);
@@ -185,24 +188,54 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
 
     const targetY = (self.position?.y ?? 0) + minHeight + Math.max(20, pairOffsetY - 110);
 
-    setNodes((prev) =>
-      prev.map((node) => {
-        const isPairedSelector =
-          node.type === "selector" && (node.data as { pairId?: string | null })?.pairId === pairId;
-        if (!isPairedSelector) return node;
+    // If any node is currently being dragged, avoid scheduling adjustments —
+    // this prevents the paired selector from jumping while the user is
+    // actively moving nodes.
+    if (globalIsDragging.current) return;
 
-        const currentY = node.position?.y ?? 0;
-        if (Math.abs(currentY - targetY) < 1) return node;
+    // Debounce actual repositioning so that if many node updates happen
+    // (e.g., while dragging), we don't continuously mutate node positions
+    // — instead we wait for a short pause and then apply the adjustment.
+    if (pairAdjustTimeoutRef.current !== null) {
+      window.clearTimeout(pairAdjustTimeoutRef.current);
+      pairAdjustTimeoutRef.current = null;
+    }
 
-        return {
-          ...node,
-          position: {
-            x: node.position?.x ?? 0,
-            y: targetY,
-          },
-        };
-      }),
-    );
+    pairAdjustTimeoutRef.current = window.setTimeout(() => {
+      setNodes((prev) =>
+        prev.map((node) => {
+          const isPairedSelector =
+            node.type === "selector" && (node.data as { pairId?: string | null })?.pairId === pairId;
+          if (!isPairedSelector) return node;
+          const currentY = node.position?.y ?? 0;
+          const currentX = node.position?.x ?? 0;
+
+          // If this selector is currently selected or being dragged, skip moving it.
+          if (node.selected === true || (node as any).dragging === true) return node;
+
+          const centerOffsetX = 32; // half difference between w-72 and w-56
+          const targetX = (self.position?.x ?? 0) + centerOffsetX;
+
+          if (Math.abs(currentY - targetY) < 1 && Math.abs(currentX - targetX) < 1) return node;
+
+          return {
+            ...node,
+            position: {
+              x: targetX,
+              y: targetY,
+            },
+          };
+        }),
+      );
+      pairAdjustTimeoutRef.current = null;
+    }, 120);
+
+    return () => {
+      if (pairAdjustTimeoutRef.current !== null) {
+        window.clearTimeout(pairAdjustTimeoutRef.current);
+        pairAdjustTimeoutRef.current = null;
+      }
+    };
   }, [id, minHeight, nodes, pairId, pairOffsetY, setNodes]);
   const connectedTargets = useMemo(() => {
     const set = new Set<string>();

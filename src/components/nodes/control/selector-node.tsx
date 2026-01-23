@@ -119,10 +119,20 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
     [syncedOptions.length],
   );
 
-  const minHeight = useMemo(
-    () => 110 + Math.max(0, syncedOptions.length - 2) * 8,
-    [syncedOptions.length],
-  );
+  const minHeight = useMemo(() => {
+    const base = 80; // compact base height
+    const perOption = 28; // extra height per option beyond the first
+
+    const maxLabelLen = syncedOptions.reduce((acc, opt) => {
+      const text = String(opt.label ?? opt.token ?? "").trim();
+      return Math.max(acc, text.length);
+    }, 0);
+
+    // If labels are long, add extra rows to increase height gradually.
+    const extraRows = Math.max(0, Math.ceil((maxLabelLen - 18) / 12));
+
+    return base + Math.max(0, syncedOptions.length - 1) * perOption + extraRows * 12;
+  }, [syncedOptions]);
 
   // Persist synced options into node data when they change.
   useEffect(() => {
@@ -171,7 +181,7 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
   return (
     <BaseNode
       runtimeError={runtimeError}
-      className="relative flex w-72 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+      className="relative flex w-56 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
       style={{ minHeight: `${minHeight}px` }}
     >
       <CustomTypedHandle
@@ -184,15 +194,10 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
         indicatorClassName="border-orange-600"
       />
 
-      <div className="flex flex-col items-center gap-0.5">
-        <div className="text-xl font-bold leading-none">
-          <Shuffle className="h-5 w-5" />
-        </div>
-        <div className="text-sm leading-tight">{label}</div>
-        {runtimeError ? (
-          <div className="text-[11px] text-red-200">{runtimeError}</div>
-        ) : null}
-      </div>
+      {/* Removed icon and node title per design. Show runtime error if present. */}
+      {runtimeError ? (
+        <div className="absolute top-3 text-[11px] text-red-200">{runtimeError}</div>
+      ) : null}
 
       {/* Handles anchored to the node edge (use token string as handle id) */}
       {syncedOptions.map((opt, idx) => {
@@ -225,25 +230,34 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
             value={label}
             readOnly
             tabIndex={-1}
-            className="nodrag absolute left-2 h-6 -translate-y-1/2 border-transparent bg-transparent px-1 text-center text-[10px] text-white placeholder:text-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none pointer-events-none"
+            className="nodrag absolute h-6 -translate-y-1/2 border-transparent bg-transparent px-1 text-center text-[10px] text-white placeholder:text-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none pointer-events-none"
             style={{
               top: `calc(${valueHandleOffsets[idx] ?? "50%"} + 9px)`,
+              left: "50%",
               width: `${widthPx}px`,
-              transform: "translateY(-50%)",
+              transform: "translate(-50%, -50%)",
             }}
           />
         );
       })}
 
-      <CustomTypedHandle
-        type="source"
-        position={Position.Right}
-        id="out"
-        dataType={typeFor({ handleType: "source", handleId: "out" })}
-        typeMask={maskFor({ handleType: "source", handleId: "out" })}
-        className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-orange-600"
-      />
+      {/* One source handle per option so outputs can take different paths. */}
+      {syncedOptions.map((opt, idx) => {
+        const tokenId = String(opt.token ?? `${idx + 1}`);
+        return (
+          <CustomTypedHandle
+            key={`out-${tokenId}-${idx}`}
+            type="source"
+            position={Position.Right}
+            id={tokenId}
+            style={{ top: valueHandleOffsets[idx] ?? "50%" }}
+            dataType={typeFor({ handleType: "source", handleId: tokenId })}
+            typeMask={maskFor({ handleType: "source", handleId: tokenId })}
+            className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-orange-600"
+          />
+        );
+      })}
     </BaseNode>
   );
 });

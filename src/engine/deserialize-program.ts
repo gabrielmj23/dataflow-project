@@ -974,12 +974,10 @@ function mapHandleToPortId(params: {
       );
     }
 
+    // Allow selector source handles to be token-named (one output per option).
+    // Keep legacy "out" mapping for backward compatibility.
     if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
+    return String(handleId);
   }
 
   // Iteration/list nodes
@@ -1542,11 +1540,12 @@ function flowNodeToEngineDefinition(
           const matchIdx = tokens.findIndex((t) => t === tokenStr);
           const selected = matchIdx >= 0 ? values[matchIdx] : undefined;
 
+          // If token matches one of the option tokens, route the output to
+          // that token-named port. Otherwise fall back to the legacy "output" port.
+          const targetPort = matchIdx >= 0 ? tokenStr : "output";
+
           return [
-            new DataToken(
-              selected,
-              new PortAddress("", "output"),
-            ),
+            new DataToken(selected, new PortAddress("", targetPort)),
           ];
         },
         firePatterns,
