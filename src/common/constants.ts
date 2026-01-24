@@ -5,6 +5,7 @@ export const NODE_TYPES = {
   CONSTANT_TEXT_INPUT: "constantText",
   RUNTIME_INPUT: "runtimeInput",
   RANDOM_INPUT: "randomInput",
+  CHOICE_INPUT: "choiceInput",
   TIMER_INPUT: "timerInput",
   MICROBIT_READ_BUTTON_INPUT: "microbitReadButton",
   SUBFLOW: "subflow",

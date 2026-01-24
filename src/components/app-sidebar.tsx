@@ -246,27 +246,28 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "constantText":
       case "runtimeInput":
       case "timerInput":
-      case "randomInput": {
+      case "randomInput":
+      case "choiceInput": {
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full bg-emerald-500 px-2 text-center text-white shadow-md"
+            className="node-preview flex h-24 w-24 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 px-2 text-center text-white shadow-md"
           >
             {type === "timerInput" ||
             type === "randomInput" ||
-            type === "runtimeInput" ? (
+            type === "runtimeInput" ||
+            type === "choiceInput" ? (
               <>
                 <span className="mb-1 flex items-center justify-center">
-                  {type === "timerInput" && <Timer className="h-6 w-6" />}
-                  {type === "randomInput" && <Shuffle className="h-6 w-6" />}
-                  {type === "runtimeInput" && <Keyboard className="h-6 w-6" />}
+                  {type === "timerInput" && <Timer className="h-7 w-7" />}
+                  {type === "randomInput" && <Shuffle className="h-7 w-7" />}
+                  {type === "runtimeInput" && <Keyboard className="h-7 w-7" />}
+                  {type === "choiceInput" && <Shuffle className="h-7 w-7" />}
                 </span>
-                <span className="px-1 text-[0.7rem] leading-tight">
-                  {label}
-                </span>
+                <span className="px-1 text-sm leading-tight">{label}</span>
               </>
             ) : (
-              <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
+              <span className="px-1 text-sm leading-tight">{label}</span>
             )}
           </div>
         );
@@ -275,12 +276,12 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-18 w-18 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 px-2 text-center text-white shadow-md"
+            className="node-preview flex h-24 w-24 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 px-2 text-center text-white shadow-md"
           >
             <span className="mb-1 flex items-center justify-center">
-              <Cpu className="h-6 w-6" />
+              <Cpu className="h-7 w-7" />
             </span>
-            <span className="px-1 text-[0.7rem] leading-tight">{label}</span>
+            <span className="px-1 text-sm leading-tight">{label}</span>
           </div>
         );
       }
@@ -449,7 +450,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-16 w-32 items-center justify-center rounded-lg border border-dashed text-xs border-violet-700 bg-violet-500 text-white shadow-md"
+            className="node-preview flex h-18 w-32 items-center justify-center rounded-lg border border-dashed text-xs border-violet-700 bg-violet-500 text-white shadow-md"
           >
             {label}
           </div>

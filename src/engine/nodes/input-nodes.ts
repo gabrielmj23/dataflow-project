@@ -28,3 +28,17 @@ export class EngineRandomNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineChoiceNode extends NodeDefinition {
+  constructor(choices: string[]) {
+    super(
+      () => {
+        if (!Array.isArray(choices) || choices.length === 0) return "";
+        const idx = Math.floor(Math.random() * choices.length);
+        return choices[idx];
+      },
+      [FirePatterns.ALWAYS],
+      ["output"]
+    );
+  }
+}

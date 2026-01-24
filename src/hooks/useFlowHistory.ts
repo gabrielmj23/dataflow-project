@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { globalIsDragging } from "@/lib/globalRefs";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 
 type FlowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
@@ -71,6 +72,7 @@ export function useFlowHistory({
 
   const onNodeDragStart = useCallback(() => {
     isDraggingRef.current = true;
+    globalIsDragging.current = true;
     if (historyTimeoutRef.current !== null) {
       window.clearTimeout(historyTimeoutRef.current);
       historyTimeoutRef.current = null;
@@ -79,6 +81,7 @@ export function useFlowHistory({
 
   const onNodeDragStop = useCallback(() => {
     isDraggingRef.current = false;
+    globalIsDragging.current = false;
     pushHistorySnapshot();
   }, [pushHistorySnapshot]);
 

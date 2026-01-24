@@ -53,6 +53,11 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Genera valores aleatorios dentro de un rango.",
       },
       {
+        type: "choiceInput",
+        label: "Selección aleatoria",
+        description: "Elige un elemento aleatorio de una lista de opciones configurables.",
+      },
+      {
         type: "microbitReadButton",
         label: "micro:bit · Leer botón",
         description:

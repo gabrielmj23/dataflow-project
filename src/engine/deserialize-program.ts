@@ -28,7 +28,7 @@ import {
   EngineFormulaNode,
   EngineConcatNode,
 } from "./nodes/algorithm-nodes";
-import { EngineConstantNode, EngineRandomNode } from "./nodes/input-nodes";
+import { EngineConstantNode, EngineRandomNode, EngineChoiceNode } from "./nodes/input-nodes";
 import { EngineTimerNode } from "./nodes/event-nodes";
 import { EngineWriteNode } from "./nodes/output-nodes";
 import { EngineMicrobitReadButtonNode } from "./nodes/microbit-nodes";
@@ -742,6 +742,7 @@ function mapHandleToPortId(params: {
     nodeType === NODE_TYPES.CONSTANT_TEXT_INPUT ||
     nodeType === NODE_TYPES.RUNTIME_INPUT ||
     nodeType === NODE_TYPES.RANDOM_INPUT ||
+    nodeType === NODE_TYPES.CHOICE_INPUT ||
     nodeType === NODE_TYPES.MICROBIT_READ_BUTTON_INPUT
   ) {
     if (direction === "source") {
@@ -973,12 +974,10 @@ function mapHandleToPortId(params: {
       );
     }
 
+    // Allow selector source handles to be token-named (one output per option).
+    // Keep legacy "out" mapping for backward compatibility.
     if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
+    return String(handleId);
   }
 
   // Iteration/list nodes
@@ -1144,6 +1143,13 @@ function flowNodeToEngineDefinition(
       const max = typeof data.max === "number" ? data.max : 100;
       const integerOnly = data.integerOnly === true;
       return new EngineRandomNode(min, max, integerOnly);
+    }
+    case NODE_TYPES.CHOICE_INPUT: {
+      const raw = data.choices;
+      const choices: string[] = Array.isArray(raw)
+        ? raw.map((c) => (typeof c === "string" ? c : String(c))).filter(Boolean)
+        : [];
+      return new EngineChoiceNode(choices);
     }
     case NODE_TYPES.TIMER_INPUT: {
       // UI stores seconds; engine expects milliseconds.
@@ -1534,11 +1540,12 @@ function flowNodeToEngineDefinition(
           const matchIdx = tokens.findIndex((t) => t === tokenStr);
           const selected = matchIdx >= 0 ? values[matchIdx] : undefined;
 
+          // If token matches one of the option tokens, route the output to
+          // that token-named port. Otherwise fall back to the legacy "output" port.
+          const targetPort = matchIdx >= 0 ? tokenStr : "output";
+
           return [
-            new DataToken(
-              selected,
-              new PortAddress("", "output"),
-            ),
+            new DataToken(selected, new PortAddress("", targetPort)),
           ];
         },
         firePatterns,
