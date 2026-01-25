@@ -17,11 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "./App.css";
-import {
-  Hand,
-  MousePointer2,
-  BrushCleaning,
-} from "lucide-react";
+import { Hand, MousePointer2, BrushCleaning } from "lucide-react";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
@@ -34,14 +30,9 @@ import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
 import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
 import { TopActionPanel } from "@/components/TopActionPanel";
 import { TopBar } from "@/components/TopBar";
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { usePaletteDrag } from "@/hooks/usePaletteDrag";
-import {
-  SubflowTemplateContext,
-} from "@/flow/subflow-templates-context";
+import { SubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { useEngineRunner } from "@/hooks/useEngineRunner";
 import { createNodeId } from "@/utils/id";
 import { useFlowHistory } from "@/hooks/useFlowHistory";
@@ -52,6 +43,10 @@ import { useClipboardSelection } from "@/hooks/useClipboardSelection";
 import { useWriteNodeReconciliation } from "@/hooks/useWriteNodeReconciliation";
 import { useConditionalNodeReconciliation } from "@/hooks/useConditionalNodeReconciliation";
 import { useSubflowTemplates } from "@/hooks/useSubflowTemplates";
+import { useWsRunnerBridge } from "@/hooks/useWsRunnerBridge";
+import { getRemoteConfig } from "@/ws/remote-config";
+import { RemoteControllerPanel } from "@/components/RemoteControllerPanel";
+import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import {
   type FlowBounds,
   type FlowEdge,
@@ -70,8 +65,9 @@ const initialNodes: FlowNode[] = [];
 
 const initialEdges: FlowEdge[] = [];
 
-
 export default function App() {
+  const remoteConfig = useMemo(() => getRemoteConfig(), []);
+
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] =
@@ -109,13 +105,14 @@ export default function App() {
     initialEdges,
     isRuntimeUpdateRef,
   });
-  const { copySelection, pasteSelection, onPaneMouseMove } = useClipboardSelection({
-    nodes,
-    edges,
-    setNodes,
-    setEdges,
-    reactFlowInstance,
-  });
+  const { copySelection, pasteSelection, onPaneMouseMove } =
+    useClipboardSelection({
+      nodes,
+      edges,
+      setNodes,
+      setEdges,
+      reactFlowInstance,
+    });
   const {
     consoleScrollRef,
     consoleInputRef,
@@ -135,6 +132,15 @@ export default function App() {
     isRuntimeUpdateRef,
   });
 
+  // Engine event sink that can be wired to the WS runner bridge without
+  // creating hook ordering cycles.
+  const engineEventSinkRef = useRef<
+    ((event: EngineRunnerEvent) => void) | null
+  >(null);
+  const onEngineEvent = useCallback((event: EngineRunnerEvent) => {
+    engineEventSinkRef.current?.(event);
+  }, []);
+
   const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
     nodes,
     edges,
@@ -145,14 +151,29 @@ export default function App() {
     appendConsoleLines,
     enqueuePrompt,
     clearPromptQueue,
+    onEngineEvent,
   });
+
+  const runnerBridge = useWsRunnerBridge({
+    nodes,
+    programName,
+    isEngineRunning,
+    consoleOutputText,
+    activeRuntimePrompt,
+    onRunClick,
+    onStopClick,
+  });
+
+  useEffect(() => {
+    engineEventSinkRef.current = runnerBridge.emitEngineEvent;
+  }, [runnerBridge.emitEngineEvent]);
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
     usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
-    [nodes]
+    [nodes],
   );
 
   const [isCreateSubflowOpen, setIsCreateSubflowOpen] = useState(false);
@@ -164,7 +185,7 @@ export default function App() {
   const [pendingSubflowSnapshot, setPendingSubflowSnapshot] =
     useState<SubflowSnapshot | null>(null);
   const [createSubflowError, setCreateSubflowError] = useState<string | null>(
-    null
+    null,
   );
   const [createSubflowNameError, setCreateSubflowNameError] = useState<
     string | null
@@ -177,18 +198,14 @@ export default function App() {
     string | null
   >(null);
 
-  const {
-    fileInputRef,
-    onDownloadClick,
-    onLoadClick,
-    onProgramFileChange,
-  } = useProgramIO({
-    reactFlowInstance,
-    programName,
-    setNodes,
-    setEdges,
-    setProgramName,
-  });
+  const { fileInputRef, onDownloadClick, onLoadClick, onProgramFileChange } =
+    useProgramIO({
+      reactFlowInstance,
+      programName,
+      setNodes,
+      setEdges,
+      setProgramName,
+    });
 
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
@@ -204,11 +221,15 @@ export default function App() {
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nodesSnapshot) => {
-      const removedChanges = changes.filter((change) => change.type === "remove");
+      const removedChanges = changes.filter(
+        (change) => change.type === "remove",
+      );
       let expandedChanges = changes;
 
       if (removedChanges.length > 0) {
-        const removedIds = new Set(removedChanges.map((change) => String(change.id)));
+        const removedIds = new Set(
+          removedChanges.map((change) => String(change.id)),
+        );
         const removedPairIds = new Set<string>();
 
         for (const node of nodesSnapshot) {
@@ -238,7 +259,7 @@ export default function App() {
           expandedChanges = changes.concat(
             Array.from(removedIds)
               .filter((id) => !removedChanges.some((c) => String(c.id) === id))
-              .map((id) => ({ type: "remove", id } as NodeChange))
+              .map((id) => ({ type: "remove", id }) as NodeChange),
           );
 
           setEdges((edgesSnapshot) =>
@@ -249,11 +270,14 @@ export default function App() {
                   : null;
               const edgePairId = data?.pairId ? String(data.pairId) : null;
               if (edgePairId && removedPairIds.has(edgePairId)) return false;
-              if (removedIds.has(String(edge.source)) || removedIds.has(String(edge.target))) {
+              if (
+                removedIds.has(String(edge.source)) ||
+                removedIds.has(String(edge.target))
+              ) {
                 return false;
               }
               return true;
-            })
+            }),
           );
         }
       }
@@ -263,7 +287,7 @@ export default function App() {
       const movedIds = new Set(
         expandedChanges
           .filter((change) => change.type === "position")
-          .map((change) => String(change.id))
+          .map((change) => String(change.id)),
       );
 
       if (movedIds.size === 0) return next;
@@ -298,7 +322,7 @@ export default function App() {
 
       const overrides = new Map<string, { x: number; y: number }>();
 
-      for (const [pairId, pair] of pairs.entries()) {
+      for (const [, pair] of pairs.entries()) {
         const conditional = pair.conditional;
         const selector = pair.selector;
         if (!conditional || !selector) continue;
@@ -419,7 +443,7 @@ export default function App() {
     setNodes((prev) => [...prev, newNode]);
     setContextPoint(null);
   }, [reactFlowInstance, contextPoint, setNodes]);
-  
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
@@ -468,7 +492,7 @@ export default function App() {
 
       setNodes((prevNodes) => {
         const removedIds = new Set(
-          prevNodes.filter((n) => n.selected).map((n) => n.id)
+          prevNodes.filter((n) => n.selected).map((n) => n.id),
         );
 
         const nextNodes = prevNodes.filter((n) => !n.selected);
@@ -480,7 +504,7 @@ export default function App() {
             const tgt = String((edge as Edge).target);
             if (removedIds.has(src) || removedIds.has(tgt)) return false;
             return true;
-          })
+          }),
         );
 
         return nextNodes;
@@ -521,7 +545,7 @@ export default function App() {
 
     if (addSubflowToPalette && isNameTaken(name)) {
       setCreateSubflowNameError(
-        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre."
+        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
       );
       return;
     }
@@ -560,7 +584,7 @@ export default function App() {
 
       // Remove original selected nodes from main canvas
       const removedIds = new Set(
-        pendingSubflowSnapshot.nodes.map((n) => String(n.id))
+        pendingSubflowSnapshot.nodes.map((n) => String(n.id)),
       );
 
       const remaining = prev.filter((n) => !removedIds.has(String(n.id)));
@@ -587,7 +611,7 @@ export default function App() {
           !pendingSubflowSnapshot.nodes.some((n) => String(n.id) === src) &&
           !pendingSubflowSnapshot.nodes.some((n) => String(n.id) === tgt)
         );
-      })
+      }),
     );
 
     setIsCreateSubflowOpen(false);
@@ -609,7 +633,7 @@ export default function App() {
   const onLayout = useCallback(() => {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
       nodes,
-      edges
+      edges,
     );
     setNodes([...layoutedNodes]);
     setEdges([...layoutedEdges]);
@@ -633,6 +657,10 @@ export default function App() {
             programName={programName}
             onProgramNameChange={setProgramName}
           />
+
+          {remoteConfig.role === "controller" ? (
+            <RemoteControllerPanel />
+          ) : null}
 
           <SubflowTemplateContext.Provider
             value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
@@ -774,7 +802,6 @@ export default function App() {
           onCancel={() => onCreateSubflowDialogChange(false)}
           onSave={createSubflow}
         />
-
       </SidebarInset>
 
       <DeleteSubflowDialog

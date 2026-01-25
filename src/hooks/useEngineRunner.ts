@@ -10,6 +10,29 @@ import { serializeProgram } from "@/flow/serialization";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
 
+export type EngineRunnerEvent =
+  | { type: "run_start" }
+  | { type: "run_end"; ok: boolean; error?: unknown }
+  | {
+      type: "node_status";
+      nodeId: string;
+      status: EngineNodeStatus;
+      errorText?: string;
+    }
+  | {
+      type: "log";
+      level: EngineLogLevel;
+      nodeId?: string;
+      text: string;
+    }
+  | {
+      type: "prompt";
+      nodeId: string;
+      prompt: string;
+      inputType: "number" | "text";
+      defaultValue?: unknown;
+    };
+
 type UseEngineRunnerParams = {
   nodes: FlowNode[];
   edges: FlowEdge[];
@@ -23,6 +46,8 @@ type UseEngineRunnerParams = {
   ) => void;
   enqueuePrompt: (prompt: RuntimePrompt) => void;
   clearPromptQueue: () => void;
+  /** Optional tap to observe engine runtime events (e.g. for remote WS streaming). */
+  onEngineEvent?: (event: EngineRunnerEvent) => void;
 };
 
 export function useEngineRunner({
@@ -35,6 +60,7 @@ export function useEngineRunner({
   appendConsoleLines,
   enqueuePrompt,
   clearPromptQueue,
+  onEngineEvent,
 }: UseEngineRunnerParams) {
   const [isEngineRunning, setIsEngineRunning] = useState(false);
   const runAbortControllerRef = useRef<AbortController | null>(null);
@@ -153,6 +179,7 @@ export function useEngineRunner({
         const baseText = formatLogText(payload);
         const text = level === "error" ? `Error: ${baseText}` : baseText;
         appendConsoleLines([text], { level, nodeId });
+        onEngineEvent?.({ type: "log", level, nodeId, text });
       };
 
       const onPromptHandler = ({
@@ -171,6 +198,13 @@ export function useEngineRunner({
         cancel: () => void;
       }) => {
         enqueuePrompt({ nodeId, prompt, type, defaultValue, submit, cancel });
+        onEngineEvent?.({
+          type: "prompt",
+          nodeId,
+          prompt,
+          inputType: type,
+          defaultValue,
+        });
       };
 
       const stores = deserializeProgramToEngineStores(program, {
@@ -181,12 +215,21 @@ export function useEngineRunner({
       const engine = new DataflowEngine();
 
       engine.setObserver({
+        onRunStart: () => {
+          onEngineEvent?.({ type: "run_start" });
+        },
+        onRunEnd: ({ ok, error }) => {
+          onEngineEvent?.({ type: "run_end", ok, error });
+        },
         onNodeStatus: ({ nodeId, status, error }) => {
           isRuntimeUpdateRef.current = true;
           const errorText =
             status === "error" && error !== undefined
               ? formatLogText(error)
               : undefined;
+
+          onEngineEvent?.({ type: "node_status", nodeId, status, errorText });
+
           setNodes((prev) =>
             prev.map((n) => {
               if (String(n.id) !== String(nodeId)) return n;
@@ -246,6 +289,7 @@ export function useEngineRunner({
     setAllNodesRuntimeState,
     setNodes,
     stripRuntimeClasses,
+    onEngineEvent,
   ]);
 
   return {
