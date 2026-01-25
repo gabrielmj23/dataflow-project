@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { EngineNodeStatus } from "@/engine/engine";
 import type { FlowNode } from "@/utils/flow";
 import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
 import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
-import { getRemoteConfig } from "@/ws/remote-config";
+import type { RemoteConfig } from "@/ws/remote-config";
 
 type RunnerWsState = {
   connected: boolean;
@@ -14,6 +14,7 @@ type RunnerWsState = {
 type EngineEvent = EngineRunnerEvent;
 
 type UseWsRunnerBridgeParams = {
+  remoteConfig: RemoteConfig;
   nodes: FlowNode[];
   programName: string;
   isEngineRunning: boolean;
@@ -56,7 +57,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
   wsState: RunnerWsState;
   emitEngineEvent: (e: EngineEvent) => void;
 } {
-  const config = useMemo(() => getRemoteConfig(), []);
+  const config = params.remoteConfig;
   const enabled = config.role === "runner";
 
   const onRunClickRef = useRef(params.onRunClick);
@@ -190,7 +191,16 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
   );
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      try {
+        wsRef.current?.close();
+      } catch {
+        // ignore
+      }
+      wsRef.current = null;
+      setWsState({ connected: false, lastError: undefined });
+      return;
+    }
 
     let stopped = false;
     let reconnectTimer: number | null = null;

@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { EngineLogLevel, EngineNodeStatus } from "@/engine/engine";
-import { getRemoteConfig } from "@/ws/remote-config";
+import type { RemoteConfig } from "@/ws/remote-config";
 
 type ControllerState = {
   connected: boolean;
@@ -20,7 +20,7 @@ function stringifyError(error: unknown): string {
   }
 }
 
-export function useWsControllerClient(): {
+export function useWsControllerClient(config: RemoteConfig): {
   enabled: boolean;
   state: ControllerState;
   lastError?: string;
@@ -28,7 +28,6 @@ export function useWsControllerClient(): {
   stop: () => void;
   requestSnapshot: () => void;
 } {
-  const config = useMemo(() => getRemoteConfig(), []);
   const enabled = config.role === "controller";
 
   const [state, setState] = useState<ControllerState>({
@@ -70,7 +69,21 @@ export function useWsControllerClient(): {
   }, [send]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      try {
+        wsRef.current?.close();
+      } catch {
+        // ignore
+      }
+      wsRef.current = null;
+      setLastError(undefined);
+      setState((prev) => ({
+        ...prev,
+        connected: false,
+        runnerConnected: false,
+      }));
+      return;
+    }
 
     let stopped = false;
     let reconnectTimer: number | null = null;

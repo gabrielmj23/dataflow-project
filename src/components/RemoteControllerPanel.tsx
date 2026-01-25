@@ -1,11 +1,15 @@
 import { useMemo } from "react";
 
-import { Button } from "@/components/ui/button";
 import { useWsControllerClient } from "@/hooks/useWsControllerClient";
+import type { RemoteConfig } from "@/ws/remote-config";
+import { Panel } from "@xyflow/react";
 
-export function RemoteControllerPanel() {
-  const { enabled, state, lastError, run, stop, requestSnapshot } =
-    useWsControllerClient();
+export function RemoteControllerPanel({
+  remoteConfig,
+}: {
+  remoteConfig: RemoteConfig;
+}) {
+  const { enabled, state, lastError } = useWsControllerClient(remoteConfig);
 
   const subtitle = useMemo(() => {
     if (!enabled) return "Modo remoto deshabilitado";
@@ -17,43 +21,16 @@ export function RemoteControllerPanel() {
   if (!enabled) return null;
 
   return (
-    <div
-      className="fixed top-4 left-4 z-50 w-90 overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm"
+    <Panel
+      position="top-right"
+      className="w-90 overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm mt-20!"
       role="region"
       aria-label="Remote controller"
     >
       <div className="flex items-center justify-between border-b px-3 py-2">
         <div>
-          <div className="text-sm font-medium">Controller remoto</div>
+          <div className="text-sm font-medium">Consola remota</div>
           <div className="text-xs text-muted-foreground">{subtitle}</div>
-        </div>
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={requestSnapshot}
-          >
-            Snapshot
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={run}
-            disabled={!state.runnerConnected || state.isEngineRunning}
-          >
-            Run
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={stop}
-            disabled={!state.runnerConnected}
-          >
-            Stop
-          </Button>
         </div>
       </div>
 
@@ -68,6 +45,6 @@ export function RemoteControllerPanel() {
           </div>
         </div>
       </div>
-    </div>
+    </Panel>
   );
 }

@@ -44,9 +44,10 @@ import { useWriteNodeReconciliation } from "@/hooks/useWriteNodeReconciliation";
 import { useConditionalNodeReconciliation } from "@/hooks/useConditionalNodeReconciliation";
 import { useSubflowTemplates } from "@/hooks/useSubflowTemplates";
 import { useWsRunnerBridge } from "@/hooks/useWsRunnerBridge";
-import { getRemoteConfig } from "@/ws/remote-config";
 import { RemoteControllerPanel } from "@/components/RemoteControllerPanel";
+import { RemoteSettingsDialog } from "@/components/RemoteSettingsDialog";
 import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
+import { useRemoteConfigState } from "@/hooks/useRemoteConfig";
 import {
   type FlowBounds,
   type FlowEdge,
@@ -66,7 +67,13 @@ const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
 
 export default function App() {
-  const remoteConfig = useMemo(() => getRemoteConfig(), []);
+  const {
+    config: remoteConfig,
+    setConfig: setRemoteConfig,
+    resetConfig,
+  } = useRemoteConfigState();
+
+  const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
 
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
@@ -155,6 +162,7 @@ export default function App() {
   });
 
   const runnerBridge = useWsRunnerBridge({
+    remoteConfig,
     nodes,
     programName,
     isEngineRunning,
@@ -658,8 +666,16 @@ export default function App() {
             onProgramNameChange={setProgramName}
           />
 
+          <RemoteSettingsDialog
+            config={remoteConfig}
+            onChange={setRemoteConfig}
+            onReset={resetConfig}
+            open={isRemoteDialogOpen}
+            setOpen={setIsRemoteDialogOpen}
+          />
+
           {remoteConfig.role === "controller" ? (
-            <RemoteControllerPanel />
+            <RemoteControllerPanel remoteConfig={remoteConfig} />
           ) : null}
 
           <SubflowTemplateContext.Provider
@@ -750,6 +766,7 @@ export default function App() {
                     onStopClick={onStopClick}
                     onDownloadClick={onDownloadClick}
                     onLoadClick={onLoadClick}
+                    onRemoteSettingsClick={() => setIsRemoteDialogOpen(true)}
                   />
 
                   <ConsolePanel
