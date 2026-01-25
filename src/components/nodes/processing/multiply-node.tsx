@@ -8,8 +8,9 @@ import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-mi
 export type MultiplyNodeData = {
   label?: string;
   runtimeError?: string | null;
-  executionTarget?: "local" | "microbit";
+  executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
+  controllerId?: string;
 };
 
 export const MultiplyNode = memo(({ id, data }: NodeProps) => {
@@ -18,6 +19,7 @@ export const MultiplyNode = memo(({ id, data }: NodeProps) => {
     runtimeError,
     executionTarget,
     transport,
+    controllerId,
   } = (data ?? {}) as MultiplyNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -25,6 +27,7 @@ export const MultiplyNode = memo(({ id, data }: NodeProps) => {
     title: "Configurar · Multiplicar",
     executionTarget,
     transport,
+    controllerId,
   });
 
   return (

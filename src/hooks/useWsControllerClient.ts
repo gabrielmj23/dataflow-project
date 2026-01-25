@@ -20,6 +20,79 @@ function stringifyError(error: unknown): string {
   }
 }
 
+function coerceNumber(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) throw new Error("Número inválido.");
+  return n;
+}
+
+function computeOperation(op: string, args: unknown[]): unknown {
+  switch (op) {
+    case "sum": {
+      const a = coerceNumber(args[0]);
+      const b = coerceNumber(args[1]);
+      return a + b;
+    }
+    case "subtract": {
+      const a = coerceNumber(args[0]);
+      const b = coerceNumber(args[1]);
+      return a - b;
+    }
+    case "multiply": {
+      const a = coerceNumber(args[0]);
+      const b = coerceNumber(args[1]);
+      return a * b;
+    }
+    case "divide": {
+      const a = coerceNumber(args[0]);
+      const b = coerceNumber(args[1]);
+      const result = a / b;
+      if (!Number.isFinite(result)) {
+        throw new Error(
+          "División no definida (dividir entre cero u otro caso inválido)",
+        );
+      }
+      return result;
+    }
+    case "mod": {
+      const a = coerceNumber(args[0]);
+      const b = coerceNumber(args[1]);
+      return a % b;
+    }
+    case "power": {
+      const a = coerceNumber(args[0]);
+      const b = coerceNumber(args[1]);
+      if (a === 0 && b === 0) {
+        throw new Error("Potencia no definida: 0^0 no está permitido");
+      }
+      const result = Math.pow(a, b);
+      if (!Number.isFinite(result) || Number.isNaN(result)) {
+        throw new Error("Potencia no definida para estos valores");
+      }
+      return result;
+    }
+    case "floor": {
+      const a = coerceNumber(args[0]);
+      return Math.floor(a);
+    }
+    case "ceiling": {
+      const a = coerceNumber(args[0]);
+      return Math.ceil(a);
+    }
+    case "round": {
+      const a = coerceNumber(args[0]);
+      return Math.round(a);
+    }
+    case "concat": {
+      const a = args[0] ?? "";
+      const b = args[1] ?? "";
+      return String(a) + String(b);
+    }
+    default:
+      throw new Error(`Operación no soportada: ${op}`);
+  }
+}
+
 export function useWsControllerClient(config: RemoteConfig): {
   enabled: boolean;
   state: ControllerState;
@@ -203,6 +276,27 @@ export function useWsControllerClient(config: RemoteConfig): {
             const message =
               typeof msg.message === "string" ? msg.message : "unknown error";
             setLastError(message);
+            return;
+          }
+
+          if (type === "exec_request") {
+            const requestId =
+              typeof msg.requestId === "string" ? msg.requestId : "";
+            const op = typeof msg.op === "string" ? msg.op : "";
+            const args = Array.isArray(msg.args) ? msg.args : [];
+            if (!requestId || !op) return;
+
+            try {
+              const result = computeOperation(op, args);
+              send({ type: "exec_result", requestId, ok: true, result });
+            } catch (err) {
+              send({
+                type: "exec_result",
+                requestId,
+                ok: false,
+                error: stringifyError(err),
+              });
+            }
           }
         };
       } catch (err) {

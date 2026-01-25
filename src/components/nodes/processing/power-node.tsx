@@ -7,8 +7,9 @@ import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-mi
 export type PowerNodeData = {
   label?: string;
   runtimeError?: string | null;
-  executionTarget?: "local" | "microbit";
+  executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
+  controllerId?: string;
 };
 
 export const PowerNode = memo(({ id, data }: NodeProps) => {
@@ -17,6 +18,7 @@ export const PowerNode = memo(({ id, data }: NodeProps) => {
     runtimeError,
     executionTarget,
     transport,
+    controllerId,
   } = (data ?? {}) as PowerNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -24,6 +26,7 @@ export const PowerNode = memo(({ id, data }: NodeProps) => {
     title: "Configurar · Potencia",
     executionTarget,
     transport,
+    controllerId,
   });
 
   return (

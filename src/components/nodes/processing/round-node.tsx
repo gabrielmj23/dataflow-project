@@ -8,8 +8,9 @@ import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-mi
 export type RoundNodeData = {
   label?: string;
   runtimeError?: string | null;
-  executionTarget?: "local" | "microbit";
+  executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
+  controllerId?: string;
 };
 
 export const RoundNode = memo(({ id, data }: NodeProps) => {
@@ -18,6 +19,7 @@ export const RoundNode = memo(({ id, data }: NodeProps) => {
     runtimeError,
     executionTarget,
     transport,
+    controllerId,
   } = (data ?? {}) as RoundNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -25,6 +27,7 @@ export const RoundNode = memo(({ id, data }: NodeProps) => {
     title: "Configurar · Redondear",
     executionTarget,
     transport,
+    controllerId,
   });
 
   return (

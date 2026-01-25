@@ -5,7 +5,10 @@ import {
   type EngineLogLevel,
   type EngineNodeStatus,
 } from "@/engine/engine";
-import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
+import {
+  deserializeProgramToEngineStores,
+  type RemoteExecutor,
+} from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
@@ -48,6 +51,8 @@ type UseEngineRunnerParams = {
   clearPromptQueue: () => void;
   /** Optional tap to observe engine runtime events (e.g. for remote WS streaming). */
   onEngineEvent?: (event: EngineRunnerEvent) => void;
+  /** Optional remote executor for controller-based node execution. */
+  remoteExecutor?: RemoteExecutor;
 };
 
 export function useEngineRunner({
@@ -61,6 +66,7 @@ export function useEngineRunner({
   enqueuePrompt,
   clearPromptQueue,
   onEngineEvent,
+  remoteExecutor,
 }: UseEngineRunnerParams) {
   const [isEngineRunning, setIsEngineRunning] = useState(false);
   const runAbortControllerRef = useRef<AbortController | null>(null);
@@ -211,6 +217,7 @@ export function useEngineRunner({
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
         signal: abortController.signal,
+        remoteExecutor,
       });
       const engine = new DataflowEngine();
 

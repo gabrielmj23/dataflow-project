@@ -70,6 +70,27 @@ export type EngineProgramStores = {
   arcStore: ArcStore;
 };
 
+export type RemoteExecutionOp =
+  | "sum"
+  | "subtract"
+  | "multiply"
+  | "divide"
+  | "mod"
+  | "power"
+  | "floor"
+  | "ceiling"
+  | "round"
+  | "concat";
+
+export type RemoteExecutionRequest = {
+  nodeId: string;
+  controllerId: string;
+  op: RemoteExecutionOp;
+  args: unknown[];
+};
+
+export type RemoteExecutor = (req: RemoteExecutionRequest) => Promise<unknown>;
+
 /**
  * Safely coerces an unknown value into a plain record.
  *
@@ -167,6 +188,7 @@ function buildEngineStoresFromFlowGraph(params: {
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
   signal?: AbortSignal;
+  remoteExecutor?: RemoteExecutor;
 }): EngineProgramStores {
   // Exclude UI-only nodes (e.g., comments) from engine stores.
   const uiNodes = params.nodes.filter(
@@ -246,7 +268,8 @@ function buildEngineStoresFromFlowGraph(params: {
         direction: "target",
       });
       if (portId) {
-        const set = conditionalIncomingByNodeId.get(targetId) ?? new Set<string>();
+        const set =
+          conditionalIncomingByNodeId.get(targetId) ?? new Set<string>();
         set.add(portId);
         conditionalIncomingByNodeId.set(targetId, set);
       }
@@ -274,6 +297,7 @@ function buildEngineStoresFromFlowGraph(params: {
       onLog: params.onLog,
       onPrompt: params.onPrompt,
       signal: params.signal,
+      remoteExecutor: params.remoteExecutor,
     });
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
@@ -593,6 +617,7 @@ function compileSubflowNodeDefinition(params: {
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
   signal?: AbortSignal;
+  remoteExecutor?: RemoteExecutor;
 }): NodeDefinition {
   const stores = buildEngineStoresFromFlowGraph({
     nodes: params.subflowNodes,
@@ -600,6 +625,7 @@ function compileSubflowNodeDefinition(params: {
     onLog: params.onLog,
     onPrompt: params.onPrompt,
     signal: params.signal,
+    remoteExecutor: params.remoteExecutor,
   });
 
   const engineNodes = stores.nodeStore.getNodes();
@@ -1091,10 +1117,45 @@ function flowNodeToEngineDefinition(
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
+    remoteExecutor?: RemoteExecutor;
   },
 ): NodeDefinition {
   const nodeType = flowNode.type;
   const data = asRecord(flowNode.data);
+
+  const createRemoteExecutionNode = (params: {
+    op: RemoteExecutionOp;
+    ports: string[];
+    firePatterns: FirePatterns[];
+    stickyInputPorts?: string[];
+  }): NodeDefinition => {
+    const executor = context?.remoteExecutor;
+    const controllerId =
+      typeof data.controllerId === "string" ? data.controllerId : "";
+
+    return new NodeDefinition(
+      async (...args: unknown[]) => {
+        if (!executor) {
+          throw new Error("Ejecución remota no configurada.");
+        }
+        if (!controllerId) {
+          throw new Error("No hay controller seleccionado.");
+        }
+
+        return executor({
+          nodeId: String(flowNode.id),
+          controllerId,
+          op: params.op,
+          args,
+        });
+      },
+      params.firePatterns,
+      params.ports,
+      params.stickyInputPorts
+        ? { stickyInputPorts: params.stickyInputPorts }
+        : undefined,
+    );
+  };
 
   switch (nodeType) {
     case NODE_TYPES.CONSTANT_INPUT: {
@@ -1183,6 +1244,14 @@ function flowNodeToEngineDefinition(
 
     case NODE_TYPES.SUM_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "sum",
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1200,6 +1269,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.SUBTRACT_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "subtract",
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1217,6 +1294,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.MULTIPLY_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "multiply",
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1234,6 +1319,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.DIVIDE_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "divide",
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1251,6 +1344,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.MOD_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "mod",
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1268,6 +1369,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.POWER_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "power",
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1285,6 +1394,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.FLOOR_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "floor",
+          ports: ["input1", "output"],
+          firePatterns: [FirePatterns.EXISTS],
+          stickyInputPorts: ["input1"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1302,6 +1419,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.CEILING_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "ceiling",
+          ports: ["input1", "output"],
+          firePatterns: [FirePatterns.EXISTS],
+          stickyInputPorts: ["input1"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1319,6 +1444,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.ROUND_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "round",
+          ports: ["input1", "output"],
+          firePatterns: [FirePatterns.EXISTS],
+          stickyInputPorts: ["input1"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1341,6 +1474,14 @@ function flowNodeToEngineDefinition(
     }
     case NODE_TYPES.CONCAT_NODE: {
       const executionTarget = data.executionTarget;
+      if (executionTarget === "controller") {
+        return createRemoteExecutionNode({
+          op: "concat",
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
       if (executionTarget === "microbit") {
         const transportRaw = data.transport ?? data.connectionType;
         const transport =
@@ -1356,7 +1497,6 @@ function flowNodeToEngineDefinition(
       }
       return new EngineConcatNode();
     }
-
     case NODE_TYPES.COMPARISON_NODE: {
       const operator = data.operator;
       const op =
@@ -1427,7 +1567,9 @@ function flowNodeToEngineDefinition(
         : [{ label: "a" }];
       const inputs = inputsRaw.map((it, idx) => {
         const labelRaw =
-          it && typeof it === "object" ? (it as { label?: unknown }).label : null;
+          it && typeof it === "object"
+            ? (it as { label?: unknown }).label
+            : null;
         const label =
           typeof labelRaw === "string" && labelRaw.trim().length > 0
             ? labelRaw.trim()
@@ -1458,16 +1600,18 @@ function flowNodeToEngineDefinition(
 
         return {
           outputToken,
-          compiled: validation.ok ? validation.compiled ?? null : null,
+          compiled: validation.ok ? (validation.compiled ?? null) : null,
         };
       });
 
       const inputPorts = inputs.map((i) => i.portId);
       const ports = [...inputPorts, "output"];
 
-      const incoming = context?.conditionalIncomingByNodeId?.get(String(flowNode.id));
+      const incoming = context?.conditionalIncomingByNodeId?.get(
+        String(flowNode.id),
+      );
       const firePatterns = inputPorts.map((portId) =>
-        incoming?.has(portId) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
+        incoming?.has(portId) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
       );
 
       return new NodeDefinition(
@@ -1483,13 +1627,11 @@ function flowNodeToEngineDefinition(
           for (const cond of conditions) {
             if (!cond.compiled) continue;
             const result = cond.compiled.evaluate(scope);
-            const truthy = typeof result === "boolean" ? result : Number(result) !== 0;
+            const truthy =
+              typeof result === "boolean" ? result : Number(result) !== 0;
             if (truthy) {
               return [
-                new DataToken(
-                  cond.outputToken,
-                  new PortAddress("", "output"),
-                ),
+                new DataToken(cond.outputToken, new PortAddress("", "output")),
               ];
             }
           }
@@ -1503,10 +1645,13 @@ function flowNodeToEngineDefinition(
 
     case NODE_TYPES.SELECTOR_NODE: {
       const optionsRaw = Array.isArray(data.options) ? data.options : [];
-      const options = optionsRaw.length > 0 ? optionsRaw : [
-        { token: "Salida 1", value: 0 },
-        { token: "Salida 2", value: 0 },
-      ];
+      const options =
+        optionsRaw.length > 0
+          ? optionsRaw
+          : [
+              { token: "Salida 1", value: 0 },
+              { token: "Salida 2", value: 0 },
+            ];
 
       const tokens = options.map((opt, idx) => {
         const tokenRaw =
@@ -1520,11 +1665,13 @@ function flowNodeToEngineDefinition(
 
       const ports = ["token", ...tokens, "output"];
 
-      const incoming = context?.selectorIncomingByNodeId?.get(String(flowNode.id));
+      const incoming = context?.selectorIncomingByNodeId?.get(
+        String(flowNode.id),
+      );
       const firePatterns = [
         FirePatterns.EXISTS,
         ...tokens.map((t) =>
-          incoming?.has(t) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
+          incoming?.has(t) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
         ),
       ];
 
@@ -1534,12 +1681,7 @@ function flowNodeToEngineDefinition(
           const matchIdx = tokens.findIndex((t) => t === tokenStr);
           const selected = matchIdx >= 0 ? values[matchIdx] : undefined;
 
-          return [
-            new DataToken(
-              selected,
-              new PortAddress("", "output"),
-            ),
-          ];
+          return [new DataToken(selected, new PortAddress("", "output"))];
         },
         firePatterns,
         ports,
@@ -1688,6 +1830,7 @@ function flowNodeToEngineDefinition(
           onLog: context?.onLog,
           onPrompt: context?.onPrompt,
           signal: context?.signal,
+          remoteExecutor: context?.remoteExecutor,
         });
       }
 
@@ -1725,6 +1868,7 @@ export function deserializeProgramToEngineStores(
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
+    remoteExecutor?: RemoteExecutor;
   },
 ): EngineProgramStores {
   const { nodes, edges } = deserializeProgram(serialized);
@@ -1735,5 +1879,6 @@ export function deserializeProgramToEngineStores(
     onLog: options?.onLog,
     onPrompt: options?.onPrompt,
     signal: options?.signal,
+    remoteExecutor: options?.remoteExecutor,
   });
 }

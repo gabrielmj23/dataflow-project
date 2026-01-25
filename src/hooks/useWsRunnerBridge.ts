@@ -5,6 +5,7 @@ import type { FlowNode } from "@/utils/flow";
 import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
 import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import type { RemoteConfig } from "@/ws/remote-config";
+import type { RemoteControllerInfo } from "@/ws/remote-controllers-context";
 
 type RunnerWsState = {
   connected: boolean;
@@ -22,6 +23,13 @@ type UseWsRunnerBridgeParams = {
   activeRuntimePrompt: RuntimePrompt | null;
   onRunClick: () => void;
   onStopClick: () => void;
+};
+
+export type RemoteExecutionRequest = {
+  nodeId: string;
+  controllerId: string;
+  op: string;
+  args: unknown[];
 };
 
 function statusFromClassName(className?: string): EngineNodeStatus | undefined {
@@ -56,6 +64,8 @@ function stringifyError(error: unknown): string {
 export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
   wsState: RunnerWsState;
   emitEngineEvent: (e: EngineEvent) => void;
+  controllers: RemoteControllerInfo[];
+  executeRemote: (req: RemoteExecutionRequest) => Promise<unknown>;
 } {
   const config = params.remoteConfig;
   const enabled = config.role === "runner";
@@ -81,9 +91,20 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
   const [wsState, setWsState] = useState<RunnerWsState>({
     connected: false,
   });
+  const [controllers, setControllers] = useState<RemoteControllerInfo[]>([]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const seqRef = useRef(0);
+  const execPendingRef = useRef(
+    new Map<
+      string,
+      {
+        resolve: (value: unknown) => void;
+        reject: (reason?: unknown) => void;
+        timeoutId: number;
+      }
+    >(),
+  );
 
   const send = useCallback(
     (obj: unknown) => {
@@ -98,6 +119,95 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
     seqRef.current += 1;
     return seqRef.current;
   };
+
+  const executeRemote = useCallback(
+    (req: RemoteExecutionRequest) => {
+      if (!enabled) {
+        return Promise.reject(new Error("Remote runner no está habilitado."));
+      }
+
+      if (!req.controllerId) {
+        return Promise.reject(new Error("No hay controller seleccionado."));
+      }
+
+      const waitForOpen = () =>
+        new Promise<WebSocket>((resolve, reject) => {
+          const wsNow = wsRef.current;
+          if (!wsNow) {
+            reject(
+              new Error(
+                "WS no inicializado. Revisa ajustes remotos y reintenta.",
+              ),
+            );
+            return;
+          }
+
+          if (wsNow.readyState === WebSocket.OPEN) {
+            resolve(wsNow);
+            return;
+          }
+
+          const timeoutId = window.setTimeout(() => {
+            window.clearInterval(intervalId);
+            reject(
+              new Error(
+                "WS no conectado. Verifica el servidor y la URL en ajustes remotos.",
+              ),
+            );
+          }, 2500);
+
+          const intervalId = window.setInterval(() => {
+            const wsCheck = wsRef.current;
+            if (!wsCheck) return;
+            if (wsCheck.readyState === WebSocket.OPEN) {
+              window.clearTimeout(timeoutId);
+              window.clearInterval(intervalId);
+              resolve(wsCheck);
+            }
+            if (wsCheck.readyState === WebSocket.CLOSED) {
+              window.clearTimeout(timeoutId);
+              window.clearInterval(intervalId);
+              reject(
+                new Error(
+                  "WS no conectado. Verifica el servidor y la URL en ajustes remotos.",
+                ),
+              );
+            }
+          }, 120);
+        });
+
+      const requestId = `exec_${nextSeq()}`;
+
+      return new Promise<unknown>((resolve, reject) => {
+        waitForOpen()
+          .then(() => {
+            const timeoutId = window.setTimeout(() => {
+              execPendingRef.current.delete(requestId);
+              reject(
+                new Error("Timeout esperando respuesta del controller."),
+              );
+            }, 15_000);
+
+            execPendingRef.current.set(requestId, {
+              resolve,
+              reject,
+              timeoutId,
+            });
+
+            send({
+              type: "exec_request",
+              requestId,
+              controllerId: req.controllerId,
+              nodeId: req.nodeId,
+              op: req.op,
+              args: req.args,
+            });
+          })
+          .catch(reject);
+      });
+    },
+    [enabled, send],
+  );
 
   const sendSnapshot = useCallback(
     (requestId?: unknown) => {
@@ -199,6 +309,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
       }
       wsRef.current = null;
       setWsState({ connected: false, lastError: undefined });
+      setControllers([]);
       return;
     }
 
@@ -223,10 +334,12 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
           });
           // Push an initial snapshot to help controllers that connect later.
           sendSnapshot();
+          send({ type: "get_controllers" });
         };
 
         ws.onclose = () => {
           setWsState((prev) => ({ ...prev, connected: false }));
+          setControllers([]);
           if (stopped) return;
           reconnectTimer = window.setTimeout(connect, 1500);
         };
@@ -250,6 +363,25 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
 
           if (type === "get_snapshot") {
             sendSnapshot(msg.requestId);
+            return;
+          }
+
+          if (type === "controllers_list") {
+            const listRaw = Array.isArray(msg.controllers)
+              ? msg.controllers
+              : [];
+            const list = listRaw
+              .map((entry): RemoteControllerInfo | null => {
+                if (!entry || typeof entry !== "object") return null;
+                const item = entry as Record<string, unknown>;
+                const id = typeof item.id === "string" ? item.id : "";
+                if (!id) return null;
+                const name =
+                  typeof item.name === "string" ? item.name : undefined;
+                return name ? { id, name } : { id };
+              })
+              .filter((value): value is RemoteControllerInfo => value !== null);
+            setControllers(list);
             return;
           }
 
@@ -312,6 +444,29 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
                 error: stringifyError(err),
               });
             }
+            return;
+          }
+
+          if (type === "exec_result") {
+            const requestId =
+              typeof msg.requestId === "string" ? msg.requestId : "";
+            if (!requestId) return;
+            const pending = execPendingRef.current.get(requestId);
+            if (!pending) return;
+            execPendingRef.current.delete(requestId);
+            window.clearTimeout(pending.timeoutId);
+
+            const ok = msg.ok === true;
+            if (ok) {
+              pending.resolve(msg.result);
+            } else {
+              const errorText =
+                typeof msg.error === "string"
+                  ? msg.error
+                  : "Ejecución remota falló.";
+              pending.reject(new Error(errorText));
+            }
+            return;
           }
         };
       } catch (err) {
@@ -331,8 +486,13 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
         // ignore
       }
       wsRef.current = null;
+      for (const pending of execPendingRef.current.values()) {
+        window.clearTimeout(pending.timeoutId);
+        pending.reject(new Error("Conexión WS cerrada."));
+      }
+      execPendingRef.current.clear();
     };
   }, [enabled, config.url, config.sessionKey, send, sendSnapshot]);
 
-  return { wsState, emitEngineEvent };
+  return { wsState, emitEngineEvent, controllers, executeRemote };
 }

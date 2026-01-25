@@ -51,6 +51,7 @@ type Client = {
   sessionKey: string;
   socket: WebSocket;
   lastSeenMs: number;
+  name?: string;
 };
 
 /**
@@ -213,6 +214,7 @@ function removeClient(client: Client): void {
     }
   } else {
     session.controllers.delete(client.id);
+    sendControllersList(session);
   }
 
   if (!session.runner && session.controllers.size === 0) {
@@ -231,6 +233,26 @@ function broadcastToControllers(session: Session, msg: unknown): void {
 function forwardToRunner(session: Session, msg: unknown): void {
   if (!session.runner) return;
   wsSend(session.runner.socket, msg);
+}
+
+/** Returns a serializable list of connected controllers. */
+function getControllersList(
+  session: Session,
+): Array<{ id: string; name?: string }> {
+  const list: Array<{ id: string; name?: string }> = [];
+  for (const c of session.controllers.values()) {
+    list.push({ id: c.id, ...(c.name ? { name: c.name } : {}) });
+  }
+  return list;
+}
+
+/** Sends the current controller list to the runner, if connected. */
+function sendControllersList(session: Session): void {
+  if (!session.runner) return;
+  wsSend(session.runner.socket, {
+    type: "controllers_list",
+    controllers: getControllersList(session),
+  });
 }
 
 /** Host/IP to bind the HTTP+WS server to. */
@@ -308,6 +330,7 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
           sessionKey: hello.sessionKey,
           socket,
           lastSeenMs: nowMs(),
+          name: hello.clientName,
         };
 
         if (hello.role === "runner") {
@@ -325,8 +348,10 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
             type: "runner_status",
             connected: true,
           });
+          sendControllersList(session);
         } else {
           session.controllers.set(client.id, client);
+          sendControllersList(session);
         }
 
         helloDone = true;
@@ -370,6 +395,11 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
         return;
       }
 
+      if (type === "exec_result") {
+        forwardToRunner(session, { ...parsed, controllerId: client.id });
+        return;
+      }
+
       wsSend(socket, {
         type: "error",
         message: `controllers cannot send ${type}`,
@@ -379,6 +409,45 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
 
     // Runner can broadcast engine events + acks.
     if (client.role === "runner") {
+      if (type === "get_controllers") {
+        sendControllersList(session);
+        return;
+      }
+
+      if (type === "exec_request") {
+        const controllerId =
+          typeof parsed.controllerId === "string" ? parsed.controllerId : "";
+        const requestId =
+          typeof parsed.requestId === "string" ? parsed.requestId : "";
+        if (!controllerId) {
+          wsSend(socket, {
+            type: "exec_result",
+            requestId,
+            ok: false,
+            error: "missing controllerId",
+          });
+          return;
+        }
+
+        const controller = session.controllers.get(controllerId);
+        if (!controller) {
+          wsSend(socket, {
+            type: "exec_result",
+            requestId,
+            ok: false,
+            error: "controller not connected",
+            controllerId,
+          });
+          return;
+        }
+
+        wsSend(controller.socket, {
+          ...parsed,
+          controllerId,
+        });
+        return;
+      }
+
       if (
         type === "snapshot" ||
         type === "engine_log" ||

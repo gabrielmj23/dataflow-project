@@ -48,6 +48,8 @@ import { RemoteControllerPanel } from "@/components/RemoteControllerPanel";
 import { RemoteSettingsDialog } from "@/components/RemoteSettingsDialog";
 import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import { useRemoteConfigState } from "@/hooks/useRemoteConfig";
+import type { RemoteExecutor } from "@/engine/deserialize-program";
+import { RemoteControllersProvider } from "@/ws/remote-controllers-context";
 import {
   type FlowBounds,
   type FlowEdge,
@@ -144,8 +146,15 @@ export default function App() {
   const engineEventSinkRef = useRef<
     ((event: EngineRunnerEvent) => void) | null
   >(null);
+  const remoteExecutorRef = useRef<RemoteExecutor | null>(null);
   const onEngineEvent = useCallback((event: EngineRunnerEvent) => {
     engineEventSinkRef.current?.(event);
+  }, []);
+  const remoteExecutor = useCallback<RemoteExecutor>((req) => {
+    if (!remoteExecutorRef.current) {
+      return Promise.reject(new Error("Remote executor no disponible."));
+    }
+    return remoteExecutorRef.current(req);
   }, []);
 
   const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
@@ -159,6 +168,7 @@ export default function App() {
     enqueuePrompt,
     clearPromptQueue,
     onEngineEvent,
+    remoteExecutor,
   });
 
   const runnerBridge = useWsRunnerBridge({
@@ -174,7 +184,8 @@ export default function App() {
 
   useEffect(() => {
     engineEventSinkRef.current = runnerBridge.emitEngineEvent;
-  }, [runnerBridge.emitEngineEvent]);
+    remoteExecutorRef.current = runnerBridge.executeRemote;
+  }, [runnerBridge.emitEngineEvent, runnerBridge.executeRemote]);
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
     usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
@@ -648,200 +659,202 @@ export default function App() {
   }, [nodes, edges]);
 
   return (
-    <SidebarProvider>
-      <AppSidebar
-        categories={paletteCategories}
-        onDragStart={onPaletteDragStart}
-        onDeleteTemplate={(templateId) => {
-          const match = subflowTemplates.find((tpl) => tpl.id === templateId);
-          setPendingDeleteTemplateId(templateId);
-          setPendingDeleteTemplateName(match ? match.name : null);
-        }}
-      />
-
-      <SidebarInset>
-        <div className="relative flex h-svh w-full">
-          <TopBar
-            programName={programName}
-            onProgramNameChange={setProgramName}
-          />
-
-          <RemoteSettingsDialog
-            config={remoteConfig}
-            onChange={setRemoteConfig}
-            onReset={resetConfig}
-            open={isRemoteDialogOpen}
-            setOpen={setIsRemoteDialogOpen}
-          />
-
-          {remoteConfig.role === "controller" ? (
-            <RemoteControllerPanel remoteConfig={remoteConfig} />
-          ) : null}
-
-          <SubflowTemplateContext.Provider
-            value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
-          >
-            <ConnectionHighlightProvider value={connectionHighlight}>
-              <CanvasContextMenu
-                onContextMenu={(e: React.MouseEvent) => {
-                  setContextPoint({ x: e.clientX, y: e.clientY });
-                }}
-                onAddComment={addCommentAtContext}
-                copySelection={copySelection}
-                pasteSelection={pasteSelection}
-              >
-                <ReactFlow
-                  nodes={nodes}
-                  edges={edges}
-                  nodeTypes={nodeTypes}
-                  edgeTypes={{ default: LabeledEdge }}
-                  connectionLineComponent={ArrowConnectionLine}
-                  isValidConnection={connectionTooltip.isValidConnection}
-                  defaultEdgeOptions={{
-                    markerEnd: {
-                      type: MarkerType.ArrowClosed,
-                      width: 14,
-                      height: 14,
-                    },
-                  }}
-                  onInit={setReactFlowInstance}
-                  onNodesChange={onNodesChange}
-                  onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
-                  onConnectStart={onConnectStart}
-                  onConnectEnd={onConnectEnd}
-                  onDrop={onDrop}
-                  onDragOver={onDragOver}
-                  onNodeDragStart={onNodeDragStart}
-                  onNodeDragStop={onNodeDragStop}
-                  onPaneMouseMove={onPaneMouseMove}
-                  panOnDrag={canvasMode === "pan"}
-                  selectionOnDrag={canvasMode === "select"}
-                  selectionMode={SelectionMode.Partial}
-                  className={
-                    canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
-                  }
-                  fitView
-                  proOptions={{ hideAttribution: true }}
-                >
-                  <ConnectionErrorTooltip
-                    open={connectionTooltip.tooltip.open}
-                    message={connectionTooltip.tooltip.message}
-                    x={connectionTooltip.tooltip.x}
-                    y={connectionTooltip.tooltip.y}
-                    onClose={connectionTooltip.hide}
-                  />
-                  <CreateSubflowOverlay
-                    selectedNodes={selectedNodes}
-                    edges={edges}
-                    onCreateClick={openCreateSubflow}
-                  />
-                  <Background variant={BackgroundVariant.Dots} />
-                  <Controls>
-                    <ControlButton
-                      onClick={() => setCanvasMode("pan")}
-                      aria-pressed={canvasMode === "pan"}
-                      title="Modo arrastrar (mover canvas)"
-                      className="rf-mode-toggle"
-                    >
-                      <Hand className="rf-icon-hand" />
-                    </ControlButton>
-                    <ControlButton
-                      onClick={() => setCanvasMode("select")}
-                      aria-pressed={canvasMode === "select"}
-                      title="Modo selección (cuadro)"
-                      className="rf-mode-toggle"
-                    >
-                      <MousePointer2 />
-                    </ControlButton>
-                    <ControlButton title="Mejorar formato" onClick={onLayout}>
-                      <BrushCleaning className="fill-none!" />
-                    </ControlButton>
-                  </Controls>
-                  <MiniMap />
-                  <TopActionPanel
-                    nodesCount={nodes.length}
-                    isEngineRunning={isEngineRunning}
-                    onRunClick={onRunClick}
-                    onStopClick={onStopClick}
-                    onDownloadClick={onDownloadClick}
-                    onLoadClick={onLoadClick}
-                    onRemoteSettingsClick={() => setIsRemoteDialogOpen(true)}
-                  />
-
-                  <ConsolePanel
-                    consoleOutputText={consoleOutputText}
-                    activeRuntimePrompt={activeRuntimePrompt}
-                    getRuntimePromptText={getRuntimePromptText}
-                    runtimePromptInput={runtimePromptInput}
-                    setRuntimePromptInput={setRuntimePromptInput}
-                    onSubmitRuntimePrompt={onSubmitRuntimePrompt}
-                    onCancelRuntimePrompt={onCancelRuntimePrompt}
-                    onClearConsoleClick={onClearConsoleClick}
-                    consoleScrollRef={consoleScrollRef}
-                    consoleInputRef={consoleInputRef}
-                  />
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="application/json,.json"
-                    className="hidden"
-                    onChange={onProgramFileChange}
-                  />
-                </ReactFlow>
-              </CanvasContextMenu>
-            </ConnectionHighlightProvider>
-          </SubflowTemplateContext.Provider>
-        </div>
-
-        <CreateSubflowDialog
-          open={isCreateSubflowOpen}
-          onOpenChange={onCreateSubflowDialogChange}
-          createSubflowError={createSubflowError}
-          pendingSubflowPorts={pendingSubflowPorts}
-          subflowName={subflowName}
-          onSubflowNameChange={(value) => {
-            setSubflowName(value);
-            setCreateSubflowNameError(null);
+    <RemoteControllersProvider controllers={runnerBridge.controllers}>
+      <SidebarProvider>
+        <AppSidebar
+          categories={paletteCategories}
+          onDragStart={onPaletteDragStart}
+          onDeleteTemplate={(templateId) => {
+            const match = subflowTemplates.find((tpl) => tpl.id === templateId);
+            setPendingDeleteTemplateId(templateId);
+            setPendingDeleteTemplateName(match ? match.name : null);
           }}
-          createSubflowNameError={createSubflowNameError}
-          addSubflowToPalette={addSubflowToPalette}
-          onAddSubflowToPaletteChange={(checked) => {
-            setAddSubflowToPalette(checked);
-            setCreateSubflowNameError(null);
-          }}
-          canSave={
-            !!subflowName.trim() &&
-            !!pendingSubflowBounds &&
-            !!pendingSubflowPorts &&
-            !(addSubflowToPalette && !!createSubflowNameError)
-          }
-          onCancel={() => onCreateSubflowDialogChange(false)}
-          onSave={createSubflow}
         />
-      </SidebarInset>
 
-      <DeleteSubflowDialog
-        open={pendingDeleteTemplateId !== null}
-        templateName={pendingDeleteTemplateName}
-        onOpenChange={(open) => {
-          if (!open) {
+        <SidebarInset>
+          <div className="relative flex h-svh w-full">
+            <TopBar
+              programName={programName}
+              onProgramNameChange={setProgramName}
+            />
+
+            <RemoteSettingsDialog
+              config={remoteConfig}
+              onChange={setRemoteConfig}
+              onReset={resetConfig}
+              open={isRemoteDialogOpen}
+              setOpen={setIsRemoteDialogOpen}
+            />
+
+            {remoteConfig.role === "controller" ? (
+              <RemoteControllerPanel remoteConfig={remoteConfig} />
+            ) : null}
+
+            <SubflowTemplateContext.Provider
+              value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
+            >
+              <ConnectionHighlightProvider value={connectionHighlight}>
+                <CanvasContextMenu
+                  onContextMenu={(e: React.MouseEvent) => {
+                    setContextPoint({ x: e.clientX, y: e.clientY });
+                  }}
+                  onAddComment={addCommentAtContext}
+                  copySelection={copySelection}
+                  pasteSelection={pasteSelection}
+                >
+                  <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    edgeTypes={{ default: LabeledEdge }}
+                    connectionLineComponent={ArrowConnectionLine}
+                    isValidConnection={connectionTooltip.isValidConnection}
+                    defaultEdgeOptions={{
+                      markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: 14,
+                        height: 14,
+                      },
+                    }}
+                    onInit={setReactFlowInstance}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onConnectStart={onConnectStart}
+                    onConnectEnd={onConnectEnd}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onNodeDragStart={onNodeDragStart}
+                    onNodeDragStop={onNodeDragStop}
+                    onPaneMouseMove={onPaneMouseMove}
+                    panOnDrag={canvasMode === "pan"}
+                    selectionOnDrag={canvasMode === "select"}
+                    selectionMode={SelectionMode.Partial}
+                    className={
+                      canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                    }
+                    fitView
+                    proOptions={{ hideAttribution: true }}
+                  >
+                    <ConnectionErrorTooltip
+                      open={connectionTooltip.tooltip.open}
+                      message={connectionTooltip.tooltip.message}
+                      x={connectionTooltip.tooltip.x}
+                      y={connectionTooltip.tooltip.y}
+                      onClose={connectionTooltip.hide}
+                    />
+                    <CreateSubflowOverlay
+                      selectedNodes={selectedNodes}
+                      edges={edges}
+                      onCreateClick={openCreateSubflow}
+                    />
+                    <Background variant={BackgroundVariant.Dots} />
+                    <Controls>
+                      <ControlButton
+                        onClick={() => setCanvasMode("pan")}
+                        aria-pressed={canvasMode === "pan"}
+                        title="Modo arrastrar (mover canvas)"
+                        className="rf-mode-toggle"
+                      >
+                        <Hand className="rf-icon-hand" />
+                      </ControlButton>
+                      <ControlButton
+                        onClick={() => setCanvasMode("select")}
+                        aria-pressed={canvasMode === "select"}
+                        title="Modo selección (cuadro)"
+                        className="rf-mode-toggle"
+                      >
+                        <MousePointer2 />
+                      </ControlButton>
+                      <ControlButton title="Mejorar formato" onClick={onLayout}>
+                        <BrushCleaning className="fill-none!" />
+                      </ControlButton>
+                    </Controls>
+                    <MiniMap />
+                    <TopActionPanel
+                      nodesCount={nodes.length}
+                      isEngineRunning={isEngineRunning}
+                      onRunClick={onRunClick}
+                      onStopClick={onStopClick}
+                      onDownloadClick={onDownloadClick}
+                      onLoadClick={onLoadClick}
+                      onRemoteSettingsClick={() => setIsRemoteDialogOpen(true)}
+                    />
+
+                    <ConsolePanel
+                      consoleOutputText={consoleOutputText}
+                      activeRuntimePrompt={activeRuntimePrompt}
+                      getRuntimePromptText={getRuntimePromptText}
+                      runtimePromptInput={runtimePromptInput}
+                      setRuntimePromptInput={setRuntimePromptInput}
+                      onSubmitRuntimePrompt={onSubmitRuntimePrompt}
+                      onCancelRuntimePrompt={onCancelRuntimePrompt}
+                      onClearConsoleClick={onClearConsoleClick}
+                      consoleScrollRef={consoleScrollRef}
+                      consoleInputRef={consoleInputRef}
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="application/json,.json"
+                      className="hidden"
+                      onChange={onProgramFileChange}
+                    />
+                  </ReactFlow>
+                </CanvasContextMenu>
+              </ConnectionHighlightProvider>
+            </SubflowTemplateContext.Provider>
+          </div>
+
+          <CreateSubflowDialog
+            open={isCreateSubflowOpen}
+            onOpenChange={onCreateSubflowDialogChange}
+            createSubflowError={createSubflowError}
+            pendingSubflowPorts={pendingSubflowPorts}
+            subflowName={subflowName}
+            onSubflowNameChange={(value) => {
+              setSubflowName(value);
+              setCreateSubflowNameError(null);
+            }}
+            createSubflowNameError={createSubflowNameError}
+            addSubflowToPalette={addSubflowToPalette}
+            onAddSubflowToPaletteChange={(checked) => {
+              setAddSubflowToPalette(checked);
+              setCreateSubflowNameError(null);
+            }}
+            canSave={
+              !!subflowName.trim() &&
+              !!pendingSubflowBounds &&
+              !!pendingSubflowPorts &&
+              !(addSubflowToPalette && !!createSubflowNameError)
+            }
+            onCancel={() => onCreateSubflowDialogChange(false)}
+            onSave={createSubflow}
+          />
+        </SidebarInset>
+
+        <DeleteSubflowDialog
+          open={pendingDeleteTemplateId !== null}
+          templateName={pendingDeleteTemplateName}
+          onOpenChange={(open) => {
+            if (!open) {
+              setPendingDeleteTemplateId(null);
+              setPendingDeleteTemplateName(null);
+            }
+          }}
+          onCancel={() => {
             setPendingDeleteTemplateId(null);
             setPendingDeleteTemplateName(null);
-          }
-        }}
-        onCancel={() => {
-          setPendingDeleteTemplateId(null);
-          setPendingDeleteTemplateName(null);
-        }}
-        onConfirm={() => {
-          if (pendingDeleteTemplateId) {
-            deleteTemplate(pendingDeleteTemplateId);
-          }
-          setPendingDeleteTemplateId(null);
-          setPendingDeleteTemplateName(null);
-        }}
-      />
-    </SidebarProvider>
+          }}
+          onConfirm={() => {
+            if (pendingDeleteTemplateId) {
+              deleteTemplate(pendingDeleteTemplateId);
+            }
+            setPendingDeleteTemplateId(null);
+            setPendingDeleteTemplateName(null);
+          }}
+        />
+      </SidebarProvider>
+    </RemoteControllersProvider>
   );
 }
