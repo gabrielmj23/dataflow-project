@@ -11,6 +11,7 @@ export type RoundNodeData = {
   executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
   controllerId?: string;
+  controllerName?: string;
 };
 
 export const RoundNode = memo(({ id, data }: NodeProps) => {
@@ -20,6 +21,7 @@ export const RoundNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   } = (data ?? {}) as RoundNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -28,6 +30,7 @@ export const RoundNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   });
 
   return (

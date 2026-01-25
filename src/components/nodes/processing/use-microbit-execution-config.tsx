@@ -1,4 +1,4 @@
-import { useCallback, useId, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { useReactFlow } from "@xyflow/react";
 
 import {
@@ -32,6 +32,7 @@ type UseMicrobitExecutionConfigParams = {
   executionTarget?: unknown;
   transport?: unknown;
   controllerId?: unknown;
+  controllerName?: unknown;
 };
 
 type UseMicrobitExecutionConfigResult = {
@@ -41,6 +42,7 @@ type UseMicrobitExecutionConfigResult = {
   executionTarget: ExecutionTarget;
   transport: MicrobitTransport;
   controllerId?: string;
+  controllerName?: string;
 };
 
 export function useMicrobitExecutionConfig(
@@ -65,6 +67,8 @@ export function useMicrobitExecutionConfig(
 
   const controllerId =
     typeof params.controllerId === "string" ? params.controllerId : "";
+  const controllerName =
+    typeof params.controllerName === "string" ? params.controllerName : "";
 
   const targetSelectId = useId();
   const transportSelectId = useId();
@@ -109,6 +113,9 @@ export function useMicrobitExecutionConfig(
 
   const setControllerId = useCallback(
     (nextControllerId: string) => {
+      const nextName = controllers.find(
+        (item) => item.id === nextControllerId,
+      )?.name;
       setNodes((prev) =>
         prev.map((node) =>
           node.id === params.nodeId
@@ -117,14 +124,48 @@ export function useMicrobitExecutionConfig(
                 data: {
                   ...(node.data ?? {}),
                   controllerId: nextControllerId || undefined,
+                  controllerName: nextControllerId
+                    ? nextName || undefined
+                    : undefined,
                 },
               }
             : node,
         ),
       );
     },
-    [params.nodeId, setNodes],
+    [controllers, params.nodeId, setNodes],
   );
+
+  useEffect(() => {
+    if (executionTarget !== "controller") return;
+    if (!controllerId || !controllerName) return;
+    const hasId = controllers.some((item) => item.id === controllerId);
+    if (hasId) return;
+    const match = controllers.find((item) => item.name === controllerName);
+    if (!match || match.id === controllerId) return;
+
+    setNodes((prev) =>
+      prev.map((node) =>
+        node.id === params.nodeId
+          ? {
+              ...node,
+              data: {
+                ...(node.data ?? {}),
+                controllerId: match.id,
+                controllerName: match.name ?? controllerName,
+              },
+            }
+          : node,
+      ),
+    );
+  }, [
+    controllers,
+    controllerId,
+    controllerName,
+    executionTarget,
+    params.nodeId,
+    setNodes,
+  ]);
 
   const connectedInfo = (() => {
     if (!isMicrobitConnected()) return { ok: false as const, text: "" };
@@ -171,7 +212,8 @@ export function useMicrobitExecutionConfig(
       ? `micro:bit · ${transport === "bluetooth" ? "Bluetooth" : "Serial"} · ${connectedInfo.ok ? "Conectado" : "No conectado"}`
       : executionTarget === "controller"
         ? `Controller · ${
-            controllers.find((c) => c.id === controllerId)?.name ??
+            (controllers.find((c) => c.id === controllerId)?.name ??
+              controllerName) ||
             (controllerId ? `ID ${controllerId}` : "Sin seleccionar")
           }`
         : "Local";
@@ -340,6 +382,7 @@ export function useMicrobitExecutionConfig(
     executionTarget,
     transport,
     controllerId: controllerId || undefined,
+    controllerName: controllerName || undefined,
     subtitle,
     onConfigClick: () => setIsDialogOpen(true),
     dialog,

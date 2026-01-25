@@ -11,6 +11,7 @@ export type DivideNodeData = {
   executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
   controllerId?: string;
+  controllerName?: string;
 };
 
 export const DivideNode = memo(({ id, data }: NodeProps) => {
@@ -20,6 +21,7 @@ export const DivideNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   } = (data ?? {}) as DivideNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -28,6 +30,7 @@ export const DivideNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   });
 
   return (

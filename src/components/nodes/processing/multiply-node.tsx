@@ -11,6 +11,7 @@ export type MultiplyNodeData = {
   executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
   controllerId?: string;
+  controllerName?: string;
 };
 
 export const MultiplyNode = memo(({ id, data }: NodeProps) => {
@@ -20,6 +21,7 @@ export const MultiplyNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   } = (data ?? {}) as MultiplyNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -28,6 +30,7 @@ export const MultiplyNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   });
 
   return (

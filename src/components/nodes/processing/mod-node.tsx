@@ -11,6 +11,7 @@ export type ModNodeData = {
   executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
   controllerId?: string;
+  controllerName?: string;
 };
 
 export const ModNode = memo(({ id, data }: NodeProps) => {
@@ -20,6 +21,7 @@ export const ModNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   } = (data ?? {}) as ModNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -28,6 +30,7 @@ export const ModNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   });
 
   return (

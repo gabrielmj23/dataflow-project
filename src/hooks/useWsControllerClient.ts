@@ -176,7 +176,7 @@ export function useWsControllerClient(config: RemoteConfig): {
             role: "controller",
             protocol: 1,
             sessionKey: config.sessionKey,
-            clientName: "controller",
+            clientName: config.clientName?.trim() || "controller",
           });
           // Ask for current snapshot right away.
           requestSnapshot();

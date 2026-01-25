@@ -297,6 +297,10 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
     wsClose(socket, 1008, reason);
   };
 
+  socket.on("pong", () => {
+    touch();
+  });
+
   socket.on("message", (data: WebSocket.RawData, isBinary: boolean) => {
     if (isBinary) {
       sendErrorAndClose("binary not supported");

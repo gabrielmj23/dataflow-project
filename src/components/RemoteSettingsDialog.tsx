@@ -42,12 +42,16 @@ export function RemoteSettingsDialog({
   const [draftRole, setDraftRole] = useState<RemoteRole>(config.role);
   const [draftUrl, setDraftUrl] = useState(config.url);
   const [draftSessionKey, setDraftSessionKey] = useState(config.sessionKey);
+  const [draftClientName, setDraftClientName] = useState(
+    config.clientName ?? "",
+  );
 
   useEffect(() => {
     if (!open) return;
     setDraftRole(config.role);
     setDraftUrl(config.url);
     setDraftSessionKey(config.sessionKey);
+    setDraftClientName(config.clientName ?? "");
   }, [open, config.role, config.url, config.sessionKey]);
 
   const canSave = useMemo(() => {
@@ -62,6 +66,7 @@ export function RemoteSettingsDialog({
       role: draftRole,
       url: normalizeUrl(draftUrl) || config.url,
       sessionKey: draftSessionKey.trim() || "DEV",
+      clientName: draftClientName.trim() || undefined,
     };
 
     onChange(next);
@@ -120,6 +125,22 @@ export function RemoteSettingsDialog({
               sí.
             </div>
           </div>
+
+          {draftRole === "controller" && (
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">
+                Nombre del controller
+              </label>
+              <Input
+                value={draftClientName}
+                onChange={(e) => setDraftClientName(e.currentTarget.value)}
+                placeholder="Laboratorio A"
+              />
+              <div className="text-xs text-muted-foreground">
+                Este nombre se mostrará en la lista de controllers conectados.
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>

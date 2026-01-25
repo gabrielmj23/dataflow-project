@@ -10,6 +10,7 @@ export type PowerNodeData = {
   executionTarget?: "local" | "microbit" | "controller";
   transport?: "serial" | "bluetooth";
   controllerId?: string;
+  controllerName?: string;
 };
 
 export const PowerNode = memo(({ id, data }: NodeProps) => {
@@ -19,6 +20,7 @@ export const PowerNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   } = (data ?? {}) as PowerNodeData;
 
   const config = useMicrobitExecutionConfig({
@@ -27,6 +29,7 @@ export const PowerNode = memo(({ id, data }: NodeProps) => {
     executionTarget,
     transport,
     controllerId,
+    controllerName,
   });
 
   return (
