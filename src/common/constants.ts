@@ -9,6 +9,7 @@ export const NODE_TYPES = {
   TIMER_INPUT: "timerInput",
   MICROBIT_READ_BUTTON_INPUT: "microbitReadButton",
   SUBFLOW: "subflow",
+  SUBFLOW_INPUT: "subflowInput",
   WRITE_SINK: "write",
   MICROBIT_WRITE: "microbitWrite",
   MICROBIT_SOUND: "microbitSound",

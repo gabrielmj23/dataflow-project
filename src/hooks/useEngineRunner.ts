@@ -23,6 +23,15 @@ type UseEngineRunnerParams = {
   ) => void;
   enqueuePrompt: (prompt: RuntimePrompt) => void;
   clearPromptQueue: () => void;
+  resolveSubflowTemplate?: (id: string) => {
+    id: string;
+    name: string;
+    inCount: number;
+    outCount: number;
+    nodes: FlowNode[];
+    edges: FlowEdge[];
+  } | null;
+  maxSubflowDepth?: number;
 };
 
 export function useEngineRunner({
@@ -35,6 +44,8 @@ export function useEngineRunner({
   appendConsoleLines,
   enqueuePrompt,
   clearPromptQueue,
+  resolveSubflowTemplate,
+  maxSubflowDepth = 32,
 }: UseEngineRunnerParams) {
   const [isEngineRunning, setIsEngineRunning] = useState(false);
   const runAbortControllerRef = useRef<AbortController | null>(null);
@@ -177,6 +188,8 @@ export function useEngineRunner({
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
         signal: abortController.signal,
+        resolveSubflowTemplate,
+        maxSubflowDepth,
       });
       const engine = new DataflowEngine();
 
