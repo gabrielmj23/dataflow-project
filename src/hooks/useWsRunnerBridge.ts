@@ -183,9 +183,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
           .then(() => {
             const timeoutId = window.setTimeout(() => {
               execPendingRef.current.delete(requestId);
-              reject(
-                new Error("Timeout esperando respuesta del controller."),
-              );
+              reject(new Error("Timeout esperando respuesta del controller."));
             }, 15_000);
 
             execPendingRef.current.set(requestId, {
