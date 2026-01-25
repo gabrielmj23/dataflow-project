@@ -2,51 +2,16 @@ import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { ArrowUp } from "lucide-react";
 
-import { ProcessingRectNodeShell } from "@/components/nodes/processing/processing-rect-node-shell";
-import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
+import { ProcessingExecutionNode } from "@/components/nodes/processing/processing-execution-node";
 
-export type CeilingNodeData = {
-  label?: string;
-  runtimeError?: string | null;
-  executionTarget?: "local" | "microbit" | "controller";
-  transport?: "serial" | "bluetooth";
-  controllerId?: string;
-  controllerName?: string;
-};
-
-export const CeilingNode = memo(({ id, data }: NodeProps) => {
-  const {
-    label = "Techo",
-    runtimeError,
-    executionTarget,
-    transport,
-    controllerId,
-    controllerName,
-  } = (data ?? {}) as CeilingNodeData;
-
-  const config = useMicrobitExecutionConfig({
-    nodeId: id,
-    title: "Configurar · Techo",
-    executionTarget,
-    transport,
-    controllerId,
-    controllerName,
-  });
-
-  return (
-    <>
-      <ProcessingRectNodeShell
-        nodeType="ceiling"
-        icon={<ArrowUp className="h-6 w-6" />}
-        label={label}
-        subtitle={config.subtitle}
-        runtimeError={runtimeError}
-        inputCount={1}
-        onConfigClick={config.onConfigClick}
-      />
-      {config.dialog}
-    </>
-  );
-});
+export const CeilingNode = memo((props: NodeProps) => (
+  <ProcessingExecutionNode
+    {...props}
+    nodeType="ceiling"
+    icon={<ArrowUp className="h-6 w-6" />}
+    defaultLabel="Techo"
+    configTitle="Configurar · Techo"
+  />
+));
 
 CeilingNode.displayName = "CeilingNode";
