@@ -209,9 +209,9 @@ export function useMicrobitExecutionConfig(
 
   const subtitle =
     executionTarget === "microbit"
-      ? `micro:bit · ${transport === "bluetooth" ? "Bluetooth" : "Serial"} · ${connectedInfo.ok ? "Conectado" : "No conectado"}`
+      ? `micro:bit · ${connectedInfo.ok ? "Conectado" : "No conectado"}`
       : executionTarget === "controller"
-        ? `Controller · ${
+        ? `Otra PC · ${
             (controllers.find((c) => c.id === controllerId)?.name ??
               controllerName) ||
             (controllerId ? `ID ${controllerId}` : "Sin seleccionar")
@@ -251,7 +251,7 @@ export function useMicrobitExecutionConfig(
               <SelectContent>
                 <SelectItem value="local">Local</SelectItem>
                 <SelectItem value="microbit">micro:bit</SelectItem>
-                <SelectItem value="controller">Controller remoto</SelectItem>
+                <SelectItem value="controller">Otra PC</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -274,7 +274,7 @@ export function useMicrobitExecutionConfig(
                 <SelectContent>
                   {controllers.length === 0 ? (
                     <SelectItem value="__none__" disabled>
-                      (Sin controllers conectados)
+                      (Sin PCs conectadas)
                     </SelectItem>
                   ) : (
                     controllers.map((controller) => (
@@ -286,7 +286,7 @@ export function useMicrobitExecutionConfig(
                 </SelectContent>
               </Select>
               <p className="mt-1 text-xs text-muted-foreground">
-                Debe haber un controller conectado en la misma sesión.
+                Debe haber una PC conectada en la misma sesión.
               </p>
             </div>
           )}
