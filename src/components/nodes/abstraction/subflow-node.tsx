@@ -24,7 +24,7 @@ import {
 } from "@xyflow/react";
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import { Hand, MousePointer2, PictureInPicture2, RefreshCw } from "lucide-react";
+import { Hand, MousePointer2, PictureInPicture2, RefreshCw, Split } from "lucide-react";
 import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -165,6 +165,19 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [draftLabel, setDraftLabel] = useState(label);
   const [addToPalette, setAddToPalette] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+
+  const explicitInputCountDraft = useMemo(
+    () => draftNodes.filter((n) => String(n.type) === "subflowInput").length,
+    [draftNodes],
+  );
+
+  const explicitOutputCountDraft = useMemo(
+    () => draftNodes.filter((n) => String(n.type) === "subflowOutput").length,
+    [draftNodes],
+  );
+
+  const desiredSelfCallInCount = explicitInputCountDraft > 0 ? explicitInputCountDraft : inCount;
+  const desiredSelfCallOutCount = explicitOutputCountDraft > 0 ? 1 : Math.max(0, outCount);
 
   const connectionTooltip = useConnectionValidationTooltip(draftNodes);
   const [connectionHighlight, setConnectionHighlight] =
@@ -332,17 +345,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     // Determine desired exposed port counts for the self-call instance.
     // Use explicit `subflowInput` nodes count (added via editor) for inputs,
     // falling back to the node's current `inCount`/`outCount` when unknown.
-    let desiredIn = inCount;
-    let desiredOut = outCount;
-    try {
-      const explicitInputs = draftNodes.filter((n) => String(n.type) === "subflowInput").length;
-      if (explicitInputs >= 0) {
-        desiredIn = explicitInputs;
-      }
-      // Keep existing out count behavior (no explicit output nodes for now)
-    } catch {
-      // ignore and fall back to existing counts
-    }
+    const desiredIn = desiredSelfCallInCount;
+    const desiredOut = desiredSelfCallOutCount;
 
     const newNode: Node = {
       id: createInnerNodeId(),
@@ -358,19 +362,13 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     };
 
     setDraftNodes((prev) => [...prev, newNode]);
-  }, [createInnerNodeId, editorInstanceRef, inCount, outCount, label, draftLabel, setDraftNodes, selfTemplateId, templateContext]);
+  }, [createInnerNodeId, desiredSelfCallInCount, desiredSelfCallOutCount, editorInstanceRef, label, draftLabel, setDraftNodes, selfTemplateId, templateContext]);
 
   // Keep labels/counts of self-call nodes in sync with the current draft name
   // and port counts, so they update automatically when the subflow is renamed.
   useEffect(() => {
     if (!selfTemplateId) return;
     const nextLabel = (draftLabel || label).trim() || label;
-
-    // When the subflow isn't a persisted template yet, keep self-call
-    // instances without ports (inCount/outCount = 0). If a template id is
-    // present (persisted), reflect the actual port counts.
-    const desiredIn = templateId ? inCount : 0;
-    const desiredOut = templateId ? outCount : 0;
 
     setDraftNodes((prev) =>
       prev.map((node) => {
@@ -383,18 +381,27 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             : null;
         if (nodeTemplateId !== selfTemplateId) return node;
 
+        const currentIn = Number.isFinite(nodeData.inCount) ? (nodeData.inCount as number) : 0;
+        const currentOut = Number.isFinite(nodeData.outCount) ? (nodeData.outCount as number) : 0;
+        const needsLabel = (nodeData.label ?? nextLabel) !== nextLabel;
+        const needsInUpdate = currentIn !== desiredSelfCallInCount;
+        const needsOutUpdate = currentOut !== desiredSelfCallOutCount;
+        if (!needsLabel && !needsInUpdate && !needsOutUpdate) {
+          return node;
+        }
+
         return {
           ...node,
           data: {
             ...(node.data ?? {}),
             label: nextLabel,
-            inCount: desiredIn,
-            outCount: desiredOut,
+            inCount: desiredSelfCallInCount,
+            outCount: desiredSelfCallOutCount,
           },
         };
       }),
     );
-  }, [draftLabel, label, inCount, outCount, selfTemplateId, templateId, setDraftNodes]);
+  }, [draftLabel, label, desiredSelfCallInCount, desiredSelfCallOutCount, selfTemplateId, setDraftNodes]);
 
   const onEditorDragOver = useCallback((event: DragEvent) => {
     event.stopPropagation();
@@ -682,6 +689,46 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 <span className="mr-1">+</span>
                 Añadir entrada
               </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  const instance = editorInstanceRef.current as
+                    | (ReactFlowInstance & {
+                        project?: (pos: { x: number; y: number }) => { x: number; y: number };
+                        screenToFlowPosition?: (pos: { x: number; y: number }) => { x: number; y: number };
+                      })
+                    | null;
+
+                  let position = { x: 200, y: 120 };
+                  try {
+                    const el = document.getElementById(editorFlowId);
+                    if (el) {
+                      const rect = el.getBoundingClientRect();
+                      const centerScreen = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                      position = instance?.screenToFlowPosition?.(centerScreen) ?? instance?.project?.(centerScreen) ?? position;
+                    } else {
+                      position = instance?.project?.({ x: 200, y: 120 }) ?? position;
+                    }
+                  } catch {
+                    position = instance?.project?.({ x: 200, y: 120 }) ?? position;
+                  }
+
+                  const outputId = createInnerNodeId();
+                  const labelText = "Salida";
+                  const outputNode: Node = {
+                    id: outputId,
+                    type: "subflowOutput",
+                    position,
+                    data: { label: labelText },
+                  };
+                  setDraftNodes((prev) => [...prev, outputNode]);
+                }}
+              >
+                <Split className="mr-1 h-4 w-4" />
+                Añadir salida
+              </Button>
               {!templateId ? (
                 <span className="text-xs text-muted-foreground">
                   Se insertará la definición actual (no guardada).
@@ -787,13 +834,18 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   const explicitInputs = draftNodes.filter((n) => String(n.type) === "subflowInput").length;
                   const nextInCount = Number.isFinite(Number(explicitInputs)) ? explicitInputs : (Number.isFinite(rawInCount) ? (rawInCount as number) : inCount);
 
-                  // For outputs keep the previous behavior (try to compute open ports),
-                  // but only as a best-effort fallback.
+                  // If there are explicit subflowOutput nodes, expose exactly one salida.
+                  const explicitOutputs = draftNodes.filter((n) => String(n.type) === "subflowOutput").length;
+
+                  // For outputs keep the previous behavior (try to compute open ports)
+                  // when no explicit subflowOutput nodes exist.
                   const lookup = editorLookupRef.current;
-                  let nextOutCount = Number.isFinite(rawOutCount) ? (rawOutCount as number) : outCount;
+                  let nextOutCount = explicitOutputs > 0
+                    ? 1
+                    : (Number.isFinite(rawOutCount) ? (rawOutCount as number) : outCount);
                   try {
                     const computed = computeOpenPortsFromLookup(draftNodes, draftEdges, lookup);
-                    if (computed && computed.ready) {
+                    if (computed && computed.ready && explicitOutputs === 0) {
                       nextOutCount = computed.outCount;
                     }
                   } catch {
@@ -809,11 +861,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     return;
                   }
 
-                    // Prevent saving if there are more than one open outputs
-                    if (Number(nextOutCount) > 1) {
-                      setNameError("El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.");
-                      return;
-                    }
+                  // Prevent saving if there are more than one exposed outputs
+                  if (Number(nextOutCount) > 1) {
+                    setNameError("El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.");
+                    return;
+                  }
 
                   if (addToPalette && templateContext) {
                     if (templateContext.isNameTaken(finalLabel)) {

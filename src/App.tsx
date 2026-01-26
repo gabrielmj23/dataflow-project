@@ -134,7 +134,7 @@ export default function App() {
     isRuntimeUpdateRef,
   });
 
-  const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
+    const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
     nodes,
     edges,
     programName,
@@ -145,7 +145,7 @@ export default function App() {
     enqueuePrompt,
     clearPromptQueue,
     resolveSubflowTemplate: resolveTemplate,
-    maxSubflowDepth: 32,
+    maxSubflowDepth: 100,
   });
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =

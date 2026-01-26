@@ -284,7 +284,7 @@ function buildEngineStoresFromFlowGraph(params: {
   const runtimeCtx: SubflowRuntimeContext =
     params.subflowRuntimeContext ?? {
       depth: 0,
-      maxDepth: params.maxSubflowDepth ?? 32,
+      maxDepth: params.maxSubflowDepth ?? 100,
       resolveTemplate: params.resolveSubflowTemplate,
       inlineTemplates: new Map<string, SubflowTemplateResolution>(),
     };
@@ -695,6 +695,21 @@ function compileSubflowNodeDefinition(params: {
     })
     .map((n) => ({ nodeId: String(n.id), portId: "input" }));
 
+  // Allow explicit "return" points via `subflowOutput` nodes. These can be
+  // multiple, but they all feed the same single exposed salida of the subflujo.
+  const explicitOutputs = params.subflowNodes
+    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_OUTPUT)
+    .slice()
+    .sort((a, b) => {
+      const ay = (a.position?.y ?? 0) as number;
+      const by = (b.position?.y ?? 0) as number;
+      if (ay !== by) return ay - by;
+      const ax = (a.position?.x ?? 0) as number;
+      const bx = (b.position?.x ?? 0) as number;
+      return ax - bx;
+    })
+    .map((n) => ({ nodeId: String(n.id), portId: "output" }));
+
   // Compute open ports from the compiled inner graph.
   const { openInputs, openOutputs } = computeOpenPorts({
     nodes: engineNodes,
@@ -708,29 +723,27 @@ function compileSubflowNodeDefinition(params: {
         ? openInputs.slice(0, Math.max(0, params.inCount))
         : openInputs;
 
-  let selectedOutputs =
-    typeof params.outCount === "number"
-      ? openOutputs.slice(0, Math.max(0, params.outCount))
-      : openOutputs;
+  // Output source nodes that feed the single exposed salida.
+  const outputSources = (() => {
+    if (explicitOutputs.length > 0) return explicitOutputs;
+    if (typeof params.outCount === "number") {
+      return openOutputs.slice(0, Math.max(0, params.outCount));
+    }
+    return openOutputs;
+  })();
 
-  // Enforce single (or zero) exposed output.
-  if (selectedOutputs.length > 1) {
-    // Keep only the first one to avoid exploding port lists, but surface an error.
-    selectedOutputs = selectedOutputs.slice(0, 1);
-    throw new Error(
-      "El subflujo solo puede exponer una salida. Ajusta las conexiones internas para dejar una sola salida abierta."
-    );
-  }
-
+  // Always expose at most one output port externally; multiple internal
+  // `subflowOutput` nodes funnel into the same exposed salida.
+  const hasAnyOutput = outputSources.length > 0;
   const firePatterns = selectedInputs.map(() => FirePatterns.EXISTS);
   const inputPorts = selectedInputs.map((_, idx) => `input${idx + 1}`);
-  const outputPorts = selectedOutputs.map((_, idx) => `output${idx + 1}`);
+  const outputPorts = hasAnyOutput ? ["output1"] : [];
   // Debug information to help trace subflow port mapping during runtime.
   try {
     // eslint-disable-next-line no-console
     console.debug("compileSubflowNodeDefinition: selectedInputs", selectedInputs);
     // eslint-disable-next-line no-console
-    console.debug("compileSubflowNodeDefinition: selectedOutputs", selectedOutputs);
+    console.debug("compileSubflowNodeDefinition: outputSources", outputSources);
   } catch {
     /* ignore */
   }
@@ -763,15 +776,15 @@ function compileSubflowNodeDefinition(params: {
       }
 
       const augmentedArcs = [...engineArcs];
-      for (let i = 0; i < selectedOutputs.length; i += 1) {
-        const out = selectedOutputs[i];
-        const portId = `out-${i + 1}`;
-        augmentedArcs.push(
-          new Arc(
-            new PortAddress(out.nodeId, out.portId),
-            new PortAddress("", portId),
-          ),
-        );
+      if (hasAnyOutput) {
+        for (const out of outputSources) {
+          augmentedArcs.push(
+            new Arc(
+              new PortAddress(out.nodeId, out.portId),
+              new PortAddress("", "out-1"),
+            ),
+          );
+        }
       }
 
       engine.loadProgram({ nodes: engineNodes, arcs: augmentedArcs });
@@ -793,25 +806,15 @@ function compileSubflowNodeDefinition(params: {
         }
       }
 
-      const outputs: unknown[] = [];
-      for (let i = 0; i < selectedOutputs.length; i += 1) {
-        const portId = `out-${i + 1}`;
-        const token = emitted
-          .filter(
-            (t) => t.location.nodeId === "" && t.location.portId === portId,
-          )
-          .at(-1);
-        outputs.push(token?.value);
+      if (!hasAnyOutput) {
+        return [];
       }
 
-      // For 1-output subflows, behave like any other single-output node and
-      // return the value directly. This avoids nested arrays when subflows are
-      // used as mappers/predicates (e.g., Map -> Subflow "Cuadrado").
-      if (selectedOutputs.length === 1) {
-        return outputs[0];
-      }
-
-      return outputs;
+      // Single exposed output: pick the first token produced on out-1.
+      const token = emitted.find(
+        (t) => t.location.nodeId === "" && t.location.portId === "out-1",
+      );
+      return token?.value;
     },
     firePatterns,
     [...inputPorts, ...outputPorts],
@@ -868,6 +871,27 @@ function mapHandleToPortId(params: {
         handleId,
       )}' for node ${nodeId} (${nodeType}).`,
     );
+  }
+
+  // Subflow explicit output node: consumes a value and forwards it.
+  if (nodeType === NODE_TYPES.SUBFLOW_OUTPUT) {
+    if (direction === "target") {
+      if (handleId === "value" || handleId == null) return "input";
+      throw new Error(
+        `Unknown input handle '${String(
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
+      );
+    }
+
+    if (direction === "source") {
+      if (handleId === "value" || handleId == null) return "output";
+      throw new Error(
+        `Unknown output handle '${String(
+          handleId,
+        )}' for node ${nodeId} (${nodeType}).`,
+      );
+    }
   }
 
   // Subflow explicit input node: only a source handle (value)
@@ -1333,6 +1357,16 @@ function flowNodeToEngineDefinition(
     case NODE_TYPES.SUBFLOW_INPUT: {
       // Placeholder node representing an exposed input of the subflow editor.
       // External tokens land on its `input` port and are forwarded unchanged.
+      return new NodeDefinition(
+        (v: unknown) => v,
+        [FirePatterns.EXISTS],
+        ["input", "output"],
+      );
+    }
+
+    case NODE_TYPES.SUBFLOW_OUTPUT: {
+      // Placeholder node representing an early-return/exit point of the subflow.
+      // Consumes a value and forwards it to the subflow's single exposed salida.
       return new NodeDefinition(
         (v: unknown) => v,
         [FirePatterns.EXISTS],

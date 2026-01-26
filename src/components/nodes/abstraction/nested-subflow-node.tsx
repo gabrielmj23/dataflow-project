@@ -31,7 +31,7 @@ import {
 
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import { Hand, MousePointer2, PictureInPicture2 } from "lucide-react";
+import { Hand, MousePointer2, PictureInPicture2, Split } from "lucide-react";
 import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -517,6 +517,45 @@ export const NestedSubflowNode = memo(
 
                 <Button
                   type="button"
+                  variant="outline"
+                  onClick={() => {
+                    const instance = editorInstanceRef.current as
+                      | (ReactFlowInstance & {
+                          project?: (pos: { x: number; y: number }) => { x: number; y: number };
+                          screenToFlowPosition?: (pos: { x: number; y: number }) => { x: number; y: number };
+                        })
+                      | null;
+
+                    let position = { x: 200, y: 120 };
+                    try {
+                      const el = document.getElementById(editorFlowId);
+                      if (el) {
+                        const rect = el.getBoundingClientRect();
+                        const centerScreen = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                        position = instance?.screenToFlowPosition?.(centerScreen) ?? instance?.project?.(centerScreen) ?? position;
+                      } else {
+                        position = instance?.project?.({ x: 200, y: 120 }) ?? position;
+                      }
+                    } catch {
+                      position = instance?.project?.({ x: 200, y: 120 }) ?? position;
+                    }
+
+                    const outputId = createInnerNodeId();
+                    const outputNode: Node = {
+                      id: outputId,
+                      type: "subflowOutput",
+                      position,
+                      data: { label: "Salida" },
+                    };
+                    setDraftNodes((prev) => [...prev, outputNode]);
+                  }}
+                >
+                  <Split className="mr-1 h-4 w-4" />
+                  Añadir salida
+                </Button>
+
+                <Button
+                  type="button"
                   variant="secondary"
                   onClick={() => setIsEditorOpen(false)}
                 >
@@ -530,12 +569,17 @@ export const NestedSubflowNode = memo(
                     const explicitInputs = draftNodes.filter((n) => String(n.type) === "subflowInput").length;
                     const nextInCount = Number.isFinite(Number(explicitInputs)) ? explicitInputs : (Number.isFinite(rawInCount) ? (rawInCount as number) : inCount);
 
-                    // For outputs keep the previous behavior (try to compute open ports),
-                    // but only as a best-effort fallback.
-                    let nextOutCount = Number.isFinite(rawOutCount) ? (rawOutCount as number) : outCount;
+                    // If there are explicit subflowOutput nodes, expose exactly one salida.
+                    const explicitOutputs = draftNodes.filter((n) => String(n.type) === "subflowOutput").length;
+
+                    // For outputs keep the previous behavior (try to compute open ports)
+                    // when no explicit subflowOutput nodes exist.
+                    let nextOutCount = explicitOutputs > 0
+                      ? 1
+                      : (Number.isFinite(rawOutCount) ? (rawOutCount as number) : outCount);
                     try {
                       const computed = computeOpenPortsFromLookup(draftNodes, draftEdges, lookup);
-                      if (computed && computed.ready) {
+                      if (computed && computed.ready && explicitOutputs === 0) {
                         nextOutCount = computed.outCount;
                       }
                     } catch {

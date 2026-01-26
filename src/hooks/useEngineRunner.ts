@@ -45,7 +45,7 @@ export function useEngineRunner({
   enqueuePrompt,
   clearPromptQueue,
   resolveSubflowTemplate,
-  maxSubflowDepth = 32,
+  maxSubflowDepth = 100,
 }: UseEngineRunnerParams) {
   const [isEngineRunning, setIsEngineRunning] = useState(false);
   const runAbortControllerRef = useRef<AbortController | null>(null);

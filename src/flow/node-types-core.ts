@@ -47,6 +47,7 @@ import { CountNode } from "@/components/nodes/iteration/count-node";
 import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
 import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-node"; // New import for SubflowInputNode
+import { SubflowOutputNode } from "@/components/nodes/abstraction/subflow-output-node";
 // NOTE: This is intentionally the nodeTypes map WITHOUT the `subflow` entry.
 // We use this inside the Subflow editor to avoid circular imports.
 export const nodeTypesCore: NodeTypes = {
@@ -79,6 +80,7 @@ export const nodeTypesCore: NodeTypes = {
   conditional: ConditionalNode,
   selector: SelectorNode,
   subflowInput: SubflowInputNode, // Registering SubflowInputNode in nodeTypesCore
+  subflowOutput: SubflowOutputNode,
   write: WriteNode,
   microbitWrite: MicrobitWriteNode,
   microbitSound: MicrobitSoundNode,
