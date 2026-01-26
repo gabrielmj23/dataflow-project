@@ -53,6 +53,15 @@ type UseEngineRunnerParams = {
   onEngineEvent?: (event: EngineRunnerEvent) => void;
   /** Optional remote executor for controller-based node execution. */
   remoteExecutor?: RemoteExecutor;
+  resolveSubflowTemplate?: (id: string) => {
+    id: string;
+    name: string;
+    inCount: number;
+    outCount: number;
+    nodes: FlowNode[];
+    edges: FlowEdge[];
+  } | null;
+  maxSubflowDepth?: number;
 };
 
 export function useEngineRunner({
@@ -67,6 +76,8 @@ export function useEngineRunner({
   clearPromptQueue,
   onEngineEvent,
   remoteExecutor,
+  resolveSubflowTemplate,
+  maxSubflowDepth = 1000,
 }: UseEngineRunnerParams) {
   const [isEngineRunning, setIsEngineRunning] = useState(false);
   const runAbortControllerRef = useRef<AbortController | null>(null);
@@ -218,6 +229,8 @@ export function useEngineRunner({
         onPrompt: onPromptHandler,
         signal: abortController.signal,
         remoteExecutor,
+        resolveSubflowTemplate,
+        maxSubflowDepth,
       });
       const engine = new DataflowEngine();
 
@@ -283,20 +296,23 @@ export function useEngineRunner({
       setIsEngineRunning(false);
     }
   }, [
-    appendConsoleLines,
-    edges,
-    enqueuePrompt,
-    formatLogText,
     isEngineRunning,
-    isRuntimeUpdateRef,
-    nodes,
-    programName,
     reactFlowInstance,
-    runtimeClassForStatus,
     setAllNodesRuntimeState,
+    nodes,
+    edges,
+    programName,
+    remoteExecutor,
+    resolveSubflowTemplate,
+    maxSubflowDepth,
+    formatLogText,
+    appendConsoleLines,
+    onEngineEvent,
+    enqueuePrompt,
+    isRuntimeUpdateRef,
     setNodes,
     stripRuntimeClasses,
-    onEngineEvent,
+    runtimeClassForStatus,
   ]);
 
   return {

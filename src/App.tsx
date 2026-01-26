@@ -41,7 +41,6 @@ import { useRuntimeConsole } from "@/hooks/useRuntimeConsole";
 import { useConnections } from "@/hooks/useConnections";
 import { useClipboardSelection } from "@/hooks/useClipboardSelection";
 import { useWriteNodeReconciliation } from "@/hooks/useWriteNodeReconciliation";
-import { useConditionalNodeReconciliation } from "@/hooks/useConditionalNodeReconciliation";
 import { useSubflowTemplates } from "@/hooks/useSubflowTemplates";
 import { useWsRunnerBridge } from "@/hooks/useWsRunnerBridge";
 import { RemoteControllerPanel } from "@/components/RemoteControllerPanel";
@@ -169,6 +168,8 @@ export default function App() {
     clearPromptQueue,
     onEngineEvent,
     remoteExecutor,
+    resolveSubflowTemplate: resolveTemplate,
+    maxSubflowDepth: 1000,
   });
 
   const runnerBridge = useWsRunnerBridge({
@@ -189,6 +190,20 @@ export default function App() {
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
     usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
+
+  // Call reposition of paired selectors once when dragging stops to avoid
+  // continuous repositioning during drag. This keeps selector centered but
+  // prevents it from jumping while the user moves nodes.
+  const handleNodeDragStop = useCallback(
+    (event?: any) => {
+      onNodeDragStop();
+      // Import lazily to avoid circular/top-level issues
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { repositionPairedSelectors } = require("@/utils/paired-selectors");
+      repositionPairedSelectors(nodes, setNodes);
+    },
+    [onNodeDragStop, nodes, setNodes]
+  );
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -422,14 +437,6 @@ export default function App() {
     isDraggingRef,
   });
 
-  useConditionalNodeReconciliation({
-    edges,
-    setNodes,
-    setEdges,
-    isRestoringRef,
-    isRuntimeUpdateRef,
-    isDraggingRef,
-  });
 
   const addCommentAtContext = useCallback(() => {
     if (!reactFlowInstance) return;

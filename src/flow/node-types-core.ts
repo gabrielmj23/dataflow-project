@@ -6,6 +6,7 @@ import { ConstantNumberInputNode } from "@/components/nodes/input/constant-numbe
 import { ConstantBooleanInputNode } from "@/components/nodes/input/constant-boolean-input-node";
 import { ConstantTextInputNode } from "@/components/nodes/input/constant-text-input-node";
 import { RandomInputNode } from "@/components/nodes/input/random-input-node";
+import { ChoiceInputNode } from "@/components/nodes/input/choice-input-node";
 import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
 import { RuntimeInputNode } from "@/components/nodes/input/runtime-input-node";
 
@@ -45,6 +46,8 @@ import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
 import { CountNode } from "@/components/nodes/iteration/count-node";
 import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
+import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-node"; // New import for SubflowInputNode
+import { SubflowOutputNode } from "@/components/nodes/abstraction/subflow-output-node";
 // NOTE: This is intentionally the nodeTypes map WITHOUT the `subflow` entry.
 // We use this inside the Subflow editor to avoid circular imports.
 export const nodeTypesCore: NodeTypes = {
@@ -55,6 +58,7 @@ export const nodeTypesCore: NodeTypes = {
   constantText: ConstantTextInputNode,
   runtimeInput: RuntimeInputNode,
   randomInput: RandomInputNode,
+  choiceInput: ChoiceInputNode,
   timerInput: TimerInputNode,
   microbitReadButton: MicrobitReadButtonInputNode,
   sum: SumNode,
@@ -75,6 +79,8 @@ export const nodeTypesCore: NodeTypes = {
   switch: SwitchNode,
   conditional: ConditionalNode,
   selector: SelectorNode,
+  subflowInput: SubflowInputNode, // Registering SubflowInputNode in nodeTypesCore
+  subflowOutput: SubflowOutputNode,
   write: WriteNode,
   microbitWrite: MicrobitWriteNode,
   microbitSound: MicrobitSoundNode,

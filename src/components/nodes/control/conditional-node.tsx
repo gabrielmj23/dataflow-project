@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { globalIsDragging } from "@/lib/globalRefs";
 import {
   Position,
   useReactFlow,
@@ -178,6 +179,8 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
   const nodes = useStore((state) => state.nodes);
 
   // Keep paired selector at a consistent vertical gap as this node grows.
+  const pairAdjustTimeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
     if (!pairId) return;
     const self = nodes.find((n) => n.id === id);
@@ -185,38 +188,56 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
 
     const targetY = (self.position?.y ?? 0) + minHeight + Math.max(20, pairOffsetY - 110);
 
-    setNodes((prev) =>
-      prev.map((node) => {
-        const isPairedSelector =
-          node.type === "selector" && (node.data as { pairId?: string | null })?.pairId === pairId;
-        if (!isPairedSelector) return node;
+    // If any node is currently being dragged, avoid scheduling adjustments —
+    // this prevents the paired selector from jumping while the user is
+    // actively moving nodes.
+    if (globalIsDragging.current) return;
 
-        const currentY = node.position?.y ?? 0;
-        if (Math.abs(currentY - targetY) < 1) return node;
-
-        return {
-          ...node,
-          position: {
-            x: node.position?.x ?? 0,
-            y: targetY,
-          },
-        };
-      }),
-    );
-  }, [id, minHeight, nodes, pairId, pairOffsetY, setNodes]);
-  const connectedTargets = useMemo(() => {
-    const set = new Set<string>();
-    for (const edge of edges) {
-      if (String(edge.target) !== String(id)) continue;
-      if (!edge.targetHandle) continue;
-      set.add(String(edge.targetHandle));
+    // Debounce actual repositioning so that if many node updates happen
+    // (e.g., while dragging), we don't continuously mutate node positions
+    // — instead we wait for a short pause and then apply the adjustment.
+    if (pairAdjustTimeoutRef.current !== null) {
+      window.clearTimeout(pairAdjustTimeoutRef.current);
+      pairAdjustTimeoutRef.current = null;
     }
-    return set;
-  }, [edges, id]);
-  const connectedInputCount = useMemo(
-    () => inputs.filter((input) => connectedTargets.has(input.id)).length,
-    [connectedTargets, inputs],
-  );
+
+    pairAdjustTimeoutRef.current = window.setTimeout(() => {
+      setNodes((prev) =>
+        prev.map((node) => {
+          const isPairedSelector =
+            node.type === "selector" && (node.data as { pairId?: string | null })?.pairId === pairId;
+          if (!isPairedSelector) return node;
+          const currentY = node.position?.y ?? 0;
+          const currentX = node.position?.x ?? 0;
+
+          // If this selector is currently selected or being dragged, skip moving it.
+          if (node.selected === true || (node as any).dragging === true) return node;
+
+          const centerOffsetX = 32; // half difference between w-72 and w-56
+          const targetX = (self.position?.x ?? 0) + centerOffsetX;
+
+          if (Math.abs(currentY - targetY) < 1 && Math.abs(currentX - targetX) < 1) return node;
+
+          return {
+            ...node,
+            position: {
+              x: targetX,
+              y: targetY,
+            },
+          };
+        }),
+      );
+      pairAdjustTimeoutRef.current = null;
+    }, 120);
+
+    return () => {
+      if (pairAdjustTimeoutRef.current !== null) {
+        window.clearTimeout(pairAdjustTimeoutRef.current);
+        pairAdjustTimeoutRef.current = null;
+      }
+    };
+  }, [id, minHeight, nodes, pairId, pairOffsetY, setNodes]);
+  const connectedInputCount = inputs.length;
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draftInputs, setDraftInputs] = useState<ConditionalInput[]>(inputs);
@@ -248,27 +269,29 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
 
   const saveDialog = useCallback(() => {
     const hasInvalid = validationResults.some((res) => !res.validation.ok);
-    const hasUnknown = validationResults.some((res) => (res.unknownVars ?? []).length > 0);
     if (hasInvalid) {
       setDialogError("Revisa las condiciones: hay expresiones inválidas.");
       return;
     }
-    if (hasUnknown) {
-      const missing = Array.from(
-        new Set(
-          validationResults.flatMap((r) => r.unknownVars ?? []),
-        ),
-      );
-      setDialogError(`Variables no definidas: ${missing.join(", ")}`);
-      return;
-    }
+    // Determine required input variables from the validated conditions.
+    // Use the union of all variables referenced in the condition expressions
+    // so the node exposes exactly the inputs that are used.
+    const requiredVars = Array.from(
+      new Set(
+        validationResults
+          .flatMap((r) => r.validation.variables ?? [])
+          .map((v) => String(v).trim())
+          .filter(Boolean),
+      ),
+    );
 
-    const baseInputs = sanitizeInputs(rawInputs ?? inputs);
-    const labelById = new Map(draftInputs.map((i) => [i.id, i.label]));
-    const mergedInputs = baseInputs.map((input) => ({
-      ...input,
-      label: labelById.get(input.id) ?? input.label,
-    }));
+    let mergedInputs: ConditionalInput[] = [];
+    if (requiredVars.length > 0) {
+      mergedInputs = requiredVars.map((label, idx) => ({ id: `in-${idx + 1}`, label }));
+    } else {
+      // Fallback to sanitized/default inputs when no variables are used.
+      mergedInputs = sanitizeInputs(rawInputs ?? inputs);
+    }
     const normalizedConditions = draftConditions.map((cond, idx) => ({
       ...cond,
       formula: validationResults[idx]?.normalized ?? cond.formula ?? "",
@@ -331,7 +354,6 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
         </div>
 
         {inputs.map((input, index) => {
-          if (!connectedTargets.has(input.id)) return null;
           const offset = inputOffsets[index] ?? "50%";
 
           const trimmed = String(input.label ?? "").trim();
@@ -343,67 +365,15 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
             <Input
               key={`label-${input.id}`}
               value={input.label}
-              onChange={(e) => {
-                const next = e.currentTarget.value;
-                setNodes((prev) =>
-                  prev.map((node) =>
-                    node.id === id
-                      ? {
-                          ...node,
-                          data: {
-                            ...(node.data ?? {}),
-                            inputs: inputs.map((it) =>
-                              it.id === input.id
-                                ? {
-                                    ...it,
-                                    label: next,
-                                  }
-                                : it,
-                            ),
-                          },
-                        }
-                      : node,
-                  ),
-                );
+              readOnly
+              tabIndex={-1}
+              className="nodrag absolute h-6 -translate-y-1/2 border-0 bg-transparent px-2 text-left text-[10px] text-white placeholder:text-white/60 focus:outline-none pointer-events-none shadow-none"
+              style={{
+                top: `calc(${offset} + 9px)`,
+                left: "12px",
+                width: `${widthPx}px`,
+                transform: "translate(0, -50%)",
               }}
-              onBlur={(e) => {
-                const raw = e.currentTarget.value;
-                const next = String(raw ?? "").trim();
-
-                setNodes((prev) =>
-                  prev.map((node) => {
-                    if (node.id !== id) return node;
-
-                    // Build current labels excluding this input
-                    const otherInputs = inputs.filter((it) => it.id !== input.id);
-                    const otherLower = new Set(
-                      otherInputs
-                        .map((it) => it.label.trim().toLowerCase())
-                        .filter(Boolean),
-                    );
-
-                    let finalLabel = next;
-                    if (!finalLabel) {
-                      finalLabel = nextUnusedLabel(otherInputs);
-                    } else if (otherLower.has(finalLabel.toLowerCase())) {
-                      // Duplicate found (case-insensitive) — pick next unused
-                      finalLabel = nextUnusedLabel(otherInputs);
-                    }
-
-                    return {
-                      ...node,
-                      data: {
-                        ...(node.data ?? {}),
-                        inputs: inputs.map((it) =>
-                          it.id === input.id ? { ...it, label: finalLabel } : it,
-                        ),
-                      },
-                    };
-                  }),
-                );
-              }}
-              className="nodrag absolute left-2 h-6 -translate-y-1/2 border-transparent bg-transparent px-1 text-center text-[10px] text-white placeholder:text-white/60 focus:border-white/50 focus:bg-white/10 focus:outline-none"
-              style={{ top: offset, width: `${widthPx}px` }}
             />
           );
         })}
@@ -444,7 +414,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
             <DialogTitle id={titleId}>Configurar Condicional</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6">
+          <div className="space-y-6 max-h-[80vh] overflow-y-auto">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="text-sm font-medium">Condiciones</div>
