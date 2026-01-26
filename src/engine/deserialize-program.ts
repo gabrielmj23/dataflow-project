@@ -284,7 +284,7 @@ function buildEngineStoresFromFlowGraph(params: {
   const runtimeCtx: SubflowRuntimeContext =
     params.subflowRuntimeContext ?? {
       depth: 0,
-      maxDepth: params.maxSubflowDepth ?? 100,
+      maxDepth: params.maxSubflowDepth ?? 1000,
       resolveTemplate: params.resolveSubflowTemplate,
       inlineTemplates: new Map<string, SubflowTemplateResolution>(),
     };
@@ -1994,10 +1994,15 @@ function flowNodeToEngineDefinition(
         }
       }
 
+      // Improve diagnostic message to make it easier to find missing templates
+      const tmplRaw = (data && typeof data === "object" ? (data as { templateId?: unknown }).templateId : null) ?? null;
+      const tmplId = typeof tmplRaw === "string" && tmplRaw.trim().length > 0 ? tmplRaw.trim() : null;
+      const inlineIds = context?.subflowRuntimeContext?.inlineTemplates
+        ? Array.from(context.subflowRuntimeContext.inlineTemplates.keys()).join(", ")
+        : "(none)";
+      const hasResolver = Boolean(context?.subflowRuntimeContext?.resolveTemplate || params.resolveSubflowTemplate);
       throw new Error(
-        `Subflow node '${String(
-          flowNode.id,
-        )}' is missing subflowNodes/subflowEdges (y no se pudo resolver la plantilla).`,
+        `Subflow node '${String(flowNode.id)}' is missing subflowNodes/subflowEdges and the template could not be resolved. templateId=${String(tmplId)}; inlineTemplates=[${inlineIds}]; resolverPresent=${hasResolver}`,
       );
     }
 

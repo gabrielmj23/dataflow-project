@@ -145,7 +145,7 @@ export default function App() {
     enqueuePrompt,
     clearPromptQueue,
     resolveSubflowTemplate: resolveTemplate,
-    maxSubflowDepth: 100,
+    maxSubflowDepth: 1000,
   });
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
