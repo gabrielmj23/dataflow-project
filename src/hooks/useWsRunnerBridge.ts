@@ -6,6 +6,7 @@ import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
 import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import type { RemoteConfig } from "@/ws/remote-config";
 import type { RemoteControllerInfo } from "@/ws/remote-controllers-context";
+import type { RemoteSubflowPayload } from "@/engine/deserialize-program";
 
 type RunnerWsState = {
   connected: boolean;
@@ -30,6 +31,7 @@ export type RemoteExecutionRequest = {
   controllerId: string;
   op: string;
   args: unknown[];
+  subflow?: RemoteSubflowPayload;
 };
 
 function statusFromClassName(className?: string): EngineNodeStatus | undefined {
@@ -199,6 +201,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
               nodeId: req.nodeId,
               op: req.op,
               args: req.args,
+              ...(req.subflow ? { subflow: req.subflow } : {}),
             });
           })
           .catch(reject);

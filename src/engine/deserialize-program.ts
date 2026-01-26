@@ -85,6 +85,7 @@ type SubflowRuntimeContext = {
   maxDepth: number;
   resolveTemplate?: SubflowTemplateResolver;
   inlineTemplates?: Map<string, SubflowTemplateResolution>;
+  currentTemplateId?: string;
 };
 
 export type EngineProgramStores = {
@@ -102,13 +103,23 @@ export type RemoteExecutionOp =
   | "floor"
   | "ceiling"
   | "round"
-  | "concat";
+  | "concat"
+  | "subflow";
+
+export type RemoteSubflowPayload = {
+  nodes: Node[];
+  edges: Edge[];
+  selectedInputs: Array<{ nodeId: string; portId: string }>;
+  outputSources: Array<{ nodeId: string; portId: string }>;
+  hasAnyOutput: boolean;
+};
 
 export type RemoteExecutionRequest = {
   nodeId: string;
   controllerId: string;
   op: RemoteExecutionOp;
   args: unknown[];
+  subflow?: RemoteSubflowPayload;
 };
 
 export type RemoteExecutor = (req: RemoteExecutionRequest) => Promise<unknown>;
@@ -204,7 +215,7 @@ function parseIndexHandle(handleId: string | null | undefined): number | null {
  * - Converts each UI edge into an engine `Arc`, mapping UI handles to
  *   engine port IDs.
  */
-function buildEngineStoresFromFlowGraph(params: {
+export function buildEngineStoresFromFlowGraph(params: {
   nodes: Node[];
   edges: Edge[];
   onLog?: EngineObserver["onLog"];
@@ -665,6 +676,103 @@ function computeOpenPorts(params: { nodes: EngineNode[]; arcs: Arc[] }): {
   return { openInputs, openOutputs };
 }
 
+type SubflowExecutionPlan = {
+  engineNodes: EngineNode[];
+  engineArcs: Arc[];
+  selectedInputs: Array<{ nodeId: string; portId: string }>;
+  outputSources: Array<{ nodeId: string; portId: string }>;
+  hasAnyOutput: boolean;
+};
+
+function computeSubflowExecutionPlan(params: {
+  subflowNodes: Node[];
+  subflowEdges: Edge[];
+  inCount?: number;
+  outCount?: number;
+  onLog?: EngineObserver["onLog"];
+  onPrompt?: EngineObserver["onPrompt"];
+  signal?: AbortSignal;
+  remoteExecutor?: RemoteExecutor;
+  runtimeCtx?: SubflowRuntimeContext;
+}): SubflowExecutionPlan {
+  const stores = buildEngineStoresFromFlowGraph({
+    nodes: params.subflowNodes,
+    edges: params.subflowEdges,
+    onLog: params.onLog,
+    onPrompt: params.onPrompt,
+    signal: params.signal,
+    remoteExecutor: params.remoteExecutor,
+    subflowRuntimeContext: params.runtimeCtx,
+    resolveSubflowTemplate: params.runtimeCtx?.resolveTemplate,
+    maxSubflowDepth: params.runtimeCtx?.maxDepth,
+  });
+
+  const engineNodes = stores.nodeStore.getNodes();
+  const engineArcs = stores.arcStore.getArcs();
+
+  // Prefer explicit `subflowInput` nodes for exposed inputs. These are
+  // ordered top-to-bottom (then left-to-right) to match the editor view.
+  const explicitInputs = params.subflowNodes
+    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_INPUT)
+    .slice()
+    .sort((a, b) => {
+      const ay = (a.position?.y ?? 0) as number;
+      const by = (b.position?.y ?? 0) as number;
+      if (ay !== by) return ay - by;
+      const ax = (a.position?.x ?? 0) as number;
+      const bx = (b.position?.x ?? 0) as number;
+      return ax - bx;
+    })
+    .map((n) => ({ nodeId: String(n.id), portId: "output" }));
+
+  // Allow explicit "return" points via `subflowOutput` nodes. These can be
+  // multiple, but they all feed the same single exposed salida of the subflujo.
+  const explicitOutputs = params.subflowNodes
+    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_OUTPUT)
+    .slice()
+    .sort((a, b) => {
+      const ay = (a.position?.y ?? 0) as number;
+      const by = (b.position?.y ?? 0) as number;
+      if (ay !== by) return ay - by;
+      const ax = (a.position?.x ?? 0) as number;
+      const bx = (b.position?.x ?? 0) as number;
+      return ax - bx;
+    })
+    .map((n) => ({ nodeId: String(n.id), portId: "input" }));
+
+  // Compute open ports from the compiled inner graph.
+  const { openInputs, openOutputs } = computeOpenPorts({
+    nodes: engineNodes,
+    arcs: engineArcs,
+  });
+
+  const selectedInputs =
+    explicitInputs.length > 0
+      ? explicitInputs
+      : typeof params.inCount === "number"
+        ? openInputs.slice(0, Math.max(0, params.inCount))
+        : openInputs;
+
+  // Output source nodes that feed the single exposed salida.
+  const outputSources = (() => {
+    if (explicitOutputs.length > 0) return explicitOutputs;
+    if (typeof params.outCount === "number") {
+      return openOutputs.slice(0, Math.max(0, params.outCount));
+    }
+    return openOutputs;
+  })();
+
+  const hasAnyOutput = outputSources.length > 0;
+
+  return {
+    engineNodes,
+    engineArcs,
+    selectedInputs,
+    outputSources,
+    hasAnyOutput,
+  };
+}
+
 /**
  * Compiles a Subflow UI node into an engine `NodeDefinition`.
  *
@@ -698,76 +806,26 @@ function compileSubflowNodeDefinition(params: {
   remoteExecutor?: RemoteExecutor;
   runtimeCtx?: SubflowRuntimeContext;
 }): NodeDefinition {
-  const stores = buildEngineStoresFromFlowGraph({
-    nodes: params.subflowNodes,
-    edges: params.subflowEdges,
+  const plan = computeSubflowExecutionPlan({
+    subflowNodes: params.subflowNodes,
+    subflowEdges: params.subflowEdges,
+    inCount: params.inCount,
+    outCount: params.outCount,
     onLog: params.onLog,
     onPrompt: params.onPrompt,
     signal: params.signal,
     remoteExecutor: params.remoteExecutor,
-    subflowRuntimeContext: params.runtimeCtx,
-    resolveSubflowTemplate: params.runtimeCtx?.resolveTemplate,
-    maxSubflowDepth: params.runtimeCtx?.maxDepth,
+    runtimeCtx: params.runtimeCtx,
   });
 
-  const engineNodes = stores.nodeStore.getNodes();
-  const engineArcs = stores.arcStore.getArcs();
-
-  // Prefer explicit `subflowInput` nodes for exposed inputs. These are
-  // ordered top-to-bottom (then left-to-right) to match the editor view.
-  const explicitInputs = params.subflowNodes
-    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_INPUT)
-    .slice()
-    .sort((a, b) => {
-      const ay = (a.position?.y ?? 0) as number;
-      const by = (b.position?.y ?? 0) as number;
-      if (ay !== by) return ay - by;
-      const ax = (a.position?.x ?? 0) as number;
-      const bx = (b.position?.x ?? 0) as number;
-      return ax - bx;
-    })
-    .map((n) => ({ nodeId: String(n.id), portId: "input" }));
-
-  // Allow explicit "return" points via `subflowOutput` nodes. These can be
-  // multiple, but they all feed the same single exposed salida of the subflujo.
-  const explicitOutputs = params.subflowNodes
-    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_OUTPUT)
-    .slice()
-    .sort((a, b) => {
-      const ay = (a.position?.y ?? 0) as number;
-      const by = (b.position?.y ?? 0) as number;
-      if (ay !== by) return ay - by;
-      const ax = (a.position?.x ?? 0) as number;
-      const bx = (b.position?.x ?? 0) as number;
-      return ax - bx;
-    })
-    .map((n) => ({ nodeId: String(n.id), portId: "output" }));
-
-  // Compute open ports from the compiled inner graph.
-  const { openInputs, openOutputs } = computeOpenPorts({
-    nodes: engineNodes,
-    arcs: engineArcs,
-  });
-
-  const selectedInputs =
-    explicitInputs.length > 0
-      ? explicitInputs
-      : typeof params.inCount === "number"
-        ? openInputs.slice(0, Math.max(0, params.inCount))
-        : openInputs;
-
-  // Output source nodes that feed the single exposed salida.
-  const outputSources = (() => {
-    if (explicitOutputs.length > 0) return explicitOutputs;
-    if (typeof params.outCount === "number") {
-      return openOutputs.slice(0, Math.max(0, params.outCount));
-    }
-    return openOutputs;
-  })();
+  const engineNodes = plan.engineNodes;
+  const engineArcs = plan.engineArcs;
+  const selectedInputs = plan.selectedInputs;
+  const outputSources = plan.outputSources;
+  const hasAnyOutput = plan.hasAnyOutput;
 
   // Always expose at most one output port externally; multiple internal
   // `subflowOutput` nodes funnel into the same exposed salida.
-  const hasAnyOutput = outputSources.length > 0;
   const firePatterns = selectedInputs.map(() => FirePatterns.EXISTS);
   const inputPorts = selectedInputs.map((_, idx) => `input${idx + 1}`);
   const outputPorts = hasAnyOutput ? ["output1"] : [];
@@ -2084,6 +2142,59 @@ function flowNodeToEngineDefinition(
           });
         }
 
+        const executionTarget = data.executionTarget;
+        if (executionTarget === "controller") {
+          const controllerId =
+            typeof data.controllerId === "string" ? data.controllerId : "";
+          const executor = context?.remoteExecutor;
+          const plan = computeSubflowExecutionPlan({
+            subflowNodes: subflowNodes as Node[],
+            subflowEdges: subflowEdges as Edge[],
+            inCount,
+            outCount,
+            onLog: context?.onLog,
+            onPrompt: context?.onPrompt,
+            signal: context?.signal,
+            remoteExecutor: context?.remoteExecutor,
+            runtimeCtx: context?.subflowRuntimeContext,
+          });
+
+          const firePatterns = plan.selectedInputs.map(
+            () => FirePatterns.EXISTS,
+          );
+          const inputPorts = plan.selectedInputs.map(
+            (_, idx) => `input${idx + 1}`,
+          );
+          const outputPorts = plan.hasAnyOutput ? ["output1"] : [];
+
+          return new NodeDefinition(
+            async (...args: unknown[]) => {
+              if (!executor) {
+                throw new Error("Ejecución remota no configurada.");
+              }
+              if (!controllerId) {
+                throw new Error("No hay controller seleccionado.");
+              }
+
+              return executor({
+                nodeId: String(flowNode.id),
+                controllerId,
+                op: "subflow",
+                args,
+                subflow: {
+                  nodes: subflowNodes as Node[],
+                  edges: subflowEdges as Edge[],
+                  selectedInputs: plan.selectedInputs,
+                  outputSources: plan.outputSources,
+                  hasAnyOutput: plan.hasAnyOutput,
+                },
+              });
+            },
+            firePatterns,
+            [...inputPorts, ...outputPorts],
+          );
+        }
+
         // Detect compile-time recursion: if we're currently compiling the
         // same template id, avoid expanding it inline (which would cause
         // infinite recursion). Instead return a placeholder NodeDefinition
@@ -2188,7 +2299,7 @@ function flowNodeToEngineDefinition(
         : "(none)";
       const hasResolver = Boolean(
         context?.subflowRuntimeContext?.resolveTemplate ||
-        params.resolveSubflowTemplate,
+        context?.resolveSubflowTemplate,
       );
       throw new Error(
         `Subflow node '${String(flowNode.id)}' is missing subflowNodes/subflowEdges and the template could not be resolved. templateId=${String(tmplId)}; inlineTemplates=[${inlineIds}]; resolverPresent=${hasResolver}`,

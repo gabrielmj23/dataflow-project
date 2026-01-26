@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import type { EngineLogLevel, EngineNodeStatus } from "@/engine/engine";
+import {
+  DataflowEngine,
+  type EngineLogLevel,
+  type EngineNodeStatus,
+} from "@/engine/engine";
+import { Arc, DataToken, PortAddress } from "@/engine/program-elements";
+import {
+  buildEngineStoresFromFlowGraph,
+  type RemoteSubflowPayload,
+} from "@/engine/deserialize-program";
 import type { RemoteConfig } from "@/ws/remote-config";
 
 type ControllerState = {
@@ -91,6 +100,49 @@ function computeOperation(op: string, args: unknown[]): unknown {
     default:
       throw new Error(`Operación no soportada: ${op}`);
   }
+}
+
+async function executeSubflowPayload(
+  payload: RemoteSubflowPayload,
+  args: unknown[],
+): Promise<unknown> {
+  const stores = buildEngineStoresFromFlowGraph({
+    nodes: payload.nodes,
+    edges: payload.edges,
+  });
+
+  const engine = new DataflowEngine();
+  const engineNodes = stores.nodeStore.getNodes();
+  const engineArcs = stores.arcStore.getArcs();
+
+  const augmentedArcs = [...engineArcs];
+  if (payload.hasAnyOutput) {
+    for (const out of payload.outputSources) {
+      augmentedArcs.push(
+        new Arc(
+          new PortAddress(out.nodeId, out.portId),
+          new PortAddress("", "out-1"),
+        ),
+      );
+    }
+  }
+
+  engine.loadProgram({ nodes: engineNodes, arcs: augmentedArcs });
+
+  const initialTokens = payload.selectedInputs.map(
+    (addr, idx) =>
+      new DataToken(args[idx], new PortAddress(addr.nodeId, addr.portId)),
+  );
+
+  const emitted = await engine.run({ initialTokens });
+
+  if (!payload.hasAnyOutput) return [];
+
+  const token = emitted.find(
+    (t) => t.location.nodeId === "" && t.location.portId === "out-1",
+  );
+
+  return token?.value;
 }
 
 export function useWsControllerClient(config: RemoteConfig): {
@@ -287,7 +339,13 @@ export function useWsControllerClient(config: RemoteConfig): {
             if (!requestId || !op) return;
 
             try {
-              const result = computeOperation(op, args);
+              const result =
+                op === "subflow" && msg.subflow
+                  ? await executeSubflowPayload(
+                      msg.subflow as RemoteSubflowPayload,
+                      args,
+                    )
+                  : computeOperation(op, args);
               send({ type: "exec_result", requestId, ok: true, result });
             } catch (err) {
               send({
