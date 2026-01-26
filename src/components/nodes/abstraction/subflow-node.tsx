@@ -878,12 +878,34 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     const baseId = templateId || `sf-node-${String(id)}`;
                     const uniqueId = `${baseId}-${Date.now().toString(36)}`;
 
+                    // When saving to the palette, rebind self-call nodes to the new template id
+                    // so dragging from the palette can resolve the template correctly.
+                    const paletteNodes = draftNodes.map((n) => {
+                      if (n.type !== "subflow") return n;
+                      const data = (n.data ?? {}) as SubflowNodeData;
+                      const nodeTemplateId =
+                        typeof data.templateId === "string" && data.templateId.trim().length > 0
+                          ? data.templateId.trim()
+                          : null;
+                      const isSelf = data.isSelfCall === true;
+                      if (isSelf && (!nodeTemplateId || nodeTemplateId === selfTemplateId || nodeTemplateId === templateId)) {
+                        return {
+                          ...n,
+                          data: {
+                            ...data,
+                            templateId: uniqueId,
+                          },
+                        };
+                      }
+                      return n;
+                    });
+
                     templateContext.addOrUpdateTemplate({
                       id: uniqueId,
                       name: finalLabel,
                       inCount: nextInCount,
                       outCount: nextOutCount,
-                      nodes: draftNodes,
+                      nodes: paletteNodes,
                       edges: draftEdges,
                     });
                   }
