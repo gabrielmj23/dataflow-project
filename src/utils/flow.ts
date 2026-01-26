@@ -12,11 +12,8 @@ export function parseWriteTargetHandleIndex(handle: unknown): number {
   return Number.isFinite(idx) ? idx : 0;
 }
 
-export function parseConditionalTargetHandleIndex(handle: unknown): number {
-  const m = /^in-(\d+)$/.exec(String(handle ?? ""));
-  const idx = m ? parseInt(m[1] ?? "", 10) : NaN;
-  return Number.isFinite(idx) ? idx : 0;
-}
+// Note: conditional input reconciliation based on edges was removed.
+// Parsing of conditional handle indices is no longer required.
 
 export function clampWriteTemplateToMaxVar(
   template: unknown,
@@ -169,141 +166,8 @@ export function reconcileWriteGraph(
   };
 }
 
-type ConditionalInput = {
-  id: string;
-  label: string;
-};
-
-function labelForIndex(index: number): string {
-  if (index <= 0) return "a";
-  const code = 97 + ((index - 1) % 26);
-  return String.fromCharCode(code);
-}
-
-export function reconcileConditionalGraph(
-  nodes: FlowNode[],
-  edges: FlowEdge[]
-): {
-  nodes: FlowNode[];
-  edges: FlowEdge[];
-  changedNodes: boolean;
-  changedEdges: boolean;
-} {
-  const conditionalMaps = new Map<
-    string,
-    {
-      map: Map<number, number>;
-      desiredInputCount: number;
-    }
-  >();
-
-  for (const n of nodes) {
-    if (n.type !== "conditional") continue;
-    const nodeId = String(n.id);
-
-    const uniqueConnected = new Set<number>();
-    for (const e of edges) {
-      if (String(e.target) !== nodeId) continue;
-      const idx = parseConditionalTargetHandleIndex(e.targetHandle);
-      if (idx > 0) uniqueConnected.add(idx);
-    }
-
-    const sorted = Array.from(uniqueConnected).sort((a, b) => a - b);
-    const map = new Map<number, number>();
-    for (let i = 0; i < sorted.length; i++) {
-      const oldIdx = sorted[i];
-      if (!oldIdx) continue;
-      map.set(oldIdx, i + 1);
-    }
-
-    const desiredInputCount = sorted.length === 0 ? 1 : sorted.length + 1;
-    conditionalMaps.set(nodeId, { map, desiredInputCount });
-  }
-
-  let changedEdges = false;
-  const nextEdges = edges.map((e) => {
-    const targetId = String(e.target);
-    const info = conditionalMaps.get(targetId);
-    if (!info) return e;
-
-    const oldIdx = parseConditionalTargetHandleIndex(e.targetHandle);
-    if (oldIdx <= 0) return e;
-
-    const newIdx = info.map.get(oldIdx);
-    if (!newIdx || newIdx === oldIdx) return e;
-
-    changedEdges = true;
-    return {
-      ...e,
-      targetHandle: `in-${newIdx}`,
-    } as FlowEdge;
-  });
-
-  let changedNodes = false;
-  const nextNodes = nodes.map((n) => {
-    if (n.type !== "conditional") return n;
-    const nodeId = String(n.id);
-    const info = conditionalMaps.get(nodeId);
-    if (!info) return n;
-
-    const data =
-      n.data && typeof n.data === "object"
-        ? (n.data as Record<string, unknown>)
-        : ({} as Record<string, unknown>);
-
-    const inputsRaw = data.inputs;
-    const inputs: ConditionalInput[] = Array.isArray(inputsRaw)
-      ? inputsRaw
-          .map((item, idx) => {
-            if (!item || typeof item !== "object") return null;
-            const label = (item as { label?: unknown }).label;
-            const safeLabel =
-              typeof label === "string" && label.trim()
-                ? label.trim()
-                : labelForIndex(idx + 1);
-            return { id: `in-${idx + 1}`, label: safeLabel };
-          })
-          .filter(Boolean) as ConditionalInput[]
-      : [];
-
-    const currentCount = inputs.length > 0 ? inputs.length : 1;
-    const desiredCount = info.desiredInputCount;
-
-    const needsInputCountUpdate = currentCount !== desiredCount;
-    if (!needsInputCountUpdate && !changedEdges) return n;
-
-    const remappedInputs: ConditionalInput[] = Array.from(
-      { length: desiredCount },
-      (_, i) => {
-        const oldIdx = Array.from(info.map.entries()).find(
-          ([, newIndex]) => newIndex === i + 1
-        )?.[0];
-
-        const existing = oldIdx ? inputs[oldIdx - 1] : inputs[i];
-        return {
-          id: `in-${i + 1}`,
-          label: existing?.label ?? labelForIndex(i + 1),
-        };
-      }
-    );
-
-    changedNodes = true;
-    return {
-      ...n,
-      data: {
-        ...data,
-        inputs: remappedInputs,
-      },
-    } as FlowNode;
-  });
-
-  return {
-    nodes: changedNodes ? nextNodes : nodes,
-    edges: changedEdges ? nextEdges : edges,
-    changedNodes,
-    changedEdges,
-  };
-}
+// Conditional graph reconciliation and helpers removed — inputs are
+// managed explicitly via condition expressions (variables) only.
 
 export function uniqueCount<T>(values: T[]): number {
   return new Set(values).size;

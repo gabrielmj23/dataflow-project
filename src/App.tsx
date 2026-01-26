@@ -50,7 +50,6 @@ import { useRuntimeConsole } from "@/hooks/useRuntimeConsole";
 import { useConnections } from "@/hooks/useConnections";
 import { useClipboardSelection } from "@/hooks/useClipboardSelection";
 import { useWriteNodeReconciliation } from "@/hooks/useWriteNodeReconciliation";
-import { useConditionalNodeReconciliation } from "@/hooks/useConditionalNodeReconciliation";
 import { useSubflowTemplates } from "@/hooks/useSubflowTemplates";
 import {
   type FlowBounds,
@@ -135,7 +134,7 @@ export default function App() {
     isRuntimeUpdateRef,
   });
 
-  const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
+    const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
     nodes,
     edges,
     programName,
@@ -145,6 +144,8 @@ export default function App() {
     appendConsoleLines,
     enqueuePrompt,
     clearPromptQueue,
+    resolveSubflowTemplate: resolveTemplate,
+    maxSubflowDepth: 100,
   });
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
@@ -393,14 +394,6 @@ export default function App() {
     isDraggingRef,
   });
 
-  useConditionalNodeReconciliation({
-    edges,
-    setNodes,
-    setEdges,
-    isRestoringRef,
-    isRuntimeUpdateRef,
-    isDraggingRef,
-  });
 
   const addCommentAtContext = useCallback(() => {
     if (!reactFlowInstance) return;
