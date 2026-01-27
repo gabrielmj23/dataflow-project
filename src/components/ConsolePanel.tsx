@@ -1,5 +1,5 @@
 import { Panel } from "@xyflow/react";
-import { Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ConsolePanel({
@@ -13,6 +13,8 @@ export function ConsolePanel({
   onClearConsoleClick,
   consoleScrollRef,
   consoleInputRef,
+  isOpen,
+  onToggle,
 }: {
   consoleOutputText: string;
   activeRuntimePrompt: { nodeId: string } | null;
@@ -24,6 +26,8 @@ export function ConsolePanel({
   onClearConsoleClick: () => void;
   consoleScrollRef: React.RefObject<HTMLDivElement | null>;
   consoleInputRef: React.RefObject<HTMLTextAreaElement | null>;
+  isOpen: boolean;
+  onToggle: () => void;
 }) {
   return (
     <Panel
@@ -37,7 +41,19 @@ export function ConsolePanel({
     >
       <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
         <div className="flex items-center justify-between border-b px-2 py-1 text-sm font-medium">
-          <span>Consola</span>
+          <div className="flex items-center gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              onClick={onToggle}
+              title={isOpen ? "Minimizar consola" : "Expandir consola"}
+              aria-label={isOpen ? "Minimizar consola" : "Expandir consola"}
+            >
+              {isOpen ? <ChevronDown /> : <ChevronUp />}
+            </Button>
+            <span className="select-none">Consola</span>
+          </div>
           <Button
             type="button"
             variant="ghost"
@@ -50,48 +66,50 @@ export function ConsolePanel({
           </Button>
         </div>
 
-        <div className="p-2">
-          <div className="overflow-hidden rounded-md border bg-background/60">
-            <div
-              ref={consoleScrollRef}
-              className="h-48 overflow-auto p-2 text-xs font-mono text-foreground whitespace-pre-wrap"
-            >
-              {consoleOutputText}
+        {isOpen && (
+          <div className="p-2">
+            <div className="overflow-hidden rounded-md border bg-background/60">
+              <div
+                ref={consoleScrollRef}
+                className="h-48 overflow-auto p-2 text-xs font-mono text-foreground whitespace-pre-wrap"
+              >
+                {consoleOutputText}
 
-              {activeRuntimePrompt != null && (
-                <>
-                  {consoleOutputText ? "\n" : ""}
-                  {getRuntimePromptText()}
-                  {"\n"}
-                  <div className="flex items-start gap-2">
-                    <div className="pt-0.5 text-xs font-mono text-muted-foreground">
-                      &gt;
-                    </div>
-                    <textarea
-                      ref={consoleInputRef}
-                      rows={1}
-                      value={runtimePromptInput}
-                      onChange={(e) =>
-                        setRuntimePromptInput(e.currentTarget.value)
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          onSubmitRuntimePrompt();
-                        } else if (e.key === "Escape") {
-                          e.preventDefault();
-                          onCancelRuntimePrompt();
+                {activeRuntimePrompt != null && (
+                  <>
+                    {consoleOutputText ? "\n" : ""}
+                    {getRuntimePromptText()}
+                    {"\n"}
+                    <div className="flex items-start gap-2">
+                      <div className="pt-0.5 text-xs font-mono text-muted-foreground">
+                        &gt;
+                      </div>
+                      <textarea
+                        ref={consoleInputRef}
+                        rows={1}
+                        value={runtimePromptInput}
+                        onChange={(e) =>
+                          setRuntimePromptInput(e.currentTarget.value)
                         }
-                      }}
-                      placeholder=""
-                      className="w-full resize-none bg-transparent text-xs font-mono text-foreground outline-none"
-                    />
-                  </div>
-                </>
-              )}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault();
+                            onSubmitRuntimePrompt();
+                          } else if (e.key === "Escape") {
+                            e.preventDefault();
+                            onCancelRuntimePrompt();
+                          }
+                        }}
+                        placeholder=""
+                        className="w-full resize-none bg-transparent text-xs font-mono text-foreground outline-none"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
     </Panel>
   );
