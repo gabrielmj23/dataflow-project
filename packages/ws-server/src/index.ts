@@ -293,6 +293,17 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
 
   /** Sends an error frame to the client and closes the socket. */
   const sendErrorAndClose = (reason: string) => {
+    // Log the error for server-side visibility
+    try {
+      const id = client?.id ?? clientId;
+      const role = client?.role ?? "unknown";
+      console.warn(
+        `[ws-server] sendErrorAndClose: client=${id} role=${role} reason=${reason}`,
+      );
+    } catch {
+      console.warn(`[ws-server] sendErrorAndClose: reason=${reason}`);
+    }
+
     wsSend(socket, { type: "error", message: reason });
     wsClose(socket, 1008, reason);
   };
@@ -323,6 +334,17 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
       return;
     }
 
+    // Basic logging for incoming messages (include clientId/remote when available)
+    try {
+      const maybeId = client?.id ?? clientId;
+      const maybeRole = client?.role ?? "uninitialized";
+      console.log(
+        `[ws-server] message from ${maybeRole}:${maybeId} remote=${remote} type=${type}`,
+      );
+    } catch {
+      console.log(`[ws-server] message type=${type}`);
+    }
+
     // First message must be hello
     if (!helloDone) {
       try {
@@ -347,6 +369,9 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
             wsClose(session.runner.socket, 1012, "runner replaced");
           }
           session.runner = client;
+          console.log(
+            `[ws-server] runner connected: client=${clientId} session=${session.key} name=${client.name ?? ""}`,
+          );
           // Inform controllers
           broadcastToControllers(session, {
             type: "runner_status",
@@ -355,6 +380,9 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
           sendControllersList(session);
         } else {
           session.controllers.set(client.id, client);
+          console.log(
+            `[ws-server] controller connected: client=${clientId} session=${session.key} name=${client.name ?? ""}`,
+          );
           sendControllersList(session);
         }
 
@@ -369,9 +397,15 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
           remote,
         });
 
+        console.log(
+          `[ws-server] welcome sent: client=${clientId} role=${hello.role} session=${hello.sessionKey}`,
+        );
+
         return;
       } catch (err) {
-        sendErrorAndClose(err instanceof Error ? err.message : "hello failed");
+        const msg = err instanceof Error ? err.message : "hello failed";
+        console.warn(`[ws-server] hello error: ${msg}`);
+        sendErrorAndClose(msg);
         return;
       }
     }
@@ -395,15 +429,24 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
         type === "get_snapshot" ||
         type === "prompt_reply"
       ) {
+        console.log(
+          `[ws-server] controller -> runner: controller=${client.id} session=${session.key} type=${type}`,
+        );
         forwardToRunner(session, { ...parsed, controllerId: client.id });
         return;
       }
 
       if (type === "exec_result") {
+        console.log(
+          `[ws-server] exec_result from controller=${client.id} session=${session.key} requestId=${String(parsed.requestId ?? "")}`,
+        );
         forwardToRunner(session, { ...parsed, controllerId: client.id });
         return;
       }
 
+      console.warn(
+        `[ws-server] controllers cannot send ${type} client=${client.id} session=${session.key}`,
+      );
       wsSend(socket, {
         type: "error",
         message: `controllers cannot send ${type}`,
@@ -414,6 +457,9 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
     // Runner can broadcast engine events + acks.
     if (client.role === "runner") {
       if (type === "get_controllers") {
+        console.log(
+          `[ws-server] runner requested controllers_list session=${session.key}`,
+        );
         sendControllersList(session);
         return;
       }
@@ -423,6 +469,11 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
           typeof parsed.controllerId === "string" ? parsed.controllerId : "";
         const requestId =
           typeof parsed.requestId === "string" ? parsed.requestId : "";
+
+        console.log(
+          `[ws-server] exec_request from runner=${client.id} session=${session.key} requestId=${requestId} controllerId=${controllerId}`,
+        );
+
         if (!controllerId) {
           wsSend(socket, {
             type: "exec_result",
@@ -435,6 +486,9 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
 
         const controller = session.controllers.get(controllerId);
         if (!controller) {
+          console.warn(
+            `[ws-server] exec_request: controller not connected controllerId=${controllerId} session=${session.key}`,
+          );
           wsSend(socket, {
             type: "exec_result",
             requestId,
@@ -445,6 +499,9 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
           return;
         }
 
+        console.log(
+          `[ws-server] forwarding exec_request requestId=${requestId} to controller=${controllerId}`,
+        );
         wsSend(controller.socket, {
           ...parsed,
           controllerId,
@@ -462,17 +519,37 @@ wss.on("connection", (socket: WebSocket, req: IncomingMessage) => {
         type === "control_ack" ||
         type === "runner_status"
       ) {
+        console.log(
+          `[ws-server] runner -> controllers broadcast session=${session.key} type=${type}`,
+        );
         broadcastToControllers(session, parsed);
         return;
       }
 
+      console.warn(
+        `[ws-server] runner cannot send ${type} client=${client.id} session=${session.key}`,
+      );
       wsSend(socket, { type: "error", message: `runner cannot send ${type}` });
       return;
     }
   });
 
   socket.on("close", () => {
-    if (client) removeClient(client);
+    try {
+      if (client) {
+        console.log(
+          `[ws-server] socket close: client=${client.id} role=${client.role} session=${client.sessionKey}`,
+        );
+        removeClient(client);
+      } else {
+        console.log(
+          `[ws-server] socket close: uninitialized clientId=${clientId} remote=${remote}`,
+        );
+      }
+    } catch (err) {
+      console.warn(`[ws-server] socket close handler error: ${String(err)}`);
+      if (client) removeClient(client);
+    }
   });
 
   socket.on("error", () => {
