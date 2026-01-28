@@ -638,7 +638,7 @@ function computeSubflowExecutionPlan(params: {
       const bx = (b.position?.x ?? 0) as number;
       return ax - bx;
     })
-    .map((n) => ({ nodeId: String(n.id), portId: "output" }));
+    .map((n) => ({ nodeId: String(n.id), portId: "input" }));
 
   // Allow explicit "return" points via `subflowOutput` nodes. These can be
   // multiple, but they all feed the same single exposed salida of the subflujo.
@@ -653,7 +653,7 @@ function computeSubflowExecutionPlan(params: {
       const bx = (b.position?.x ?? 0) as number;
       return ax - bx;
     })
-    .map((n) => ({ nodeId: String(n.id), portId: "input" }));
+    .map((n) => ({ nodeId: String(n.id), portId: "output" }));
 
   // Compute open ports from the compiled inner graph.
   const { openInputs, openOutputs } = computeOpenPorts({

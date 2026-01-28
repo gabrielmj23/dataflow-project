@@ -8,6 +8,128 @@ import type { RemoteSubflowPayload } from "../deserialize/shared-types";
 
 import type { NodeCompiler } from "./types";
 
+function resolveTemplateForRemote(
+  templateId: string,
+  ctx: Parameters<NodeCompiler>[1],
+): {
+  nodes: Node[];
+  edges: Edge[];
+  inCount: number;
+  outCount: number;
+  name?: string;
+} | null {
+  const runtime = ctx.subflowRuntimeContext;
+  const inline = runtime?.inlineTemplates?.get(templateId) ?? null;
+  if (inline) {
+    return {
+      nodes: inline.nodes,
+      edges: inline.edges,
+      inCount: inline.inCount,
+      outCount: inline.outCount,
+      name: inline.name,
+    };
+  }
+
+  const resolved =
+    ctx.resolveSubflowTemplate?.(templateId) ??
+    runtime?.resolveTemplate?.(templateId) ??
+    null;
+  if (!resolved) return null;
+
+  return {
+    nodes: resolved.nodes,
+    edges: resolved.edges,
+    inCount: resolved.inCount,
+    outCount: resolved.outCount,
+    name: resolved.name,
+  };
+}
+
+function materializeSubflowGraphForRemote(
+  nodes: Node[],
+  edges: Edge[],
+  ctx: Parameters<NodeCompiler>[1],
+  visited: Set<string>,
+): { nodes: Node[]; edges: Edge[] } {
+  const materializedNodes = nodes.map((n) => {
+    if (String(n.type) !== NODE_TYPES.SUBFLOW) return n;
+
+    const data = asRecord(n.data);
+    const hasEmbedded =
+      Array.isArray(data.subflowNodes) && Array.isArray(data.subflowEdges);
+    if (hasEmbedded) {
+      // Still recursively materialize any nested subflows within the embedded graph.
+      const childNodes = data.subflowNodes as Node[];
+      const childEdges = data.subflowEdges as Edge[];
+      const childTemplateIdRaw = data.templateId;
+      const childTemplateId =
+        typeof childTemplateIdRaw === "string" &&
+        childTemplateIdRaw.trim().length > 0
+          ? childTemplateIdRaw.trim()
+          : String(n.id);
+
+      if (visited.has(childTemplateId)) return n;
+      visited.add(childTemplateId);
+      const inner = materializeSubflowGraphForRemote(
+        childNodes,
+        childEdges,
+        ctx,
+        visited,
+      );
+      visited.delete(childTemplateId);
+
+      // Only write back if something actually changed.
+      if (inner.nodes === childNodes && inner.edges === childEdges) return n;
+      return {
+        ...n,
+        data: {
+          ...(data as object),
+          subflowNodes: inner.nodes,
+          subflowEdges: inner.edges,
+        },
+      } as Node;
+    }
+
+    const templateIdRaw = data.templateId;
+    const templateId =
+      typeof templateIdRaw === "string" && templateIdRaw.trim().length > 0
+        ? templateIdRaw.trim()
+        : null;
+    if (!templateId) return n;
+    if (visited.has(templateId)) return n;
+
+    const resolved = resolveTemplateForRemote(templateId, ctx);
+    if (!resolved) return n;
+
+    visited.add(templateId);
+    const inner = materializeSubflowGraphForRemote(
+      resolved.nodes,
+      resolved.edges,
+      ctx,
+      visited,
+    );
+    visited.delete(templateId);
+
+    return {
+      ...n,
+      data: {
+        ...(data as object),
+        label: typeof data.label === "string" ? data.label : resolved.name,
+        inCount:
+          typeof data.inCount === "number" ? data.inCount : resolved.inCount,
+        outCount:
+          typeof data.outCount === "number" ? data.outCount : resolved.outCount,
+        subflowNodes: inner.nodes,
+        subflowEdges: inner.edges,
+      },
+    } as Node;
+  });
+
+  // `edges` are unchanged; we return the same reference when nodes are unchanged.
+  const anyChanged = materializedNodes.some((n, i) => n !== nodes[i]);
+  return { nodes: anyChanged ? materializedNodes : nodes, edges };
+}
+
 export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
   const nodeType = String(flowNode.type);
   const data = asRecord(flowNode.data);
@@ -91,9 +213,18 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
         typeof data.controllerId === "string" ? data.controllerId : "";
       const executor = ctx.remoteExecutor;
 
+      // Controllers do not have access to the runner's template registry/resolvers.
+      // Inline any referenced subflow templates so the controller can compile the graph.
+      const materialized = materializeSubflowGraphForRemote(
+        subflowNodes as Node[],
+        subflowEdges as Edge[],
+        ctx,
+        new Set<string>(),
+      );
+
       const plan = ctx.helpers.computeSubflowExecutionPlan({
-        subflowNodes: subflowNodes as Node[],
-        subflowEdges: subflowEdges as Edge[],
+        subflowNodes: materialized.nodes,
+        subflowEdges: materialized.edges,
         inCount,
         outCount,
         onLog: ctx.onLog,
@@ -118,8 +249,8 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
             op: "subflow",
             args,
             subflow: {
-              nodes: subflowNodes as Node[],
-              edges: subflowEdges as Edge[],
+              nodes: materialized.nodes,
+              edges: materialized.edges,
               selectedInputs: plan.selectedInputs,
               outputSources: plan.outputSources,
               hasAnyOutput: plan.hasAnyOutput,
