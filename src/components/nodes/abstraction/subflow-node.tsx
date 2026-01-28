@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -975,7 +976,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 </ConnectionHighlightProvider>
               </ReactFlowProvider>
             </div>
-
+          </div>
+          <DialogFooter>
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
@@ -1159,7 +1161,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 Guardar
               </Button>
             </div>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </BaseNode>
