@@ -102,6 +102,11 @@ function computeOperation(op: string, args: unknown[]): unknown {
   }
 }
 
+/**
+ * Executes a remote subflow payload
+ * @param payload
+ * @param args
+ */
 async function executeSubflowPayload(
   payload: RemoteSubflowPayload,
   args: unknown[],
@@ -201,12 +206,14 @@ export function useWsControllerClient(config: RemoteConfig): {
         // ignore
       }
       wsRef.current = null;
-      setLastError(undefined);
-      setState((prev) => ({
-        ...prev,
-        connected: false,
-        runnerConnected: false,
-      }));
+      Promise.resolve().then(() => {
+        setLastError(undefined);
+        setState((prev) => ({
+          ...prev,
+          connected: false,
+          runnerConnected: false,
+        }));
+      });
       return;
     }
 
@@ -244,7 +251,7 @@ export function useWsControllerClient(config: RemoteConfig): {
           // onclose will reconnect
         };
 
-        ws.onmessage = (ev) => {
+        ws.onmessage = async (ev) => {
           let parsed: unknown;
           try {
             parsed = JSON.parse(String(ev.data));
@@ -375,7 +382,14 @@ export function useWsControllerClient(config: RemoteConfig): {
       }
       wsRef.current = null;
     };
-  }, [enabled, config.url, config.sessionKey, send, requestSnapshot]);
+  }, [
+    enabled,
+    config.url,
+    config.sessionKey,
+    send,
+    requestSnapshot,
+    config.clientName,
+  ]);
 
   return { enabled, state, lastError, run, stop, requestSnapshot };
 }
