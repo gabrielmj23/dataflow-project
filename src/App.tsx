@@ -80,6 +80,7 @@ export default function App() {
     y: number;
   } | null>(null);
   const [canvasMode, setCanvasMode] = useState<"pan" | "select">("pan");
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   const {
     subflowTemplates,
@@ -134,7 +135,13 @@ export default function App() {
     isRuntimeUpdateRef,
   });
 
-    const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
+  useEffect(() => {
+    if (activeRuntimePrompt) {
+      setIsConsoleOpen(true);
+    }
+  }, [activeRuntimePrompt]);
+
+  const { isEngineRunning, onRunClick, onStopClick } = useEngineRunner({
     nodes,
     edges,
     programName,
@@ -147,6 +154,11 @@ export default function App() {
     resolveSubflowTemplate: resolveTemplate,
     maxSubflowDepth: 1000,
   });
+
+  const handleRunClick = useCallback(() => {
+    setIsConsoleOpen(true);
+    return onRunClick();
+  }, [onRunClick]);
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
     usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
@@ -725,7 +737,7 @@ export default function App() {
                   <TopActionPanel
                     nodesCount={nodes.length}
                     isEngineRunning={isEngineRunning}
-                    onRunClick={onRunClick}
+                    onRunClick={handleRunClick}
                     onStopClick={onStopClick}
                     onDownloadClick={onDownloadClick}
                     onLoadClick={onLoadClick}
@@ -742,6 +754,8 @@ export default function App() {
                     onClearConsoleClick={onClearConsoleClick}
                     consoleScrollRef={consoleScrollRef}
                     consoleInputRef={consoleInputRef}
+                    isOpen={isConsoleOpen}
+                    onToggle={() => setIsConsoleOpen((prev) => !prev)}
                   />
                   <input
                     ref={fileInputRef}
