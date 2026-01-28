@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { globalIsDragging } from "@/lib/globalRefs";
 import {
   Position,
@@ -44,9 +52,7 @@ export type ConditionalNodeData = {
   conditions?: ConditionalCase[];
 };
 
-const DEFAULT_INPUTS: ConditionalInput[] = [
-  { id: "in-1", label: "a" },
-];
+const DEFAULT_INPUTS: ConditionalInput[] = [{ id: "in-1", label: "a" }];
 
 const DEFAULT_CONDITIONS: ConditionalCase[] = [
   {
@@ -85,21 +91,6 @@ function sanitizeInputs(value: unknown): ConditionalInput[] {
   }
 
   return out.length > 0 ? out : DEFAULT_INPUTS;
-}
-
-function nextUnusedLabel(inputs: ConditionalInput[]): string {
-  const used = new Set(
-    inputs
-      .map((item) => item.label.trim().toLowerCase())
-      .filter((label) => label.length > 0),
-  );
-
-  for (let code = 97; code <= 122; code += 1) {
-    const letter = String.fromCharCode(code);
-    if (!used.has(letter)) return letter;
-  }
-
-  return "var";
 }
 
 function normalizeConditionExpression(raw: string): string {
@@ -151,8 +142,12 @@ function sanitizeConditions(
 }
 
 export const ConditionalNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Condicional", runtimeError, inputs: rawInputs, conditions: rawConditions } =
-    (data ?? {}) as ConditionalNodeData;
+  const {
+    label = "Condicional",
+    runtimeError,
+    inputs: rawInputs,
+    conditions: rawConditions,
+  } = (data ?? {}) as ConditionalNodeData;
   const pairId = (data as { pairId?: string | null })?.pairId ?? null;
   const pairOffsetY = (data as { pairOffsetY?: number })?.pairOffsetY ?? 160;
 
@@ -175,7 +170,6 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
   );
 
   const { setNodes } = useReactFlow();
-  const edges = useStore((state) => state.edges);
   const nodes = useStore((state) => state.nodes);
 
   // Keep paired selector at a consistent vertical gap as this node grows.
@@ -186,7 +180,8 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
     const self = nodes.find((n) => n.id === id);
     if (!self) return;
 
-    const targetY = (self.position?.y ?? 0) + minHeight + Math.max(20, pairOffsetY - 110);
+    const targetY =
+      (self.position?.y ?? 0) + minHeight + Math.max(20, pairOffsetY - 110);
 
     // If any node is currently being dragged, avoid scheduling adjustments —
     // this prevents the paired selector from jumping while the user is
@@ -205,18 +200,23 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
       setNodes((prev) =>
         prev.map((node) => {
           const isPairedSelector =
-            node.type === "selector" && (node.data as { pairId?: string | null })?.pairId === pairId;
+            node.type === "selector" &&
+            (node.data as { pairId?: string | null })?.pairId === pairId;
           if (!isPairedSelector) return node;
           const currentY = node.position?.y ?? 0;
           const currentX = node.position?.x ?? 0;
 
           // If this selector is currently selected or being dragged, skip moving it.
-          if (node.selected === true || (node as any).dragging === true) return node;
+          if (node.selected === true || node.dragging === true) return node;
 
           const centerOffsetX = 32; // half difference between w-72 and w-56
           const targetX = (self.position?.x ?? 0) + centerOffsetX;
 
-          if (Math.abs(currentY - targetY) < 1 && Math.abs(currentX - targetX) < 1) return node;
+          if (
+            Math.abs(currentY - targetY) < 1 &&
+            Math.abs(currentX - targetX) < 1
+          )
+            return node;
 
           return {
             ...node,
@@ -241,21 +241,28 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draftInputs, setDraftInputs] = useState<ConditionalInput[]>(inputs);
-  const [draftConditions, setDraftConditions] = useState<ConditionalCase[]>(
-    conditions,
-  );
+  const [draftConditions, setDraftConditions] =
+    useState<ConditionalCase[]>(conditions);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
   const validationResults = useMemo(() => {
     const inputNames = new Set(
-      draftInputs.map((i) => String(i.label ?? "").trim().toLowerCase()),
+      draftInputs.map((i) =>
+        String(i.label ?? "")
+          .trim()
+          .toLowerCase(),
+      ),
     );
 
     return draftConditions.map((cond) => {
       const normalized = normalizeConditionExpression(cond.formula ?? "");
       const validation = validateFormula(normalized);
-      const usedVars = validation.variables.map((v) => String(v).trim()).filter(Boolean);
-      const unknownVars = usedVars.filter((v) => !inputNames.has(v.toLowerCase()));
+      const usedVars = validation.variables
+        .map((v) => String(v).trim())
+        .filter(Boolean);
+      const unknownVars = usedVars.filter(
+        (v) => !inputNames.has(v.toLowerCase()),
+      );
       return { normalized, validation, unknownVars };
     });
   }, [draftConditions, draftInputs]);
@@ -287,7 +294,10 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
 
     let mergedInputs: ConditionalInput[] = [];
     if (requiredVars.length > 0) {
-      mergedInputs = requiredVars.map((label, idx) => ({ id: `in-${idx + 1}`, label }));
+      mergedInputs = requiredVars.map((label, idx) => ({
+        id: `in-${idx + 1}`,
+        label,
+      }));
     } else {
       // Fallback to sanitized/default inputs when no variables are used.
       mergedInputs = sanitizeInputs(rawInputs ?? inputs);
@@ -313,7 +323,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
     );
     setDialogError(null);
     setIsDialogOpen(false);
-  }, [draftConditions, draftInputs, id, inputs, rawInputs, setNodes, validationResults]);
+  }, [draftConditions, id, inputs, rawInputs, setNodes, validationResults]);
 
   const titleId = useId();
 
@@ -439,14 +449,18 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
               <div className="space-y-4">
                 {draftConditions.map((cond, condIdx) => {
                   const validation = validationResults[condIdx]?.validation;
-                  const normalized = validationResults[condIdx]?.normalized ?? "";
+                  const normalized =
+                    validationResults[condIdx]?.normalized ?? "";
                   const variablesText =
                     validation?.variables && validation.variables.length > 0
                       ? `Variables: ${validation.variables.join(", ")}`
                       : "Sin variables detectadas";
 
                   return (
-                    <div key={`cond-${condIdx}`} className="rounded-md border p-3">
+                    <div
+                      key={`cond-${condIdx}`}
+                      className="rounded-md border p-3"
+                    >
                       <div className="mb-2 flex items-center justify-between">
                         <div className="text-sm font-medium">
                           Condición {condIdx + 1}
@@ -504,7 +518,9 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
                                   i === condIdx
                                     ? {
                                         ...c,
-                                        outputToken: next.trim() ? next : c.outputToken,
+                                        outputToken: next.trim()
+                                          ? next
+                                          : c.outputToken,
                                       }
                                     : c,
                                 ),
@@ -537,21 +553,39 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
                             rows={2}
                           />
                           <div className="mt-1 text-[11px] text-gray-600">
-                            Usa Y/O para and/or. Se normaliza a: <span className="font-semibold">{normalized || ""}</span>
+                            Usa Y/O para and/or. Se normaliza a:{" "}
+                            <span className="font-semibold">
+                              {normalized || ""}
+                            </span>
                           </div>
                           {validation?.ok ? (
-                            <div className="mt-1 text-[11px] text-green-700">{variablesText}</div>
+                            <div className="mt-1 text-[11px] text-green-700">
+                              {variablesText}
+                            </div>
                           ) : (
                             <div className="mt-1 text-[11px] text-red-600">
-                                          {validation?.error ?? "Expresión inválida"}
-                                          {Array.isArray(validation?.variables) && (validation?.variables.length>0) ? (
-                                            <div className="mt-1 text-[11px]">Variables detectadas: {validation.variables.join(", ")}</div>
-                                          ) : null}
-                                          {Array.isArray(validationResults[condIdx]?.unknownVars) && validationResults[condIdx].unknownVars.length>0 ? (
-                                            <div className="mt-1 text-[11px] font-medium text-red-700">Variables no definidas: {validationResults[condIdx].unknownVars.join(", ")}</div>
-                                          ) : null}
-                                        </div>
-                                      )}
+                              {validation?.error ?? "Expresión inválida"}
+                              {Array.isArray(validation?.variables) &&
+                              validation?.variables.length > 0 ? (
+                                <div className="mt-1 text-[11px]">
+                                  Variables detectadas:{" "}
+                                  {validation.variables.join(", ")}
+                                </div>
+                              ) : null}
+                              {Array.isArray(
+                                validationResults[condIdx]?.unknownVars,
+                              ) &&
+                              validationResults[condIdx].unknownVars.length >
+                                0 ? (
+                                <div className="mt-1 text-[11px] font-medium text-red-700">
+                                  Variables no definidas:{" "}
+                                  {validationResults[condIdx].unknownVars.join(
+                                    ", ",
+                                  )}
+                                </div>
+                              ) : null}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>

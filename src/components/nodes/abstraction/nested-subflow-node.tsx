@@ -217,7 +217,11 @@ export const NestedSubflowNode = memo(
       return map;
     }, []);
 
-    const editorInstanceRef = useRef<ReactFlowInstance | null>(null);
+    type EditorFlowNode = Node & { type: string | undefined };
+    const editorInstanceRef = useRef<ReactFlowInstance<
+      EditorFlowNode,
+      Edge
+    > | null>(null);
     const nextInnerIdRef = useRef(1);
 
     const createInnerNodeId = useCallback(() => {
@@ -242,7 +246,7 @@ export const NestedSubflowNode = memo(
         }
 
         const instance = editorInstanceRef.current as
-          | (ReactFlowInstance & {
+          | (ReactFlowInstance<EditorFlowNode, Edge> & {
               screenToFlowPosition?: (pos: { x: number; y: number }) => {
                 x: number;
                 y: number;
@@ -498,7 +502,7 @@ export const NestedSubflowNode = memo(
                   variant="outline"
                   onClick={() => {
                     const instance = editorInstanceRef.current as
-                      | (ReactFlowInstance & {
+                      | (ReactFlowInstance<EditorFlowNode, Edge> & {
                           project?: (pos: { x: number; y: number }) => {
                             x: number;
                             y: number;
@@ -555,7 +559,7 @@ export const NestedSubflowNode = memo(
                   variant="outline"
                   onClick={() => {
                     const instance = editorInstanceRef.current as
-                      | (ReactFlowInstance & {
+                      | (ReactFlowInstance<EditorFlowNode, Edge> & {
                           project?: (pos: { x: number; y: number }) => {
                             x: number;
                             y: number;

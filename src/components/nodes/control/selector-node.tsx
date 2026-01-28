@@ -1,6 +1,10 @@
 import { memo, useEffect, useMemo } from "react";
-import { Position, useReactFlow, useStore, type NodeProps } from "@xyflow/react";
-import { Shuffle } from "lucide-react";
+import {
+  Position,
+  useReactFlow,
+  useStore,
+  type NodeProps,
+} from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
@@ -66,8 +70,8 @@ function sanitizeOptions(value: unknown): SelectorOption[] {
 }
 
 export const SelectorNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Selector", runtimeError, options: rawOptions } =
-    (data ?? {}) as SelectorNodeData;
+  const { runtimeError, options: rawOptions } = (data ??
+    {}) as SelectorNodeData;
 
   const options = sanitizeOptions(rawOptions);
   const pairId = (data as { pairId?: string | null })?.pairId ?? null;
@@ -79,7 +83,9 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
   const pairedConditional = useMemo(() => {
     if (pairId) {
       return nodes.find(
-        (n) => n.type === "conditional" && (n.data as { pairId?: string | null })?.pairId === pairId,
+        (n) =>
+          n.type === "conditional" &&
+          (n.data as { pairId?: string | null })?.pairId === pairId,
       );
     }
 
@@ -95,9 +101,13 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
     const conditional = pairedConditional;
     if (!conditional) return options;
 
-    const condsRaw = conditional?.data && Array.isArray((conditional.data as { conditions?: unknown }).conditions)
-      ? ((conditional.data as { conditions?: unknown }).conditions as Array<{ outputToken?: unknown }> )
-      : null;
+    const condsRaw =
+      conditional?.data &&
+      Array.isArray((conditional.data as { conditions?: unknown }).conditions)
+        ? ((conditional.data as { conditions?: unknown }).conditions as Array<{
+            outputToken?: unknown;
+          }>)
+        : null;
     if (!condsRaw || condsRaw.length === 0) return options.slice(0, 1);
 
     return condsRaw.map((cond, idx) => {
@@ -108,11 +118,14 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
       const existing = options[idx];
       return {
         label: labelText,
-        token: typeof cond.outputToken === "string" && cond.outputToken.trim() ? cond.outputToken.trim() : `${idx + 1}`,
+        token:
+          typeof cond.outputToken === "string" && cond.outputToken.trim()
+            ? cond.outputToken.trim()
+            : `${idx + 1}`,
         value: typeof existing?.value === "number" ? existing.value : 0,
       } as SelectorOption;
     });
-  }, [nodes, options, pairedConditional]);
+  }, [options, pairedConditional]);
 
   const valueHandleOffsets = useMemo(
     () => offsets(syncedOptions.length),
@@ -131,7 +144,9 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
     // If labels are long, add extra rows to increase height gradually.
     const extraRows = Math.max(0, Math.ceil((maxLabelLen - 18) / 12));
 
-    return base + Math.max(0, syncedOptions.length - 1) * perOption + extraRows * 12;
+    return (
+      base + Math.max(0, syncedOptions.length - 1) * perOption + extraRows * 12
+    );
   }, [syncedOptions]);
 
   // Persist synced options into node data when they change.
@@ -196,7 +211,9 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
 
       {/* Removed icon and node title per design. Show runtime error if present. */}
       {runtimeError ? (
-        <div className="absolute top-3 text-[11px] text-red-200">{runtimeError}</div>
+        <div className="absolute top-3 text-[11px] text-red-200">
+          {runtimeError}
+        </div>
       ) : null}
 
       {/* Handles anchored to the node edge (use token string as handle id) */}

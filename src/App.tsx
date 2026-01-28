@@ -191,20 +191,6 @@ export default function App() {
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
     usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
 
-  // Call reposition of paired selectors once when dragging stops to avoid
-  // continuous repositioning during drag. This keeps selector centered but
-  // prevents it from jumping while the user moves nodes.
-  const handleNodeDragStop = useCallback(
-    (event?: any) => {
-      onNodeDragStop();
-      // Import lazily to avoid circular/top-level issues
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { repositionPairedSelectors } = require("@/utils/paired-selectors");
-      repositionPairedSelectors(nodes, setNodes);
-    },
-    [onNodeDragStop, nodes, setNodes]
-  );
-
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
     [nodes],
@@ -436,7 +422,6 @@ export default function App() {
     isRuntimeUpdateRef,
     isDraggingRef,
   });
-
 
   const addCommentAtContext = useCallback(() => {
     if (!reactFlowInstance) return;
