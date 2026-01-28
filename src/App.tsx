@@ -85,6 +85,7 @@ export default function App() {
     y: number;
   } | null>(null);
   const [canvasMode, setCanvasMode] = useState<"pan" | "select">("pan");
+  const [isConsoleOpen, setIsConsoleOpen] = useState(false);
 
   const {
     subflowTemplates,
@@ -187,6 +188,11 @@ export default function App() {
     engineEventSinkRef.current = runnerBridge.emitEngineEvent;
     remoteExecutorRef.current = runnerBridge.executeRemote;
   }, [runnerBridge.emitEngineEvent, runnerBridge.executeRemote]);
+
+  const handleRunClick = useCallback(() => {
+    setIsConsoleOpen(true);
+    return onRunClick();
+  }, [onRunClick]);
 
   const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
     usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
@@ -766,7 +772,7 @@ export default function App() {
                     <TopActionPanel
                       nodesCount={nodes.length}
                       isEngineRunning={isEngineRunning}
-                      onRunClick={onRunClick}
+                      onRunClick={handleRunClick}
                       onStopClick={onStopClick}
                       onDownloadClick={onDownloadClick}
                       onLoadClick={onLoadClick}
@@ -784,6 +790,8 @@ export default function App() {
                       onClearConsoleClick={onClearConsoleClick}
                       consoleScrollRef={consoleScrollRef}
                       consoleInputRef={consoleInputRef}
+                      isOpen={isConsoleOpen}
+                      onToggle={() => setIsConsoleOpen((prev) => !prev)}
                     />
                     <input
                       ref={fileInputRef}
