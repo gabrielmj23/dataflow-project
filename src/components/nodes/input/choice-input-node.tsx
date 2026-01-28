@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 export type ChoiceInputNodeData = {
@@ -20,9 +19,13 @@ export type ChoiceInputNodeData = {
 const DEFAULT_CHOICES = ["opción 1", "opción 2", "opción 3"];
 
 export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Selección aleatoria", choices: rawChoices } = (data ?? {}) as ChoiceInputNodeData;
+  const { label = "Selección aleatoria", choices: rawChoices } = (data ??
+    {}) as ChoiceInputNodeData;
 
-  const choices = Array.isArray(rawChoices) && rawChoices.length > 0 ? rawChoices : DEFAULT_CHOICES;
+  const choices =
+    Array.isArray(rawChoices) && rawChoices.length > 0
+      ? rawChoices
+      : DEFAULT_CHOICES;
 
   const { setNodes } = useReactFlow();
   const setChoices = useCallback(
@@ -37,11 +40,11 @@ export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
                   choices: nextChoices,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -54,7 +57,8 @@ export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
       .split(/[,\n]/)
       .map((s) => s.trim())
       .filter(Boolean);
-    if (parsed.length === 0) return { isValid: false, message: "Agrega al menos una opción." };
+    if (parsed.length === 0)
+      return { isValid: false, message: "Agrega al menos una opción." };
     return { isValid: true, message: "" };
   }, [draftText]);
 
@@ -85,21 +89,26 @@ export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
 
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Escribe las opciones una por línea o separadas por comas. Se seleccionará
-              una al azar entre estas.
+              Escribe las opciones una por línea o separadas por comas. Se
+              seleccionará una al azar entre estas.
             </p>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-900" htmlFor={textareaId}>
+              <label
+                className="mb-2 block text-sm font-medium text-gray-900"
+                htmlFor={textareaId}
+              >
                 Opciones
               </label>
               <textarea
                 id={textareaId}
                 value={draftText}
                 onChange={(e) => setDraftText(e.currentTarget.value)}
-                className="w-full min-h-[120px] rounded-md border px-2 py-2 text-sm"
+                className="w-full min-h-30 rounded-md border px-2 py-2 text-sm"
               />
-              <p className="mt-1 text-xs text-muted-foreground">Una por línea o separadas por comas.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Una por línea o separadas por comas.
+              </p>
             </div>
 
             {!validation.isValid && (

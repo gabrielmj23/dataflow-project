@@ -1,6 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import type { Edge, Node, NodeProps, OnConnectStartParams } from "@xyflow/react";
+import type {
+  Edge,
+  Node,
+  NodeProps,
+  OnConnectStartParams,
+} from "@xyflow/react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -24,15 +29,29 @@ import {
 } from "@xyflow/react";
 import { BaseNode, BaseNodeHeader } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import { Hand, MousePointer2, PictureInPicture2, RefreshCw, Split } from "lucide-react";
+import {
+  Hand,
+  MousePointer2,
+  PictureInPicture2,
+  RefreshCw,
+  Split,
+} from "lucide-react";
 import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 import { nodePalette } from "@/flow/node-palette";
@@ -50,6 +69,7 @@ import {
 } from "@/flow/connection-highlight-context";
 import { getPortTypeMask } from "@/flow/port-data-type";
 import { reconcileWriteGraph } from "@/utils/flow";
+import { useRemoteControllers } from "@/ws/remote-controllers-context";
 
 export type SubflowNodeData = {
   label?: string;
@@ -59,6 +79,9 @@ export type SubflowNodeData = {
   subflowEdges?: Edge[];
   templateId?: string;
   isSelfCall?: boolean;
+  executionTarget?: "local" | "controller";
+  controllerId?: string;
+  controllerName?: string;
 };
 
 type SubflowRfNode = Node<SubflowNodeData>;
@@ -69,7 +92,7 @@ function EditorStoreBridge({
   onNodeLookup: (lookup: unknown) => void;
 }) {
   const nodeLookup = useStore(
-    (state) => (state as unknown as { nodeLookup: unknown }).nodeLookup
+    (state) => (state as unknown as { nodeLookup: unknown }).nodeLookup,
   );
 
   useEffect(() => {
@@ -107,6 +130,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     subflowEdges,
     templateId,
     isSelfCall = false,
+    executionTarget: rawExecutionTarget,
+    controllerId: rawControllerId,
+    controllerName: rawControllerName,
   } = (data ?? {}) as SubflowNodeData;
 
   const inCount = Number.isFinite(rawInCount) ? (rawInCount as number) : 0;
@@ -114,10 +140,17 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const inOffsets = offsets(inCount);
   const outOffsets = offsets(outCount);
+  const controllers = useRemoteControllers();
+  const executionTarget =
+    rawExecutionTarget === "controller" ? "controller" : "local";
+  const controllerId =
+    typeof rawControllerId === "string" ? rawControllerId : "";
+  const controllerName =
+    typeof rawControllerName === "string" ? rawControllerName : "";
 
   // Extract explicit `subflowInput` nodes (created in the editor) and
   // order them top-to-bottom so they map to the left handles deterministically.
-  const explicitInputNodes = useMemo(() => {
+  const explicitInputNodes = (() => {
     const list = Array.isArray(subflowNodes) ? subflowNodes.slice() : [];
     const inputs = list.filter((n) => String(n.type) === "subflowInput");
     inputs.sort((a, b) => {
@@ -129,15 +162,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       return ax - bx;
     });
     return inputs;
-  }, [subflowNodes]);
+  })();
 
-  const selfTemplateId = useMemo(
-    () =>
-      typeof templateId === "string" && templateId.trim().length > 0
-        ? templateId.trim()
-        : String(id),
-    [id, templateId],
-  );
+  const selfTemplateId =
+    typeof templateId === "string" && templateId.trim().length > 0
+      ? templateId.trim()
+      : String(id);
 
   // Ensure XYFlow recomputes handle bounds whenever the number of ports changes.
   const explicitInputCount = explicitInputNodes.length;
@@ -145,26 +175,35 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     updateNodeInternals(id);
   }, [id, inCount, outCount, explicitInputCount, updateNodeInternals]);
 
-  const minHeight = useMemo(() => {
+  const minHeight = (() => {
     const base = 64; // a bit taller base than before
     const perInput = 18; // extra height per input
-    const count = Number.isFinite(Number(explicitInputCount)) && explicitInputCount > 0 ? explicitInputCount : inCount;
+    const count =
+      Number.isFinite(Number(explicitInputCount)) && explicitInputCount > 0
+        ? explicitInputCount
+        : inCount;
     return base + Math.max(0, count - 1) * perInput;
-  }, [explicitInputCount, inCount]);
+  })();
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
-  const [editorCanvasMode, setEditorCanvasMode] = useState<
-    "pan" | "select"
-  >("pan");
+  const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
+    "pan",
+  );
   const [draftNodes, setDraftNodes] = useState<Node[]>(
-    () => subflowNodes ?? []
+    () => subflowNodes ?? [],
   );
   const [draftEdges, setDraftEdges] = useState<Edge[]>(
-    () => subflowEdges ?? []
+    () => subflowEdges ?? [],
   );
   const [draftLabel, setDraftLabel] = useState(label);
   const [addToPalette, setAddToPalette] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
+  const [draftExecutionTarget, setDraftExecutionTarget] = useState<
+    "local" | "controller"
+  >(executionTarget);
+  const [draftControllerId, setDraftControllerId] = useState(controllerId);
+  const [draftControllerName, setDraftControllerName] =
+    useState(controllerName);
 
   const explicitInputCountDraft = useMemo(
     () => draftNodes.filter((n) => String(n.type) === "subflowInput").length,
@@ -176,20 +215,62 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     [draftNodes],
   );
 
-  const desiredSelfCallInCount = explicitInputCountDraft > 0 ? explicitInputCountDraft : inCount;
-  const desiredSelfCallOutCount = explicitOutputCountDraft > 0 ? 1 : Math.max(0, outCount);
+  const desiredSelfCallInCount =
+    explicitInputCountDraft > 0 ? explicitInputCountDraft : inCount;
+  const desiredSelfCallOutCount =
+    explicitOutputCountDraft > 0 ? 1 : Math.max(0, outCount);
 
-  const connectionTooltip = useConnectionValidationTooltip(draftNodes);
+  const baseLabel = label;
+
+  const reconciled = reconcileWriteGraph(draftNodes, draftEdges);
+  const effectiveDraftNodes = reconciled.changedNodes
+    ? (reconciled.nodes as Node[])
+    : draftNodes;
+  const effectiveDraftEdges = reconciled.changedEdges
+    ? (reconciled.edges as Edge[])
+    : draftEdges;
+
+  const syncedDraftNodes = (() => {
+    if (!selfTemplateId) return effectiveDraftNodes;
+    const nextLabel = (draftLabel || baseLabel).trim() || baseLabel;
+
+    return effectiveDraftNodes.map((node) => {
+      if (node.type !== "subflow") return node;
+      const nodeData = (node.data ?? {}) as SubflowNodeData;
+      if (!nodeData.isSelfCall) return node;
+      const nodeTemplateId =
+        typeof nodeData.templateId === "string"
+          ? nodeData.templateId.trim()
+          : null;
+      if (nodeTemplateId !== selfTemplateId) return node;
+
+      const currentIn = Number.isFinite(nodeData.inCount)
+        ? (nodeData.inCount as number)
+        : 0;
+      const currentOut = Number.isFinite(nodeData.outCount)
+        ? (nodeData.outCount as number)
+        : 0;
+      const needsLabel = (nodeData.label ?? nextLabel) !== nextLabel;
+      const needsInUpdate = currentIn !== desiredSelfCallInCount;
+      const needsOutUpdate = currentOut !== desiredSelfCallOutCount;
+      if (!needsLabel && !needsInUpdate && !needsOutUpdate) {
+        return node;
+      }
+
+      return {
+        ...node,
+        data: {
+          ...(node.data ?? {}),
+          label: nextLabel,
+          inCount: desiredSelfCallInCount,
+          outCount: desiredSelfCallOutCount,
+        },
+      };
+    });
+  })();
+  const connectionTooltip = useConnectionValidationTooltip(syncedDraftNodes);
   const [connectionHighlight, setConnectionHighlight] =
     useState<ConnectionHighlightState>(null);
-
-  // Keep Write nodes inside the subflow editor aligned with their connections
-  // so variable chips and input handles stay in sync.
-  useEffect(() => {
-    const result = reconcileWriteGraph(draftNodes, draftEdges);
-    if (result.changedEdges) setDraftEdges(result.edges as Edge[]);
-    if (result.changedNodes) setDraftNodes(result.nodes as Node[]);
-  }, [draftEdges, draftNodes, setDraftEdges, setDraftNodes]);
 
   // Delete selected nodes/edges with Backspace/Delete when editor is open
   useEffect(() => {
@@ -215,7 +296,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
       setDraftNodes((prev) => {
         const removedIds = new Set(
-          prev.filter((n) => n.selected).map((n) => n.id)
+          prev.filter((n) => n.selected).map((n) => n.id),
         );
         const nextNodes = prev.filter((n) => !n.selected);
 
@@ -226,7 +307,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             const tgt = String((edge as Edge).target);
             if (removedIds.has(src) || removedIds.has(tgt)) return false;
             return true;
-          })
+          }),
         );
 
         return nextNodes;
@@ -240,24 +321,24 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const editorLookupRef = useRef<unknown>(null);
 
-  const onEditorNodesChange = useCallback((changes: NodeChange[]) => {
+  const onEditorNodesChange = (changes: NodeChange[]) => {
     setDraftNodes((snapshot) => applyNodeChanges(changes, snapshot));
-  }, []);
+  };
 
-  const onEditorEdgesChange = useCallback((changes: EdgeChange[]) => {
+  const onEditorEdgesChange = (changes: EdgeChange[]) => {
     setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
-  }, []);
+  };
 
   const onEditorConnect = useCallback(
     (connection: Connection) => {
-      const validation = validateConnection(draftNodes, connection);
+      const validation = validateConnection(syncedDraftNodes, connection);
       if (!validation.ok) {
         connectionTooltip.show(validation.message ?? "Conexión no válida.");
         return;
       }
       setDraftEdges((snapshot) => addEdge(connection, snapshot));
     },
-    [connectionTooltip, draftNodes]
+    [connectionTooltip, syncedDraftNodes],
   );
 
   const onEditorConnectStart = useCallback(
@@ -269,8 +350,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         return;
       }
 
-      const sourceNode = draftNodes.find(
-        (n) => String(n.id) === String(params.nodeId)
+      const sourceNode = syncedDraftNodes.find(
+        (n) => String(n.id) === String(params.nodeId),
       );
       const nodeType =
         sourceNode && typeof sourceNode.type === "string"
@@ -283,7 +364,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       });
       setConnectionHighlight({ sourceMask });
     },
-    [connectionTooltip, draftNodes]
+    [connectionTooltip, syncedDraftNodes],
   );
 
   const onEditorConnectEnd = useCallback(
@@ -291,18 +372,20 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       connectionTooltip.onConnectEnd(event);
       setConnectionHighlight(null);
     },
-    [connectionTooltip]
+    [connectionTooltip],
   );
 
   const editorFlowId = useMemo(() => `subflow-editor-${id}`, [id]);
 
   // Ensure draft nodes use canonical type keys that exist in `nodeTypesCore`.
-  const normalizeNodeType = useCallback((t: unknown) => {
-    if (!t) return t;
+  const normalizeNodeType = useCallback((t: unknown): string | undefined => {
+    if (!t) return undefined;
     const s = String(t);
-    if ((nodeTypesCore as any)[s]) return s;
+    const nodeTypesLookup = nodeTypesCore as Record<string, unknown>;
+    if (Object.prototype.hasOwnProperty.call(nodeTypesLookup, s)) return s;
     const lower = s.trim().toLowerCase();
-    if ((nodeTypesCore as any)[lower]) return lower;
+    if (Object.prototype.hasOwnProperty.call(nodeTypesLookup, lower))
+      return lower;
     return s;
   }, []);
 
@@ -316,7 +399,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     return map;
   }, []);
 
-  const editorInstanceRef = useRef<ReactFlowInstance | null>(null);
+  type EditorFlowNode = Node & { type: string | undefined };
+  const editorInstanceRef = useRef<ReactFlowInstance<
+    EditorFlowNode,
+    Edge
+  > | null>(null);
   const nextInnerIdRef = useRef(1);
 
   const createInnerNodeId = useCallback(() => {
@@ -324,7 +411,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     return `inner-${id}-${next}`;
   }, [id]);
 
-  const insertSelfInstance = useCallback(() => {
+  const insertSelfInstance = () => {
     // Insert a self-call node: it signals the engine to re-enter this same
     // subflow/template. This node should not expose its own editor.
     const resolvedFromTemplate =
@@ -338,9 +425,13 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         })
       | null;
 
-    const position = instance?.project?.({ x: 200, y: 200 }) ?? { x: 200, y: 200 };
+    const position = instance?.project?.({ x: 200, y: 200 }) ?? {
+      x: 200,
+      y: 200,
+    };
 
-    const nextLabel = (draftLabel || resolvedFromTemplate?.name || label).trim() || label;
+    const nextLabel =
+      (draftLabel || resolvedFromTemplate?.name || label).trim() || label;
 
     // Determine desired exposed port counts for the self-call instance.
     // Use explicit `subflowInput` nodes count (added via editor) for inputs,
@@ -362,46 +453,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     };
 
     setDraftNodes((prev) => [...prev, newNode]);
-  }, [createInnerNodeId, desiredSelfCallInCount, desiredSelfCallOutCount, editorInstanceRef, label, draftLabel, setDraftNodes, selfTemplateId, templateContext]);
-
-  // Keep labels/counts of self-call nodes in sync with the current draft name
-  // and port counts, so they update automatically when the subflow is renamed.
-  useEffect(() => {
-    if (!selfTemplateId) return;
-    const nextLabel = (draftLabel || label).trim() || label;
-
-    setDraftNodes((prev) =>
-      prev.map((node) => {
-        if (node.type !== "subflow") return node;
-        const nodeData = (node.data ?? {}) as SubflowNodeData;
-        if (!nodeData.isSelfCall) return node;
-        const nodeTemplateId =
-          typeof nodeData.templateId === "string"
-            ? nodeData.templateId.trim()
-            : null;
-        if (nodeTemplateId !== selfTemplateId) return node;
-
-        const currentIn = Number.isFinite(nodeData.inCount) ? (nodeData.inCount as number) : 0;
-        const currentOut = Number.isFinite(nodeData.outCount) ? (nodeData.outCount as number) : 0;
-        const needsLabel = (nodeData.label ?? nextLabel) !== nextLabel;
-        const needsInUpdate = currentIn !== desiredSelfCallInCount;
-        const needsOutUpdate = currentOut !== desiredSelfCallOutCount;
-        if (!needsLabel && !needsInUpdate && !needsOutUpdate) {
-          return node;
-        }
-
-        return {
-          ...node,
-          data: {
-            ...(node.data ?? {}),
-            label: nextLabel,
-            inCount: desiredSelfCallInCount,
-            outCount: desiredSelfCallOutCount,
-          },
-        };
-      }),
-    );
-  }, [draftLabel, label, desiredSelfCallInCount, desiredSelfCallOutCount, selfTemplateId, setDraftNodes]);
+  };
 
   const onEditorDragOver = useCallback((event: DragEvent) => {
     event.stopPropagation();
@@ -409,107 +461,112 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     event.dataTransfer.dropEffect = "move";
   }, []);
 
-  const onEditorDrop = useCallback(
-    (event: DragEvent) => {
-      event.stopPropagation();
-      event.preventDefault();
+  const onEditorDrop = (event: DragEvent) => {
+    event.stopPropagation();
+    event.preventDefault();
 
-      const type = event.dataTransfer.getData("application/reactflow");
-      if (!type) {
-        return;
-      }
+    const type = event.dataTransfer.getData("application/reactflow");
+    if (!type) {
+      return;
+    }
 
-       const templateIdRaw = event.dataTransfer.getData(
-         "application/subflow-template-id"
-       );
-       const templateId = templateIdRaw || null;
+    const templateIdRaw = event.dataTransfer.getData(
+      "application/subflow-template-id",
+    );
+    const templateId = templateIdRaw || null;
 
-      const instance = editorInstanceRef.current as
-        | (ReactFlowInstance & {
-            screenToFlowPosition?: (pos: { x: number; y: number }) => {
-              x: number;
-              y: number;
-            };
-            project?: (pos: { x: number; y: number }) => {
-              x: number;
-              y: number;
-            };
-          })
-        | null;
-
-      const screenPos = { x: event.clientX, y: event.clientY };
-      const position = instance?.screenToFlowPosition?.(screenPos) ??
-        instance?.project?.(screenPos) ?? { x: 0, y: 0 };
-
-      const nodeLabel = paletteLabelByType.get(type);
-
-      let data: Record<string, unknown> = {};
-
-      if (type === "subflow" && templateId && templateContext) {
-        const resolved = templateContext.resolveTemplate(templateId);
-        if (resolved) {
-          data = {
-            label: resolved.name,
-            inCount: resolved.inCount,
-            outCount: resolved.outCount,
-            subflowNodes: resolved.nodes,
-            subflowEdges: resolved.edges,
-            templateId: resolved.id,
+    const instance = editorInstanceRef.current as
+      | (ReactFlowInstance & {
+          screenToFlowPosition?: (pos: { x: number; y: number }) => {
+            x: number;
+            y: number;
           };
-        } else if (nodeLabel) {
-          data = { label: nodeLabel };
-        }
+          project?: (pos: { x: number; y: number }) => {
+            x: number;
+            y: number;
+          };
+        })
+      | null;
+
+    const screenPos = { x: event.clientX, y: event.clientY };
+    const position = instance?.screenToFlowPosition?.(screenPos) ??
+      instance?.project?.(screenPos) ?? { x: 0, y: 0 };
+
+    const nodeLabel = paletteLabelByType.get(type);
+
+    let data: Record<string, unknown> = {};
+
+    if (type === "subflow" && templateId && templateContext) {
+      const resolved = templateContext.resolveTemplate(templateId);
+      if (resolved) {
+        data = {
+          label: resolved.name,
+          inCount: resolved.inCount,
+          outCount: resolved.outCount,
+          subflowNodes: resolved.nodes,
+          subflowEdges: resolved.edges,
+          templateId: resolved.id,
+        };
       } else if (nodeLabel) {
         data = { label: nodeLabel };
       }
+    } else if (nodeLabel) {
+      data = { label: nodeLabel };
+    }
 
-      if (type === "conditionalPair") {
-        const conditionalId = createInnerNodeId();
-        const selectorId = createInnerNodeId();
-        const pairId = createInnerNodeId();
+    if (type === "conditionalPair") {
+      const conditionalId = createInnerNodeId();
+      const selectorId = createInnerNodeId();
+      const pairId = createInnerNodeId();
 
-        const conditionalNode: Node = {
-          id: conditionalId,
-          type: "conditional",
-          position,
-          data: { label: "Condicional", pairId, pairRole: "conditional", pairOffsetY: 160 },
-        };
-
-        const selectorNode: Node = {
-          id: selectorId,
-          type: "selector",
-          position: { x: position.x, y: position.y + 160 },
-          data: { label: "Selector", pairId, pairRole: "selector", pairOffsetY: 160 },
-        };
-
-        const edge = {
-          id: createInnerNodeId(),
-          source: conditionalId,
-          sourceHandle: "out",
-          target: selectorId,
-          targetHandle: "token",
-          type: "default",
-          data: { edgeType: "straight", pairId, locked: true },
-        } as Node & { // typed as Node for draftEdges array
-          // placeholder
-        };
-
-        setDraftNodes((prev) => [...prev, conditionalNode, selectorNode]);
-        setDraftEdges((prev) => [...prev, edge as any]);
-        return;
-      }
-
-      const newNode: Node = {
-        id: createInnerNodeId(),
-        type,
+      const conditionalNode: Node = {
+        id: conditionalId,
+        type: "conditional",
         position,
-        data,
+        data: {
+          label: "Condicional",
+          pairId,
+          pairRole: "conditional",
+          pairOffsetY: 160,
+        },
       };
 
-      setDraftNodes((prev) => [...prev, newNode]);
-    },
-    [createInnerNodeId, paletteLabelByType, templateContext]
-  );
+      const selectorNode: Node = {
+        id: selectorId,
+        type: "selector",
+        position: { x: position.x, y: position.y + 160 },
+        data: {
+          label: "Selector",
+          pairId,
+          pairRole: "selector",
+          pairOffsetY: 160,
+        },
+      };
+
+      const edge: Edge = {
+        id: createInnerNodeId(),
+        source: conditionalId,
+        sourceHandle: "out",
+        target: selectorId,
+        targetHandle: "token",
+        type: "default",
+        data: { edgeType: "straight", pairId, locked: true },
+      };
+
+      setDraftNodes((prev) => [...prev, conditionalNode, selectorNode]);
+      setDraftEdges((prev) => [...prev, edge]);
+      return;
+    }
+
+    const newNode: Node = {
+      id: createInnerNodeId(),
+      type,
+      position,
+      data,
+    };
+
+    setDraftNodes((prev) => [...prev, newNode]);
+  };
 
   return (
     <BaseNode
@@ -525,6 +582,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               setDraftLabel(label);
               setAddToPalette(false);
               setNameError(null);
+              setDraftExecutionTarget(executionTarget);
+              setDraftControllerId(controllerId);
+              setDraftControllerName(controllerName);
               setIsEditorOpen(true);
             }}
           />
@@ -553,7 +613,15 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       {/* Render input labels aligned with left handles (editable) */}
       {inOffsets.map((offset, index) => {
         const inputNode = explicitInputNodes[index];
-        const label = inputNode ? String(((inputNode.data ?? {}) as any).label ?? `Entrada ${index + 1}`) : `Entrada ${index + 1}`;
+        const inputLabel = inputNode
+          ? (() => {
+              const data = (inputNode.data ?? {}) as Record<string, unknown>;
+              return typeof data.label === "string"
+                ? data.label
+                : `Entrada ${index + 1}`;
+            })()
+          : `Entrada ${index + 1}`;
+        const label = String(inputLabel);
         const trimmed = String(label ?? "").trim();
         const len = Math.max(0, trimmed.length);
         const widthPx = len <= 1 ? 36 : Math.min(140, 12 + len * 8);
@@ -602,7 +670,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             <DialogTitle>Editar subflujo</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto max-h-[80vh]">
             <p className="text-sm text-muted-foreground">
               Modifica los nodos y conexiones.
             </p>
@@ -619,6 +687,66 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 placeholder="Ej: Validar datos"
               />
             </div>
+
+            <div className="grid gap-2">
+              <label className="text-sm font-medium">Ejecutar en</label>
+              <Select
+                value={draftExecutionTarget}
+                onValueChange={(value) => {
+                  if (value === "local" || value === "controller") {
+                    setDraftExecutionTarget(value);
+                    if (value === "local") {
+                      setDraftControllerId("");
+                      setDraftControllerName("");
+                    }
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="local">Local</SelectItem>
+                  <SelectItem value="controller">Otra PC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {draftExecutionTarget === "controller" && (
+              <div className="grid gap-2">
+                <label className="text-sm font-medium">Controller remoto</label>
+                <Select
+                  value={draftControllerId || undefined}
+                  onValueChange={(value) => {
+                    if (value === "__none__") return;
+                    setDraftControllerId(value);
+                    const nextName = controllers.find(
+                      (item) => item.id === value,
+                    )?.name;
+                    if (nextName) {
+                      setDraftControllerName(nextName);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona un controller" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {controllers.length === 0 ? (
+                      <SelectItem value="__none__" disabled>
+                        (Sin controllers conectados)
+                      </SelectItem>
+                    ) : (
+                      controllers.map((controller) => (
+                        <SelectItem key={controller.id} value={controller.id}>
+                          {controller.name ?? controller.id}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {nameError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
                 {nameError}
@@ -651,40 +779,56 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 type="button"
                 size="sm"
                 variant="outline"
-              onClick={() => {
-                const instance = editorInstanceRef.current as
-                  | (ReactFlowInstance & {
-                      project?: (pos: { x: number; y: number }) => { x: number; y: number };
-                      screenToFlowPosition?: (pos: { x: number; y: number }) => { x: number; y: number };
-                    })
-                  | null;
+                onClick={() => {
+                  const instance = editorInstanceRef.current as
+                    | (ReactFlowInstance & {
+                        project?: (pos: { x: number; y: number }) => {
+                          x: number;
+                          y: number;
+                        };
+                        screenToFlowPosition?: (pos: {
+                          x: number;
+                          y: number;
+                        }) => { x: number; y: number };
+                      })
+                    | null;
 
-                // Compute center of the editor container and project to flow coords.
-                let position = { x: 120, y: 120 };
-                try {
-                  const el = document.getElementById(editorFlowId);
-                  if (el) {
-                    const rect = el.getBoundingClientRect();
-                    const centerScreen = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-                    position = instance?.screenToFlowPosition?.(centerScreen) ?? instance?.project?.(centerScreen) ?? position;
-                  } else {
-                    position = instance?.project?.({ x: 120, y: 120 }) ?? position;
+                  // Compute center of the editor container and project to flow coords.
+                  let position = { x: 120, y: 120 };
+                  try {
+                    const el = document.getElementById(editorFlowId);
+                    if (el) {
+                      const rect = el.getBoundingClientRect();
+                      const centerScreen = {
+                        x: rect.left + rect.width / 2,
+                        y: rect.top + rect.height / 2,
+                      };
+                      position =
+                        instance?.screenToFlowPosition?.(centerScreen) ??
+                        instance?.project?.(centerScreen) ??
+                        position;
+                    } else {
+                      position =
+                        instance?.project?.({ x: 120, y: 120 }) ?? position;
+                    }
+                  } catch {
+                    position =
+                      instance?.project?.({ x: 120, y: 120 }) ?? position;
                   }
-                } catch {
-                  position = instance?.project?.({ x: 120, y: 120 }) ?? position;
-                }
 
-                const inputId = createInnerNodeId();
-                const existingCount = draftNodes.filter((n) => String(n.type) === "subflowInput").length;
-                const labelText = `Entrada ${existingCount + 1}`;
-                const inputNode: Node = {
-                  id: inputId,
-                  type: "subflowInput",
-                  position,
-                  data: { label: labelText },
-                };
-                setDraftNodes((prev) => [...prev, inputNode]);
-              }}
+                  const inputId = createInnerNodeId();
+                  const existingCount = draftNodes.filter(
+                    (n) => String(n.type) === "subflowInput",
+                  ).length;
+                  const labelText = `Entrada ${existingCount + 1}`;
+                  const inputNode: Node = {
+                    id: inputId,
+                    type: "subflowInput",
+                    position,
+                    data: { label: labelText },
+                  };
+                  setDraftNodes((prev) => [...prev, inputNode]);
+                }}
               >
                 <span className="mr-1">+</span>
                 Añadir entrada
@@ -696,8 +840,14 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 onClick={() => {
                   const instance = editorInstanceRef.current as
                     | (ReactFlowInstance & {
-                        project?: (pos: { x: number; y: number }) => { x: number; y: number };
-                        screenToFlowPosition?: (pos: { x: number; y: number }) => { x: number; y: number };
+                        project?: (pos: { x: number; y: number }) => {
+                          x: number;
+                          y: number;
+                        };
+                        screenToFlowPosition?: (pos: {
+                          x: number;
+                          y: number;
+                        }) => { x: number; y: number };
                       })
                     | null;
 
@@ -706,13 +856,21 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     const el = document.getElementById(editorFlowId);
                     if (el) {
                       const rect = el.getBoundingClientRect();
-                      const centerScreen = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-                      position = instance?.screenToFlowPosition?.(centerScreen) ?? instance?.project?.(centerScreen) ?? position;
+                      const centerScreen = {
+                        x: rect.left + rect.width / 2,
+                        y: rect.top + rect.height / 2,
+                      };
+                      position =
+                        instance?.screenToFlowPosition?.(centerScreen) ??
+                        instance?.project?.(centerScreen) ??
+                        position;
                     } else {
-                      position = instance?.project?.({ x: 200, y: 120 }) ?? position;
+                      position =
+                        instance?.project?.({ x: 200, y: 120 }) ?? position;
                     }
                   } catch {
-                    position = instance?.project?.({ x: 200, y: 120 }) ?? position;
+                    position =
+                      instance?.project?.({ x: 200, y: 120 }) ?? position;
                   }
 
                   const outputId = createInnerNodeId();
@@ -741,8 +899,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 <ConnectionHighlightProvider value={connectionHighlight}>
                   <ReactFlow
                     id={editorFlowId}
-                    nodes={draftNodes.map((n) => ({ ...n, type: normalizeNodeType(n.type) }))}
-                    edges={draftEdges}
+                    nodes={syncedDraftNodes.map((n) => ({
+                      ...n,
+                      type: normalizeNodeType(n.type),
+                    }))}
+                    edges={effectiveDraftEdges}
                     defaultEdgeOptions={{
                       markerEnd: {
                         type: MarkerType.ArrowClosed,
@@ -815,7 +976,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 </ConnectionHighlightProvider>
               </ReactFlowProvider>
             </div>
-
+          </div>
+          <DialogFooter>
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
@@ -831,20 +993,35 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 type="button"
                 onClick={() => {
                   // Compute inCount from explicit `subflowInput` nodes added by the user.
-                  const explicitInputs = draftNodes.filter((n) => String(n.type) === "subflowInput").length;
-                  const nextInCount = Number.isFinite(Number(explicitInputs)) ? explicitInputs : (Number.isFinite(rawInCount) ? (rawInCount as number) : inCount);
+                  const explicitInputs = syncedDraftNodes.filter(
+                    (n) => String(n.type) === "subflowInput",
+                  ).length;
+                  const nextInCount = Number.isFinite(Number(explicitInputs))
+                    ? explicitInputs
+                    : Number.isFinite(rawInCount)
+                      ? (rawInCount as number)
+                      : inCount;
 
                   // If there are explicit subflowOutput nodes, expose exactly one salida.
-                  const explicitOutputs = draftNodes.filter((n) => String(n.type) === "subflowOutput").length;
+                  const explicitOutputs = syncedDraftNodes.filter(
+                    (n) => String(n.type) === "subflowOutput",
+                  ).length;
 
                   // For outputs keep the previous behavior (try to compute open ports)
                   // when no explicit subflowOutput nodes exist.
                   const lookup = editorLookupRef.current;
-                  let nextOutCount = explicitOutputs > 0
-                    ? 1
-                    : (Number.isFinite(rawOutCount) ? (rawOutCount as number) : outCount);
+                  let nextOutCount =
+                    explicitOutputs > 0
+                      ? 1
+                      : Number.isFinite(rawOutCount)
+                        ? (rawOutCount as number)
+                        : outCount;
                   try {
-                    const computed = computeOpenPortsFromLookup(draftNodes, draftEdges, lookup);
+                    const computed = computeOpenPortsFromLookup(
+                      syncedDraftNodes,
+                      effectiveDraftEdges,
+                      lookup,
+                    );
                     if (computed && computed.ready && explicitOutputs === 0) {
                       nextOutCount = computed.outCount;
                     }
@@ -853,24 +1030,39 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   }
 
                   const finalLabel = (draftLabel || label).trim() || label;
+                  const resolvedControllerName =
+                    draftExecutionTarget === "controller" && draftControllerId
+                      ? (controllers.find((c) => c.id === draftControllerId)
+                          ?.name ?? draftControllerName)
+                      : undefined;
 
                   // Prevent saving if any subflow input labels are empty
-                  const hasEmptyInputs = draftNodes.some((n) => String(n.type) === "subflowInput" && !(String(((n.data ?? {}) as any).label ?? "").trim()));
+                  const hasEmptyInputs = syncedDraftNodes.some((n) => {
+                    if (String(n.type) !== "subflowInput") return false;
+                    const data = (n.data ?? {}) as Record<string, unknown>;
+                    const label =
+                      typeof data.label === "string" ? data.label : "";
+                    return !label.trim();
+                  });
                   if (hasEmptyInputs) {
-                    setNameError("Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.");
+                    setNameError(
+                      "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
+                    );
                     return;
                   }
 
                   // Prevent saving if there are more than one exposed outputs
                   if (Number(nextOutCount) > 1) {
-                    setNameError("El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.");
+                    setNameError(
+                      "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
+                    );
                     return;
                   }
 
                   if (addToPalette && templateContext) {
                     if (templateContext.isNameTaken(finalLabel)) {
                       setNameError(
-                        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre."
+                        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
                       );
                       return;
                     }
@@ -880,15 +1072,21 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
                     // When saving to the palette, rebind self-call nodes to the new template id
                     // so dragging from the palette can resolve the template correctly.
-                    const paletteNodes = draftNodes.map((n) => {
+                    const paletteNodes = syncedDraftNodes.map((n) => {
                       if (n.type !== "subflow") return n;
                       const data = (n.data ?? {}) as SubflowNodeData;
                       const nodeTemplateId =
-                        typeof data.templateId === "string" && data.templateId.trim().length > 0
+                        typeof data.templateId === "string" &&
+                        data.templateId.trim().length > 0
                           ? data.templateId.trim()
                           : null;
                       const isSelf = data.isSelfCall === true;
-                      if (isSelf && (!nodeTemplateId || nodeTemplateId === selfTemplateId || nodeTemplateId === templateId)) {
+                      if (
+                        isSelf &&
+                        (!nodeTemplateId ||
+                          nodeTemplateId === selfTemplateId ||
+                          nodeTemplateId === templateId)
+                      ) {
                         return {
                           ...n,
                           data: {
@@ -906,7 +1104,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                       inCount: nextInCount,
                       outCount: nextOutCount,
                       nodes: paletteNodes,
-                      edges: draftEdges,
+                      edges: effectiveDraftEdges,
                     });
                   }
 
@@ -921,13 +1119,22 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                         data: {
                           ...(n.data as object),
                           label: finalLabel,
-                          subflowNodes: draftNodes,
-                          subflowEdges: draftEdges,
+                          subflowNodes: syncedDraftNodes,
+                          subflowEdges: effectiveDraftEdges,
                           inCount: nextInCount,
                           outCount: nextOutCount,
+                          executionTarget: draftExecutionTarget,
+                          controllerId:
+                            draftExecutionTarget === "controller"
+                              ? draftControllerId || undefined
+                              : undefined,
+                          controllerName:
+                            draftExecutionTarget === "controller"
+                              ? resolvedControllerName
+                              : undefined,
                         },
                       };
-                    })
+                    }),
                   );
 
                   // Only remove connected edges if the number of exposed
@@ -942,8 +1149,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                       prev.filter(
                         (edge) =>
                           String(edge.source) !== String(id) &&
-                          String(edge.target) !== String(id)
-                      )
+                          String(edge.target) !== String(id),
+                      ),
                     );
                   }
 
@@ -954,7 +1161,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 Guardar
               </Button>
             </div>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </BaseNode>

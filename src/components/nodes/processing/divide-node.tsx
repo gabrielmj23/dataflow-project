@@ -2,44 +2,16 @@ import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Divide } from "lucide-react";
 
-import { ProcessingRectNodeShell } from "@/components/nodes/processing/processing-rect-node-shell";
-import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
+import { ProcessingExecutionNode } from "@/components/nodes/processing/processing-execution-node";
 
-export type DivideNodeData = {
-  label?: string;
-  runtimeError?: string | null;
-  executionTarget?: "local" | "microbit";
-  transport?: "serial" | "bluetooth";
-};
-
-export const DivideNode = memo(({ id, data }: NodeProps) => {
-  const {
-    label = "División",
-    runtimeError,
-    executionTarget,
-    transport,
-  } = (data ?? {}) as DivideNodeData;
-
-  const config = useMicrobitExecutionConfig({
-    nodeId: id,
-    title: "Configurar · División",
-    executionTarget,
-    transport,
-  });
-
-  return (
-    <>
-      <ProcessingRectNodeShell
-        nodeType="divide"
-        icon={<Divide className="h-6 w-6" />}
-        label={label}
-        subtitle={config.subtitle}
-        runtimeError={runtimeError}
-        onConfigClick={config.onConfigClick}
-      />
-      {config.dialog}
-    </>
-  );
-});
+export const DivideNode = memo((props: NodeProps) => (
+  <ProcessingExecutionNode
+    {...props}
+    nodeType="divide"
+    icon={<Divide className="h-6 w-6" />}
+    defaultLabel="Dividir"
+    configTitle="Configurar · Dividir"
+  />
+));
 
 DivideNode.displayName = "DivideNode";

@@ -1,6 +1,6 @@
 import { Panel } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
-import { Download, Play, Square, Upload } from "lucide-react";
+import { Download, Play, Settings, Square, Upload } from "lucide-react";
 
 export function TopActionPanel({
   nodesCount,
@@ -9,6 +9,7 @@ export function TopActionPanel({
   onStopClick,
   onDownloadClick,
   onLoadClick,
+  onRemoteSettingsClick,
 }: {
   nodesCount: number;
   isEngineRunning: boolean;
@@ -16,6 +17,7 @@ export function TopActionPanel({
   onStopClick: () => void;
   onDownloadClick: () => void;
   onLoadClick: () => void;
+  onRemoteSettingsClick?: () => void;
 }) {
   return (
     <Panel position="top-right" className="flex gap-2">
@@ -58,6 +60,14 @@ export function TopActionPanel({
       >
         Cargar
         <Upload />
+      </Button>
+      <Button
+        variant="secondary"
+        className="hover:cursor-pointer shadow-md"
+        type="button"
+        onClick={onRemoteSettingsClick}
+      >
+        Configurar remoto <Settings />
       </Button>
     </Panel>
   );

@@ -166,9 +166,6 @@ export function reconcileWriteGraph(
   };
 }
 
-// Conditional graph reconciliation and helpers removed — inputs are
-// managed explicitly via condition expressions (variables) only.
-
 export function uniqueCount<T>(values: T[]): number {
   return new Set(values).size;
 }

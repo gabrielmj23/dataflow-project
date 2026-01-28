@@ -5,10 +5,36 @@ import {
   type EngineLogLevel,
   type EngineNodeStatus,
 } from "@/engine/engine";
-import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
+import {
+  deserializeProgramToEngineStores,
+  type RemoteExecutor,
+} from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
+
+export type EngineRunnerEvent =
+  | { type: "run_start" }
+  | { type: "run_end"; ok: boolean; error?: unknown }
+  | {
+      type: "node_status";
+      nodeId: string;
+      status: EngineNodeStatus;
+      errorText?: string;
+    }
+  | {
+      type: "log";
+      level: EngineLogLevel;
+      nodeId?: string;
+      text: string;
+    }
+  | {
+      type: "prompt";
+      nodeId: string;
+      prompt: string;
+      inputType: "number" | "text";
+      defaultValue?: unknown;
+    };
 
 type UseEngineRunnerParams = {
   nodes: FlowNode[];
@@ -23,6 +49,10 @@ type UseEngineRunnerParams = {
   ) => void;
   enqueuePrompt: (prompt: RuntimePrompt) => void;
   clearPromptQueue: () => void;
+  /** Optional tap to observe engine runtime events (e.g. for remote WS streaming). */
+  onEngineEvent?: (event: EngineRunnerEvent) => void;
+  /** Optional remote executor for controller-based node execution. */
+  remoteExecutor?: RemoteExecutor;
   resolveSubflowTemplate?: (id: string) => {
     id: string;
     name: string;
@@ -44,6 +74,8 @@ export function useEngineRunner({
   appendConsoleLines,
   enqueuePrompt,
   clearPromptQueue,
+  onEngineEvent,
+  remoteExecutor,
   resolveSubflowTemplate,
   maxSubflowDepth = 1000,
 }: UseEngineRunnerParams) {
@@ -164,6 +196,7 @@ export function useEngineRunner({
         const baseText = formatLogText(payload);
         const text = level === "error" ? `Error: ${baseText}` : baseText;
         appendConsoleLines([text], { level, nodeId });
+        onEngineEvent?.({ type: "log", level, nodeId, text });
       };
 
       const onPromptHandler = ({
@@ -182,24 +215,41 @@ export function useEngineRunner({
         cancel: () => void;
       }) => {
         enqueuePrompt({ nodeId, prompt, type, defaultValue, submit, cancel });
+        onEngineEvent?.({
+          type: "prompt",
+          nodeId,
+          prompt,
+          inputType: type,
+          defaultValue,
+        });
       };
 
       const stores = deserializeProgramToEngineStores(program, {
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
         signal: abortController.signal,
+        remoteExecutor,
         resolveSubflowTemplate,
         maxSubflowDepth,
       });
       const engine = new DataflowEngine();
 
       engine.setObserver({
+        onRunStart: () => {
+          onEngineEvent?.({ type: "run_start" });
+        },
+        onRunEnd: ({ ok, error }) => {
+          onEngineEvent?.({ type: "run_end", ok, error });
+        },
         onNodeStatus: ({ nodeId, status, error }) => {
           isRuntimeUpdateRef.current = true;
           const errorText =
             status === "error" && error !== undefined
               ? formatLogText(error)
               : undefined;
+
+          onEngineEvent?.({ type: "node_status", nodeId, status, errorText });
+
           setNodes((prev) =>
             prev.map((n) => {
               if (String(n.id) !== String(nodeId)) return n;
@@ -246,19 +296,23 @@ export function useEngineRunner({
       setIsEngineRunning(false);
     }
   }, [
-    appendConsoleLines,
-    edges,
-    enqueuePrompt,
-    formatLogText,
     isEngineRunning,
-    isRuntimeUpdateRef,
-    nodes,
-    programName,
     reactFlowInstance,
-    runtimeClassForStatus,
     setAllNodesRuntimeState,
+    nodes,
+    edges,
+    programName,
+    remoteExecutor,
+    resolveSubflowTemplate,
+    maxSubflowDepth,
+    formatLogText,
+    appendConsoleLines,
+    onEngineEvent,
+    enqueuePrompt,
+    isRuntimeUpdateRef,
     setNodes,
     stripRuntimeClasses,
+    runtimeClassForStatus,
   ]);
 
   return {

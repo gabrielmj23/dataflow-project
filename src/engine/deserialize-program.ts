@@ -15,55 +15,10 @@ import {
 import { ArcStore, NodeStore } from "./stores";
 import { DataflowEngine, type EngineObserver } from "./engine";
 
-import {
-  EngineSumNode,
-  EngineSubstractNode,
-  EngineMultiplyNode,
-  EngineDivideNode,
-  EngineModNode,
-  EnginePowerNode,
-  EngineFloorNode,
-  EngineCeilingNode,
-  EngineRoundNode,
-  EngineFormulaNode,
-  EngineConcatNode,
-} from "./nodes/algorithm-nodes";
-import { EngineConstantNode, EngineRandomNode, EngineChoiceNode } from "./nodes/input-nodes";
-import { EngineTimerNode } from "./nodes/event-nodes";
-import { EngineWriteNode } from "./nodes/output-nodes";
-import { EngineMicrobitReadButtonNode } from "./nodes/microbit-nodes";
-import {
-  EngineMicrobitCeilingNode,
-  EngineMicrobitConcatNode,
-  EngineMicrobitDivideNode,
-  EngineMicrobitFloorNode,
-  EngineMicrobitModNode,
-  EngineMicrobitMultiplyNode,
-  EngineMicrobitPowerNode,
-  EngineMicrobitRoundNode,
-  EngineMicrobitSoundNode,
-  EngineMicrobitSubtractNode,
-  EngineMicrobitSumNode,
-  EngineMicrobitWriteNode,
-} from "./nodes/microbit-nodes";
-import {
-  EngineAndNode,
-  EngineComparisonNode,
-  EngineNotNode,
-  EngineOrNode,
-  EngineSwitchNode,
-} from "./nodes/logic-nodes";
-import type { SwitchCondition, SwitchOperator } from "./nodes/logic-nodes";
-import {
-  EngineCountNode,
-  EngineFilterNode,
-  EngineGenerateSequenceNode,
-  EnginePulseSequenceNode,
-  EngineMapNode,
-  EngineReduceNode,
-  EngineZipNode,
-} from "./nodes/list-nodes";
-import { validateFormula } from "@/utils/formula";
+import { mapHandleToPortId, parseIndexHandle } from "./handle-mapping";
+
+import { asRecord } from "./deserialize/utils";
+import { compileNodeDefinition } from "./node-compilers";
 
 type SubflowTemplateResolution = {
   id: string;
@@ -81,6 +36,7 @@ type SubflowRuntimeContext = {
   maxDepth: number;
   resolveTemplate?: SubflowTemplateResolver;
   inlineTemplates?: Map<string, SubflowTemplateResolution>;
+  currentTemplateId?: string;
 };
 
 export type EngineProgramStores = {
@@ -88,24 +44,36 @@ export type EngineProgramStores = {
   arcStore: ArcStore;
 };
 
-/**
- * Safely coerces an unknown value into a plain record.
- *
- * This is used to read `node.data` coming from the UI graph, which may be
- * `undefined`, `null`, or any other JSON value.
- */
-function asRecord(value: unknown): Record<string, unknown> {
-  return (
-    value && typeof value === "object" ? (value as Record<string, unknown>) : {}
-  ) as Record<string, unknown>;
-}
+export type RemoteExecutionOp =
+  | "sum"
+  | "subtract"
+  | "multiply"
+  | "divide"
+  | "mod"
+  | "power"
+  | "floor"
+  | "ceiling"
+  | "round"
+  | "concat"
+  | "subflow";
 
-/**
- * Type guard that checks if a value is an array with at least one element.
- */
-function isNonEmptyArray<T>(value: unknown): value is T[] {
-  return Array.isArray(value) && value.length > 0;
-}
+export type RemoteSubflowPayload = {
+  nodes: Node[];
+  edges: Edge[];
+  selectedInputs: Array<{ nodeId: string; portId: string }>;
+  outputSources: Array<{ nodeId: string; portId: string }>;
+  hasAnyOutput: boolean;
+};
+
+export type RemoteExecutionRequest = {
+  nodeId: string;
+  controllerId: string;
+  op: RemoteExecutionOp;
+  args: unknown[];
+  subflow?: RemoteSubflowPayload;
+};
+
+export type RemoteExecutor = (req: RemoteExecutionRequest) => Promise<unknown>;
 
 /**
  * Infers the number of *input* ports for a given node definition.
@@ -155,23 +123,6 @@ function outputPortIds(def: NodeDefinition): string[] {
 }
 
 /**
- * Parses an XYFlow handle id that ends with "-<n>".
- *
- * Examples:
- * - "in-1" -> 1
- * - "out-2" -> 2
- *
- * Returns `null` when the format doesn't match.
- */
-function parseIndexHandle(handleId: string | null | undefined): number | null {
-  if (!handleId) return null;
-  const match = /-(\d+)$/.exec(handleId);
-  if (!match) return null;
-  const idx = Number(match[1]);
-  return Number.isFinite(idx) ? idx : null;
-}
-
-/**
  * Builds engine stores from a UI graph (XYFlow nodes and edges).
  *
  * Responsibilities:
@@ -179,12 +130,13 @@ function parseIndexHandle(handleId: string | null | undefined): number | null {
  * - Converts each UI edge into an engine `Arc`, mapping UI handles to
  *   engine port IDs.
  */
-function buildEngineStoresFromFlowGraph(params: {
+export function buildEngineStoresFromFlowGraph(params: {
   nodes: Node[];
   edges: Edge[];
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
   signal?: AbortSignal;
+  remoteExecutor?: RemoteExecutor;
   resolveSubflowTemplate?: SubflowTemplateResolver;
   maxSubflowDepth?: number;
   subflowRuntimeContext?: SubflowRuntimeContext;
@@ -267,7 +219,8 @@ function buildEngineStoresFromFlowGraph(params: {
         direction: "target",
       });
       if (portId) {
-        const set = conditionalIncomingByNodeId.get(targetId) ?? new Set<string>();
+        const set =
+          conditionalIncomingByNodeId.get(targetId) ?? new Set<string>();
         set.add(portId);
         conditionalIncomingByNodeId.set(targetId, set);
       }
@@ -281,13 +234,12 @@ function buildEngineStoresFromFlowGraph(params: {
     writeSinkInputCountByNodeId.set(targetId, Math.max(current, idx));
   }
 
-  const runtimeCtx: SubflowRuntimeContext =
-    params.subflowRuntimeContext ?? {
-      depth: 0,
-      maxDepth: params.maxSubflowDepth ?? 1000,
-      resolveTemplate: params.resolveSubflowTemplate,
-      inlineTemplates: new Map<string, SubflowTemplateResolution>(),
-    };
+  const runtimeCtx: SubflowRuntimeContext = params.subflowRuntimeContext ?? {
+    depth: 0,
+    maxDepth: params.maxSubflowDepth ?? 1000,
+    resolveTemplate: params.resolveSubflowTemplate,
+    inlineTemplates: new Map<string, SubflowTemplateResolution>(),
+  };
 
   // Ensure helpers exist even when a runtime context was provided upstream.
   if (!runtimeCtx.inlineTemplates) {
@@ -305,7 +257,11 @@ function buildEngineStoresFromFlowGraph(params: {
   for (const n of uiNodes) {
     try {
       const dt = asRecord(n.data);
-      if (n.type === NODE_TYPES.SUBFLOW && Array.isArray(dt.subflowNodes) && Array.isArray(dt.subflowEdges)) {
+      if (
+        n.type === NODE_TYPES.SUBFLOW &&
+        Array.isArray(dt.subflowNodes) &&
+        Array.isArray(dt.subflowEdges)
+      ) {
         const templateIdRaw = dt.templateId;
         const templateId =
           typeof templateIdRaw === "string" && templateIdRaw.trim().length > 0
@@ -343,6 +299,7 @@ function buildEngineStoresFromFlowGraph(params: {
       onLog: params.onLog,
       onPrompt: params.onPrompt,
       signal: params.signal,
+      remoteExecutor: params.remoteExecutor,
       subflowRuntimeContext: runtimeCtx,
       resolveSubflowTemplate: params.resolveSubflowTemplate,
     });
@@ -634,44 +591,32 @@ function computeOpenPorts(params: { nodes: EngineNode[]; arcs: Arc[] }): {
   return { openInputs, openOutputs };
 }
 
-/**
- * Compiles a Subflow UI node into an engine `NodeDefinition`.
- *
- * The subflow definition executes an inner program in a nested engine:
- * - External inputs are injected into selected open input ports.
- * - Selected open output ports are forwarded to special external ports
- *   (nodeId "") so they can be observed.
- *
- * `inCount/outCount` control how many open ports to expose. If omitted, all
- * open ports are exposed.
- */
-function compileSubflowNodeDefinition(params: {
+type SubflowExecutionPlan = {
+  engineNodes: EngineNode[];
+  engineArcs: Arc[];
+  selectedInputs: Array<{ nodeId: string; portId: string }>;
+  outputSources: Array<{ nodeId: string; portId: string }>;
+  hasAnyOutput: boolean;
+};
+
+function computeSubflowExecutionPlan(params: {
   subflowNodes: Node[];
   subflowEdges: Edge[];
-  /**
-   * Number of exposed input ports for the subflow.
-   *
-   * If omitted, all open inputs in the inner graph are exposed.
-   * (This is important for older/hand-crafted graphs where `inCount` isn't persisted.)
-   */
   inCount?: number;
-  /**
-   * Number of exposed output ports for the subflow.
-   *
-   * If omitted, all open outputs in the inner graph are exposed.
-   */
   outCount?: number;
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
   signal?: AbortSignal;
+  remoteExecutor?: RemoteExecutor;
   runtimeCtx?: SubflowRuntimeContext;
-}): NodeDefinition {
+}): SubflowExecutionPlan {
   const stores = buildEngineStoresFromFlowGraph({
     nodes: params.subflowNodes,
     edges: params.subflowEdges,
     onLog: params.onLog,
     onPrompt: params.onPrompt,
     signal: params.signal,
+    remoteExecutor: params.remoteExecutor,
     subflowRuntimeContext: params.runtimeCtx,
     resolveSubflowTemplate: params.runtimeCtx?.resolveTemplate,
     maxSubflowDepth: params.runtimeCtx?.maxDepth,
@@ -732,17 +677,80 @@ function compileSubflowNodeDefinition(params: {
     return openOutputs;
   })();
 
+  const hasAnyOutput = outputSources.length > 0;
+
+  return {
+    engineNodes,
+    engineArcs,
+    selectedInputs,
+    outputSources,
+    hasAnyOutput,
+  };
+}
+
+/**
+ * Compiles a Subflow UI node into an engine `NodeDefinition`.
+ *
+ * The subflow definition executes an inner program in a nested engine:
+ * - External inputs are injected into selected open input ports.
+ * - Selected open output ports are forwarded to special external ports
+ *   (nodeId "") so they can be observed.
+ *
+ * `inCount/outCount` control how many open ports to expose. If omitted, all
+ * open ports are exposed.
+ */
+function compileSubflowNodeDefinition(params: {
+  subflowNodes: Node[];
+  subflowEdges: Edge[];
+  /**
+   * Number of exposed input ports for the subflow.
+   *
+   * If omitted, all open inputs in the inner graph are exposed.
+   * (This is important for older/hand-crafted graphs where `inCount` isn't persisted.)
+   */
+  inCount?: number;
+  /**
+   * Number of exposed output ports for the subflow.
+   *
+   * If omitted, all open outputs in the inner graph are exposed.
+   */
+  outCount?: number;
+  onLog?: EngineObserver["onLog"];
+  onPrompt?: EngineObserver["onPrompt"];
+  signal?: AbortSignal;
+  remoteExecutor?: RemoteExecutor;
+  runtimeCtx?: SubflowRuntimeContext;
+}): NodeDefinition {
+  const plan = computeSubflowExecutionPlan({
+    subflowNodes: params.subflowNodes,
+    subflowEdges: params.subflowEdges,
+    inCount: params.inCount,
+    outCount: params.outCount,
+    onLog: params.onLog,
+    onPrompt: params.onPrompt,
+    signal: params.signal,
+    remoteExecutor: params.remoteExecutor,
+    runtimeCtx: params.runtimeCtx,
+  });
+
+  const engineNodes = plan.engineNodes;
+  const engineArcs = plan.engineArcs;
+  const selectedInputs = plan.selectedInputs;
+  const outputSources = plan.outputSources;
+  const hasAnyOutput = plan.hasAnyOutput;
+
   // Always expose at most one output port externally; multiple internal
   // `subflowOutput` nodes funnel into the same exposed salida.
-  const hasAnyOutput = outputSources.length > 0;
   const firePatterns = selectedInputs.map(() => FirePatterns.EXISTS);
   const inputPorts = selectedInputs.map((_, idx) => `input${idx + 1}`);
   const outputPorts = hasAnyOutput ? ["output1"] : [];
   // Debug information to help trace subflow port mapping during runtime.
   try {
-    // eslint-disable-next-line no-console
-    console.debug("compileSubflowNodeDefinition: selectedInputs", selectedInputs);
-    // eslint-disable-next-line no-console
+    console.debug(
+      "compileSubflowNodeDefinition: selectedInputs",
+      selectedInputs,
+    );
+
     console.debug("compileSubflowNodeDefinition: outputSources", outputSources);
   } catch {
     /* ignore */
@@ -752,8 +760,12 @@ function compileSubflowNodeDefinition(params: {
     async (...args: unknown[]) => {
       // Log runtime invocation arguments to help diagnose missing tokens.
       try {
-        // eslint-disable-next-line no-console
-        console.debug("subflow.run: args", args, "mappedTo", selectedInputs.map((s, i) => ({ argIndex: i, target: s })));
+        console.debug(
+          "subflow.run: args",
+          args,
+          "mappedTo",
+          selectedInputs.map((s, i) => ({ argIndex: i, target: s })),
+        );
       } catch {
         /* ignore */
       }
@@ -822,427 +834,6 @@ function compileSubflowNodeDefinition(params: {
 }
 
 /**
- * Maps a UI handle ID (XYFlow) into an engine port ID.
- *
- * This function encodes the contract between the visual nodes (their handle
- * IDs) and the engine node definitions (their port names).
- */
-function mapHandleToPortId(params: {
-  nodeId: string;
-  nodeType?: string;
-  handleId?: string | null;
-  direction: "source" | "target";
-}): string {
-  const { nodeId, nodeType, handleId, direction } = params;
-
-  // Internal "input value" nodes (used inside Map/Filter embedded editors)
-  if (
-    nodeType === NODE_TYPES.FILTER_INPUT_VALUE ||
-    nodeType === NODE_TYPES.MAP_INPUT_VALUE
-  ) {
-    if (direction === "source") {
-      if (handleId === "value" || handleId == null) return "output";
-      throw new Error(
-        `Unknown output handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    throw new Error(
-      `Node ${nodeId} (${nodeType}) should not have input connections.`,
-    );
-  }
-
-  if (nodeType === NODE_TYPES.SUBFLOW) {
-    const idx = parseIndexHandle(handleId);
-    if (direction === "target") {
-      if (handleId?.startsWith("in-") && idx) return `input${idx}`;
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId?.startsWith("out-") && idx) return `output${idx}`;
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  // Subflow explicit output node: consumes a value and forwards it.
-  if (nodeType === NODE_TYPES.SUBFLOW_OUTPUT) {
-    if (direction === "target") {
-      if (handleId === "value" || handleId == null) return "input";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (direction === "source") {
-      if (handleId === "value" || handleId == null) return "output";
-      throw new Error(
-        `Unknown output handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-  }
-
-  // Subflow explicit input node: only a source handle (value)
-  if (nodeType === NODE_TYPES.SUBFLOW_INPUT) {
-    if (direction === "source") {
-      if (handleId === "value" || handleId == null) return "output";
-      throw new Error(
-        `Unknown output handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-    throw new Error(
-      `Node ${nodeId} (${nodeType}) should not have input connections.`,
-    );
-  }
-
-  // Input circle nodes: no explicit handle id -> output
-  if (
-    nodeType === NODE_TYPES.CONSTANT_INPUT ||
-    nodeType === NODE_TYPES.CONSTANT_NUMBER_INPUT ||
-    nodeType === NODE_TYPES.CONSTANT_BOOLEAN_INPUT ||
-    nodeType === NODE_TYPES.CONSTANT_TEXT_INPUT ||
-    nodeType === NODE_TYPES.RUNTIME_INPUT ||
-    nodeType === NODE_TYPES.RANDOM_INPUT ||
-    nodeType === NODE_TYPES.CHOICE_INPUT ||
-    nodeType === NODE_TYPES.MICROBIT_READ_BUTTON_INPUT
-  ) {
-    if (direction === "source") {
-      return "output";
-    }
-    throw new Error(
-      `Node ${nodeId} (${nodeType}) should not have input connections.`,
-    );
-  }
-
-  // Timer: inputOutput circle node (optional input -> output after delay)
-  if (nodeType === NODE_TYPES.TIMER_INPUT) {
-    if (direction === "target") {
-      if (handleId == null) return "input";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  // IO sink
-  if (nodeType === NODE_TYPES.WRITE_SINK) {
-    if (direction === "target") {
-      if (handleId == null) return "input1";
-      const idx = parseIndexHandle(handleId);
-      if (handleId.startsWith("in-") && idx) return `input${idx}`;
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-    throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
-  }
-
-  // micro:bit sinks (no-op for now)
-  if (
-    nodeType === NODE_TYPES.MICROBIT_WRITE ||
-    nodeType === NODE_TYPES.MICROBIT_SOUND
-  ) {
-    if (direction === "target") {
-      if (handleId == null) return "input1";
-      const idx = parseIndexHandle(handleId);
-      if (handleId.startsWith("in-") && idx) return `input${idx}`;
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-    throw new Error(`Node ${nodeId} (${nodeType}) should not have outputs.`);
-  }
-
-  // Formula editor (dynamic inputs)
-  if (nodeType === NODE_TYPES.FORMULA_EDITOR_NODE) {
-    if (direction === "target") {
-      const idx = parseIndexHandle(handleId);
-      if (handleId?.startsWith("in-") && idx) return `input${idx}`;
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  // Processing nodes (2-in 1-out)
-  if (
-    nodeType === NODE_TYPES.SUM_NODE ||
-    nodeType === NODE_TYPES.SUBTRACT_NODE ||
-    nodeType === NODE_TYPES.MULTIPLY_NODE ||
-    nodeType === NODE_TYPES.DIVIDE_NODE ||
-    nodeType === NODE_TYPES.MOD_NODE ||
-    nodeType === NODE_TYPES.POWER_NODE ||
-    nodeType === NODE_TYPES.CONCAT_NODE
-  ) {
-    if (direction === "target") {
-      if (handleId === "in-1") return "input1";
-      if (handleId === "in-2") return "input2";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  // Processing nodes (1-in 1-out)
-  if (
-    nodeType === NODE_TYPES.FLOOR_NODE ||
-    nodeType === NODE_TYPES.CEILING_NODE ||
-    nodeType === NODE_TYPES.ROUND_NODE
-  ) {
-    if (direction === "target") {
-      if (handleId === "in-1") return "input1";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  // Control nodes
-  if (
-    nodeType === NODE_TYPES.COMPARISON_NODE ||
-    nodeType === NODE_TYPES.AND_NODE ||
-    nodeType === NODE_TYPES.OR_NODE
-  ) {
-    if (direction === "target") {
-      if (handleId === "in-1") return "input1";
-      if (handleId === "in-2") return "input2";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  if (nodeType === NODE_TYPES.NOT_NODE) {
-    if (direction === "target") {
-      if (handleId === "in" || handleId == null) return "input";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out") {
-      return "output";
-    }
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  if (nodeType === NODE_TYPES.SWITCH_NODE) {
-    if (direction === "target") {
-      if (handleId === "in" || handleId == null) return "value";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out-default") return "outputDefault";
-
-    const idx = parseIndexHandle(handleId);
-    if (handleId?.startsWith("out-") && idx) return `output${idx}`;
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  if (nodeType === NODE_TYPES.CONDITIONAL_NODE) {
-    if (direction === "target") {
-      const idx = parseIndexHandle(handleId) ?? 1;
-      if (handleId?.startsWith("in-") || handleId == null) {
-        return `input${idx}`;
-      }
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  if (nodeType === NODE_TYPES.SELECTOR_NODE) {
-    if (direction === "target") {
-      if (handleId === "token") return "token";
-      // Value handles use the token string as handle id; preserve as port id.
-      if (handleId) return String(handleId);
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    // Allow selector source handles to be token-named (one output per option).
-    // Keep legacy "out" mapping for backward compatibility.
-    if (handleId === "out" || handleId == null) return "output";
-    return String(handleId);
-  }
-
-  // Iteration/list nodes
-  if (nodeType === NODE_TYPES.ZIP_NODE) {
-    if (direction === "target") {
-      if (handleId === "in-1") return "listA";
-      if (handleId === "in-2") return "listB";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  if (nodeType === NODE_TYPES.FILTER_NODE || nodeType === NODE_TYPES.MAP_NODE) {
-    if (direction === "target") {
-      if (handleId === "in" || handleId == null) return "inputList";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "outputList";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  if (
-    nodeType === NODE_TYPES.COUNT_NODE ||
-    nodeType === NODE_TYPES.REDUCE_NODE
-  ) {
-    if (direction === "target") {
-      if (handleId === "in" || handleId == null) return "inputList";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  if (
-    nodeType === NODE_TYPES.GENERATE_SEQUENCE_NODE ||
-    nodeType === NODE_TYPES.PULSE_SEQUENCE_NODE
-  ) {
-    if (direction === "target") {
-      if (handleId === "in-1" || handleId == null) return "start";
-      if (handleId === "in-2") return "end";
-      if (handleId === "in-3") return "step";
-      throw new Error(
-        `Unknown input handle '${String(
-          handleId,
-        )}' for node ${nodeId} (${nodeType}).`,
-      );
-    }
-
-    if (handleId === "out" || handleId == null) return "output";
-    throw new Error(
-      `Unknown output handle '${String(
-        handleId,
-      )}' for node ${nodeId} (${nodeType}).`,
-    );
-  }
-
-  throw new Error(
-    `Unsupported node type '${String(nodeType)}' for node ${nodeId}.`,
-  );
-}
-
-/**
  * Converts a UI node into an engine `NodeDefinition`.
  *
  * The mapping is based on the node's `type` and its serialized `data`.
@@ -1265,754 +856,30 @@ function flowNodeToEngineDefinition(
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
+    remoteExecutor?: RemoteExecutor;
     subflowRuntimeContext?: SubflowRuntimeContext;
     resolveSubflowTemplate?: SubflowTemplateResolver;
   },
 ): NodeDefinition {
-  const nodeType = flowNode.type;
-  const data = asRecord(flowNode.data);
-
-  switch (nodeType) {
-    case NODE_TYPES.CONSTANT_INPUT: {
-      const value = data.value as number | string | boolean | undefined;
-      return new EngineConstantNode(value ?? 0);
-    }
-    case NODE_TYPES.CONSTANT_NUMBER_INPUT: {
-      const value = typeof data.value === "number" ? data.value : 0;
-      return new EngineConstantNode(value);
-    }
-    case NODE_TYPES.CONSTANT_BOOLEAN_INPUT: {
-      const value = data.value === true;
-      return new EngineConstantNode(value);
-    }
-    case NODE_TYPES.CONSTANT_TEXT_INPUT: {
-      const value = typeof data.value === "string" ? data.value : "";
-      return new EngineConstantNode(value);
-    }
-    case NODE_TYPES.RUNTIME_INPUT: {
-      const prompt = typeof data.prompt === "string" ? data.prompt : undefined;
-      const valueTypeRaw = data.valueType;
-      const valueType = valueTypeRaw === "text" ? "text" : "number";
-
-      const defaultValue =
-        valueType === "text"
-          ? typeof data.defaultValue === "string"
-            ? data.defaultValue
-            : undefined
-          : typeof data.defaultValue === "number"
-            ? data.defaultValue
-            : undefined;
-
-      return new NodeDefinition(
-        () => defaultValue ?? (valueType === "text" ? "" : 0),
-        [FirePatterns.ALWAYS],
-        ["output"],
-        {
-          kind: "runtimeInput",
-          runtimePrompt: prompt,
-          runtimeInputType: valueType,
-          runtimeDefaultValue: defaultValue,
-        },
-      );
-    }
-    case NODE_TYPES.RANDOM_INPUT: {
-      const min = typeof data.min === "number" ? data.min : 0;
-      const max = typeof data.max === "number" ? data.max : 100;
-      const integerOnly = data.integerOnly === true;
-      return new EngineRandomNode(min, max, integerOnly);
-    }
-    case NODE_TYPES.CHOICE_INPUT: {
-      const raw = data.choices;
-      const choices: string[] = Array.isArray(raw)
-        ? raw.map((c) => (typeof c === "string" ? c : String(c))).filter(Boolean)
-        : [];
-      return new EngineChoiceNode(choices);
-    }
-    case NODE_TYPES.TIMER_INPUT: {
-      // UI stores seconds; engine expects milliseconds.
-      const seconds = typeof data.timeValue === "number" ? data.timeValue : 0;
-      const hasIncoming = Boolean(
-        context?.timerHasIncomingByNodeId?.get(String(flowNode.id)),
-      );
-      return new EngineTimerNode(
-        Math.max(0, Math.round(seconds * 1000)),
-        hasIncoming ? "delay" : "source",
-      );
-    }
-
-    case NODE_TYPES.MICROBIT_READ_BUTTON_INPUT: {
-      const transportRaw = data.transport;
-      const transport =
-        transportRaw === "bluetooth" || transportRaw === "serial"
-          ? transportRaw
-          : "serial";
-      return new EngineMicrobitReadButtonNode({
-        nodeId: String(flowNode.id),
-        transport,
-        onLog: context?.onLog,
-        signal: context?.signal,
-      });
-    }
-
-    case NODE_TYPES.SUBFLOW_INPUT: {
-      // Placeholder node representing an exposed input of the subflow editor.
-      // External tokens land on its `input` port and are forwarded unchanged.
-      return new NodeDefinition(
-        (v: unknown) => v,
-        [FirePatterns.EXISTS],
-        ["input", "output"],
-      );
-    }
-
-    case NODE_TYPES.SUBFLOW_OUTPUT: {
-      // Placeholder node representing an early-return/exit point of the subflow.
-      // Consumes a value and forwards it to the subflow's single exposed salida.
-      return new NodeDefinition(
-        (v: unknown) => v,
-        [FirePatterns.EXISTS],
-        ["input", "output"],
-      );
-    }
-
-    case NODE_TYPES.FILTER_INPUT_VALUE:
-    case NODE_TYPES.MAP_INPUT_VALUE: {
-      // Pass-through for the "Valor de entrada" node inside embedded editors.
-      return new NodeDefinition(
-        (v: unknown) => v,
-        [FirePatterns.EXISTS],
-        ["input", "output"],
-      );
-    }
-
-    case NODE_TYPES.SUM_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitSumNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineSumNode();
-    }
-    case NODE_TYPES.SUBTRACT_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitSubtractNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineSubstractNode();
-    }
-    case NODE_TYPES.MULTIPLY_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitMultiplyNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineMultiplyNode();
-    }
-    case NODE_TYPES.DIVIDE_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitDivideNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineDivideNode();
-    }
-    case NODE_TYPES.MOD_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitModNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineModNode();
-    }
-    case NODE_TYPES.POWER_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitPowerNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EnginePowerNode();
-    }
-    case NODE_TYPES.FLOOR_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitFloorNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineFloorNode();
-    }
-    case NODE_TYPES.CEILING_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitCeilingNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineCeilingNode();
-    }
-    case NODE_TYPES.ROUND_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitRoundNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineRoundNode();
-    }
-    case NODE_TYPES.FORMULA_EDITOR_NODE: {
-      const formula = data.formula;
-      const variables = data.variables;
-      return new EngineFormulaNode({ formula, variables });
-    }
-    case NODE_TYPES.CONCAT_NODE: {
-      const executionTarget = data.executionTarget;
-      if (executionTarget === "microbit") {
-        const transportRaw = data.transport ?? data.connectionType;
-        const transport =
-          transportRaw === "bluetooth" || transportRaw === "serial"
-            ? transportRaw
-            : "serial";
-        return new EngineMicrobitConcatNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: context?.onLog,
-          signal: context?.signal,
-        });
-      }
-      return new EngineConcatNode();
-    }
-
-    case NODE_TYPES.COMPARISON_NODE: {
-      const operator = data.operator;
-      const op =
-        operator === "==" ||
-        operator === "!=" ||
-        operator === "<" ||
-        operator === "<=" ||
-        operator === ">" ||
-        operator === ">="
-          ? operator
-          : "==";
-      return new EngineComparisonNode(op);
-    }
-    case NODE_TYPES.AND_NODE:
-      return new EngineAndNode();
-    case NODE_TYPES.OR_NODE:
-      return new EngineOrNode();
-    case NODE_TYPES.NOT_NODE:
-      return new EngineNotNode();
-
-    case NODE_TYPES.SWITCH_NODE: {
-      const raw = data.conditions;
-
-      const conditions: SwitchCondition[] = Array.isArray(raw)
-        ? raw
-            .map((c) =>
-              c && typeof c === "object"
-                ? (c as Record<string, unknown>)
-                : null,
-            )
-            .filter((c): c is Record<string, unknown> => Boolean(c))
-            .map((c): SwitchCondition => {
-              const operator = c.operator;
-              const target = c.target;
-
-              const op: SwitchOperator =
-                operator === "==" ||
-                operator === "!=" ||
-                operator === ">" ||
-                operator === ">=" ||
-                operator === "<" ||
-                operator === "<=" ||
-                operator === "contains" ||
-                operator === "startsWith" ||
-                operator === "endsWith" ||
-                operator === "truthy" ||
-                operator === "falsy"
-                  ? operator
-                  : "truthy";
-
-              return {
-                operator: op,
-                target,
-              };
-            })
-        : [];
-
-      return new EngineSwitchNode(
-        conditions.length > 0
-          ? conditions
-          : [{ operator: "truthy" }, { operator: "falsy" }],
-      );
-    }
-
-    case NODE_TYPES.CONDITIONAL_NODE: {
-      const inputsRaw = isNonEmptyArray(data.inputs)
-        ? data.inputs
-        : [{ label: "a" }];
-      const inputs = inputsRaw.map((it, idx) => {
-        const labelRaw =
-          it && typeof it === "object" ? (it as { label?: unknown }).label : null;
-        const label =
-          typeof labelRaw === "string" && labelRaw.trim().length > 0
-            ? labelRaw.trim()
-            : String.fromCharCode(97 + idx);
-        return { label, portId: `input${idx + 1}` };
-      });
-
-      const conditionsRaw = isNonEmptyArray(data.conditions)
-        ? data.conditions
-        : [{ outputToken: "Salida 1", formula: inputs[0]?.label ?? "a" }];
-      const conditions = conditionsRaw.map((cond, idx) => {
-        const outputTokenRaw =
-          cond && typeof cond === "object"
-            ? (cond as { outputToken?: unknown }).outputToken
-            : null;
-        const formulaRaw =
-          cond && typeof cond === "object"
-            ? (cond as { formula?: unknown }).formula
-            : null;
-
-        const outputToken =
-          typeof outputTokenRaw === "string" && outputTokenRaw.trim().length > 0
-            ? outputTokenRaw.trim()
-            : `Salida ${idx + 1}`;
-
-        const formula = typeof formulaRaw === "string" ? formulaRaw.trim() : "";
-        const validation = validateFormula(formula === "" ? "0" : formula);
-
-        return {
-          outputToken,
-          compiled: validation.ok ? validation.compiled ?? null : null,
-        };
-      });
-
-      const inputPorts = inputs.map((i) => i.portId);
-      const ports = [...inputPorts, "output"];
-
-      const incoming = context?.conditionalIncomingByNodeId?.get(String(flowNode.id));
-      const firePatterns = inputPorts.map((portId) =>
-        incoming?.has(portId) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
-      );
-
-      return new NodeDefinition(
-        (...args: unknown[]) => {
-          const scope: Record<string, number> = {};
-          for (let i = 0; i < inputs.length; i += 1) {
-            const name = inputs[i]?.label ?? `var${i + 1}`;
-            const value = args[i];
-            const num = Number(value);
-            scope[name] = Number.isFinite(num) ? num : 0;
-          }
-
-          for (const cond of conditions) {
-            if (!cond.compiled) continue;
-            const result = cond.compiled.evaluate(scope);
-            const truthy = typeof result === "boolean" ? result : Number(result) !== 0;
-            if (truthy) {
-              return [
-                new DataToken(
-                  cond.outputToken,
-                  new PortAddress("", "output"),
-                ),
-              ];
-            }
-          }
-
-          return [new DataToken(undefined, new PortAddress("", "output"))];
-        },
-        firePatterns,
-        ports,
-      );
-    }
-
-    case NODE_TYPES.SELECTOR_NODE: {
-      const optionsRaw = Array.isArray(data.options) ? data.options : [];
-      const options = optionsRaw.length > 0 ? optionsRaw : [
-        { token: "Salida 1", value: 0 },
-        { token: "Salida 2", value: 0 },
-      ];
-
-      const tokens = options.map((opt, idx) => {
-        const tokenRaw =
-          opt && typeof opt === "object"
-            ? (opt as { token?: unknown }).token
-            : null;
-        return typeof tokenRaw === "string" && tokenRaw.trim().length > 0
-          ? tokenRaw.trim()
-          : `Salida ${idx + 1}`;
-      });
-
-      const ports = ["token", ...tokens, "output"];
-
-      const incoming = context?.selectorIncomingByNodeId?.get(String(flowNode.id));
-      const firePatterns = [
-        FirePatterns.EXISTS,
-        ...tokens.map((t) =>
-          incoming?.has(t) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE
-        ),
-      ];
-
-      return new NodeDefinition(
-        (token: unknown, ...values: unknown[]) => {
-          const tokenStr = String(token ?? "");
-          const matchIdx = tokens.findIndex((t) => t === tokenStr);
-          const selected = matchIdx >= 0 ? values[matchIdx] : undefined;
-
-          // If token matches one of the option tokens, route the output to
-          // that token-named port. Otherwise fall back to the legacy "output" port.
-          const targetPort = matchIdx >= 0 ? tokenStr : "output";
-
-          return [
-            new DataToken(selected, new PortAddress("", targetPort)),
-          ];
-        },
-        firePatterns,
-        ports,
-      );
-    }
-
-    case NODE_TYPES.WRITE_SINK:
-      return new EngineWriteNode(
-        context?.writeSinkInputCountByNodeId?.get(String(flowNode.id)) ?? 1,
-        typeof data.template === "string" ? data.template : undefined,
-      );
-
-    case NODE_TYPES.MICROBIT_WRITE:
-      return new EngineMicrobitWriteNode({
-        transport:
-          (data as { transport?: unknown; connectionType?: unknown } | null)
-            ?.transport ??
-          (data as { connectionType?: unknown } | null)?.connectionType,
-      });
-
-    case NODE_TYPES.MICROBIT_SOUND:
-      return new EngineMicrobitSoundNode({
-        transport:
-          (data as { transport?: unknown; connectionType?: unknown } | null)
-            ?.transport ??
-          (data as { connectionType?: unknown } | null)?.connectionType,
-      });
-
-    case NODE_TYPES.GENERATE_SEQUENCE_NODE: {
-      const incoming = context?.sequenceIncomingByNodeId?.get(
-        String(flowNode.id),
-      ) ?? {
-        start: false,
-        end: false,
-        step: false,
-      };
-
-      const firePatterns: [FirePatterns, FirePatterns, FirePatterns] = [
-        incoming.start ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
-        incoming.end ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
-        incoming.step ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
-      ];
-
-      return new EngineGenerateSequenceNode({
-        defaultStart: 1,
-        defaultEnd: 10,
-        defaultStep: 1,
-        firePatterns,
-      });
-    }
-    case NODE_TYPES.PULSE_SEQUENCE_NODE: {
-      const incoming = context?.pulseSequenceIncomingByNodeId?.get(
-        String(flowNode.id),
-      ) ?? {
-        start: false,
-        end: false,
-        step: false,
-      };
-
-      const firePatterns: [FirePatterns, FirePatterns, FirePatterns] = [
-        incoming.start ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
-        incoming.end ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
-        incoming.step ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
-      ];
-
-      return new EnginePulseSequenceNode({
-        defaultStart: 1,
-        defaultEnd: 10,
-        defaultStep: 1,
-        firePatterns,
-      });
-    }
-    case NODE_TYPES.ZIP_NODE:
-      return new EngineZipNode();
-
-    case NODE_TYPES.FILTER_NODE: {
-      const filterNodes = data.filterNodes;
-      const filterEdges = data.filterEdges;
-
-      if (isNonEmptyArray<Node>(filterNodes) && Array.isArray(filterEdges)) {
-        const runPredicate = compileSingleInputGraph({
-          graphNodes: filterNodes,
-          graphEdges: filterEdges as Edge[],
-          inputNodeId: "filter-input-value",
-          onLog: context?.onLog,
-          onPrompt: context?.onPrompt,
-          signal: context?.signal,
-        });
-
-        return new EngineFilterNode(async (item: unknown) =>
-          Boolean(await runPredicate(item)),
-        );
-      }
-
-      return new EngineFilterNode((item: unknown) => Boolean(item));
-    }
-
-    case NODE_TYPES.MAP_NODE: {
-      const mapNodes = data.mapNodes;
-      const mapEdges = data.mapEdges;
-
-      if (isNonEmptyArray<Node>(mapNodes) && Array.isArray(mapEdges)) {
-        const runMapper = compileSingleInputGraph({
-          graphNodes: mapNodes,
-          graphEdges: mapEdges as Edge[],
-          inputNodeId: "map-input-value",
-          onLog: context?.onLog,
-          onPrompt: context?.onPrompt,
-          signal: context?.signal,
-        });
-
-        return new EngineMapNode(
-          async (item: unknown) => await runMapper(item),
-        );
-      }
-
-      return new EngineMapNode((item: unknown) => item);
-    }
-
-    case NODE_TYPES.REDUCE_NODE: {
-      // Default accumulate: sum of list (reduce with +, initial 0)
-      return new EngineReduceNode((acc, curr) => acc + curr, 0);
-    }
-
-    case NODE_TYPES.COUNT_NODE:
-      return new EngineCountNode();
-
-    case NODE_TYPES.SUBFLOW: {
-      const templateIdRaw = data.templateId;
-      const templateId =
-        typeof templateIdRaw === "string" && templateIdRaw.trim().length > 0
-          ? templateIdRaw.trim()
-          : null;
-
-      const selfTemplateId = templateId ?? String(flowNode.id);
-
-      let subflowNodes = data.subflowNodes;
-      let subflowEdges = data.subflowEdges;
-
-      // IMPORTANT: When `inCount/outCount` are missing, defaulting to 0 would
-      // drop all inputs/outputs, causing subflows to run with no initial tokens
-      // and produce `undefined` outputs.
-      // If the user explicitly configured 0 inputs/outputs, we keep that.
-      let inCount =
-        typeof data.inCount === "number" ? data.inCount : undefined;
-      let outCount =
-        typeof data.outCount === "number" ? data.outCount : undefined;
-
-      if (!Array.isArray(subflowNodes) || !Array.isArray(subflowEdges)) {
-        const resolved =
-          (templateId && context?.subflowRuntimeContext?.inlineTemplates?.get(templateId)) ||
-          (templateId && context?.resolveSubflowTemplate?.(templateId)) ||
-          (templateId && context?.subflowRuntimeContext?.resolveTemplate?.(templateId)) ||
-          null;
-        if (resolved) {
-          subflowNodes = resolved.nodes;
-          subflowEdges = resolved.edges;
-          inCount =
-            typeof inCount === "number" ? inCount : resolved.inCount;
-          outCount =
-            typeof outCount === "number" ? outCount : resolved.outCount;
-        }
-      }
-
-      if (Array.isArray(subflowNodes) && Array.isArray(subflowEdges)) {
-        // Register this subflow definition into the runtime context so
-        // self-references (autoinserted nodes) can resolve to the current
-        // draft/template even if it's not persisted globally.
-        const inlineTemplates = context?.subflowRuntimeContext?.inlineTemplates;
-        if (inlineTemplates) {
-          inlineTemplates.set(selfTemplateId, {
-            id: selfTemplateId,
-            name: typeof data.label === "string" ? data.label : undefined,
-            inCount: typeof inCount === "number" ? inCount : 0,
-            outCount: typeof outCount === "number" ? outCount : 0,
-            nodes: subflowNodes as Node[],
-            edges: subflowEdges as Edge[],
-          });
-        }
-
-        // Detect compile-time recursion: if we're currently compiling the
-        // same template id, avoid expanding it inline (which would cause
-        // infinite recursion). Instead return a placeholder NodeDefinition
-        // that resolves and runs the template at runtime. This keeps the
-        // compile graph finite while still allowing recursion at runtime
-        // (which is guarded by runtime depth limits).
-        const currentTemplateId = context?.subflowRuntimeContext?.currentTemplateId;
-        if (currentTemplateId && currentTemplateId === selfTemplateId) {
-          const safeIn = typeof inCount === "number" ? Math.max(0, Math.floor(inCount)) : 0;
-          const safeOut = typeof outCount === "number" ? Math.max(0, Math.floor(outCount)) : 0;
-          const firePatterns = Array.from({ length: safeIn }, () => FirePatterns.EXISTS);
-          const inputPorts = Array.from({ length: safeIn }, (_, i) => `input${i + 1}`);
-          const outputPorts = Array.from({ length: safeOut }, (_, i) => `output${i + 1}`);
-
-          return new NodeDefinition(
-            async (...args: unknown[]) => {
-              const ctx = context?.subflowRuntimeContext;
-              const resolver = ctx?.inlineTemplates?.get(selfTemplateId) ?? ctx?.resolveTemplate?.(selfTemplateId);
-              if (!resolver) {
-                throw new Error(
-                  `No se pudo resolver la plantilla recursiva '${selfTemplateId}'.`,
-                );
-              }
-
-              const nestedDef = compileSubflowNodeDefinition({
-                subflowNodes: resolver.nodes,
-                subflowEdges: resolver.edges,
-                inCount: resolver.inCount,
-                outCount: resolver.outCount,
-                onLog: context?.onLog,
-                onPrompt: context?.onPrompt,
-                signal: context?.signal,
-                runtimeCtx: ctx,
-              });
-
-              // Delegate to the compiled nested definition at runtime.
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              return await (nestedDef as any).activationFunction(...(args as any[]));
-            },
-            firePatterns,
-            [...inputPorts, ...outputPorts],
-          );
-        }
-
-        // Otherwise, compile the subflow now. Set `currentTemplateId` so
-        // inner compilations can detect self-references and avoid infinite
-        // expansion.
-        const prev = context?.subflowRuntimeContext?.currentTemplateId;
-        if (context?.subflowRuntimeContext) {
-          context.subflowRuntimeContext.currentTemplateId = selfTemplateId;
-        }
-
-        try {
-          return compileSubflowNodeDefinition({
-            subflowNodes: subflowNodes as Node[],
-            subflowEdges: subflowEdges as Edge[],
-            inCount,
-            outCount,
-            onLog: context?.onLog,
-            onPrompt: context?.onPrompt,
-            signal: context?.signal,
-            runtimeCtx: context?.subflowRuntimeContext,
-          });
-        } finally {
-          if (context?.subflowRuntimeContext) {
-            context.subflowRuntimeContext.currentTemplateId = prev;
-          }
-        }
-      }
-
-      // Improve diagnostic message to make it easier to find missing templates
-      const tmplRaw = (data && typeof data === "object" ? (data as { templateId?: unknown }).templateId : null) ?? null;
-      const tmplId = typeof tmplRaw === "string" && tmplRaw.trim().length > 0 ? tmplRaw.trim() : null;
-      const inlineIds = context?.subflowRuntimeContext?.inlineTemplates
-        ? Array.from(context.subflowRuntimeContext.inlineTemplates.keys()).join(", ")
-        : "(none)";
-      const hasResolver = Boolean(context?.subflowRuntimeContext?.resolveTemplate || params.resolveSubflowTemplate);
-      throw new Error(
-        `Subflow node '${String(flowNode.id)}' is missing subflowNodes/subflowEdges and the template could not be resolved. templateId=${String(tmplId)}; inlineTemplates=[${inlineIds}]; resolverPresent=${hasResolver}`,
-      );
-    }
-
-    default:
-      throw new Error(
-        `Unsupported node type '${String(
-          nodeType,
-        )}' for engine deserialization (node id: ${flowNode.id}).`,
-      );
-  }
+  return compileNodeDefinition(flowNode, {
+    writeSinkInputCountByNodeId: context?.writeSinkInputCountByNodeId,
+    timerHasIncomingByNodeId: context?.timerHasIncomingByNodeId,
+    sequenceIncomingByNodeId: context?.sequenceIncomingByNodeId,
+    pulseSequenceIncomingByNodeId: context?.pulseSequenceIncomingByNodeId,
+    selectorIncomingByNodeId: context?.selectorIncomingByNodeId,
+    conditionalIncomingByNodeId: context?.conditionalIncomingByNodeId,
+    onLog: context?.onLog,
+    onPrompt: context?.onPrompt,
+    signal: context?.signal,
+    remoteExecutor: context?.remoteExecutor,
+    subflowRuntimeContext: context?.subflowRuntimeContext,
+    resolveSubflowTemplate: context?.resolveSubflowTemplate,
+    helpers: {
+      compileSingleInputGraph,
+      computeSubflowExecutionPlan,
+      compileSubflowNodeDefinition,
+    },
+  });
 }
 
 /**
@@ -2033,6 +900,7 @@ export function deserializeProgramToEngineStores(
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
+    remoteExecutor?: RemoteExecutor;
     resolveSubflowTemplate?: SubflowTemplateResolver;
     maxSubflowDepth?: number;
   },
@@ -2045,6 +913,7 @@ export function deserializeProgramToEngineStores(
     onLog: options?.onLog,
     onPrompt: options?.onPrompt,
     signal: options?.signal,
+    remoteExecutor: options?.remoteExecutor,
     resolveSubflowTemplate: options?.resolveSubflowTemplate,
     maxSubflowDepth: options?.maxSubflowDepth,
   });

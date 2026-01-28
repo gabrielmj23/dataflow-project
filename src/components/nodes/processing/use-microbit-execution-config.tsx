@@ -1,4 +1,4 @@
-import { useCallback, useId, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
 import { useReactFlow } from "@xyflow/react";
 
 import {
@@ -22,14 +22,17 @@ import {
   isMicrobitConnected,
   type MicrobitTransport,
 } from "@/microbit/connection-manager";
+import { useRemoteControllers } from "@/ws/remote-controllers-context";
 
-type ExecutionTarget = "local" | "microbit";
+type ExecutionTarget = "local" | "microbit" | "controller";
 
 type UseMicrobitExecutionConfigParams = {
   nodeId: string;
   title: string;
   executionTarget?: unknown;
   transport?: unknown;
+  controllerId?: unknown;
+  controllerName?: unknown;
 };
 
 type UseMicrobitExecutionConfigResult = {
@@ -38,6 +41,8 @@ type UseMicrobitExecutionConfigResult = {
   dialog: ReactNode;
   executionTarget: ExecutionTarget;
   transport: MicrobitTransport;
+  controllerId?: string;
+  controllerName?: string;
 };
 
 export function useMicrobitExecutionConfig(
@@ -47,14 +52,23 @@ export function useMicrobitExecutionConfig(
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const controllers = useRemoteControllers();
 
   const executionTarget: ExecutionTarget =
-    params.executionTarget === "microbit" ? "microbit" : "local";
+    params.executionTarget === "microbit" ||
+    params.executionTarget === "controller"
+      ? params.executionTarget
+      : "local";
 
   const transport: MicrobitTransport =
     params.transport === "bluetooth" || params.transport === "serial"
       ? params.transport
       : "serial";
+
+  const controllerId =
+    typeof params.controllerId === "string" ? params.controllerId : "";
+  const controllerName =
+    typeof params.controllerName === "string" ? params.controllerName : "";
 
   const targetSelectId = useId();
   const transportSelectId = useId();
@@ -96,6 +110,62 @@ export function useMicrobitExecutionConfig(
     },
     [params.nodeId, setNodes],
   );
+
+  const setControllerId = useCallback(
+    (nextControllerId: string) => {
+      const nextName = controllers.find(
+        (item) => item.id === nextControllerId,
+      )?.name;
+      setNodes((prev) =>
+        prev.map((node) =>
+          node.id === params.nodeId
+            ? {
+                ...node,
+                data: {
+                  ...(node.data ?? {}),
+                  controllerId: nextControllerId || undefined,
+                  controllerName: nextControllerId
+                    ? nextName || undefined
+                    : undefined,
+                },
+              }
+            : node,
+        ),
+      );
+    },
+    [controllers, params.nodeId, setNodes],
+  );
+
+  useEffect(() => {
+    if (executionTarget !== "controller") return;
+    if (!controllerId || !controllerName) return;
+    const hasId = controllers.some((item) => item.id === controllerId);
+    if (hasId) return;
+    const match = controllers.find((item) => item.name === controllerName);
+    if (!match || match.id === controllerId) return;
+
+    setNodes((prev) =>
+      prev.map((node) =>
+        node.id === params.nodeId
+          ? {
+              ...node,
+              data: {
+                ...(node.data ?? {}),
+                controllerId: match.id,
+                controllerName: match.name ?? controllerName,
+              },
+            }
+          : node,
+      ),
+    );
+  }, [
+    controllers,
+    controllerId,
+    controllerName,
+    executionTarget,
+    params.nodeId,
+    setNodes,
+  ]);
 
   const connectedInfo = (() => {
     if (!isMicrobitConnected()) return { ok: false as const, text: "" };
@@ -139,8 +209,14 @@ export function useMicrobitExecutionConfig(
 
   const subtitle =
     executionTarget === "microbit"
-      ? `micro:bit · ${transport === "bluetooth" ? "Bluetooth" : "Serial"} · ${connectedInfo.ok ? "Conectado" : "No conectado"}`
-      : "Local";
+      ? `micro:bit · ${connectedInfo.ok ? "Conectado" : "No conectado"}`
+      : executionTarget === "controller"
+        ? `Otra PC · ${
+            (controllers.find((c) => c.id === controllerId)?.name ??
+              controllerName) ||
+            (controllerId ? `ID ${controllerId}` : "Sin seleccionar")
+          }`
+        : "Local";
 
   const dialog = (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -160,7 +236,11 @@ export function useMicrobitExecutionConfig(
             <Select
               value={executionTarget}
               onValueChange={(value) => {
-                if (value === "local" || value === "microbit") {
+                if (
+                  value === "local" ||
+                  value === "microbit" ||
+                  value === "controller"
+                ) {
                   setExecutionTarget(value);
                 }
               }}
@@ -171,9 +251,45 @@ export function useMicrobitExecutionConfig(
               <SelectContent>
                 <SelectItem value="local">Local</SelectItem>
                 <SelectItem value="microbit">micro:bit</SelectItem>
+                <SelectItem value="controller">Otra PC</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {executionTarget === "controller" && (
+            <div>
+              <label className="mb-2 block text-sm font-medium text-gray-900">
+                Controller remoto
+              </label>
+              <Select
+                value={controllerId || undefined}
+                onValueChange={(value) => {
+                  if (value === "__none__") return;
+                  setControllerId(value);
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecciona un controller" />
+                </SelectTrigger>
+                <SelectContent>
+                  {controllers.length === 0 ? (
+                    <SelectItem value="__none__" disabled>
+                      (Sin PCs conectadas)
+                    </SelectItem>
+                  ) : (
+                    controllers.map((controller) => (
+                      <SelectItem key={controller.id} value={controller.id}>
+                        {controller.name ?? controller.id}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Debe haber una PC conectada en la misma sesión.
+              </p>
+            </div>
+          )}
 
           {executionTarget === "microbit" && (
             <>
@@ -216,8 +332,8 @@ export function useMicrobitExecutionConfig(
                     procesa comandos.
                   </li>
                   <li>
-                    Presiona <span className="font-semibold">Conectar</span>.
-                    Se abrirá una ventana pequeña de Chrome para seleccionar el
+                    Presiona <span className="font-semibold">Conectar</span>. Se
+                    abrirá una ventana pequeña de Chrome para seleccionar el
                     dispositivo.
                   </li>
                   <li>
@@ -263,10 +379,12 @@ export function useMicrobitExecutionConfig(
   );
 
   return {
+    executionTarget,
+    transport,
+    controllerId: controllerId || undefined,
+    controllerName: controllerName || undefined,
     subtitle,
     onConfigClick: () => setIsDialogOpen(true),
     dialog,
-    executionTarget,
-    transport,
   };
 }
