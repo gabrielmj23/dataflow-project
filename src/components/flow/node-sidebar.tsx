@@ -150,7 +150,7 @@ export function NodeSidebar({
                   className="group flex w-full flex-col items-center gap-1 rounded-md px-1.5 py-1.5 text-xs text-muted-foreground transition duration-300 ease-out hover:bg-muted cursor-pointer"
                 >
                 <span
-                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ${color} ${borderColor} border`}
+                  className={`inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ${color} ${borderColor} border-2`}
                 />
                 <span className="text-[11px] leading-tight text-center line-clamp-2">
                   {category.title.split(" ")[0]}

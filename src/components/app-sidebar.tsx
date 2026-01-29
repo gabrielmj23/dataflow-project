@@ -41,12 +41,14 @@ type AppSidebarProps = {
   categories: NodePaletteCategory[];
   onDragStart: (event: DragEvent, item: NodePaletteItem) => void;
   onDeleteTemplate?: (templateId: string) => void;
+  className?: string;
 };
 
 export function AppSidebar({
   categories,
   onDragStart,
   onDeleteTemplate,
+  className,
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
   const [viewMode, setViewMode] = React.useState<"text" | "nodes">("nodes");
@@ -117,11 +119,33 @@ export function AppSidebar({
     let top = targetRect.top - containerRect.top + container.scrollTop - 2;
     const maxScroll = container.scrollHeight - container.clientHeight;
     if (top > maxScroll) top = maxScroll;
-    container.scrollTo({ top, behavior: "smooth" });
+    smoothScrollTo(container, top, 300);
   };
 
+  function smoothScrollTo(element: HTMLElement, to: number, duration = 300) {
+    const start = element.scrollTop;
+    const change = to - start;
+    const startTime = performance.now();
+
+    function easeInOutCubic(t: number) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    function animate(now: number) {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = easeInOutCubic(t);
+      element.scrollTop = Math.round(start + change * eased);
+      if (elapsed < duration) {
+        requestAnimationFrame(animate);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+
   return (
-    <Sidebar>
+    <Sidebar className={className}>
       <SidebarHeader>
         <SidebarGroup>
           <SidebarGroupLabel className="flex items-center justify-between gap-2">
@@ -174,7 +198,7 @@ export function AppSidebar({
                   className="group flex w-full flex-col items-center gap-1 rounded-md px-1.5 py-1 text-[0.7rem] text-muted-foreground transition duration-300 ease-out hover:bg-muted cursor-pointer"
                 >
                   <span
-                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ${color} ${borderColor} border`}
+                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ${color} ${borderColor} border-2`}
                   />
                   <span className="text-[11px] leading-tight text-center line-clamp-2">
                     {category.title.split(" ")[0]}
