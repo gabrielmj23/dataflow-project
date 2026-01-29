@@ -69,7 +69,7 @@ function sanitizeOptions(value: unknown): SelectorOption[] {
   return out.length > 0 ? out : DEFAULT_OPTIONS;
 }
 
-export const SelectorNode = memo(({ id, data }: NodeProps) => {
+export const SelectorNode = memo(({ id, data, selected }: NodeProps) => {
   const { runtimeError, options: rawOptions } = (data ??
     {}) as SelectorNodeData;
 
@@ -195,6 +195,7 @@ export const SelectorNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <BaseNode
+      selected={selected}
       runtimeError={runtimeError}
       className="relative flex w-56 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
       style={{ minHeight: `${minHeight}px` }}

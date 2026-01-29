@@ -17,9 +17,8 @@ import {
 } from "@xyflow/react";
 import { ListChecks } from "lucide-react";
 
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import {
   Dialog,
   DialogContent,
@@ -346,13 +345,10 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
     <>
       <BaseNode
         runtimeError={runtimeError}
+        onConfigClick={openDialog}
         className="relative flex w-72 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
         style={{ minHeight: `${minHeight}px` }}
       >
-        <BaseNodeHeader className="absolute top-1 right-1">
-          <NodeSettingsButton onClick={openDialog} />
-        </BaseNodeHeader>
-
         <div className="flex flex-col items-center gap-0.5">
           <div className="text-xl font-bold leading-none">
             <ListChecks className="h-5 w-5" />

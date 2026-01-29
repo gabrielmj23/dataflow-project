@@ -228,6 +228,7 @@ export function usePaletteDrag({
           type: "conditional",
           position,
           data: { label: "Condicional", pairId, pairRole: "conditional", pairOffsetY: 160 },
+          selected: true,
         };
 
         const selectorNode: FlowNode = {
@@ -235,6 +236,7 @@ export function usePaletteDrag({
           type: "selector",
           position: { x: position.x, y: position.y + 160 },
           data: { label: "Selector", pairId, pairRole: "selector", pairOffsetY: 160 },
+          selected: false,
         };
 
         const edgeId = createNodeId();
@@ -245,10 +247,16 @@ export function usePaletteDrag({
           target: selectorId,
           targetHandle: "token",
           type: "default",
+          deletable: false,
+          focusable: false,
+          interactionWidth: 0,
           data: { edgeType: "straight", pairId, locked: true },
         };
 
-        setNodes((prev) => [...prev, conditionalNode, selectorNode]);
+        setNodes((prev) => {
+          const cleared = prev.map((n) => ({ ...n, selected: false }));
+          return [...cleared, conditionalNode, selectorNode];
+        });
         setEdges((prev) => [...prev, edge]);
         draggingTypeRef.current = null;
         return;
@@ -261,7 +269,10 @@ export function usePaletteDrag({
         data,
       };
 
-      setNodes((prev) => [...prev, newNode]);
+      setNodes((prev) => {
+        const cleared = prev.map((n) => ({ ...n, selected: false }));
+        return [...cleared, { ...newNode, selected: true }];
+      });
       draggingTypeRef.current = null;
     },
     [paletteLabelByType, reactFlowInstance, setEdges, setNodes, subflowTemplates]

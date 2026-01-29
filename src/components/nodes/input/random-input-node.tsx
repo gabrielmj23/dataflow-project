@@ -104,15 +104,10 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
     <>
       <InputCircleNodeShell
         nodeType="randomInput"
-        icon={
-          <div className="flex flex-col items-center leading-none">
-            <Shuffle className="size-6" />
-            <span className="mt-1 text-[10px] ">
-              {min} – {max}
-            </span>
-          </div>
-        }
-        label={label}
+        icon={<Shuffle className="h-4 w-4" />}
+        label=""
+        sublabel={`${min} – ${max}`}
+        sublabelClassName="text-[8px]"
         onConfigClick={openDialog}
       />
 

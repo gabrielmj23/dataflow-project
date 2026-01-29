@@ -71,13 +71,10 @@ export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
     <>
       <InputCircleNodeShell
         nodeType="choiceInput"
-        icon={
-          <div className="flex flex-col items-center leading-none">
-            <Shuffle className="size-6" />
-            <span className="mt-1 text-[10px] ">{choices.length} opciones</span>
-          </div>
-        }
-        label={label}
+        icon={<Shuffle className="h-4 w-4" />}
+        label=""
+        sublabel={`${choices.length} opciones`}
+        sublabelClassName="text-[8px]"
         onConfigClick={openDialog}
       />
 

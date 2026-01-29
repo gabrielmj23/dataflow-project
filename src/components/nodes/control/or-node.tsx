@@ -12,12 +12,12 @@ export const OrNode = memo(({ data }: NodeProps) => {
   const { label = "OR", runtimeError } = (data ?? {}) as OrNodeData;
 
   return (
-    <ControlRectNodeShell
-      nodeType="or"
-      icon={<span className="text-sm font-bold">∨</span>}
-      label={label}
-      runtimeError={runtimeError}
-    />
+      <ControlRectNodeShell
+        nodeType="or"
+        icon={<span className="text-sm font-bold">∨</span>}
+        label={label}
+        runtimeError={runtimeError}
+      />
   );
 });
 

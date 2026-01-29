@@ -516,10 +516,24 @@ export default function App() {
 
         setEdges((prevEdges) =>
           prevEdges.filter((edge) => {
-            if ((edge as Edge).selected) return false;
+            const data =
+              edge.data && typeof edge.data === "object"
+                ? (edge.data as Record<string, unknown>)
+                : null;
+            const locked = data?.locked === true;
+            const notDeletable = edge.deletable === false;
+
+            // If either endpoint node is being removed, always drop the edge.
             const src = String((edge as Edge).source);
             const tgt = String((edge as Edge).target);
             if (removedIds.has(src) || removedIds.has(tgt)) return false;
+
+            // If the edge itself is selected, only allow removal when it is deletable.
+            if ((edge as Edge).selected) {
+              if (locked || notDeletable) return true;
+              return false;
+            }
+
             return true;
           }),
         );

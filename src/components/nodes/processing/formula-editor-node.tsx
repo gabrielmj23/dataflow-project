@@ -6,9 +6,8 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import {
   Dialog,
   DialogContent,
@@ -133,12 +132,9 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
     <>
       <BaseNode
         runtimeError={runtimeError}
+        onConfigClick={() => handleDialogOpenChange(true)}
         className="relative flex h-20 w-56 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 px-5 text-center text-white shadow-md"
       >
-        <BaseNodeHeader className="absolute top-1 right-1">
-          <NodeSettingsButton onClick={() => handleDialogOpenChange(true)} />
-        </BaseNodeHeader>
-
         <div className="flex flex-col items-center gap-0.5">
           <div className="text-xl font-bold leading-none">ƒx</div>
           {formula ? (
