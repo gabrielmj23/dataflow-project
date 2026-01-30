@@ -2,9 +2,8 @@ import type { ReactNode } from "react";
 
 import { Position } from "@xyflow/react";
 
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
@@ -62,16 +61,12 @@ export function IoRectNodeShell({
   return (
     <BaseNode
       runtimeError={runtimeError}
-      className="relative flex h-18 w-48 flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md"
+      onConfigClick={onConfigClick}
+      className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md"
     >
-      {onConfigClick && (
-        <BaseNodeHeader className="absolute top-1 right-1">
-          <NodeSettingsButton onClick={onConfigClick} />
-        </BaseNodeHeader>
-      )}
       <div className="flex flex-col items-center gap-0.5">
-        <div className="text-xl font-bold leading-none">{icon}</div>
-        <div className="text-sm leading-tight">{label}</div>
+        <div className="text-lg font-bold leading-none">{icon}</div>
+        <div className="text-xs leading-tight">{label}</div>
       </div>
 
       {variant === "default" && (

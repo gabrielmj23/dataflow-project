@@ -45,8 +45,8 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
       <InputCircleNodeShell
             nodeType="constantText"
         icon={
-          <span className="text-sm font-semibold truncate max-w-[3rem]">
-            {textValue || "txt"}
+          <span className="text-sm font-normal truncate max-w-[3rem]">
+              {textValue || ""}
           </span>
         }
         label=""

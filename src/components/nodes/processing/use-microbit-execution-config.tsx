@@ -209,14 +209,14 @@ export function useMicrobitExecutionConfig(
 
   const subtitle =
     executionTarget === "microbit"
-      ? `micro:bit · ${connectedInfo.ok ? "Conectado" : "No conectado"}`
+      ? `micro:bit`
       : executionTarget === "controller"
-        ? `Otra PC · ${
+        ? `${
             (controllers.find((c) => c.id === controllerId)?.name ??
               controllerName) ||
             (controllerId ? `ID ${controllerId}` : "Sin seleccionar")
           }`
-        : "Local";
+        : "";
 
   const dialog = (
     <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

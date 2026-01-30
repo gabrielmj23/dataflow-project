@@ -48,12 +48,12 @@ export const ConstantBooleanInputNode = memo(({ id, data }: NodeProps) => {
           <div className="flex flex-col items-center justify-center gap-0.5">
             <span className="flex items-center justify-center">
               {boolValue ? (
-                <Check className="h-5 w-5" />
+                <Check className="h-4 w-4" />
               ) : (
-                <X className="h-5 w-5" />
+                <X className="h-4 w-4" />
               )}
             </span>
-            <span className="text-sm font-semibold leading-tight">
+            <span className="text-[9px] font-normal leading-tight">
               {boolValue ? "Verdadero" : "Falso"}
             </span>
           </div>

@@ -9,7 +9,6 @@ import type {
 import {
   addEdge,
   applyEdgeChanges,
-  applyNodeChanges,
   Background,
   BackgroundVariant,
   ControlButton,
@@ -27,7 +26,7 @@ import {
   useUpdateNodeInternals,
   Position,
 } from "@xyflow/react";
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import {
   Hand,
@@ -36,14 +35,13 @@ import {
   RefreshCw,
   Split,
 } from "lucide-react";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -69,6 +67,11 @@ import {
 } from "@/flow/connection-highlight-context";
 import { getPortTypeMask } from "@/flow/port-data-type";
 import { reconcileWriteGraph } from "@/utils/flow";
+import {
+  createConditionalPair,
+  filterLockedEdgeChanges,
+  handlePairedNodeChanges,
+} from "@/utils/conditional-pair";
 import { useRemoteControllers } from "@/ws/remote-controllers-context";
 import {
   connectMicrobit,
@@ -382,13 +385,30 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const editorLookupRef = useRef<unknown>(null);
 
-  const onEditorNodesChange = (changes: NodeChange[]) => {
-    setDraftNodes((snapshot) => applyNodeChanges(changes, snapshot));
-  };
+  const onEditorNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      setDraftNodes((snapshot) => {
+        const { nextNodes, nextEdges } = handlePairedNodeChanges({
+          changes,
+          nodes: snapshot,
+          edges: draftEdges,
+        });
+        setDraftEdges(nextEdges);
+        return nextNodes;
+      });
+    },
+    [draftEdges, setDraftEdges, setDraftNodes],
+  );
 
-  const onEditorEdgesChange = (changes: EdgeChange[]) => {
-    setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
-  };
+  const onEditorEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      setDraftEdges((snapshot) => {
+        const filteredChanges = filterLockedEdgeChanges(changes, snapshot);
+        return applyEdgeChanges(filteredChanges, snapshot);
+      });
+    },
+    [setDraftEdges],
+  );
 
   const onEditorConnect = useCallback(
     (connection: Connection) => {
@@ -466,11 +486,22 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     Edge
   > | null>(null);
   const nextInnerIdRef = useRef(1);
-
   const createInnerNodeId = useCallback(() => {
-    const next = nextInnerIdRef.current++;
-    return `inner-${id}-${next}`;
-  }, [id]);
+    // Generate a new id and ensure it does not collide with existing draft nodes.
+    // This can happen when the editor is opened with nodes that already contain
+    // generated ids; we advance the counter until we find a unique id.
+    const existing = new Set<string>([
+      ...(draftNodes ?? []).map((n) => String(n.id)),
+      ...(draftEdges ?? []).map((e) => String(e.id)),
+    ]);
+    let next = nextInnerIdRef.current++;
+    let candidate = `inner-${id}-${next}`;
+    while (existing.has(candidate)) {
+      next = nextInnerIdRef.current++;
+      candidate = `inner-${id}-${next}`;
+    }
+    return candidate;
+  }, [draftNodes, draftEdges, id]);
 
   const insertSelfInstance = () => {
     // Insert a self-call node: it signals the engine to re-enter this same
@@ -576,46 +607,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     }
 
     if (type === "conditionalPair") {
-      const conditionalId = createInnerNodeId();
-      const selectorId = createInnerNodeId();
-      const pairId = createInnerNodeId();
-
-      const conditionalNode: Node = {
-        id: conditionalId,
-        type: "conditional",
+      const { nodes: pairNodes, edge: pairEdge } = createConditionalPair({
         position,
-        data: {
-          label: "Condicional",
-          pairId,
-          pairRole: "conditional",
-          pairOffsetY: 160,
-        },
-      };
-
-      const selectorNode: Node = {
-        id: selectorId,
-        type: "selector",
-        position: { x: position.x, y: position.y + 160 },
-        data: {
-          label: "Selector",
-          pairId,
-          pairRole: "selector",
-          pairOffsetY: 160,
-        },
-      };
-
-      const edge: Edge = {
-        id: createInnerNodeId(),
-        source: conditionalId,
-        sourceHandle: "out",
-        target: selectorId,
-        targetHandle: "token",
-        type: "default",
-        data: { edgeType: "straight", pairId, locked: true },
-      };
-
-      setDraftNodes((prev) => [...prev, conditionalNode, selectorNode]);
-      setDraftEdges((prev) => [...prev, edge]);
+        createId: createInnerNodeId,
+      });
+      setDraftNodes((prev) => [...prev, ...pairNodes]);
+      setDraftEdges((prev) => [...prev, pairEdge]);
       return;
     }
 
@@ -631,13 +628,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   return (
     <BaseNode
-      className="relative flex w-72 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md"
+      className="relative flex w-52 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md"
       style={{ minHeight: `${minHeight}px` }}
-    >
-      {!isSelfCall ? (
-        <BaseNodeHeader className="absolute top-1 right-1 mx-0 my-0 p-0">
-          <NodeSettingsButton
-            onClick={() => {
+      onConfigClick={
+        !isSelfCall
+          ? () => {
               setDraftNodes(subflowNodes ?? []);
               setDraftEdges(subflowEdges ?? []);
               setDraftLabel(label);
@@ -649,16 +644,23 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               setDraftControllerName(controllerName);
               setMicrobitError(null);
               setIsEditorOpen(true);
-            }}
-          />
-        </BaseNodeHeader>
-      ) : null}
-      <div className="flex flex-col items-center gap-0.5">
-        <div className="text-xl font-bold leading-none">
-          <PictureInPicture2 />
-        </div>
-        <div className="text-sm leading-tight">{label}</div>
-      </div>
+            }
+          : undefined
+      }
+    >
+      {(() => {
+        const hasInputs = explicitInputNodes.length > 0 || inCount > 0;
+        return (
+          <div
+            className={`flex flex-col gap-0.5 items-center ${hasInputs ? "ml-15" : ""}`}
+          >
+            <div className="text-xl font-bold leading-none">
+              <PictureInPicture2 />
+            </div>
+            <div className="text-sm leading-tight">{label}</div>
+          </div>
+        );
+      })()}
 
       {inOffsets.map((offset, index) => (
         <CustomTypedHandle
@@ -1109,7 +1111,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             </div>
           </div>
           <DialogFooter>
-            <div className="flex items-center justify-end gap-2">
+            <div className="flex items-center gap-2">
               <Button
                 type="button"
                 variant="secondary"

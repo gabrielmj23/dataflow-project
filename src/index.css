@@ -44,6 +44,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  /* Color shared by node action icons (gear / trash). Update here to change both. */
+  --node-action-color: #686565;
 }
 
 @theme inline {
@@ -128,4 +130,15 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Utility to hide native scrollbars while keeping scrolling functional. */
+.no-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
+  width: 0;
+  height: 0;
 }

@@ -2,6 +2,27 @@
   --xy-node-border-radius-default: 8px;
 }
 
+/* Nodi theme variables */
+:root {
+  --nodi-blue: #3b82f6; /* Tailwind blue-500 */
+  --nodi-blue-border: #2563eb; /* Tailwind blue-600 */
+}
+
+/* Utility classes for nodi blue */
+.nodi-blue {
+  background-color: var(--nodi-blue) !important;
+  border-color: var(--nodi-blue-border) !important;
+  color: #ffffff !important;
+}
+
+.nodi-blue-border {
+  border-color: var(--nodi-blue-border) !important;
+}
+
+.nodi-blue-text {
+  color: var(--nodi-blue) !important;
+}
+
 .rf-mode-pan .react-flow__pane {
   cursor: grab;
 }

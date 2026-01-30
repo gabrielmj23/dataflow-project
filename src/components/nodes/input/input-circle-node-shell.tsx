@@ -2,9 +2,8 @@ import type { ReactNode } from "react";
 
 import { Position } from "@xyflow/react";
 
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
@@ -14,10 +13,14 @@ type InputCircleNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
   label: string;
+  /** Optional className for the label text. */
+  labelClassName?: string;
   onConfigClick?: () => void;
   variant?: "inputOnly" | "inputOutput";
   /** Optional secondary text line (e.g., countdown). */
   sublabel?: string | null;
+  /** Optional className for the sublabel text. */
+  sublabelClassName?: string;
   /** Optional container className override (colors/background). */
   className?: string;
   /** Optional handle indicator border class override. */
@@ -49,20 +52,22 @@ export function InputCircleNodeShell({
     <BaseNode
       hideRuntimeBadges
       disableRuntimeStyles={disableRuntimeStyles}
+      onConfigClick={onConfigClick}
       className={
         className ??
-        "relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 text-center text-white shadow-md"
+        "relative flex h-16 w-16 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 text-center text-white shadow-md"
       }
     >
-      {onConfigClick && (
-        <BaseNodeHeader className="absolute top-1 right-1">
-          <NodeSettingsButton onClick={onConfigClick} />
-        </BaseNodeHeader>
-      )}
       <div className="flex items-center justify-center">{icon}</div>
-      <div className="mt-1 text-sm leading-tight">{label}</div>
+        <div className={["mt-1 leading-tight truncate max-w-[4rem]", "text-[9px]", "text-white", typeof labelClassName === "string" ? labelClassName : ""].join(" ")}>{label}</div>
       {sublabel ? (
-        <div className="mt-0.5 text-[11px] leading-tight text-white/90">
+        <div
+          className={
+            typeof sublabelClassName === "string"
+              ? ["mt-0.5 leading-tight text-white truncate max-w-[4rem]", sublabelClassName].join(" ")
+              : ["mt-0.5 leading-tight text-white truncate max-w-[4rem]", "text-[9px]"].join(" ")
+          }
+        >
           {sublabel}
         </div>
       ) : null}

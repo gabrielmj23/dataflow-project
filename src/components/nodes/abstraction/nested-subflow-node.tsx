@@ -4,7 +4,6 @@ import type { Edge, Node, NodeProps } from "@xyflow/react";
 import {
   addEdge,
   applyEdgeChanges,
-  applyNodeChanges,
   Background,
   BackgroundVariant,
   ControlButton,
@@ -22,16 +21,16 @@ import {
   Position,
 } from "@xyflow/react";
 
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Hand, MousePointer2, PictureInPicture2, Split } from "lucide-react";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { nodePalette } from "@/flow/node-palette";
 import { nodeTypesCore } from "@/flow/node-types-core";
@@ -42,6 +41,11 @@ import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 import { reconcileWriteGraph } from "@/utils/flow";
+import {
+  createConditionalPair,
+  filterLockedEdgeChanges,
+  handlePairedNodeChanges,
+} from "@/utils/conditional-pair";
 
 export type NestedSubflowNodeData = {
   label?: string;
@@ -181,14 +185,25 @@ export const NestedSubflowNode = memo(
 
     const onEditorNodesChange = useCallback(
       (changes: NodeChange[]) => {
-        setDraftNodes((snapshot) => applyNodeChanges(changes, snapshot));
+        setDraftNodes((snapshot) => {
+          const { nextNodes, nextEdges } = handlePairedNodeChanges({
+            changes,
+            nodes: snapshot,
+            edges: draftEdges,
+          });
+          setDraftEdges(nextEdges);
+          return nextNodes;
+        });
       },
-      [setDraftNodes],
+      [draftEdges, setDraftEdges, setDraftNodes],
     );
 
     const onEditorEdgesChange = useCallback(
       (changes: EdgeChange[]) => {
-        setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
+        setDraftEdges((snapshot) => {
+          const filteredChanges = filterLockedEdgeChanges(changes, snapshot);
+          return applyEdgeChanges(filteredChanges, snapshot);
+        });
       },
       [setDraftEdges],
     );
@@ -223,11 +238,19 @@ export const NestedSubflowNode = memo(
       Edge
     > | null>(null);
     const nextInnerIdRef = useRef(1);
-
     const createInnerNodeId = useCallback(() => {
-      const next = nextInnerIdRef.current++;
-      return `inner-nested-${id}-${next}`;
-    }, [id]);
+      const existing = new Set<string>([
+        ...(draftNodes ?? []).map((n) => String(n.id)),
+        ...(draftEdges ?? []).map((e) => String(e.id)),
+      ]);
+      let next = nextInnerIdRef.current++;
+      let candidate = `inner-nested-${id}-${next}`;
+      while (existing.has(candidate)) {
+        next = nextInnerIdRef.current++;
+        candidate = `inner-nested-${id}-${next}`;
+      }
+      return candidate;
+    }, [id, draftNodes]);
 
     const onEditorDragOver = useCallback((event: DragEvent) => {
       event.stopPropagation();
@@ -265,46 +288,13 @@ export const NestedSubflowNode = memo(
         const nodeLabel = paletteLabelByType.get(type);
 
         if (type === "conditionalPair") {
-          const conditionalId = createInnerNodeId();
-          const selectorId = createInnerNodeId();
-          const pairId = createInnerNodeId();
-
-          const conditionalNode: Node = {
-            id: conditionalId,
-            type: "conditional",
+          const { nodes: pairNodes, edge: pairEdge } = createConditionalPair({
             position,
-            data: {
-              label: "Condicional",
-              pairId,
-              pairRole: "conditional",
-              pairOffsetY: 160,
-            },
-          };
+            createId: createInnerNodeId,
+          });
 
-          const selectorNode: Node = {
-            id: selectorId,
-            type: "selector",
-            position: { x: position.x, y: position.y + 160 },
-            data: {
-              label: "Selector",
-              pairId,
-              pairRole: "selector",
-              pairOffsetY: 160,
-            },
-          };
-
-          const edge: Edge = {
-            id: createInnerNodeId(),
-            source: conditionalId,
-            sourceHandle: "out",
-            target: selectorId,
-            targetHandle: "token",
-            type: "default",
-            data: { edgeType: "straight", pairId, locked: true },
-          } as Edge;
-
-          setDraftNodes((prev) => [...prev, conditionalNode, selectorNode]);
-          setDraftEdges((prev) => [...prev, edge]);
+          setDraftNodes((prev) => [...prev, ...pairNodes]);
+          setDraftEdges((prev) => [...prev, pairEdge]);
           return;
         }
 
@@ -321,19 +311,19 @@ export const NestedSubflowNode = memo(
     );
 
     return (
-      <BaseNode className="relative flex w-36 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md">
-        {!isSelfCall ? (
-          <BaseNodeHeader className="absolute top-1 right-1 mx-0 my-0 p-0">
-            <NodeSettingsButton
-              onClick={() => {
+      <BaseNode
+        className="relative flex w-36 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md"
+        onConfigClick={
+          !isSelfCall
+            ? () => {
                 setDraftNodes(subflowNodes ?? []);
                 setDraftEdges(subflowEdges ?? []);
                 setDraftLabel(label);
                 setIsEditorOpen(true);
-              }}
-            />
-          </BaseNodeHeader>
-        ) : null}
+              }
+            : undefined
+        }
+      >
         <div className="flex flex-col items-center gap-0.5">
           <div className="text-xl font-bold leading-none">
             <PictureInPicture2 />
@@ -495,7 +485,8 @@ export const NestedSubflowNode = memo(
                 </ReactFlowProvider>
               </div>
 
-              <div className="flex items-center justify-end gap-2">
+              <DialogFooter>
+                <div className="flex items-center gap-2">
                 <Button
                   type="button"
                   size="sm"
@@ -702,7 +693,8 @@ export const NestedSubflowNode = memo(
                 >
                   Guardar
                 </Button>
-              </div>
+                </div>
+              </DialogFooter>
             </div>
           </DialogContent>
         </Dialog>
