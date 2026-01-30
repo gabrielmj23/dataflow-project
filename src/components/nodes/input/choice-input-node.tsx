@@ -19,7 +19,7 @@ export type ChoiceInputNodeData = {
 const DEFAULT_CHOICES = ["opción 1", "opción 2", "opción 3"];
 
 export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Selección aleatoria", choices: rawChoices } = (data ??
+  const { choices: rawChoices } = (data ??
     {}) as ChoiceInputNodeData;
 
   const choices =

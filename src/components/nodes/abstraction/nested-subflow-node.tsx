@@ -250,7 +250,7 @@ export const NestedSubflowNode = memo(
         candidate = `inner-nested-${id}-${next}`;
       }
       return candidate;
-    }, [id, draftNodes]);
+    }, [draftNodes, draftEdges, id]);
 
     const onEditorDragOver = useCallback((event: DragEvent) => {
       event.stopPropagation();

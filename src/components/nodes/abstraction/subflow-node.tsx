@@ -73,6 +73,13 @@ import {
   handlePairedNodeChanges,
 } from "@/utils/conditional-pair";
 import { useRemoteControllers } from "@/ws/remote-controllers-context";
+import {
+  connectMicrobit,
+  disconnectMicrobit,
+  getMicrobitTransport,
+  isMicrobitConnected,
+  type MicrobitTransport,
+} from "@/microbit/connection-manager";
 
 export type SubflowNodeData = {
   label?: string;
@@ -82,7 +89,8 @@ export type SubflowNodeData = {
   subflowEdges?: Edge[];
   templateId?: string;
   isSelfCall?: boolean;
-  executionTarget?: "local" | "controller";
+  executionTarget?: "local" | "controller" | "microbit";
+  transport?: MicrobitTransport;
   controllerId?: string;
   controllerName?: string;
 };
@@ -134,6 +142,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     templateId,
     isSelfCall = false,
     executionTarget: rawExecutionTarget,
+    transport: rawTransport,
     controllerId: rawControllerId,
     controllerName: rawControllerName,
   } = (data ?? {}) as SubflowNodeData;
@@ -145,7 +154,15 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const outOffsets = offsets(outCount);
   const controllers = useRemoteControllers();
   const executionTarget =
-    rawExecutionTarget === "controller" ? "controller" : "local";
+    rawExecutionTarget === "controller"
+      ? "controller"
+      : rawExecutionTarget === "microbit"
+        ? "microbit"
+        : "local";
+  const transport: MicrobitTransport =
+    rawTransport === "bluetooth" || rawTransport === "serial"
+      ? rawTransport
+      : "serial";
   const controllerId =
     typeof rawControllerId === "string" ? rawControllerId : "";
   const controllerName =
@@ -202,11 +219,55 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [addToPalette, setAddToPalette] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const [draftExecutionTarget, setDraftExecutionTarget] = useState<
-    "local" | "controller"
+    "local" | "controller" | "microbit"
   >(executionTarget);
+  const [draftTransport, setDraftTransport] =
+    useState<MicrobitTransport>(transport);
   const [draftControllerId, setDraftControllerId] = useState(controllerId);
   const [draftControllerName, setDraftControllerName] =
     useState(controllerName);
+  const [isConnectingMicrobit, setIsConnectingMicrobit] = useState(false);
+  const [microbitError, setMicrobitError] = useState<string | null>(null);
+
+  const connectedInfo = (() => {
+    if (!isMicrobitConnected()) return { ok: false as const, text: "" };
+    const t = getMicrobitTransport();
+    return {
+      ok: true as const,
+      text:
+        t === "bluetooth"
+          ? "Conectado por Bluetooth"
+          : t === "serial"
+            ? "Conectado por cable (Serial)"
+            : "Conectado",
+    };
+  })();
+
+  const connectMicrobitNow = useCallback(async () => {
+    setIsConnectingMicrobit(true);
+    setMicrobitError(null);
+    try {
+      await connectMicrobit({ transport: draftTransport });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMicrobitError(msg);
+    } finally {
+      setIsConnectingMicrobit(false);
+    }
+  }, [draftTransport]);
+
+  const disconnectMicrobitNow = useCallback(async () => {
+    setIsConnectingMicrobit(true);
+    setMicrobitError(null);
+    try {
+      await disconnectMicrobit();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMicrobitError(msg);
+    } finally {
+      setIsConnectingMicrobit(false);
+    }
+  }, []);
 
   const explicitInputCountDraft = useMemo(
     () => draftNodes.filter((n) => String(n.type) === "subflowInput").length,
@@ -440,7 +501,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       candidate = `inner-${id}-${next}`;
     }
     return candidate;
-  }, [id, draftNodes]);
+  }, [draftNodes, draftEdges, id]);
 
   const insertSelfInstance = () => {
     // Insert a self-call node: it signals the engine to re-enter this same
@@ -578,8 +639,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               setAddToPalette(false);
               setNameError(null);
               setDraftExecutionTarget(executionTarget);
+              setDraftTransport(transport);
               setDraftControllerId(controllerId);
               setDraftControllerName(controllerName);
+              setMicrobitError(null);
               setIsEditorOpen(true);
             }
           : undefined
@@ -588,7 +651,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       {(() => {
         const hasInputs = explicitInputNodes.length > 0 || inCount > 0;
         return (
-          <div className={`flex flex-col gap-0.5 items-center ${hasInputs ? "ml-15" : ""}`}>
+          <div
+            className={`flex flex-col gap-0.5 items-center ${hasInputs ? "ml-15" : ""}`}
+          >
             <div className="text-xl font-bold leading-none">
               <PictureInPicture2 />
             </div>
@@ -693,9 +758,13 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               <Select
                 value={draftExecutionTarget}
                 onValueChange={(value) => {
-                  if (value === "local" || value === "controller") {
+                  if (
+                    value === "local" ||
+                    value === "controller" ||
+                    value === "microbit"
+                  ) {
                     setDraftExecutionTarget(value);
-                    if (value === "local") {
+                    if (value === "local" || value === "microbit") {
                       setDraftControllerId("");
                       setDraftControllerName("");
                     }
@@ -707,10 +776,74 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="local">Local</SelectItem>
+                  <SelectItem value="microbit">micro:bit</SelectItem>
                   <SelectItem value="controller">Otra PC</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {draftExecutionTarget === "microbit" && (
+              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-gray-900">
+                    Método de conexión
+                  </label>
+                  <Select
+                    value={draftTransport}
+                    onValueChange={(value) => {
+                      if (value === "serial" || value === "bluetooth") {
+                        setDraftTransport(value);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecciona" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="serial">Cable (Web Serial)</SelectItem>
+                      <SelectItem value="bluetooth">
+                        Bluetooth (Web Bluetooth)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Nota: Para que aparezca el selector de dispositivo, usa
+                    Chrome o Edge y ejecuta la app en localhost/https.
+                  </p>
+                </div>
+
+                {microbitError && (
+                  <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                    {microbitError}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs text-muted-foreground">
+                    {connectedInfo.ok ? connectedInfo.text : "No conectado"}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      disabled={isConnectingMicrobit}
+                      onClick={disconnectMicrobitNow}
+                    >
+                      Desconectar
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={isConnectingMicrobit}
+                      onClick={connectMicrobitNow}
+                    >
+                      {isConnectingMicrobit ? "Conectando…" : "Conectar"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {draftExecutionTarget === "controller" && (
               <div className="grid gap-2">
@@ -978,190 +1111,191 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             </div>
           </div>
           <DialogFooter>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setIsEditorOpen(false);
-                    setNameError(null);
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    // Compute inCount from explicit `subflowInput` nodes added by the user.
-                    const explicitInputs = syncedDraftNodes.filter(
-                      (n) => String(n.type) === "subflowInput",
-                    ).length;
-                    const nextInCount = Number.isFinite(Number(explicitInputs))
-                      ? explicitInputs
-                      : Number.isFinite(rawInCount)
-                        ? (rawInCount as number)
-                        : inCount;
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setIsEditorOpen(false);
+                  setNameError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  // Compute inCount from explicit `subflowInput` nodes added by the user.
+                  const explicitInputs = syncedDraftNodes.filter(
+                    (n) => String(n.type) === "subflowInput",
+                  ).length;
+                  const nextInCount = Number.isFinite(Number(explicitInputs))
+                    ? explicitInputs
+                    : Number.isFinite(rawInCount)
+                      ? (rawInCount as number)
+                      : inCount;
 
-                    // If there are explicit subflowOutput nodes, expose exactly one salida.
-                    const explicitOutputs = syncedDraftNodes.filter(
-                      (n) => String(n.type) === "subflowOutput",
-                    ).length;
+                  // If there are explicit subflowOutput nodes, expose exactly one salida.
+                  const explicitOutputs = syncedDraftNodes.filter(
+                    (n) => String(n.type) === "subflowOutput",
+                  ).length;
 
-                    // For outputs keep the previous behavior (try to compute open ports)
-                    // when no explicit subflowOutput nodes exist.
-                    const lookup = editorLookupRef.current;
-                    let nextOutCount =
-                      explicitOutputs > 0
-                        ? 1
-                        : Number.isFinite(rawOutCount)
-                          ? (rawOutCount as number)
-                          : outCount;
-                    try {
-                      const computed = computeOpenPortsFromLookup(
-                        syncedDraftNodes,
-                        effectiveDraftEdges,
-                        lookup,
-                      );
-                      if (computed && computed.ready && explicitOutputs === 0) {
-                        nextOutCount = computed.outCount;
-                      }
-                    } catch {
-                      // ignore
+                  // For outputs keep the previous behavior (try to compute open ports)
+                  // when no explicit subflowOutput nodes exist.
+                  const lookup = editorLookupRef.current;
+                  let nextOutCount =
+                    explicitOutputs > 0
+                      ? 1
+                      : Number.isFinite(rawOutCount)
+                        ? (rawOutCount as number)
+                        : outCount;
+                  try {
+                    const computed = computeOpenPortsFromLookup(
+                      syncedDraftNodes,
+                      effectiveDraftEdges,
+                      lookup,
+                    );
+                    if (computed && computed.ready && explicitOutputs === 0) {
+                      nextOutCount = computed.outCount;
                     }
+                  } catch {
+                    // ignore
+                  }
 
-                    const finalLabel = (draftLabel || label).trim() || label;
-                    const resolvedControllerName =
-                      draftExecutionTarget === "controller" && draftControllerId
-                        ? (controllers.find((c) => c.id === draftControllerId)
-                            ?.name ?? draftControllerName)
-                        : undefined;
+                  const finalLabel = (draftLabel || label).trim() || label;
+                  const resolvedControllerName =
+                    draftExecutionTarget === "controller" && draftControllerId
+                      ? (controllers.find((c) => c.id === draftControllerId)
+                          ?.name ?? draftControllerName)
+                      : undefined;
 
-                    // Prevent saving if any subflow input labels are empty
-                    const hasEmptyInputs = syncedDraftNodes.some((n) => {
-                      if (String(n.type) !== "subflowInput") return false;
-                      const data = (n.data ?? {}) as Record<string, unknown>;
-                      const label =
-                        typeof data.label === "string" ? data.label : "";
-                      return !label.trim();
-                    });
-                    if (hasEmptyInputs) {
+                  // Prevent saving if any subflow input labels are empty
+                  const hasEmptyInputs = syncedDraftNodes.some((n) => {
+                    if (String(n.type) !== "subflowInput") return false;
+                    const data = (n.data ?? {}) as Record<string, unknown>;
+                    const label =
+                      typeof data.label === "string" ? data.label : "";
+                    return !label.trim();
+                  });
+                  if (hasEmptyInputs) {
+                    setNameError(
+                      "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
+                    );
+                    return;
+                  }
+
+                  // Prevent saving if there are more than one exposed outputs
+                  if (Number(nextOutCount) > 1) {
+                    setNameError(
+                      "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
+                    );
+                    return;
+                  }
+
+                  if (addToPalette && templateContext) {
+                    if (templateContext.isNameTaken(finalLabel)) {
                       setNameError(
-                        "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
+                        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
                       );
                       return;
                     }
 
-                    // Prevent saving if there are more than one exposed outputs
-                    if (Number(nextOutCount) > 1) {
-                      setNameError(
-                        "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
-                      );
-                      return;
-                    }
+                    const baseId = templateId || `sf-node-${String(id)}`;
+                    const uniqueId = `${baseId}-${Date.now().toString(36)}`;
 
-                    if (addToPalette && templateContext) {
-                      if (templateContext.isNameTaken(finalLabel)) {
-                        setNameError(
-                          "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
-                        );
-                        return;
-                      }
-
-                      const baseId = templateId || `sf-node-${String(id)}`;
-                      const uniqueId = `${baseId}-${Date.now().toString(36)}`;
-
-                      // When saving to the palette, rebind self-call nodes to the new template id
-                      // so dragging from the palette can resolve the template correctly.
-                      const paletteNodes = syncedDraftNodes.map((n) => {
-                        if (n.type !== "subflow") return n;
-                        const data = (n.data ?? {}) as SubflowNodeData;
-                        const nodeTemplateId =
-                          typeof data.templateId === "string" &&
-                          data.templateId.trim().length > 0
-                            ? data.templateId.trim()
-                            : null;
-                        const isSelf = data.isSelfCall === true;
-                        if (
-                          isSelf &&
-                          (!nodeTemplateId ||
-                            nodeTemplateId === selfTemplateId ||
-                            nodeTemplateId === templateId)
-                        ) {
-                          return {
-                            ...n,
-                            data: {
-                              ...data,
-                              templateId: uniqueId,
-                            },
-                          };
-                        }
-                        return n;
-                      });
-
-                      templateContext.addOrUpdateTemplate({
-                        id: uniqueId,
-                        name: finalLabel,
-                        inCount: nextInCount,
-                        outCount: nextOutCount,
-                        nodes: paletteNodes,
-                        edges: effectiveDraftEdges,
-                      });
-                    }
-
-                    setNodes((prev) =>
-                      prev.map((n) => {
-                        if (n.id !== id) {
-                          return n;
-                        }
-
+                    // When saving to the palette, rebind self-call nodes to the new template id
+                    // so dragging from the palette can resolve the template correctly.
+                    const paletteNodes = syncedDraftNodes.map((n) => {
+                      if (n.type !== "subflow") return n;
+                      const data = (n.data ?? {}) as SubflowNodeData;
+                      const nodeTemplateId =
+                        typeof data.templateId === "string" &&
+                        data.templateId.trim().length > 0
+                          ? data.templateId.trim()
+                          : null;
+                      const isSelf = data.isSelfCall === true;
+                      if (
+                        isSelf &&
+                        (!nodeTemplateId ||
+                          nodeTemplateId === selfTemplateId ||
+                          nodeTemplateId === templateId)
+                      ) {
                         return {
                           ...n,
                           data: {
-                            ...(n.data as object),
-                            label: finalLabel,
-                            subflowNodes: syncedDraftNodes,
-                            subflowEdges: effectiveDraftEdges,
-                            inCount: nextInCount,
-                            outCount: nextOutCount,
-                            executionTarget: draftExecutionTarget,
-                            controllerId:
-                              draftExecutionTarget === "controller"
-                                ? draftControllerId || undefined
-                                : undefined,
-                            controllerName:
-                              draftExecutionTarget === "controller"
-                                ? resolvedControllerName
-                                : undefined,
+                            ...data,
+                            templateId: uniqueId,
                           },
                         };
-                      }),
+                      }
+                      return n;
+                    });
+
+                    templateContext.addOrUpdateTemplate({
+                      id: uniqueId,
+                      name: finalLabel,
+                      inCount: nextInCount,
+                      outCount: nextOutCount,
+                      nodes: paletteNodes,
+                      edges: effectiveDraftEdges,
+                    });
+                  }
+
+                  setNodes((prev) =>
+                    prev.map((n) => {
+                      if (n.id !== id) {
+                        return n;
+                      }
+
+                      return {
+                        ...n,
+                        data: {
+                          ...(n.data as object),
+                          label: finalLabel,
+                          subflowNodes: syncedDraftNodes,
+                          subflowEdges: effectiveDraftEdges,
+                          inCount: nextInCount,
+                          outCount: nextOutCount,
+                          executionTarget: draftExecutionTarget,
+                          transport: draftTransport,
+                          controllerId:
+                            draftExecutionTarget === "controller"
+                              ? draftControllerId || undefined
+                              : undefined,
+                          controllerName:
+                            draftExecutionTarget === "controller"
+                              ? resolvedControllerName
+                              : undefined,
+                        },
+                      };
+                    }),
+                  );
+
+                  // Only remove connected edges if the number of exposed
+                  // ports actually changed — otherwise preserve existing
+                  // connections so users don't have to rewire on every save.
+                  const countsChanged =
+                    Number(nextInCount) !== Number(inCount) ||
+                    Number(nextOutCount) !== Number(outCount);
+
+                  if (countsChanged) {
+                    setEdges((prev) =>
+                      prev.filter(
+                        (edge) =>
+                          String(edge.source) !== String(id) &&
+                          String(edge.target) !== String(id),
+                      ),
                     );
+                  }
 
-                    // Only remove connected edges if the number of exposed
-                    // ports actually changed — otherwise preserve existing
-                    // connections so users don't have to rewire on every save.
-                    const countsChanged =
-                      Number(nextInCount) !== Number(inCount) ||
-                      Number(nextOutCount) !== Number(outCount);
-
-                    if (countsChanged) {
-                      setEdges((prev) =>
-                        prev.filter(
-                          (edge) =>
-                            String(edge.source) !== String(id) &&
-                            String(edge.target) !== String(id),
-                        ),
-                      );
-                    }
-
-                    setIsEditorOpen(false);
-                    setNameError(null);
-                  }}
-                >
-                  Guardar
-                </Button>
-              </div>
-            </DialogFooter>
+                  setIsEditorOpen(false);
+                  setNameError(null);
+                }}
+              >
+                Guardar
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </BaseNode>

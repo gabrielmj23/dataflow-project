@@ -1,11 +1,22 @@
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+} from "react";
 import { Trash2 } from "lucide-react";
 import { useNodeId, useReactFlow } from "@xyflow/react";
 
 import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+
 type BaseNodeProps = ComponentProps<"div"> & {
   hideRuntimeBadges?: boolean;
   /**
@@ -21,6 +32,7 @@ type BaseNodeProps = ComponentProps<"div"> & {
   onDelete?: (() => void) | null;
   /** Hide the delete button (mostly for embedded previews). */
   hideDeleteButton?: boolean;
+  selected?: boolean;
 };
 
 export function BaseNode({
@@ -55,7 +67,10 @@ export function BaseNode({
 
   const hideActionsLater = useCallback(() => {
     if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
-    hideTimerRef.current = window.setTimeout(() => setActionsVisible(false), 1000);
+    hideTimerRef.current = window.setTimeout(
+      () => setActionsVisible(false),
+      1000,
+    );
   }, []);
 
   const handleDelete = useCallback(() => {
@@ -87,19 +102,19 @@ export function BaseNode({
       tabIndex={0}
       onMouseEnter={(e) => {
         showActions();
-        if (props.onMouseEnter) props.onMouseEnter(e as any);
+        if (props.onMouseEnter) props.onMouseEnter(e);
       }}
       onMouseLeave={(e) => {
         hideActionsLater();
-        if (props.onMouseLeave) props.onMouseLeave(e as any);
+        if (props.onMouseLeave) props.onMouseLeave(e);
       }}
       onFocus={(e) => {
         showActions();
-        if (props.onFocus) props.onFocus(e as any);
+        if (props.onFocus) props.onFocus(e);
       }}
       onBlur={(e) => {
         hideActionsLater();
-        if (props.onBlur) props.onBlur(e as any);
+        if (props.onBlur) props.onBlur(e);
       }}
       {...props}
     >
@@ -110,7 +125,9 @@ export function BaseNode({
             // translucent white background with slight blur like the console
             "bg-white/70 backdrop-blur-sm rounded-md  border border-white/30",
             "transition-opacity duration-150",
-            actionsVisible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+            actionsVisible
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none",
           )}
         >
           {onConfigClick && (
@@ -128,7 +145,7 @@ export function BaseNode({
                   size="icon-node"
                   variant="node"
                   aria-label="Eliminar"
-                  className="pointer-events-auto opacity-100 bg-transparent shadow-none p-1 text-[color:var(--node-action-color)]"
+                  className="pointer-events-auto opacity-100 bg-transparent shadow-none p-1 text-(--node-action-color)"
                   onClick={(event) => {
                     event.stopPropagation();
                     handleDelete();

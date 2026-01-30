@@ -49,7 +49,17 @@ export class BluetoothConnection implements MicrobitConnection {
 
   async send(data: string): Promise<void> {
     if (!this.uartService) throw new Error("No conectado");
-    await this.uartService.sendText(data + "\n");
+
+    // microbit-web-bluetooth can truncate long writes unless we chunk them.
+    // Our protocol is ASCII-only, so slicing by chars is safe.
+    const full = data + "\n";
+    const MAX_CHARS_PER_WRITE = 18;
+    for (let i = 0; i < full.length; i += MAX_CHARS_PER_WRITE) {
+      const chunk = full.slice(i, i + MAX_CHARS_PER_WRITE);
+      await this.uartService.sendText(chunk);
+      // Small yield to avoid overrunning the BLE UART buffer.
+      await new Promise((resolve) => window.setTimeout(resolve, 5));
+    }
   }
 
   async disconnect(): Promise<void> {

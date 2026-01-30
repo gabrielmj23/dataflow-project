@@ -1,26 +1,5 @@
 import * as React from "react";
 import type { DragEvent } from "react";
-import {
-  Ampersand,
-  ArrowDown,
-  ArrowUp,
-  Circle,
-  Divide,
-  Link2,
-  MessageSquareText,
-  PenSquare,
-  Plus,
-  Percent,
-  Shuffle,
-  Timer,
-  ToggleRight,
-  Keyboard,
-  Volume2,
-  X,
-  Cpu,
-  ListChecks,
-  PictureInPicture2,
-} from "lucide-react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 
 import {
@@ -51,7 +30,7 @@ export function AppSidebar({
   className,
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
-  const [viewMode, setViewMode] = React.useState<"text" | "nodes">("nodes");
+  const viewMode = "nodes";
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -125,6 +104,7 @@ export function AppSidebar({
   function smoothScrollTo(element: HTMLElement, to: number, duration = 300) {
     const start = element.scrollTop;
     const change = to - start;
+    // eslint-disable-next-line react-hooks/purity
     const startTime = performance.now();
 
     function easeInOutCubic(t: number) {
@@ -159,11 +139,12 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="overflow-hidden">
-          <div className="flex h-full min-h-0">
+        <div className="flex h-full min-h-0">
           <div className="flex w-16 flex-col items-center gap-1 border-r bg-muted/10 px-2 py-2 h-full overflow-y-auto no-scrollbar">
             {filteredCategories.map((category, index) => {
               const color = categoryColorMap[category.id] ?? "bg-gray-500";
-              const borderColor = categoryBorderMap[category.id] ?? "border-gray-500";
+              const borderColor =
+                categoryBorderMap[category.id] ?? "border-gray-500";
               return (
                 <button
                   key={category.id}
@@ -229,53 +210,34 @@ export function AppSidebar({
                                 : ""
                             }`}
                           >
-                            {viewMode === "text" ? (
-                              <div className="flex w-full items-start gap-1">
-                                <div className="flex flex-1 flex-col gap-0.5">
-                                  <span className="font-medium leading-snug">
-                                    {item.label}
+                            <div className="flex w-full items-start gap-1">
+                              <div className="flex flex-1 flex-col gap-0.5">
+                                <span className="font-medium leading-snug">
+                                  {item.label}
+                                </span>
+                                {item.description ? (
+                                  <span className="text-[0.75rem] leading-snug text-foreground/80 whitespace-normal">
+                                    {item.description}
                                   </span>
-                                  {item.description ? (
-                                    <span className="text-[0.75rem] leading-snug text-foreground/80 whitespace-normal">
-                                      {item.description}
-                                    </span>
-                                  ) : null}
-                                  <span className="mt-0.5 text-[0.65rem] text-muted-foreground">
-                                    {item.type}
-                                  </span>
-                                </div>
-                                {item.templateId && onDeleteTemplate ? (
-                                  <button
-                                    type="button"
-                                    className="ml-1 self-start rounded px-1 py-0.5 text-[0.65rem] text-destructive hover:bg-destructive/10"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      onDeleteTemplate(item.templateId!);
-                                    }}
-                                  >
-                                    Eliminar
-                                  </button>
                                 ) : null}
+                                <span className="mt-0.5 text-[0.65rem] text-muted-foreground">
+                                  {item.type}
+                                </span>
                               </div>
-                            ) : (
-                              <div className="flex w-full items-center justify-center py-1">
-                                <div className="scale-100 origin-center">
-                                  <NodePreview
-                                    type={item.type}
-                                    label={item.label}
-                                    isCustom={
-                                      !!item.templateId && !!onDeleteTemplate
-                                    }
-                                    onDelete={
-                                      item.templateId && onDeleteTemplate
-                                        ? () => onDeleteTemplate(item.templateId!)
-                                        : undefined
-                                    }
-                                  />
-                                </div>
-                              </div>
-                            )}
+                              {item.templateId && onDeleteTemplate ? (
+                                <button
+                                  type="button"
+                                  className="ml-1 self-start rounded px-1 py-0.5 text-[0.65rem] text-destructive hover:bg-destructive/10"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    onDeleteTemplate(item.templateId!);
+                                  }}
+                                >
+                                  Eliminar
+                                </button>
+                              ) : null}
+                            </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       ))}
@@ -298,266 +260,5 @@ export function AppSidebar({
         </div>
       </SidebarContent>
     </Sidebar>
-  );
-}
-
-type NodePreviewProps = {
-  type: string;
-  label: string;
-  isCustom?: boolean;
-  onDelete?: () => void;
-};
-
-function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
-  const core = (() => {
-    switch (type) {
-      case "constantInput":
-      case "constantNumber":
-      case "constantBoolean":
-      case "constantText":
-      case "runtimeInput":
-      case "timerInput":
-      case "randomInput":
-      case "choiceInput": {
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-20 w-20 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 px-2 text-center text-white shadow-md"
-          >
-            {type === "timerInput" ||
-            type === "randomInput" ||
-            type === "runtimeInput" ||
-            type === "choiceInput" ? (
-              <>
-                <span className="mb-1 flex items-center justify-center">
-                  {type === "timerInput" && <Timer className="h-6 w-6" />}
-                  {type === "randomInput" && <Shuffle className="h-6 w-6" />}
-                  {type === "runtimeInput" && <Keyboard className="h-6 w-6" />}
-                  {type === "choiceInput" && <Shuffle className="h-6 w-6" />}
-                </span>
-                <span className="px-1 text-xs leading-tight">{label}</span>
-              </>
-            ) : (
-              <span className="px-1 text-xs leading-tight">{label}</span>
-            )}
-          </div>
-        );
-      }
-      case "microbitReadButton": {
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-20 w-20 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 px-2 text-center text-white shadow-md"
-          >
-            <span className="mb-1 flex items-center justify-center">
-              <Cpu className="h-6 w-6" />
-            </span>
-            <span className="px-1 text-xs leading-tight">{label}</span>
-          </div>
-        );
-      }
-      case "sum":
-      case "subtract":
-      case "multiply":
-      case "divide":
-      case "mod":
-      case "power":
-      case "floor":
-      case "ceiling":
-      case "round":
-      case "formulaEditor":
-      case "concat": {
-        const symbolMap: Record<string, string> = {
-          sum: "plus",
-          subtract: "minus",
-          multiply: "x",
-          divide: "divide",
-          mod: "mod",
-          power: "power",
-          floor: "floor",
-          ceiling: "ceiling",
-          round: "round",
-          formulaEditor: "formula",
-          concat: "concat",
-        };
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-sky-500 px-3 text-center text-white shadow-md"
-          >
-            <span className="text-xl font-bold leading-none">
-              {symbolMap[type] === "plus" && <Plus className="h-5 w-5" />}
-              {symbolMap[type] === "minus" && <span>-</span>}
-              {symbolMap[type] === "x" && <X className="h-5 w-5" />}
-              {symbolMap[type] === "divide" && <Divide className="h-5 w-5" />}
-              {symbolMap[type] === "mod" && <Percent className="h-5 w-5" />}
-              {symbolMap[type] === "power" && (
-                <span className="text-xs font-bold">x²</span>
-              )}
-              {symbolMap[type] === "floor" && <ArrowDown className="h-5 w-5" />}
-              {symbolMap[type] === "ceiling" && <ArrowUp className="h-5 w-5" />}
-              {symbolMap[type] === "round" && <Circle className="h-5 w-5" />}
-              {symbolMap[type] === "formula" && (
-                <span className="text-xs font-bold">ƒx</span>
-              )}
-              {symbolMap[type] === "concat" && <Link2 className="h-4 w-4" />}
-            </span>
-            <span className="text-[0.65rem] leading-tight">{label}</span>
-          </div>
-        );
-      }
-      case "comparison":
-      case "and":
-      case "or":
-      case "not":
-      case "switch":
-      case "conditionalPair": {
-        const symbolMap: Record<string, string> = {
-          comparison: "comparison",
-          and: "and",
-          or: "or",
-          not: "not",
-          switch: "switch",
-          conditionalPair: "conditionalPair",
-        };
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md"
-          >
-            <span className="text-xl font-bold leading-none">
-              {symbolMap[type] === "comparison" && (
-                <span className="-rotate-90 text-2xl font-bold">=</span>
-              )}
-              {symbolMap[type] === "and" && <Ampersand className="h-5 w-5" />}
-              {symbolMap[type] === "or" && (
-                <span className="text-xs font-bold">∨</span>
-              )}
-              {symbolMap[type] === "not" && (
-                <span className="text-xs font-bold">¬</span>
-              )}
-              {symbolMap[type] === "switch" && (
-                <ToggleRight className="h-4 w-4" />
-              )}
-              {symbolMap[type] === "conditionalPair" && (
-                <span className="flex items-center gap-1">
-                  <ListChecks className="h-4 w-4" />
-                  <Shuffle className="h-4 w-4" />
-                </span>
-              )}
-            </span>
-            <span className="text-[0.65rem] leading-tight">{label}</span>
-          </div>
-        );
-      }
-      case "sequence":
-      case "pulseSequence":
-      case "zip":
-      case "filter":
-      case "map":
-      case "accumulate":
-      case "count": {
-        const symbolMap: Record<string, string> = {
-          sequence: "1..N",
-          pulseSequence: "1..N",
-          zip: "⇆",
-          filter: "↓",
-          map: "↦",
-          accumulate: "Σ",
-          count: "#",
-        };
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
-          >
-            <span className="text-xl font-bold leading-none">{symbolMap[type] ?? ""}</span>
-            <span className="text-[0.65rem] leading-tight">{label}</span>
-          </div>
-        );
-      }
-      case "write": {
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-14 w-24 flex-col items-center justify-center gap-0.5 rounded-2xl bg-rose-500 px-3 text-center text-white shadow-md"
-          >
-            <span className="text-xl font-bold leading-none">
-              <PenSquare className="h-5 w-5" />
-            </span>
-            <span className="text-[0.65rem] leading-tight">{label}</span>
-          </div>
-        );
-      }
-      case "microbitWrite": {
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
-          >
-            <span className="text-xl font-bold leading-none">
-              <MessageSquareText className="h-5 w-5" />
-            </span>
-            <span className="text-[0.65rem] leading-tight">{label}</span>
-          </div>
-        );
-      }
-      case "microbitSound": {
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
-          >
-            <span className="text-xl font-bold leading-none">
-              <Volume2 className="h-5 w-5" />
-            </span>
-            <span className="text-[0.65rem] leading-tight">{label}</span>
-          </div>
-        );
-      }
-      case "subflow": {
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-violet-500 px-3 text-center text-white shadow-md"
-          >
-            <span className="text-xl font-bold leading-none">
-              <PictureInPicture2 className="h-6 w-6" />
-            </span>
-            <span className="text-[0.65rem] leading-tight">{label}</span>
-          </div>
-        );
-      }
-      default:
-        return (
-          <div
-            data-drag-preview
-            className="node-preview flex h-18 w-32 items-center justify-center rounded-lg border border-dashed text-xs border-violet-700 bg-violet-500 text-white shadow-md"
-          >
-            {label}
-          </div>
-        );
-    }
-  })();
-
-  if (!isCustom || !onDelete) {
-    return core;
-  }
-
-  return (
-    <div className="relative inline-block">
-      {core}
-      <button
-        type="button"
-        className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full bg-destructive px-1 py-px text-[0.6rem] leading-none shadow text-white hover:cursor-pointer"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onDelete();
-        }}
-      >
-        ×
-      </button>
-    </div>
   );
 }
