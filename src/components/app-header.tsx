@@ -1,7 +1,6 @@
-import { Play, Square, Download, Upload, Settings } from "lucide-react";
+import { Play, Pause, Download, Upload, Settings } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 type AppHeaderProps = {
   title?: string;
@@ -44,84 +43,58 @@ export default function AppHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <Tooltip>
-          <TooltipTrigger asChild>
             <Button
               variant="secondary"
-              className="hover:cursor-pointer shadow-md"
+              className="bg-green-600 text-white hover:bg-green-700"
               type="button"
               onClick={onRun}
               disabled={nodesCount === 0 || isRunning}
             >
               Ejecutar
-              <Play fill="oklch(72.3% 0.219 149.579)" className="text-green-500" />
+              <Play fill="white" className="text-white" />
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Ejecutar programa</TooltipContent>
-        </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
             <Button
               variant="secondary"
-              className="hover:cursor-pointer shadow-md"
+              className="bg-red-600 text-white hover:bg-red-700"
               type="button"
               onClick={onStop}
-              disabled={nodesCount === 0}
-              title="Detener ejecución y resetear nodos"
+              disabled={!isRunning}
             >
               Detener
-              <Square className="text-red-500" />
+              <Pause className="text-white" />
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Detener ejecución</TooltipContent>
-        </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
             <Button
               variant="secondary"
-              className="hover:cursor-pointer shadow-md"
+              className="bg-indigo-600 text-white hover:bg-indigo-700 disabled:bg-gray-300 disabled:text-gray-600"
               type="button"
               onClick={onDownload}
               disabled={nodesCount === 0}
             >
               Descargar
-              <Download />
+              <Download className="text-white" />
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Descargar programa</TooltipContent>
-        </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
             <Button
               variant="secondary"
-              className="hover:cursor-pointer shadow-md"
+              className="bg-blue-600 text-white hover:bg-blue-700 disabled:bg-gray-300 disabled:text-gray-600"
               type="button"
               onClick={onLoad}
             >
               Cargar
-              <Upload />
+              <Upload className="text-white" />
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Cargar archivo</TooltipContent>
-        </Tooltip>
 
-        <Tooltip>
-          <TooltipTrigger asChild>
             <Button
               variant="secondary"
-              className="hover:cursor-pointer shadow-md"
+              className="bg-slate-600 text-white hover:bg-slate-700 disabled:bg-gray-300 disabled:text-gray-600"
               type="button"
               onClick={onOpenRemoteConfig}
             >
               Configurar remoto
-              <Settings />
+              <Settings className="text-white" />
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Configurar remoto</TooltipContent>
-        </Tooltip>
       </div>
     </header>
   );
