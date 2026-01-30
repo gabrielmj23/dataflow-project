@@ -41,6 +41,8 @@ export function InputCircleNodeShell({
   sublabel,
   className,
   indicatorClassName,
+  sublabelClassName,
+  labelClassName,
   disableRuntimeStyles = true,
 }: InputCircleNodeShellProps) {
   const inputMask = getPortTypeMask({ nodeType, handleType: "target", handleId: null });
@@ -59,13 +61,13 @@ export function InputCircleNodeShell({
       }
     >
       <div className="flex items-center justify-center">{icon}</div>
-        <div className={["mt-1 leading-tight truncate max-w-[4rem]", "text-[9px]", "text-white", typeof labelClassName === "string" ? labelClassName : ""].join(" ")}>{label}</div>
+        <div className={["mt-1 leading-tight truncate max-w-16", "text-[9px]", "text-white", typeof labelClassName === "string" ? labelClassName : ""].join(" ")}>{label}</div>
       {sublabel ? (
         <div
           className={
             typeof sublabelClassName === "string"
-              ? ["mt-0.5 leading-tight text-white truncate max-w-[4rem]", sublabelClassName].join(" ")
-              : ["mt-0.5 leading-tight text-white truncate max-w-[4rem]", "text-[9px]"].join(" ")
+              ? ["mt-0.5 leading-tight text-white truncate max-w-16", sublabelClassName].join(" ")
+              : ["mt-0.5 leading-tight text-white truncate max-w-16", "text-[9px]"].join(" ")
           }
         >
           {sublabel}

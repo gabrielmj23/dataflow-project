@@ -25,7 +25,6 @@ const DEFAULT_MAX = 100;
 
 export const RandomInputNode = memo(({ id, data }: NodeProps) => {
   const {
-    label = "Valor Aleatorio",
     min: rawMin,
     max: rawMax,
     integerOnly: rawIntegerOnly,
@@ -50,11 +49,11 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                   integerOnly: nextIntegerOnly,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
