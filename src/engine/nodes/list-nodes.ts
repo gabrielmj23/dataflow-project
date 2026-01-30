@@ -179,3 +179,27 @@ export class EngineZipNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineUnzipNode extends NodeDefinition {
+  constructor() {
+    super(
+      (tuples: [number, number][]) => {
+        const a: number[] = [];
+        const b: number[] = [];
+        for (const t of tuples ?? []) {
+          if (Array.isArray(t) && t.length >= 2) {
+            a.push(t[0]);
+            b.push(t[1]);
+          }
+        }
+
+        return [
+          new DataToken<number[]>(a, new PortAddress("", "listA")),
+          new DataToken<number[]>(b, new PortAddress("", "listB")),
+        ];
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "listA", "listB"]
+    );
+  }
+}

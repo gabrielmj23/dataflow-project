@@ -453,6 +453,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "sequence":
       case "pulseSequence":
       case "zip":
+      case "unzip":
       case "filter":
       case "map":
       case "accumulate":
@@ -461,6 +462,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           sequence: "1..N",
           pulseSequence: "1..N",
           zip: "⇆",
+          unzip: "⇅",
           filter: "↓",
           map: "↦",
           accumulate: "Σ",

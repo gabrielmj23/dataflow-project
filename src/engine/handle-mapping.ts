@@ -156,6 +156,7 @@ register(
     NODE_TYPES.CONSTANT_NUMBER_INPUT,
     NODE_TYPES.CONSTANT_BOOLEAN_INPUT,
     NODE_TYPES.CONSTANT_TEXT_INPUT,
+    NODE_TYPES.CONSTANT_LIST_INPUT,
     NODE_TYPES.RUNTIME_INPUT,
     NODE_TYPES.RANDOM_INPUT,
     NODE_TYPES.CHOICE_INPUT,
@@ -311,6 +312,24 @@ register([NODE_TYPES.ZIP_NODE], (p) => {
   }
 
   if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+// Unzip node: single input (list of tuples) -> two outputs (listA, listB)
+register([NODE_TYPES.UNZIP_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputList";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  // source handles: expect out-1 -> listA, out-2 -> listB
+  const idx = parseIndexHandle(handleId);
+  if (handleId?.startsWith("out-") && idx) {
+    if (idx === 1) return "listA";
+    if (idx === 2) return "listB";
+  }
+
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
