@@ -30,6 +30,7 @@ import { ConsolePanel } from "@/components/ConsolePanel";
 import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
 import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
 import { TopBar } from "@/components/TopBar";
+import { TopActionPanel } from "@/components/TopActionPanel";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { usePaletteDrag } from "@/hooks/usePaletteDrag";
 import { SubflowTemplateContext } from "@/flow/subflow-templates-context";
@@ -820,7 +821,15 @@ export default function App() {
                             </ControlButton>
                           </Controls>
                           <MiniMap />
-                          {/* TopActionPanel removed: use header controls instead */}
+                          <TopActionPanel
+                            nodesCount={nodes.length}
+                            isEngineRunning={isEngineRunning}
+                            onRunClick={handleRunClick}
+                            onStopClick={onStopClick}
+                            onDownloadClick={onDownloadClick}
+                            onLoadClick={onLoadClick}
+                            onRemoteSettingsClick={() => setIsRemoteDialogOpen(true)}
+                          />
 
                           <ConsolePanel
                             consoleOutputText={consoleOutputText}
