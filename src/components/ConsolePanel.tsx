@@ -39,8 +39,8 @@ export function ConsolePanel({
         bottom: 16,
       }}
     >
-      <div className="overflow-hidden rounded-md border bg-background/90 shadow-md backdrop-blur-sm">
-        <div className="flex items-center justify-between border-b px-2 py-1 text-sm font-medium">
+      <div className="overflow-hidden rounded-md border bg-background/90">
+        <div className="flex items-center justify-between border-b border-[var(--nodi-blue-border)] bg-[var(--nodi-blue)] px-2 py-1 text-sm font-medium text-white">
           <div className="flex items-center gap-1">
             <Button
               type="button"
@@ -50,7 +50,7 @@ export function ConsolePanel({
               title={isOpen ? "Minimizar consola" : "Expandir consola"}
               aria-label={isOpen ? "Minimizar consola" : "Expandir consola"}
             >
-              {isOpen ? <ChevronDown /> : <ChevronUp />}
+              {isOpen ? <ChevronDown className="text-white" /> : <ChevronUp className="text-white" />}
             </Button>
             <span className="select-none">Consola</span>
           </div>
@@ -62,7 +62,7 @@ export function ConsolePanel({
             title="Limpiar consola"
             aria-label="Limpiar consola"
           >
-            <Trash2 />
+            <Trash2 className="text-white" />
           </Button>
         </div>
 

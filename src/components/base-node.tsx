@@ -1,5 +1,9 @@
-import type { ComponentProps } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentProps } from "react";
+import { Trash2 } from "lucide-react";
+import { useNodeId, useReactFlow } from "@xyflow/react";
 
+import NodeSettingsButton from "@/components/ui/node-settings-button";
+import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 type BaseNodeProps = ComponentProps<"div"> & {
@@ -11,6 +15,12 @@ type BaseNodeProps = ComponentProps<"div"> & {
   disableRuntimeStyles?: boolean;
   /** Optional runtime error message to show in a tooltip when the node fails. */
   runtimeError?: string | null;
+  /** Optional handler to open the node configuration dialog. */
+  onConfigClick?: (() => void) | null;
+  /** Optional handler to delete the node. Defaults to removing the current node. */
+  onDelete?: (() => void) | null;
+  /** Hide the delete button (mostly for embedded previews). */
+  hideDeleteButton?: boolean;
 };
 
 export function BaseNode({
@@ -18,9 +28,44 @@ export function BaseNode({
   hideRuntimeBadges,
   disableRuntimeStyles,
   runtimeError,
+  onConfigClick,
+  onDelete,
+  hideDeleteButton,
   ...props
 }: BaseNodeProps) {
   const hasErrorTooltip = Boolean(runtimeError) && !disableRuntimeStyles;
+  const nodeId = useNodeId?.();
+  const { deleteElements } = useReactFlow();
+  const [actionsVisible, setActionsVisible] = useState(false);
+  const hideTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
+  const showActions = useCallback(() => {
+    if (hideTimerRef.current) {
+      window.clearTimeout(hideTimerRef.current);
+      hideTimerRef.current = null;
+    }
+    setActionsVisible(true);
+  }, []);
+
+  const hideActionsLater = useCallback(() => {
+    if (hideTimerRef.current) window.clearTimeout(hideTimerRef.current);
+    hideTimerRef.current = window.setTimeout(() => setActionsVisible(false), 1000);
+  }, []);
+
+  const handleDelete = useCallback(() => {
+    if (onDelete) {
+      onDelete();
+      return;
+    }
+    if (!nodeId) return;
+    deleteElements({ nodes: [{ id: nodeId }] });
+  }, [deleteElements, nodeId, onDelete]);
 
   const content = (
     <div
@@ -28,7 +73,7 @@ export function BaseNode({
         // Inner node container; when runtime styles are disabled we skip the
         // `rf-node-inner` class so global runtime CSS won't touch it.
         disableRuntimeStyles ? "" : "rf-node-inner",
-        "bg-card text-card-foreground relative rounded-md border border-border",
+        "group bg-card text-card-foreground relative rounded-md border border-border",
         "hover:ring-1",
         // React Flow displays node elements inside of a `NodeWrapper` component,
         // which compiles down to a div with the class `react-flow__node`.
@@ -40,8 +85,66 @@ export function BaseNode({
         className,
       )}
       tabIndex={0}
+      onMouseEnter={(e) => {
+        showActions();
+        if (props.onMouseEnter) props.onMouseEnter(e as any);
+      }}
+      onMouseLeave={(e) => {
+        hideActionsLater();
+        if (props.onMouseLeave) props.onMouseLeave(e as any);
+      }}
+      onFocus={(e) => {
+        showActions();
+        if (props.onFocus) props.onFocus(e as any);
+      }}
+      onBlur={(e) => {
+        hideActionsLater();
+        if (props.onBlur) props.onBlur(e as any);
+      }}
       {...props}
     >
+      {(Boolean(onConfigClick) || !hideDeleteButton) && (
+        <div
+          className={cn(
+            "absolute -top-5 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1",
+            // translucent white background with slight blur like the console
+            "bg-white/70 backdrop-blur-sm rounded-md  border border-white/30",
+            "transition-opacity duration-150",
+            actionsVisible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
+          )}
+        >
+          {onConfigClick && (
+            <NodeSettingsButton
+              onClick={onConfigClick}
+              className="pointer-events-auto"
+            />
+          )}
+
+          {!hideDeleteButton && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-node"
+                  variant="node"
+                  aria-label="Eliminar"
+                  className="pointer-events-auto opacity-100 bg-transparent shadow-none p-1 text-[color:var(--node-action-color)]"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleDelete();
+                  }}
+                >
+                  <Trash2 className="size-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Eliminar
+              </TooltipContent>
+            </Tooltip>
+          )}
+        </div>
+      )}
+
       {!hideRuntimeBadges && (
         <span className="rf-runtime-badge rf-runtime-running pointer-events-none absolute top-1 left-1 hidden select-none rounded bg-background/80 px-1 py-0.5 text-[10px] leading-none text-foreground">
           <span className="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-current border-r-transparent" />

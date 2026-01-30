@@ -19,7 +19,7 @@ export type NodePaletteCategory = {
 export const nodePalette: NodePaletteCategory[] = [
   {
     id: "inputs",
-    title: "Entradas y eventos",
+    title: "Entradas",
     items: [
       {
         type: "runtimeInput",
@@ -67,7 +67,7 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "processing",
-    title: "Procesamiento",
+    title: "Proceso",
     items: [
       {
         type: "sum",
@@ -220,7 +220,7 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "io",
-    title: "Entradas/Salidas",
+    title: "Salidas",
     items: [
       {
         type: "write",
@@ -231,7 +231,7 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "microbit",
-    title: "micro:bit",
+    title: "Micro:bit",
     items: [
       {
         type: "microbitWrite",
@@ -246,5 +246,5 @@ export const nodePalette: NodePaletteCategory[] = [
           "Activa un sonido en el micro:bit (configurable Bluetooth/Serial).",
       },
     ],
-  },
+  }
 ];

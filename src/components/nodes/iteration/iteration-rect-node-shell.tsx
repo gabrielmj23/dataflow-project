@@ -3,7 +3,6 @@ import type { ReactNode } from "react";
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import {
   getPortTypeMask,
@@ -48,15 +47,13 @@ export function IterationRectNodeShell({
   }) => maskToVisualPortDataType(maskFor(params));
 
   return (
-    <BaseNode className="relative flex h-18 w-52 flex-col items-center justify-center rounded-2xl border-teal-800 bg-teal-600 px-5 text-center text-white shadow-md">
-      {onConfigClick && (
-        <div className="absolute top-1 right-1">
-          <NodeSettingsButton onClick={onConfigClick} />
-        </div>
-      )}
+    <BaseNode
+      onConfigClick={onConfigClick}
+      className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-teal-800 bg-teal-600 px-5 text-center text-white shadow-md"
+    >
       <div className="flex flex-col items-center gap-0.5">
-        <div className="text-xl font-bold leading-none">{icon}</div>
-        <div className="text-sm leading-tight">{label}</div>
+        <div className="text-lg font-bold leading-none">{icon}</div>
+        <div className="text-xs leading-tight">{label}</div>
       </div>
 
       {variant === "source" && (

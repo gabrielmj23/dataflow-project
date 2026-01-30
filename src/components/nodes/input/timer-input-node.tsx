@@ -84,7 +84,7 @@ export const TimerInputNode = memo(({ id, data }: NodeProps) => {
     if (!isRunning || remainingMs == null) return null;
     const seconds = remainingMs / 1000;
     const formatted = seconds >= 10 ? seconds.toFixed(1) : seconds.toFixed(2);
-    return `Restan ${formatted}s`;
+    return `${formatted}s`;
   }, [isRunning, remainingMs]);
 
   const setTimeValue = useCallback(
@@ -110,7 +110,7 @@ export const TimerInputNode = memo(({ id, data }: NodeProps) => {
     <>
       <InputCircleNodeShell
         nodeType="timerInput"
-        icon={<Timer className="h-7 w-7" />}
+        icon={<Timer className="h-4 w-4" />}
         label={label}
         onConfigClick={() => setIsDialogOpen(true)}
         variant="inputOutput"

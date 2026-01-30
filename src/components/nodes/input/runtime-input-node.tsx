@@ -67,8 +67,9 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
     <>
       <InputCircleNodeShell
         nodeType="runtimeInput"
-        icon={<Keyboard className="h-6 w-6" />}
+        icon={<Keyboard className="h-4 w-4" />}
         label={identifierLabelDisplay}
+        labelClassName="text-[9px]"
         sublabel={null}
         onConfigClick={() => setIsDialogOpen(true)}
       />

@@ -2,9 +2,8 @@ import type { ReactNode } from "react";
 
 import { Position } from "@xyflow/react";
 
-import { BaseNode, BaseNodeHeader } from "@/components/base-node";
+import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import NodeSettingsButton from "@/components/ui/node-settings-button";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
@@ -48,13 +47,9 @@ export function MicrobitInputShell({
     <BaseNode
       hideRuntimeBadges
       disableRuntimeStyles={disableRuntimeStyles}
+      onConfigClick={onConfigClick}
       className="relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 text-center text-white shadow-md"
     >
-      {onConfigClick && (
-        <BaseNodeHeader className="absolute top-1 right-1">
-          <NodeSettingsButton onClick={onConfigClick} />
-        </BaseNodeHeader>
-      )}
       <div className="flex items-center justify-center">{icon}</div>
       <div className="mt-1 text-sm leading-tight">{label}</div>
 
