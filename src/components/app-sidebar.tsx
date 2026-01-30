@@ -148,32 +148,6 @@ export function AppSidebar({
     <Sidebar className={className}>
       <SidebarHeader>
         <SidebarGroup>
-          <SidebarGroupLabel className="flex items-center justify-between gap-2">
-            <span className="inline-flex rounded-md border bg-background p-0.5 text-[0.65rem]">
-              <button
-                type="button"
-                onClick={() => setViewMode("text")}
-                className={`px-1.5 py-0.5 rounded-sm ${
-                  viewMode === "text"
-                    ? "bg-foreground text-background"
-                    : "text-foreground/70 hover:bg-muted"
-                }`}
-              >
-                Texto
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("nodes")}
-                className={`px-1.5 py-0.5 rounded-sm ${
-                  viewMode === "nodes"
-                    ? "bg-foreground text-background"
-                    : "text-foreground/70 hover:bg-muted"
-                }`}
-              >
-                Nodos
-              </button>
-            </span>
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarInput
               value={search}
