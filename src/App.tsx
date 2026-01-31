@@ -675,16 +675,20 @@ export default function App() {
 
   useEffect(() => {
     const measure = () => {
-      const el = document.querySelector('[data-app-header]') as HTMLElement | null;
+      const el = document.querySelector(
+        "[data-app-header]",
+      ) as HTMLElement | null;
       if (el) setSidebarTop(Math.ceil(el.getBoundingClientRect().height));
     };
     measure();
-    window.addEventListener('resize', measure);
+    window.addEventListener("resize", measure);
     const ro = new ResizeObserver(measure);
-    const el = document.querySelector('[data-app-header]') as HTMLElement | null;
+    const el = document.querySelector(
+      "[data-app-header]",
+    ) as HTMLElement | null;
     if (el) ro.observe(el);
     return () => {
-      window.removeEventListener('resize', measure);
+      window.removeEventListener("resize", measure);
       ro.disconnect();
     };
   }, []);
@@ -694,19 +698,20 @@ export default function App() {
       <SidebarProvider>
         <div
           className="flex h-svh w-full flex-col"
-          style={{
-            ...(sidebarTop ? { "--sidebar-top": `${Math.max(0, sidebarTop)}px` } : {}),
-          } as React.CSSProperties}
+          style={
+            {
+              ...(sidebarTop
+                ? { "--sidebar-top": `${Math.max(0, sidebarTop)}px` }
+                : {}),
+            } as React.CSSProperties
+          }
         >
           <AppHeader
             title="Nodi"
             nodesCount={nodes.length}
-            onRun={handleRunClick}
-            onStop={onStopClick}
             onDownload={onDownloadClick}
             onLoad={onLoadClick}
             onOpenRemoteConfig={() => setIsRemoteDialogOpen(true)}
-            isRunning={isEngineRunning}
           />
 
           <div className="flex flex-1 min-h-0">
@@ -714,7 +719,9 @@ export default function App() {
               categories={paletteCategories}
               onDragStart={onPaletteDragStart}
               onDeleteTemplate={(templateId) => {
-                const match = subflowTemplates.find((tpl) => tpl.id === templateId);
+                const match = subflowTemplates.find(
+                  (tpl) => tpl.id === templateId,
+                );
                 setPendingDeleteTemplateId(templateId);
                 setPendingDeleteTemplateName(match ? match.name : null);
               }}
@@ -741,7 +748,11 @@ export default function App() {
                   ) : null}
 
                   <SubflowTemplateContext.Provider
-                    value={{ addOrUpdateTemplate, isNameTaken, resolveTemplate }}
+                    value={{
+                      addOrUpdateTemplate,
+                      isNameTaken,
+                      resolveTemplate,
+                    }}
                   >
                     <ConnectionHighlightProvider value={connectionHighlight}>
                       <CanvasContextMenu
@@ -758,7 +769,9 @@ export default function App() {
                           nodeTypes={nodeTypes}
                           edgeTypes={{ default: LabeledEdge }}
                           connectionLineComponent={ArrowConnectionLine}
-                          isValidConnection={connectionTooltip.isValidConnection}
+                          isValidConnection={
+                            connectionTooltip.isValidConnection
+                          }
                           defaultEdgeOptions={{
                             markerEnd: {
                               type: MarkerType.ArrowClosed,
@@ -781,7 +794,9 @@ export default function App() {
                           selectionOnDrag={canvasMode === "select"}
                           selectionMode={SelectionMode.Partial}
                           className={
-                            canvasMode === "pan" ? "rf-mode-pan" : "rf-mode-select"
+                            canvasMode === "pan"
+                              ? "rf-mode-pan"
+                              : "rf-mode-select"
                           }
                           fitView
                           proOptions={{ hideAttribution: true }}
@@ -816,7 +831,10 @@ export default function App() {
                             >
                               <MousePointer2 />
                             </ControlButton>
-                            <ControlButton title="Mejorar formato" onClick={onLayout}>
+                            <ControlButton
+                              title="Mejorar formato"
+                              onClick={onLayout}
+                            >
                               <BrushCleaning className="fill-none!" />
                             </ControlButton>
                           </Controls>
@@ -826,9 +844,6 @@ export default function App() {
                             isEngineRunning={isEngineRunning}
                             onRunClick={handleRunClick}
                             onStopClick={onStopClick}
-                            onDownloadClick={onDownloadClick}
-                            onLoadClick={onLoadClick}
-                            onRemoteSettingsClick={() => setIsRemoteDialogOpen(true)}
                           />
 
                           <ConsolePanel

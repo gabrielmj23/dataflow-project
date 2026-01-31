@@ -7,8 +7,8 @@ import {
 } from "@/microbit/connection-manager";
 import type { EngineObserver } from "../engine";
 
-const MICROBIT_SEND_TIMEOUT_MS = 5000;
-const MICROBIT_RESPONSE_TIMEOUT_MS = 10000;
+const MICROBIT_SEND_TIMEOUT_MS = 50000;
+const MICROBIT_RESPONSE_TIMEOUT_MS = 50000;
 
 function formatValue(value: unknown): string {
   if (value == null) return "";

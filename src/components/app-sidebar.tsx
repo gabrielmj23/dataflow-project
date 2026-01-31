@@ -1,27 +1,28 @@
 import * as React from "react";
 import type { DragEvent } from "react";
 import {
-  Ampersand,
+  ChevronDown,
+  ChevronRight,
+  Timer,
+  Shuffle,
+  Keyboard,
+  Cpu,
+  Plus,
+  X,
+  Divide,
+  Percent,
   ArrowDown,
   ArrowUp,
   Circle,
-  Divide,
   Link2,
-  MessageSquareText,
-  PenSquare,
-  Plus,
-  Percent,
-  Shuffle,
-  Timer,
+  Ampersand,
   ToggleRight,
-  Keyboard,
-  Volume2,
-  X,
-  Cpu,
   ListChecks,
+  PenSquare,
+  MessageSquareText,
+  Volume2,
   PictureInPicture2,
 } from "lucide-react";
-import { ChevronDown, ChevronRight } from "lucide-react";
 
 import {
   Sidebar,
@@ -51,7 +52,7 @@ export function AppSidebar({
   className,
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
-  const [viewMode, setViewMode] = React.useState<"text" | "nodes">("nodes");
+  const viewMode = "nodes";
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
 
@@ -125,6 +126,7 @@ export function AppSidebar({
   function smoothScrollTo(element: HTMLElement, to: number, duration = 300) {
     const start = element.scrollTop;
     const change = to - start;
+    // eslint-disable-next-line react-hooks/purity
     const startTime = performance.now();
 
     function easeInOutCubic(t: number) {
@@ -159,11 +161,12 @@ export function AppSidebar({
       </SidebarHeader>
 
       <SidebarContent className="overflow-hidden">
-          <div className="flex h-full min-h-0">
+        <div className="flex h-full min-h-0">
           <div className="flex w-16 flex-col items-center gap-1 border-r bg-muted/10 px-2 py-2 h-full overflow-y-auto no-scrollbar">
             {filteredCategories.map((category, index) => {
               const color = categoryColorMap[category.id] ?? "bg-gray-500";
-              const borderColor = categoryBorderMap[category.id] ?? "border-gray-500";
+              const borderColor =
+                categoryBorderMap[category.id] ?? "border-gray-500";
               return (
                 <button
                   key={category.id}
@@ -229,53 +232,22 @@ export function AppSidebar({
                                 : ""
                             }`}
                           >
-                            {viewMode === "text" ? (
-                              <div className="flex w-full items-start gap-1">
-                                <div className="flex flex-1 flex-col gap-0.5">
-                                  <span className="font-medium leading-snug">
-                                    {item.label}
-                                  </span>
-                                  {item.description ? (
-                                    <span className="text-[0.75rem] leading-snug text-foreground/80 whitespace-normal">
-                                      {item.description}
-                                    </span>
-                                  ) : null}
-                                  <span className="mt-0.5 text-[0.65rem] text-muted-foreground">
-                                    {item.type}
-                                  </span>
-                                </div>
-                                {item.templateId && onDeleteTemplate ? (
-                                  <button
-                                    type="button"
-                                    className="ml-1 self-start rounded px-1 py-0.5 text-[0.65rem] text-destructive hover:bg-destructive/10"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      onDeleteTemplate(item.templateId!);
-                                    }}
-                                  >
-                                    Eliminar
-                                  </button>
-                                ) : null}
+                            <div className="flex w-full items-center justify-center py-1">
+                              <div className="scale-100 origin-center">
+                                <NodePreview
+                                  type={item.type}
+                                  label={item.label}
+                                  isCustom={
+                                    !!item.templateId && !!onDeleteTemplate
+                                  }
+                                  onDelete={
+                                    item.templateId && onDeleteTemplate
+                                      ? () => onDeleteTemplate(item.templateId!)
+                                      : undefined
+                                  }
+                                />
                               </div>
-                            ) : (
-                              <div className="flex w-full items-center justify-center py-1">
-                                <div className="scale-100 origin-center">
-                                  <NodePreview
-                                    type={item.type}
-                                    label={item.label}
-                                    isCustom={
-                                      !!item.templateId && !!onDeleteTemplate
-                                    }
-                                    onDelete={
-                                      item.templateId && onDeleteTemplate
-                                        ? () => onDeleteTemplate(item.templateId!)
-                                        : undefined
-                                    }
-                                  />
-                                </div>
-                              </div>
-                            )}
+                            </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
                       ))}
@@ -300,7 +272,6 @@ export function AppSidebar({
     </Sidebar>
   );
 }
-
 type NodePreviewProps = {
   type: string;
   label: string;
@@ -453,7 +424,6 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "sequence":
       case "pulseSequence":
       case "zip":
-      case "unzip":
       case "filter":
       case "map":
       case "accumulate":
@@ -462,7 +432,6 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           sequence: "1..N",
           pulseSequence: "1..N",
           zip: "⇆",
-          unzip: "⇅",
           filter: "↓",
           map: "↦",
           accumulate: "Σ",
@@ -473,7 +442,9 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">{symbolMap[type] ?? ""}</span>
+            <span className="text-xl font-bold leading-none">
+              {symbolMap[type] ?? ""}
+            </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>
         );

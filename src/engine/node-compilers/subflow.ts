@@ -5,6 +5,8 @@ import { NODE_TYPES } from "@/common/constants";
 import { FirePatterns, NodeDefinition } from "../program-elements";
 import { asRecord } from "../deserialize/utils";
 import type { RemoteSubflowPayload } from "../deserialize/shared-types";
+import { ensureMicrobitConnected } from "@/microbit/connection-manager";
+import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import type { NodeCompiler } from "./types";
 
@@ -255,6 +257,48 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
               outputSources: plan.outputSources,
               hasAnyOutput: plan.hasAnyOutput,
             } satisfies RemoteSubflowPayload,
+          });
+        },
+        firePatterns,
+        [...inputPorts, ...outputPorts],
+      );
+    }
+
+    if (executionTarget === "microbit") {
+      const transport = data.transport === "bluetooth" ? "bluetooth" : "serial";
+
+      const plan = ctx.helpers.computeSubflowExecutionPlan({
+        subflowNodes: subflowNodes as Node[],
+        subflowEdges: subflowEdges as Edge[],
+        inCount,
+        outCount,
+        onLog: ctx.onLog,
+        onPrompt: ctx.onPrompt,
+        signal: ctx.signal,
+        remoteExecutor: ctx.remoteExecutor,
+        runtimeCtx: ctx.subflowRuntimeContext,
+      });
+
+      const firePatterns = plan.selectedInputs.map(() => FirePatterns.EXISTS);
+      const inputPorts = plan.selectedInputs.map((_, idx) => `input${idx + 1}`);
+      const outputPorts = plan.hasAnyOutput ? ["output1"] : [];
+
+      const rawId = templateId ?? String(flowNode.id);
+      const programId = rawId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 32);
+
+      return new NodeDefinition(
+        async (...args: unknown[]) => {
+          const connection = await ensureMicrobitConnected({ transport });
+
+          return await sendSubflowToMicrobit({
+            connection,
+            nodes: subflowNodes as Node[],
+            edges: subflowEdges as Edge[],
+            selectedInputs: plan.selectedInputs,
+            outputSources: plan.outputSources,
+            args,
+            programId,
+            signal: ctx.signal,
           });
         },
         firePatterns,

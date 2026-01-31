@@ -14,7 +14,10 @@ type NodeSidebarProps = {
   categories: NodePaletteCategory[];
   onSearchChange: (value: string) => void;
   onToggle: () => void;
-  onDragStart: (event: DragEvent, item: { type: string; label: string }) => void;
+  onDragStart: (
+    event: DragEvent,
+    item: { type: string; label: string },
+  ) => void;
 };
 
 export function NodeSidebar({
@@ -29,8 +32,9 @@ export function NodeSidebar({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const sectionRefs = useMemo(
+    // eslint-disable-next-line react-hooks/rules-of-hooks
     () => categories.map(() => ({ ref: useRef<HTMLDivElement>(null) })),
-    [categories]
+    [categories],
   );
 
   const categoryColorMap: Record<string, string> = {
@@ -75,7 +79,8 @@ export function NodeSidebar({
     const start = container.scrollTop;
     const change = top - start;
     const startTime = performance.now();
-    const easeInOutQuad = (t: number) => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t);
+    const easeInOutQuad = (t: number) =>
+      t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
 
     const step = (now: number) => {
       const elapsed = now - startTime;
@@ -95,7 +100,7 @@ export function NodeSidebar({
     return categories
       .map((category) => {
         const items = category.items.filter((item) =>
-          matchesSearch(item, normalizedSearch)
+          matchesSearch(item, normalizedSearch),
         );
         return { ...category, items };
       })
@@ -139,16 +144,17 @@ export function NodeSidebar({
 
       <div className="flex flex-1 overflow-hidden">
         <div className="flex w-16 flex-col items-center gap-2 border-r bg-muted/10 px-2 py-3 h-full overflow-y-auto no-scrollbar">
-          {filteredCategories.map((category) => {
+          {filteredCategories.map((category, index) => {
             const color = categoryColorMap[category.id] ?? "bg-muted/10";
-            const borderColor = categoryBorderMap[category.id] ?? "border-muted";
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => handleScrollToCategory(index)}
-                  className="group flex w-full flex-col items-center gap-1 rounded-md px-1.5 py-1.5 text-xs text-muted-foreground transition duration-300 ease-out hover:bg-muted cursor-pointer"
-                >
+            const borderColor =
+              categoryBorderMap[category.id] ?? "border-muted";
+            return (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => handleScrollToCategory(index)}
+                className="group flex w-full flex-col items-center gap-1 rounded-md px-1.5 py-1.5 text-xs text-muted-foreground transition duration-300 ease-out hover:bg-muted cursor-pointer"
+              >
                 <span
                   className={`inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ${color} ${borderColor} border-2`}
                 />
@@ -185,7 +191,9 @@ export function NodeSidebar({
                     className="flex w-full cursor-grab items-center justify-between rounded-md border bg-card px-2 py-1 text-left text-xs shadow-sm transition hover:bg-accent hover:text-accent-foreground active:cursor-grabbing"
                   >
                     <div>
-                      <div className="font-medium leading-tight">{item.label}</div>
+                      <div className="font-medium leading-tight">
+                        {item.label}
+                      </div>
                       {item.description ? (
                         <div className="line-clamp-2 text-[0.68rem] text-muted-foreground">
                           {item.description}
