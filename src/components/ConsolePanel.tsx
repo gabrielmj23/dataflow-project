@@ -46,6 +46,7 @@ export function ConsolePanel({
               type="button"
               variant="ghost"
               size="icon-sm"
+              className="hover:bg-white/10"
               onClick={onToggle}
               title={isOpen ? "Minimizar consola" : "Expandir consola"}
               aria-label={isOpen ? "Minimizar consola" : "Expandir consola"}
@@ -58,6 +59,7 @@ export function ConsolePanel({
             type="button"
             variant="ghost"
             size="icon-sm"
+            className="hover:bg-white/10"
             onClick={onClearConsoleClick}
             title="Limpiar consola"
             aria-label="Limpiar consola"
