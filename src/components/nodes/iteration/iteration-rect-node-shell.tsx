@@ -15,6 +15,7 @@ type IterationRectNodeShellProps = {
   label: string;
   variant?:
     | "multi"
+    | "singleInDoubleOut"
     | "singleInSingleOut"
     | "doubleInSingleOut"
     | "tripleInSingleOut"
@@ -132,6 +133,42 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "source", handleId: "out" })}
             typeMask={maskFor({ handleType: "source", handleId: "out" })}
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-teal-800"
+          />
+        </>
+      )}
+
+      {variant === "singleInDoubleOut" && (
+        <>
+          <CustomTypedHandle
+            type="target"
+            position={Position.Left}
+            id="in"
+            dataType={typeFor({ handleType: "target", handleId: "in" })}
+            typeMask={maskFor({ handleType: "target", handleId: "in" })}
+            className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-teal-800"
+          />
+
+          <CustomTypedHandle
+            type="source"
+            position={Position.Right}
+            style={{ top: "40%" }}
+            id="out-1"
+            dataType={typeFor({ handleType: "source", handleId: "out-1" })}
+            typeMask={maskFor({ handleType: "source", handleId: "out-1" })}
+            className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-teal-800"
+          />
+
+          <CustomTypedHandle
+            type="source"
+            position={Position.Right}
+            style={{ top: "60%" }}
+            id="out-2"
+            dataType={typeFor({ handleType: "source", handleId: "out-2" })}
+            typeMask={maskFor({ handleType: "source", handleId: "out-2" })}
+            className="absolute -right-1 h-2 w-2 -translate-y-1/2"
             indicatorClassName="border-teal-800"
           />
         </>

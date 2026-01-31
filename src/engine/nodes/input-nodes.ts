@@ -6,6 +6,12 @@ export class EngineConstantNode extends NodeDefinition {
   }
 }
 
+export class EngineConstantListNode extends NodeDefinition {
+  constructor(items: Array<string | number>) {
+    super(() => items.slice(), [FirePatterns.ALWAYS], ["output"]);
+  }
+}
+
 export class EngineRandomNode extends NodeDefinition {
   constructor(minValue: number, maxValue: number, integerOnly = false) {
     super(

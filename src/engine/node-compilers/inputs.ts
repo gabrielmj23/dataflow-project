@@ -3,6 +3,7 @@ import { NODE_TYPES } from "@/common/constants";
 import { EngineTimerNode } from "../nodes/event-nodes";
 import {
   EngineChoiceNode,
+  EngineConstantListNode,
   EngineConstantNode,
   EngineRandomNode,
 } from "../nodes/input-nodes";
@@ -32,6 +33,27 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
     case NODE_TYPES.CONSTANT_TEXT_INPUT: {
       const value = typeof data.value === "string" ? data.value : "";
       return new EngineConstantNode(value);
+    }
+    case NODE_TYPES.CONSTANT_LIST_INPUT: {
+      const raw = data.items;
+      const items: Array<string | number> = Array.isArray(raw)
+        ? raw
+            .map((item) => {
+              if (typeof item === "number") return item;
+              const str = String(item ?? "").trim();
+              const num = Number(str);
+              if (/^-?\d+(\.\d+)?$/.test(str) && Number.isFinite(num)) {
+                return num;
+              }
+              return str;
+            })
+            .filter((item) =>
+              typeof item === "number"
+                ? Number.isFinite(item)
+                : Boolean(String(item).trim()),
+            )
+        : [];
+      return new EngineConstantListNode(items);
     }
     case NODE_TYPES.RUNTIME_INPUT: {
       const prompt = typeof data.prompt === "string" ? data.prompt : undefined;

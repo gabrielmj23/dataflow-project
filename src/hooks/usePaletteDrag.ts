@@ -190,6 +190,13 @@ export function usePaletteDrag({
             value: "texto",
           };
         }
+        if (type === "constantList") {
+          data = {
+            ...(data ?? {}),
+            items: ["1", "2", "3"],
+            label: (data.label as string) ?? "Lista constante",
+          };
+        }
         if (type === "randomInput") {
           data = {
             ...(data ?? {}),

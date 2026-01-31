@@ -185,6 +185,9 @@ export function inferPortDataType(params: {
   if (nodeType === "choiceInput") {
     return "text";
   }
+  if (nodeType === "constantList") {
+    return "any";
+  }
   if (nodeType === "constantBoolean") {
     return "boolean";
   }
@@ -272,6 +275,9 @@ export function getPortTypeMask(params: {
   }
   if (nodeType === "choiceInput") {
     return isOutput ? TYPE_TEXT : TYPE_ANY;
+  }
+  if (nodeType === "constantList") {
+    return TYPE_ANY;
   }
   if (nodeType === "constantBoolean") {
     return isOutput ? TYPE_BOOLEAN : TYPE_ANY;

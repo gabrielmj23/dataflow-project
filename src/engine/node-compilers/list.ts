@@ -10,6 +10,7 @@ import {
   EnginePulseSequenceNode,
   EngineReduceNode,
   EngineZipNode,
+  EngineUnzipNode,
 } from "../nodes/list-nodes";
 import { FirePatterns } from "../program-elements";
 
@@ -69,6 +70,9 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
 
     case NODE_TYPES.ZIP_NODE:
       return new EngineZipNode();
+
+    case NODE_TYPES.UNZIP_NODE:
+      return new EngineUnzipNode();
 
     case NODE_TYPES.FILTER_NODE: {
       const filterNodes = data.filterNodes;

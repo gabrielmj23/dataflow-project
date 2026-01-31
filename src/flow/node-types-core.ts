@@ -5,6 +5,7 @@ import { ConstantInputNode } from "@/components/nodes/input/constant-input-node"
 import { ConstantNumberInputNode } from "@/components/nodes/input/constant-number-input-node";
 import { ConstantBooleanInputNode } from "@/components/nodes/input/constant-boolean-input-node";
 import { ConstantTextInputNode } from "@/components/nodes/input/constant-text-input-node";
+import { ConstantListInputNode } from "@/components/nodes/input/constant-list-input-node";
 import { RandomInputNode } from "@/components/nodes/input/random-input-node";
 import { ChoiceInputNode } from "@/components/nodes/input/choice-input-node";
 import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
@@ -40,6 +41,7 @@ import { MicrobitSoundNode } from "@/components/nodes/microbit/microbit-sound-no
 import { SequenceNode } from "@/components/nodes/iteration/sequence-node";
 import { PulseSequenceNode } from "@/components/nodes/iteration/pulse-sequence-node";
 import { ZipNode } from "@/components/nodes/iteration/zip-node";
+import { UnzipNode } from "@/components/nodes/iteration/unzip-node";
 import { FilterNode } from "@/components/nodes/iteration/filter-node";
 import { MapNode } from "@/components/nodes/iteration/map-node";
 import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
@@ -56,6 +58,7 @@ export const nodeTypesCore: NodeTypes = {
   constantNumber: ConstantNumberInputNode,
   constantBoolean: ConstantBooleanInputNode,
   constantText: ConstantTextInputNode,
+  constantList: ConstantListInputNode,
   runtimeInput: RuntimeInputNode,
   randomInput: RandomInputNode,
   choiceInput: ChoiceInputNode,
@@ -87,6 +90,7 @@ export const nodeTypesCore: NodeTypes = {
   sequence: SequenceNode,
   pulseSequence: PulseSequenceNode,
   zip: ZipNode,
+  unzip: UnzipNode,
   filter: FilterNode,
   map: MapNode,
   accumulate: AccumulateNode,

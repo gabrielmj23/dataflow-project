@@ -43,6 +43,11 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Emite siempre el mismo texto configurado.",
       },
       {
+        type: "constantList",
+        label: "Lista constante",
+        description: "Crea una lista fija de números o textos.",
+      },
+      {
         type: "timerInput",
         label: "Timer",
         description: "Dispara valores periódicamente cada cierto intervalo.",
@@ -182,6 +187,11 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "zip",
         label: "Zip",
         description: "Combina listas elemento a elemento.",
+      },
+      {
+        type: "unzip",
+        label: "Unzip",
+        description: "Separa una lista de pares en dos listas (inverso de Zip).",
       },
       {
         type: "filter",
