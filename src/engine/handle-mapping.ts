@@ -232,6 +232,31 @@ register(
   makeTwoInOneOutMapper(),
 );
 
+register([NODE_TYPES.REPLACE_TEXT_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in-1") return "text";
+    if (handleId === "in-2") return "search";
+    if (handleId === "in-3") return "replacement";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+register([NODE_TYPES.SUBTRACT_TEXT_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in-1") return "text";
+    if (handleId === "in-2") return "search";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
 // Processing nodes (1-in 1-out)
 register(
   [NODE_TYPES.FLOOR_NODE, NODE_TYPES.CEILING_NODE, NODE_TYPES.ROUND_NODE],
@@ -240,7 +265,14 @@ register(
 
 // Control nodes (2-in 1-out)
 register(
-  [NODE_TYPES.COMPARISON_NODE, NODE_TYPES.AND_NODE, NODE_TYPES.OR_NODE],
+  [
+    NODE_TYPES.COMPARISON_NODE,
+    NODE_TYPES.AND_NODE,
+    NODE_TYPES.NAND_NODE,
+    NODE_TYPES.OR_NODE,
+    NODE_TYPES.NOR_NODE,
+    NODE_TYPES.XOR_NODE,
+  ],
   makeTwoInOneOutMapper(),
 );
 

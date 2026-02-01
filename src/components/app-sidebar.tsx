@@ -22,6 +22,8 @@ import {
   MessageSquareText,
   Volume2,
   PictureInPicture2,
+  Replace as ReplaceIcon,
+  Eraser,
 } from "lucide-react";
 
 import {
@@ -338,7 +340,9 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "ceiling":
       case "round":
       case "formulaEditor":
-      case "concat": {
+      case "concat":
+      case "replaceText":
+      case "subtractText": {
         const symbolMap: Record<string, string> = {
           sum: "plus",
           subtract: "minus",
@@ -351,6 +355,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           round: "round",
           formulaEditor: "formula",
           concat: "concat",
+          replaceText: "replaceText",
+          subtractText: "subtractText",
         };
         return (
           <div
@@ -373,6 +379,12 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
                 <span className="text-xs font-bold">ƒx</span>
               )}
               {symbolMap[type] === "concat" && <Link2 className="h-4 w-4" />}
+              {symbolMap[type] === "replaceText" && (
+                <ReplaceIcon className="h-5 w-5" />
+              )}
+              {symbolMap[type] === "subtractText" && (
+                <Eraser className="h-5 w-5" />
+              )}
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>
@@ -380,14 +392,20 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       }
       case "comparison":
       case "and":
+      case "nand":
       case "or":
+      case "nor":
+      case "xor":
       case "not":
       case "switch":
       case "conditionalPair": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           and: "and",
+          nand: "nand",
           or: "or",
+          nor: "nor",
+          xor: "xor",
           not: "not",
           switch: "switch",
           conditionalPair: "conditionalPair",
@@ -402,8 +420,17 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
                 <span className="-rotate-90 text-2xl font-bold">=</span>
               )}
               {symbolMap[type] === "and" && <Ampersand className="h-5 w-5" />}
+              {symbolMap[type] === "nand" && (
+                <span className="text-xs font-bold">⊼</span>
+              )}
               {symbolMap[type] === "or" && (
                 <span className="text-xs font-bold">∨</span>
+              )}
+              {symbolMap[type] === "nor" && (
+                <span className="text-xs font-bold">⊽</span>
+              )}
+              {symbolMap[type] === "xor" && (
+                <span className="text-xs font-bold">⊕</span>
               )}
               {symbolMap[type] === "not" && (
                 <span className="text-xs font-bold">¬</span>

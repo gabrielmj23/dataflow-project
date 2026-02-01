@@ -15,17 +15,19 @@ type ProcessingRectNodeShellProps = {
   label: string;
   subtitle?: string;
   runtimeError?: string | null;
-  inputCount?: 1 | 2;
+  inputCount?: 1 | 2 | 3;
   onConfigClick?: () => void;
 };
 
 export function ProcessingRectNodeShell({ nodeType, icon, label, subtitle, runtimeError, inputCount = 2, onConfigClick }: ProcessingRectNodeShellProps) {
   const in1Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-1" });
   const in2Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-2" });
+  const in3Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-3" });
   const outMask = getPortTypeMask({ nodeType, handleType: "source", handleId: "out" });
 
   const in1Type = maskToVisualPortDataType(in1Mask);
   const in2Type = maskToVisualPortDataType(in2Mask);
+  const in3Type = maskToVisualPortDataType(in3Mask);
   const outType = maskToVisualPortDataType(outMask);
 
   return (
@@ -45,21 +47,33 @@ export function ProcessingRectNodeShell({ nodeType, icon, label, subtitle, runti
       <CustomTypedHandle
         type="target"
         position={Position.Left}
-        style={{ top: inputCount === 1 ? "50%" : "35%" }}
+        style={{ top: inputCount === 1 ? "50%" : inputCount === 2 ? "35%" : "30%" }}
         id="in-1"
         dataType={in1Type}
         typeMask={in1Mask}
         className="absolute -left-1 h-2 w-2 -translate-y-1/2"
         indicatorClassName="border-sky-700"
       />
-      {inputCount === 2 && (
+      {inputCount >= 2 && (
         <CustomTypedHandle
           type="target"
           position={Position.Left}
-          style={{ top: "65%" }}
+          style={{ top: inputCount === 2 ? "65%" : "50%" }}
           id="in-2"
           dataType={in2Type}
           typeMask={in2Mask}
+          className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+          indicatorClassName="border-sky-700"
+        />
+      )}
+      {inputCount === 3 && (
+        <CustomTypedHandle
+          type="target"
+          position={Position.Left}
+          style={{ top: "70%" }}
+          id="in-3"
+          dataType={in3Type}
+          typeMask={in3Mask}
           className="absolute -left-1 h-2 w-2 -translate-y-1/2"
           indicatorClassName="border-sky-700"
         />

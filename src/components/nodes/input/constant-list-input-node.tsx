@@ -37,8 +37,7 @@ function itemsToMultiline(items: Array<string | number>): string {
 }
 
 export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Lista constante", items: rawItems } =
-    (data ?? {}) as ConstantListInputNodeData;
+  const { items: rawItems } = (data ?? {}) as ConstantListInputNodeData;
 
   const items = Array.isArray(rawItems) && rawItems.length > 0 ? rawItems : DEFAULT_ITEMS;
 

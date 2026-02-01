@@ -210,9 +210,19 @@ export function inferPortDataType(params: {
   if (nodeType === "concat") {
     return "text";
   }
+  if (nodeType === "replaceText" || nodeType === "subtractText") {
+    return "text";
+  }
 
   // Control & logic
-  if (nodeType === "and" || nodeType === "or" || nodeType === "not") {
+  if (
+    nodeType === "and" ||
+    nodeType === "nand" ||
+    nodeType === "or" ||
+    nodeType === "nor" ||
+    nodeType === "xor" ||
+    nodeType === "not"
+  ) {
     return "boolean";
   }
   if (nodeType === "comparison") {
@@ -305,9 +315,19 @@ export function getPortTypeMask(params: {
     // Inputs: number OR text; output is text.
     return isOutput ? TYPE_TEXT : TYPE_NUMBER | TYPE_TEXT;
   }
+  if (nodeType === "replaceText" || nodeType === "subtractText") {
+    return TYPE_TEXT;
+  }
 
   // Control & logic
-  if (nodeType === "and" || nodeType === "or" || nodeType === "not") {
+  if (
+    nodeType === "and" ||
+    nodeType === "nand" ||
+    nodeType === "or" ||
+    nodeType === "nor" ||
+    nodeType === "xor" ||
+    nodeType === "not"
+  ) {
     return TYPE_BOOLEAN;
   }
   if (nodeType === "comparison") {

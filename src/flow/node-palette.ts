@@ -129,6 +129,16 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Concatenar",
         description: "Une dos cadenas o listas en una sola.",
       },
+      {
+        type: "replaceText",
+        label: "Reemplazar",
+        description: "Sustituye coincidencias de un texto por otro.",
+      },
+      {
+        type: "subtractText",
+        label: "Sustraer",
+        description: "Elimina todas las ocurrencias de un fragmento en un texto.",
+      },
     ],
   },
   {
@@ -146,9 +156,24 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Devuelve verdadero si todas las entradas son verdaderas.",
       },
       {
+        type: "nand",
+        label: "NAND",
+        description: "Verdadero salvo que todas las entradas sean verdaderas.",
+      },
+      {
         type: "or",
         label: "OR",
         description: "Devuelve verdadero si al menos una entrada es verdadera.",
+      },
+      {
+        type: "nor",
+        label: "NOR",
+        description: "Verdadero solo cuando todas las entradas son falsas.",
+      },
+      {
+        type: "xor",
+        label: "XOR",
+        description: "Verdadero si exactamente una entrada es verdadera.",
       },
       {
         type: "not",
