@@ -60,7 +60,8 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "choiceInput",
         label: "Selección aleatoria",
-        description: "Elige un elemento aleatorio de una lista de opciones configurables.",
+        description:
+          "Elige un elemento aleatorio de una lista de opciones configurables.",
       },
       {
         type: "microbitReadButton",
@@ -166,6 +167,11 @@ export const nodePalette: NodePaletteCategory[] = [
         description:
           "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
       },
+      {
+        type: "scatter",
+        label: "Distribuir",
+        description: "Distribuye una lista a varios nodos",
+      },
     ],
   },
   {
@@ -191,7 +197,8 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "unzip",
         label: "Unzip",
-        description: "Separa una lista de pares en dos listas (inverso de Zip).",
+        description:
+          "Separa una lista de pares en dos listas (inverso de Zip).",
       },
       {
         type: "filter",
@@ -256,5 +263,5 @@ export const nodePalette: NodePaletteCategory[] = [
           "Activa un sonido en el micro:bit (configurable Bluetooth/Serial).",
       },
     ],
-  }
+  },
 ];

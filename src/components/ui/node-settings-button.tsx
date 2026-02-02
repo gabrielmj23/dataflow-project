@@ -22,7 +22,7 @@ export default function NodeSettingsButton({
       variant="node"
       aria-label={label}
       className={cn(
-        "bg-transparent shadow-none p-1 text-[color:var(--node-action-color)]",
+        "bg-transparent shadow-none p-1 text-(--node-action-color)",
         className,
       )}
     >
