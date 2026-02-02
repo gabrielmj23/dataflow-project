@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
   type ComponentProps,
+  type ReactNode,
 } from "react";
 import { Trash2 } from "lucide-react";
 import { useNodeId, useReactFlow } from "@xyflow/react";
@@ -33,6 +34,10 @@ type BaseNodeProps = ComponentProps<"div"> & {
   /** Hide the delete button (mostly for embedded previews). */
   hideDeleteButton?: boolean;
   selected?: boolean;
+  /** Optional extra actions shown on hover (right side). */
+  sideActions?: ReactNode;
+  /** Optional class override for side actions container positioning. */
+  sideActionsClassName?: string;
 };
 
 export function BaseNode({
@@ -43,6 +48,8 @@ export function BaseNode({
   onConfigClick,
   onDelete,
   hideDeleteButton,
+  sideActions,
+  sideActionsClassName,
   ...props
 }: BaseNodeProps) {
   const hasErrorTooltip = Boolean(runtimeError) && !disableRuntimeStyles;
@@ -89,7 +96,6 @@ export function BaseNode({
         // `rf-node-inner` class so global runtime CSS won't touch it.
         disableRuntimeStyles ? "" : "rf-node-inner",
         "group bg-card text-card-foreground relative rounded-md border border-border",
-        "hover:ring-1",
         // React Flow displays node elements inside of a `NodeWrapper` component,
         // which compiles down to a div with the class `react-flow__node`.
         // When a node is selected, the class `selected` is added to the
@@ -159,6 +165,23 @@ export function BaseNode({
               </TooltipContent>
             </Tooltip>
           )}
+        </div>
+      )}
+
+      {sideActions && (
+        <div
+          className={cn(
+            "absolute top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1",
+            // translucent white background with slight blur like the console
+            "bg-white/70 backdrop-blur-sm rounded-md border border-white/30",
+            "transition-opacity duration-150",
+            actionsVisible
+              ? "opacity-100 pointer-events-auto"
+              : "opacity-0 pointer-events-none",
+            sideActionsClassName,
+          )}
+        >
+          {sideActions}
         </div>
       )}
 

@@ -13,6 +13,7 @@ import {
   EngineZipNode,
   EngineUnzipNode,
 } from "../nodes/list-nodes";
+import { EngineGatherNode, EngineScatterNode } from "../nodes/control-nodes";
 import { FirePatterns } from "../program-elements";
 
 import { asRecord, isNonEmptyArray } from "../deserialize/utils";
@@ -124,6 +125,33 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
 
     case NODE_TYPES.COUNT_NODE:
       return new EngineCountNode();
+
+    case NODE_TYPES.SCATTER_NODE: {
+      const rawCount =
+        typeof data.outputCount === "number" ? data.outputCount : 0;
+      const inferredCount =
+        ctx.scatterOutputCountByNodeId?.get(String(flowNode.id)) ?? 0;
+      const outputCount = Math.max(rawCount, inferredCount, 0);
+      return new EngineScatterNode({ outputCount });
+    }
+
+    case NODE_TYPES.GATHER_NODE: {
+      const rawCount =
+        typeof data.outputCount === "number" ? data.outputCount : 0;
+      const inferredCount =
+        ctx.gatherInputCountByNodeId?.get(String(flowNode.id)) ?? 0;
+      const inputCount = Math.max(rawCount, inferredCount, 0);
+
+      const incoming = ctx.gatherIncomingByNodeId?.get(String(flowNode.id));
+      const firePatterns = Array.from({ length: inputCount }, (_v, idx) => {
+        const portId = `input${idx + 1}`;
+        return incoming?.has(portId)
+          ? FirePatterns.EXISTS
+          : FirePatterns.DONT_CARE;
+      });
+
+      return new EngineGatherNode({ inputCount, firePatterns });
+    }
 
     case NODE_TYPES.SORT_LIST_NODE: {
       const order = data.order;

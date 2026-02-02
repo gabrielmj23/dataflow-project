@@ -1,4 +1,6 @@
-export type PortDataType = "number" | "text" | "boolean" | "any";
+import { NODE_TYPES } from "@/common/constants";
+
+export type PortDataType = "number" | "text" | "boolean" | "list" | "any";
 
 // Bitmask for validating connections where an input can accept multiple types
 // (e.g. concat accepts number OR text).
@@ -7,7 +9,8 @@ export type PortDataTypeMask = number;
 const TYPE_NUMBER = 1 << 0;
 const TYPE_TEXT = 1 << 1;
 const TYPE_BOOLEAN = 1 << 2;
-const TYPE_ANY = TYPE_NUMBER | TYPE_TEXT | TYPE_BOOLEAN;
+const TYPE_LIST = 1 << 3;
+const TYPE_ANY = TYPE_NUMBER | TYPE_TEXT | TYPE_BOOLEAN | TYPE_LIST;
 
 export function maskToVisualPortDataType(mask: PortDataTypeMask): PortDataType {
   const safe =
@@ -16,12 +19,15 @@ export function maskToVisualPortDataType(mask: PortDataTypeMask): PortDataType {
   const hasNumber = (safe & TYPE_NUMBER) !== 0;
   const hasText = (safe & TYPE_TEXT) !== 0;
   const hasBoolean = (safe & TYPE_BOOLEAN) !== 0;
+  const hasList = (safe & TYPE_LIST) !== 0;
 
-  const count = Number(hasNumber) + Number(hasText) + Number(hasBoolean);
+  const count =
+    Number(hasNumber) + Number(hasText) + Number(hasBoolean) + Number(hasList);
   if (count !== 1) return "any";
   if (hasNumber) return "number";
   if (hasText) return "text";
-  return "boolean";
+  if (hasBoolean) return "boolean";
+  return "list";
 }
 
 export function getHandleShapeClasses(dataType: PortDataType): string {
@@ -47,6 +53,7 @@ export function describePortTypeMask(mask: PortDataTypeMask): string {
   if ((mask & TYPE_NUMBER) !== 0) parts.push("numérico");
   if ((mask & TYPE_TEXT) !== 0) parts.push("texto");
   if ((mask & TYPE_BOOLEAN) !== 0) parts.push("lógico");
+  if ((mask & TYPE_LIST) !== 0) parts.push("lista");
 
   if (parts.length === 0) return "desconocido";
   if (parts.length === 1) return parts[0];
@@ -62,6 +69,8 @@ function toMask(type: PortDataType): PortDataTypeMask {
       return TYPE_TEXT;
     case "boolean":
       return TYPE_BOOLEAN;
+    case "list":
+      return TYPE_LIST;
     case "any":
     default:
       return TYPE_ANY;
@@ -77,6 +86,7 @@ export function normalizePortDataType(value: unknown): PortDataType {
     case "number":
     case "text":
     case "boolean":
+    case "list":
     case "any":
       return value;
     default:
@@ -353,6 +363,9 @@ export function getPortTypeMask(params: {
   if (nodeType === "selector") {
     // Selector inputs and output accept any type (token + routed value).
     return TYPE_ANY;
+  }
+  if (nodeType === NODE_TYPES.SCATTER_NODE) {
+    return isOutput ? TYPE_ANY : TYPE_LIST;
   }
   if (nodeType === "switch") {
     // Switch passes through the incoming value.

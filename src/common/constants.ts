@@ -39,6 +39,8 @@ export const NODE_TYPES = {
   SWITCH_NODE: "switch",
   CONDITIONAL_NODE: "conditional",
   SELECTOR_NODE: "selector",
+  SCATTER_NODE: "scatter",
+  GATHER_NODE: "gather",
   FILTER_INPUT_VALUE: "filterInputValue",
   MAP_INPUT_VALUE: "mapInputValue",
   ZIP_NODE: "zip",

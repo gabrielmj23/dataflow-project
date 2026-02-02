@@ -58,7 +58,7 @@ export function CustomTypedHandle({
     <Handle
       {...props}
       className={cn(
-        "relative !border-0 !bg-transparent",
+        "relative border-0! bg-transparent!",
         // If callers pass width/height via classes (e.g. h-2 w-2), keep them.
         className
       )}

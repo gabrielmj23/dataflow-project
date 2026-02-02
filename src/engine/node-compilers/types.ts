@@ -21,6 +21,9 @@ export type NodeCompilerContext = {
   >;
   selectorIncomingByNodeId?: Map<string, Set<string>>;
   conditionalIncomingByNodeId?: Map<string, Set<string>>;
+  scatterOutputCountByNodeId?: Map<string, number>;
+  gatherInputCountByNodeId?: Map<string, number>;
+  gatherIncomingByNodeId?: Map<string, Set<string>>;
 
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];

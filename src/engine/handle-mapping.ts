@@ -334,6 +334,34 @@ register([NODE_TYPES.SELECTOR_NODE], (p) => {
   return String(handleId);
 });
 
+// Scatter node: single list input -> N outputs
+register([NODE_TYPES.SCATTER_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputList";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  const idx = parseIndexHandle(handleId);
+  if (handleId?.startsWith("out-") && idx) return `output${idx}`;
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+// Gather node: N inputs -> single list output
+register([NODE_TYPES.GATHER_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    const idx = parseIndexHandle(handleId) ?? 1;
+    if (handleId?.startsWith("in-") || handleId == null) {
+      return `input${idx}`;
+    }
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "outputList";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
 // Iteration/list nodes
 register([NODE_TYPES.ZIP_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;

@@ -61,7 +61,7 @@ export function isSelectionConnected(
 export function getLayoutedElements(nodes: FlowNode[], edges: FlowEdge[]) {
   dagreGraph.setGraph({ rankdir: "LR" });
 
-  const NODE_WIDTH = 240;
+  const NODE_WIDTH = 120;
   const NODE_HEIGHT = 64;
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });

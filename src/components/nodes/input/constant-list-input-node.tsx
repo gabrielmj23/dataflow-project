@@ -39,7 +39,8 @@ function itemsToMultiline(items: Array<string | number>): string {
 export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
   const { items: rawItems } = (data ?? {}) as ConstantListInputNodeData;
 
-  const items = Array.isArray(rawItems) && rawItems.length > 0 ? rawItems : DEFAULT_ITEMS;
+  const items =
+    Array.isArray(rawItems) && rawItems.length > 0 ? rawItems : DEFAULT_ITEMS;
 
   const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -105,7 +106,8 @@ export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
 
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Escribe cada valor en una línea distinta. Se emitirá siempre la misma lista.
+              Escribe cada valor en una línea distinta. Se emitirá siempre la
+              misma lista.
             </p>
 
             <div>
