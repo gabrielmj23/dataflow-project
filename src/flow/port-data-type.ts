@@ -210,7 +210,13 @@ export function inferPortDataType(params: {
   if (nodeType === "concat") {
     return "text";
   }
+  if (nodeType === "sliceText" || nodeType === "replaceText" || nodeType === "subtractText") {
+    return "text";
+  }
   if (nodeType === "replaceText" || nodeType === "subtractText") {
+    return "text";
+  }
+  if (nodeType === "sliceText") {
     return "text";
   }
 
@@ -260,7 +266,7 @@ export function getPortTypeMask(params: {
   handleType: "source" | "target";
   handleId: string | null | undefined;
 }): PortDataTypeMask {
-  const { nodeType, handleType } = params;
+  const { nodeType, handleType, handleId } = params;
 
   if (!nodeType) return TYPE_ANY;
 
@@ -318,6 +324,13 @@ export function getPortTypeMask(params: {
   if (nodeType === "replaceText" || nodeType === "subtractText") {
     return TYPE_TEXT;
   }
+  if (nodeType === "sliceText") {
+    if (isOutput) return TYPE_TEXT;
+    // in-1 text, in-2 start number, in-3 end number
+    if (handleId === "in-1") return TYPE_TEXT;
+    if (handleId === "in-2" || handleId === "in-3") return TYPE_NUMBER;
+    return TYPE_ANY;
+  }
 
   // Control & logic
   if (
@@ -361,6 +374,7 @@ export function getPortTypeMask(params: {
     nodeType === "zip" ||
     nodeType === "filter" ||
     nodeType === "map" ||
+    nodeType === "sortList" ||
     nodeType === "accumulate" ||
     nodeType === "count"
   ) {

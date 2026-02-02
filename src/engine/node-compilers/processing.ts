@@ -11,6 +11,7 @@ import {
   EnginePowerNode,
   EngineReplaceTextNode,
   EngineRoundNode,
+  EngineSliceTextNode,
   EngineSubtractTextNode,
   EngineSubstractNode,
   EngineSumNode,
@@ -306,6 +307,9 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
     }
     case NODE_TYPES.SUBTRACT_TEXT_NODE: {
       return new EngineSubtractTextNode();
+    }
+    case NODE_TYPES.SLICE_TEXT_NODE: {
+      return new EngineSliceTextNode();
     }
     case NODE_TYPES.FORMULA_EDITOR_NODE: {
       const formula = data.formula;

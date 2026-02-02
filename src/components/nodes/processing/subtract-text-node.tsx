@@ -2,17 +2,27 @@ import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Eraser } from "lucide-react";
 
-import { ProcessingExecutionNode } from "@/components/nodes/processing/processing-execution-node";
+import { TextRectNodeShell } from "@/components/nodes/text/text-rect-node-shell";
+import type { TextRectNodeShellProps } from "@/components/nodes/text/text-rect-node-shell";
 
-export const SubtractTextNode = memo((props: NodeProps) => (
-  <ProcessingExecutionNode
-    {...props}
-    nodeType="subtractText"
-    icon={<Eraser className="h-5 w-5" />}
-    defaultLabel="Sustraer"
-    configTitle="Configurar · Sustraer"
-    inputCount={2}
-  />
-));
+export type SubtractTextNodeData = {
+  label?: string;
+  runtimeError?: string | null;
+};
+
+export const SubtractTextNode = memo(({ data }: NodeProps) => {
+  const { label = "Sustraer", runtimeError } =
+    (data ?? {}) as SubtractTextNodeData;
+
+  const shellProps: TextRectNodeShellProps = {
+    nodeType: "subtractText",
+    icon: <Eraser className="h-5 w-5" />,
+    label,
+    runtimeError,
+    inputCount: 2,
+  };
+
+  return <TextRectNodeShell {...shellProps} />;
+});
 
 SubtractTextNode.displayName = "SubtractTextNode";

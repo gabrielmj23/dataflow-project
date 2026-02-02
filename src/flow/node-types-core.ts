@@ -26,6 +26,7 @@ import { FormulaEditorNode } from "@/components/nodes/processing/formula-editor-
 import { ConcatNode } from "@/components/nodes/processing/concat-node";
 import { ReplaceTextNode } from "@/components/nodes/processing/replace-text-node";
 import { SubtractTextNode } from "@/components/nodes/processing/subtract-text-node";
+import { SliceTextNode } from "@/components/nodes/processing/slice-text-node";
 
 import { ComparisonNode } from "@/components/nodes/control/comparison-node";
 import { AndNode } from "@/components/nodes/control/and-node";
@@ -51,6 +52,7 @@ import { FilterNode } from "@/components/nodes/iteration/filter-node";
 import { MapNode } from "@/components/nodes/iteration/map-node";
 import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
 import { CountNode } from "@/components/nodes/iteration/count-node";
+import { SortListNode } from "@/components/nodes/iteration/sort-list-node";
 import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
 import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-node"; // New import for SubflowInputNode
@@ -82,6 +84,7 @@ export const nodeTypesCore: NodeTypes = {
   concat: ConcatNode,
   replaceText: ReplaceTextNode,
   subtractText: SubtractTextNode,
+  sliceText: SliceTextNode,
   comparison: ComparisonNode,
   and: AndNode,
   nand: NandNode,
@@ -105,5 +108,6 @@ export const nodeTypesCore: NodeTypes = {
   map: MapNode,
   accumulate: AccumulateNode,
   count: CountNode,
+  sortList: SortListNode,
   comment: CommentNode,
 };

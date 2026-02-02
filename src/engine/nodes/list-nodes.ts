@@ -163,6 +163,41 @@ export class EngineCountNode extends NodeDefinition {
   }
 }
 
+export class EngineSortListNode extends NodeDefinition {
+  constructor(order: "asc" | "desc" = "asc") {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? [...inputList] : [];
+        const isNumeric = list.every(
+          (item) => typeof item === "number" && Number.isFinite(item)
+        );
+
+        if (isNumeric) {
+          const numericList = list as number[];
+          return [...numericList].sort((a, b) =>
+            order === "asc" ? a - b : b - a
+          );
+        }
+
+        const decorated = list.map((value) => ({
+          value,
+          key: value == null ? "" : String(value),
+        }));
+
+        decorated.sort((a, b) =>
+          order === "asc"
+            ? a.key.localeCompare(b.key)
+            : b.key.localeCompare(a.key)
+        );
+
+        return decorated.map((item) => item.value);
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "outputList"]
+    );
+  }
+}
+
 export class EngineZipNode extends NodeDefinition {
   constructor() {
     super(

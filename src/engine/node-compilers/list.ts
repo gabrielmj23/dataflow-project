@@ -9,6 +9,7 @@ import {
   EngineMapNode,
   EnginePulseSequenceNode,
   EngineReduceNode,
+  EngineSortListNode,
   EngineZipNode,
   EngineUnzipNode,
 } from "../nodes/list-nodes";
@@ -123,6 +124,12 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
 
     case NODE_TYPES.COUNT_NODE:
       return new EngineCountNode();
+
+    case NODE_TYPES.SORT_LIST_NODE: {
+      const order = data.order;
+      const normalized = order === "desc" ? "desc" : "asc";
+      return new EngineSortListNode(normalized);
+    }
 
     default:
       return null;

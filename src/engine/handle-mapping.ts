@@ -365,7 +365,11 @@ register([NODE_TYPES.UNZIP_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register([NODE_TYPES.FILTER_NODE, NODE_TYPES.MAP_NODE], (p) => {
+register([
+  NODE_TYPES.FILTER_NODE,
+  NODE_TYPES.MAP_NODE,
+  NODE_TYPES.SORT_LIST_NODE,
+], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
     if (handleId === "in" || handleId == null) return "inputList";
@@ -402,6 +406,19 @@ register(
     throw unknownOutputHandle({ nodeId, nodeType, handleId });
   },
 );
+
+register([NODE_TYPES.SLICE_TEXT_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in-1") return "text";
+    if (handleId === "in-2") return "start";
+    if (handleId === "in-3") return "end";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
 
 /**
  * Maps a UI handle ID (XYFlow) into an engine port ID.
