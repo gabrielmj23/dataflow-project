@@ -172,6 +172,11 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Distribuir",
         description: "Distribuye una lista a varios nodos",
       },
+      {
+        type: "gather",
+        label: "Reunir",
+        description: "Reúne valores de varios nodos en una lista",
+      },
     ],
   },
   {

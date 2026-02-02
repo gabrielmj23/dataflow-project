@@ -165,6 +165,8 @@ export function buildEngineStoresFromFlowGraph(params: {
   const selectorIncomingByNodeId = new Map<string, Set<string>>();
   const conditionalIncomingByNodeId = new Map<string, Set<string>>();
   const scatterOutputCountByNodeId = new Map<string, number>();
+  const gatherInputCountByNodeId = new Map<string, number>();
+  const gatherIncomingByNodeId = new Map<string, Set<string>>();
   for (const edge of params.edges) {
     const sourceId = String(edge.source);
     const sourceNode = nodeById.get(sourceId);
@@ -180,6 +182,18 @@ export function buildEngineStoresFromFlowGraph(params: {
     const targetId = String(edge.target);
     const targetNode = nodeById.get(targetId);
     if (!targetNode) continue;
+
+    if (targetNode.type === NODE_TYPES.GATHER_NODE) {
+      const handleId = edge.targetHandle ?? null;
+      const idx = parseIndexHandle(handleId) ?? (handleId == null ? 1 : null);
+      if (idx) {
+        const current = gatherInputCountByNodeId.get(targetId) ?? 0;
+        gatherInputCountByNodeId.set(targetId, Math.max(current, idx));
+        const set = gatherIncomingByNodeId.get(targetId) ?? new Set<string>();
+        set.add(`input${idx}`);
+        gatherIncomingByNodeId.set(targetId, set);
+      }
+    }
 
     if (targetNode.type === NODE_TYPES.TIMER_INPUT) {
       timerHasIncomingByNodeId.set(targetId, true);
@@ -309,6 +323,8 @@ export function buildEngineStoresFromFlowGraph(params: {
       selectorIncomingByNodeId,
       conditionalIncomingByNodeId,
       scatterOutputCountByNodeId,
+      gatherInputCountByNodeId,
+      gatherIncomingByNodeId,
       onLog: params.onLog,
       onPrompt: params.onPrompt,
       signal: params.signal,
@@ -867,6 +883,8 @@ function flowNodeToEngineDefinition(
     selectorIncomingByNodeId?: Map<string, Set<string>>;
     conditionalIncomingByNodeId?: Map<string, Set<string>>;
     scatterOutputCountByNodeId?: Map<string, number>;
+    gatherInputCountByNodeId?: Map<string, number>;
+    gatherIncomingByNodeId?: Map<string, Set<string>>;
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
@@ -883,6 +901,8 @@ function flowNodeToEngineDefinition(
     selectorIncomingByNodeId: context?.selectorIncomingByNodeId,
     conditionalIncomingByNodeId: context?.conditionalIncomingByNodeId,
     scatterOutputCountByNodeId: context?.scatterOutputCountByNodeId,
+    gatherInputCountByNodeId: context?.gatherInputCountByNodeId,
+    gatherIncomingByNodeId: context?.gatherIncomingByNodeId,
     onLog: context?.onLog,
     onPrompt: context?.onPrompt,
     signal: context?.signal,

@@ -21,7 +21,8 @@ export function maskToVisualPortDataType(mask: PortDataTypeMask): PortDataType {
   const hasBoolean = (safe & TYPE_BOOLEAN) !== 0;
   const hasList = (safe & TYPE_LIST) !== 0;
 
-  const count = Number(hasNumber) + Number(hasText) + Number(hasBoolean) + Number(hasList);
+  const count =
+    Number(hasNumber) + Number(hasText) + Number(hasBoolean) + Number(hasList);
   if (count !== 1) return "any";
   if (hasNumber) return "number";
   if (hasText) return "text";

@@ -386,7 +386,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "not":
       case "switch":
       case "conditionalPair":
-      case NODE_TYPES.SCATTER_NODE: {
+      case NODE_TYPES.SCATTER_NODE:
+      case NODE_TYPES.GATHER_NODE: {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           and: "and",
@@ -395,6 +396,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           switch: "switch",
           conditionalPair: "conditionalPair",
           [NODE_TYPES.SCATTER_NODE]: NODE_TYPES.SCATTER_NODE,
+          [NODE_TYPES.GATHER_NODE]: NODE_TYPES.GATHER_NODE,
         };
 
         if (type === NODE_TYPES.SCATTER_NODE) {
@@ -408,6 +410,23 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             >
               <span className="mb-1 flex items-center justify-center">
                 <GitFork className="h-5 w-5 rotate-90" />
+              </span>
+              <span className="text-[0.65rem] leading-tight">{label}</span>
+            </div>
+          );
+        }
+
+        if (type === NODE_TYPES.GATHER_NODE) {
+          return (
+            <div
+              data-drag-preview
+              className="node-preview relative flex h-24 w-16 flex-col items-center justify-center rounded-none border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+              style={{
+                clipPath: "polygon(0% 0%, 100% 25%, 100% 75%, 0% 100%)",
+              }}
+            >
+              <span className="mb-1 flex items-center justify-center">
+                <GitFork className="h-5 w-5 -rotate-90" />
               </span>
               <span className="text-[0.65rem] leading-tight">{label}</span>
             </div>

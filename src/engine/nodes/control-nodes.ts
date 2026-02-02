@@ -39,3 +39,34 @@ export class EngineScatterNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineGatherNode extends NodeDefinition {
+  constructor(params?: { inputCount?: number; firePatterns?: FirePatterns[] }) {
+    const safeCount = Math.max(0, Math.floor(params?.inputCount ?? 0));
+    const inputPorts = Array.from(
+      { length: safeCount },
+      (_v, index) => `input${index + 1}`,
+    );
+
+    const patterns =
+      params?.firePatterns && params.firePatterns.length === inputPorts.length
+        ? params.firePatterns
+        : inputPorts.map(() => FirePatterns.EXISTS);
+
+    super(
+      (...args: unknown[]) => {
+        const result: unknown[] = [];
+        for (const value of args) {
+          if (Array.isArray(value)) {
+            result.push(...value);
+          } else if (value !== undefined) {
+            result.push(value);
+          }
+        }
+        return result;
+      },
+      patterns,
+      [...inputPorts, "outputList"],
+    );
+  }
+}

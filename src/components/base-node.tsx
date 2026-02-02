@@ -171,7 +171,7 @@ export function BaseNode({
       {sideActions && (
         <div
           className={cn(
-            "absolute -right-10 top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1",
+            "absolute top-1/2 -translate-y-1/2 z-10 flex flex-col gap-1",
             // translucent white background with slight blur like the console
             "bg-white/70 backdrop-blur-sm rounded-md border border-white/30",
             "transition-opacity duration-150",
