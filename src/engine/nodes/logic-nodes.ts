@@ -56,10 +56,40 @@ export class EngineAndNode extends NodeDefinition {
   }
 }
 
+export class EngineNandNode extends NodeDefinition {
+  constructor() {
+    super(
+      (a: boolean, b: boolean) => !(a && b),
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"]
+    );
+  }
+}
+
 export class EngineOrNode extends NodeDefinition {
   constructor() {
     super(
       (a: boolean, b: boolean) => a || b,
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"]
+    );
+  }
+}
+
+export class EngineNorNode extends NodeDefinition {
+  constructor() {
+    super(
+      (a: boolean, b: boolean) => !(a || b),
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"]
+    );
+  }
+}
+
+export class EngineXorNode extends NodeDefinition {
+  constructor() {
+    super(
+      (a: boolean, b: boolean) => Boolean(a) !== Boolean(b),
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
       ["input1", "input2", "output"]
     );

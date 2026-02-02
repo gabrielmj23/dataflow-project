@@ -71,64 +71,29 @@ export const nodePalette: NodePaletteCategory[] = [
     ],
   },
   {
-    id: "processing",
-    title: "Proceso",
+    id: "math",
+    title: "Matemática",
     items: [
-      {
-        type: "sum",
-        label: "Sumar",
-        description: "Suma dos valores numéricos.",
-      },
-      {
-        type: "subtract",
-        label: "Restar",
-        description: "Resta el segundo valor del primero.",
-      },
-      {
-        type: "multiply",
-        label: "Multiplicar",
-        description: "Multiplica dos valores numéricos.",
-      },
-      {
-        type: "divide",
-        label: "Dividir",
-        description: "Divide el primer valor entre el segundo.",
-      },
-      {
-        type: "mod",
-        label: "Módulo",
-        description: "Calcula el resto de la división entre dos valores.",
-      },
-      {
-        type: "power",
-        label: "Potencia",
-        description: "Eleva una base a un exponente.",
-      },
-      {
-        type: "floor",
-        label: "Piso",
-        description: "Redondea hacia abajo.",
-      },
-      {
-        type: "ceiling",
-        label: "Techo",
-        description: "Redondea hacia arriba.",
-      },
-      {
-        type: "round",
-        label: "Redondear",
-        description: "Redondea al entero más cercano.",
-      },
-      {
-        type: "formulaEditor",
-        label: "Editor de fórmulas",
-        description: "Calcula una expresión con variables numéricas.",
-      },
-      {
-        type: "concat",
-        label: "Concatenar",
-        description: "Une dos cadenas o listas en una sola.",
-      },
+      { type: "sum", label: "Sumar", description: "Suma dos valores numéricos." },
+      { type: "subtract", label: "Restar", description: "Resta el segundo valor del primero." },
+      { type: "multiply", label: "Multiplicar", description: "Multiplica dos valores numéricos." },
+      { type: "divide", label: "Dividir", description: "Divide el primer valor entre el segundo." },
+      { type: "mod", label: "Módulo", description: "Calcula el resto de la división entre dos valores." },
+      { type: "power", label: "Potencia", description: "Eleva una base a un exponente." },
+      { type: "floor", label: "Piso", description: "Redondea hacia abajo." },
+      { type: "ceiling", label: "Techo", description: "Redondea hacia arriba." },
+      { type: "round", label: "Redondear", description: "Redondea al entero más cercano." },
+      { type: "formulaEditor", label: "Editor de fórmulas", description: "Calcula una expresión con variables numéricas." },
+    ],
+  },
+  {
+    id: "text",
+    title: "Texto",
+    items: [
+      { type: "concat", label: "Concatenar", description: "Une dos cadenas o listas en una sola." },
+      { type: "replaceText", label: "Reemplazar", description: "Sustituye coincidencias de un texto por otro." },
+      { type: "subtractText", label: "Sustraer", description: "Elimina todas las ocurrencias de un fragmento en un texto." },
+      { type: "sliceText", label: "Recortar", description: "Devuelve un segmento del texto entre posición inicio y fin." },
     ],
   },
   {
@@ -146,9 +111,24 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Devuelve verdadero si todas las entradas son verdaderas.",
       },
       {
+        type: "nand",
+        label: "NAND",
+        description: "Verdadero salvo que todas las entradas sean verdaderas.",
+      },
+      {
         type: "or",
         label: "OR",
         description: "Devuelve verdadero si al menos una entrada es verdadera.",
+      },
+      {
+        type: "nor",
+        label: "NOR",
+        description: "Verdadero solo cuando todas las entradas son falsas.",
+      },
+      {
+        type: "xor",
+        label: "XOR",
+        description: "Verdadero si exactamente una entrada es verdadera.",
       },
       {
         type: "not",
@@ -203,6 +183,12 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Map",
         description:
           "Transforma cada elemento de una lista aplicando una función.",
+      },
+      {
+        type: "sortList",
+        label: "Ordenar lista",
+        description:
+          "Ordena una lista ascendente o descendente, numérica o alfabética.",
       },
       {
         type: "accumulate",

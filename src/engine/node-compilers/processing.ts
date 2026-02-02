@@ -9,7 +9,10 @@ import {
   EngineModNode,
   EngineMultiplyNode,
   EnginePowerNode,
+  EngineReplaceTextNode,
   EngineRoundNode,
+  EngineSliceTextNode,
+  EngineSubtractTextNode,
   EngineSubstractNode,
   EngineSumNode,
 } from "../nodes/algorithm-nodes";
@@ -298,6 +301,15 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         });
       }
       return new EngineConcatNode();
+    }
+    case NODE_TYPES.REPLACE_TEXT_NODE: {
+      return new EngineReplaceTextNode();
+    }
+    case NODE_TYPES.SUBTRACT_TEXT_NODE: {
+      return new EngineSubtractTextNode();
+    }
+    case NODE_TYPES.SLICE_TEXT_NODE: {
+      return new EngineSliceTextNode();
     }
     case NODE_TYPES.FORMULA_EDITOR_NODE: {
       const formula = data.formula;

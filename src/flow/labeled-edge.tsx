@@ -113,6 +113,30 @@ function getSequenceEdgeLabel(params: {
   }
 }
 
+function getTextTransformEdgeLabel(params: {
+  targetNode: unknown;
+  targetHandleId: string | null | undefined;
+}): string | null {
+  const { targetNode, targetHandleId } = params;
+  if (!targetNode || typeof targetNode !== "object") return null;
+  const type = (targetNode as { type?: unknown }).type;
+
+  if (type !== "replaceText" && type !== "subtractText" && type !== "sliceText") return null;
+
+  if (targetHandleId === "in-1") return "Texto";
+  if (targetHandleId === "in-2") {
+    if (type === "replaceText") return "Buscar";
+    if (type === "subtractText") return "Eliminar";
+    if (type === "sliceText") return "Inicio";
+  }
+  if (targetHandleId === "in-3") {
+    if (type === "replaceText") return "Nuevo";
+    if (type === "sliceText") return "Fin";
+  }
+
+  return null;
+}
+
 /**
  * Default edge renderer that adds labels for Switch outputs.
  *
@@ -168,7 +192,8 @@ export function LabeledEdge(props: EdgeProps) {
 
   const label =
     getSwitchEdgeLabel({ sourceNode, sourceHandleId }) ??
-    getSequenceEdgeLabel({ targetNode, targetHandleId });
+    getSequenceEdgeLabel({ targetNode, targetHandleId }) ??
+    getTextTransformEdgeLabel({ targetNode, targetHandleId });
 
   const useStraight =
     Boolean(props.data) &&
