@@ -18,6 +18,7 @@ export type ProcessingExecutionNodeProps = NodeProps & {
   icon: ReactNode;
   defaultLabel: string;
   configTitle: string;
+  inputCount?: 1 | 2 | 3;
 };
 
 export const ProcessingExecutionNode = memo(
@@ -28,6 +29,7 @@ export const ProcessingExecutionNode = memo(
     icon,
     defaultLabel,
     configTitle,
+    inputCount,
   }: ProcessingExecutionNodeProps) => {
     const {
       label = defaultLabel,
@@ -54,6 +56,7 @@ export const ProcessingExecutionNode = memo(
           icon={icon}
           label={label}
           subtitle={config.subtitle}
+          inputCount={inputCount}
           runtimeError={runtimeError}
           onConfigClick={config.onConfigClick}
         />

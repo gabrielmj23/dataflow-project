@@ -24,11 +24,17 @@ import { CeilingNode } from "@/components/nodes/processing/ceiling-node";
 import { RoundNode } from "@/components/nodes/processing/round-node";
 import { FormulaEditorNode } from "@/components/nodes/processing/formula-editor-node";
 import { ConcatNode } from "@/components/nodes/processing/concat-node";
+import { ReplaceTextNode } from "@/components/nodes/processing/replace-text-node";
+import { SubtractTextNode } from "@/components/nodes/processing/subtract-text-node";
+import { SliceTextNode } from "@/components/nodes/processing/slice-text-node";
 
 import { ComparisonNode } from "@/components/nodes/control/comparison-node";
 import { AndNode } from "@/components/nodes/control/and-node";
 import { OrNode } from "@/components/nodes/control/or-node";
 import { NotNode } from "@/components/nodes/control/not-node";
+import { NandNode } from "@/components/nodes/control/nand-node";
+import { NorNode } from "@/components/nodes/control/nor-node";
+import { XorNode } from "@/components/nodes/control/xor-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
 import { SelectorNode } from "@/components/nodes/control/selector-node";
@@ -46,6 +52,7 @@ import { FilterNode } from "@/components/nodes/iteration/filter-node";
 import { MapNode } from "@/components/nodes/iteration/map-node";
 import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
 import { CountNode } from "@/components/nodes/iteration/count-node";
+import { SortListNode } from "@/components/nodes/iteration/sort-list-node";
 import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
 import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-node"; // New import for SubflowInputNode
@@ -77,9 +84,15 @@ export const nodeTypesCore: NodeTypes = {
   round: RoundNode,
   formulaEditor: FormulaEditorNode,
   concat: ConcatNode,
+  replaceText: ReplaceTextNode,
+  subtractText: SubtractTextNode,
+  sliceText: SliceTextNode,
   comparison: ComparisonNode,
   and: AndNode,
+  nand: NandNode,
   or: OrNode,
+  nor: NorNode,
+  xor: XorNode,
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,
@@ -99,5 +112,6 @@ export const nodeTypesCore: NodeTypes = {
   map: MapNode,
   accumulate: AccumulateNode,
   count: CountNode,
+  sortList: SortListNode,
   comment: CommentNode,
 };

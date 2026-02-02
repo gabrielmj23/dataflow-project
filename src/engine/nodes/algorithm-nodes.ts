@@ -111,6 +111,74 @@ export class EngineConcatNode extends NodeDefinition {
   }
 }
 
+export class EngineReplaceTextNode extends NodeDefinition {
+  constructor() {
+    super(
+      (text: unknown, search: unknown, replacement: unknown) => {
+        const source = String(text ?? "");
+        const needle = String(search ?? "");
+        if (needle.length === 0) return source;
+        const repl = String(replacement ?? "");
+        return source.split(needle).join(repl);
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["text", "search", "replacement", "output"],
+      {
+        stickyInputPorts: ["text", "search", "replacement"],
+      },
+    );
+  }
+}
+
+export class EngineSubtractTextNode extends NodeDefinition {
+  constructor() {
+    super(
+      (text: unknown, search: unknown) => {
+        const source = String(text ?? "");
+        const needle = String(search ?? "");
+        if (needle.length === 0) return source;
+        return source.split(needle).join("");
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["text", "search", "output"],
+      {
+        stickyInputPorts: ["text", "search"],
+      },
+    );
+  }
+}
+
+export class EngineSliceTextNode extends NodeDefinition {
+  constructor() {
+    super(
+      (text: unknown, start: unknown, end: unknown) => {
+        const source = String(text ?? "");
+        const len = source.length;
+
+        const rawStart = Number(start);
+        const rawEnd = Number(end);
+
+        const s = Number.isFinite(rawStart)
+          ? Math.max(0, Math.floor(rawStart))
+          : 0;
+        const e = Number.isFinite(rawEnd)
+          ? Math.min(len, Math.floor(rawEnd) + 1)
+          : len;
+
+        const from = Math.min(len, Math.max(0, s));
+        const to = Math.min(len, Math.max(from, e));
+
+        return source.slice(from, to);
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["text", "start", "end", "output"],
+      {
+        stickyInputPorts: ["text", "start", "end"],
+      },
+    );
+  }
+}
+
 export class EngineFloorNode extends NodeDefinition {
   constructor() {
     super(

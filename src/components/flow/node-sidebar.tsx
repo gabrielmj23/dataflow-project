@@ -39,8 +39,9 @@ export function NodeSidebar({
 
   const categoryColorMap: Record<string, string> = {
     inputs: "bg-emerald-500",
-    processing: "bg-sky-500",
+    math: "bg-sky-500",
     control: "bg-orange-500",
+    text: "bg-fuchsia-600",
     iteration: "bg-teal-600",
     abstraction: "bg-violet-500",
     io: "bg-rose-500",
@@ -49,8 +50,9 @@ export function NodeSidebar({
 
   const categoryBorderMap: Record<string, string> = {
     inputs: "border-emerald-600",
-    processing: "border-sky-700",
+    math: "border-sky-700",
     control: "border-orange-600",
+    text: "border-fuchsia-700",
     iteration: "border-teal-800",
     abstraction: "border-violet-700",
     io: "border-rose-700",

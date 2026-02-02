@@ -220,9 +220,25 @@ export function inferPortDataType(params: {
   if (nodeType === "concat") {
     return "text";
   }
+  if (nodeType === "sliceText" || nodeType === "replaceText" || nodeType === "subtractText") {
+    return "text";
+  }
+  if (nodeType === "replaceText" || nodeType === "subtractText") {
+    return "text";
+  }
+  if (nodeType === "sliceText") {
+    return "text";
+  }
 
   // Control & logic
-  if (nodeType === "and" || nodeType === "or" || nodeType === "not") {
+  if (
+    nodeType === "and" ||
+    nodeType === "nand" ||
+    nodeType === "or" ||
+    nodeType === "nor" ||
+    nodeType === "xor" ||
+    nodeType === "not"
+  ) {
     return "boolean";
   }
   if (nodeType === "comparison") {
@@ -260,7 +276,7 @@ export function getPortTypeMask(params: {
   handleType: "source" | "target";
   handleId: string | null | undefined;
 }): PortDataTypeMask {
-  const { nodeType, handleType } = params;
+  const { nodeType, handleType, handleId } = params;
 
   if (!nodeType) return TYPE_ANY;
 
@@ -315,9 +331,26 @@ export function getPortTypeMask(params: {
     // Inputs: number OR text; output is text.
     return isOutput ? TYPE_TEXT : TYPE_NUMBER | TYPE_TEXT;
   }
+  if (nodeType === "replaceText" || nodeType === "subtractText") {
+    return TYPE_TEXT;
+  }
+  if (nodeType === "sliceText") {
+    if (isOutput) return TYPE_TEXT;
+    // in-1 text, in-2 start number, in-3 end number
+    if (handleId === "in-1") return TYPE_TEXT;
+    if (handleId === "in-2" || handleId === "in-3") return TYPE_NUMBER;
+    return TYPE_ANY;
+  }
 
   // Control & logic
-  if (nodeType === "and" || nodeType === "or" || nodeType === "not") {
+  if (
+    nodeType === "and" ||
+    nodeType === "nand" ||
+    nodeType === "or" ||
+    nodeType === "nor" ||
+    nodeType === "xor" ||
+    nodeType === "not"
+  ) {
     return TYPE_BOOLEAN;
   }
   if (nodeType === "comparison") {
@@ -354,6 +387,7 @@ export function getPortTypeMask(params: {
     nodeType === "zip" ||
     nodeType === "filter" ||
     nodeType === "map" ||
+    nodeType === "sortList" ||
     nodeType === "accumulate" ||
     nodeType === "count"
   ) {

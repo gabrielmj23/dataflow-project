@@ -13,6 +13,7 @@ import {
   Percent,
   ArrowDown,
   ArrowUp,
+  ArrowUpDown,
   Circle,
   Link2,
   Ampersand,
@@ -23,6 +24,9 @@ import {
   Volume2,
   PictureInPicture2,
   GitFork,
+  Replace as ReplaceIcon,
+  Eraser,
+  Scissors,
 } from "lucide-react";
 
 import {
@@ -61,8 +65,9 @@ export function AppSidebar({
   const categoryColorMap: Record<string, string> = React.useMemo(
     () => ({
       inputs: "bg-emerald-500",
-      processing: "bg-sky-500",
+      math: "bg-sky-500",
       control: "bg-orange-500",
+      text: "bg-fuchsia-600",
       iteration: "bg-teal-600",
       abstraction: "bg-violet-500",
       io: "bg-rose-500",
@@ -74,8 +79,9 @@ export function AppSidebar({
   const categoryBorderMap: Record<string, string> = React.useMemo(
     () => ({
       inputs: "border-emerald-600",
-      processing: "border-sky-700",
+      math: "border-sky-700",
       control: "border-orange-600",
+      text: "border-fuchsia-700",
       iteration: "border-teal-800",
       abstraction: "border-violet-700",
       io: "border-rose-700",
@@ -339,8 +345,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "floor":
       case "ceiling":
       case "round":
-      case "formulaEditor":
-      case "concat": {
+      case "formulaEditor": {
         const symbolMap: Record<string, string> = {
           sum: "plus",
           subtract: "minus",
@@ -352,7 +357,6 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           ceiling: "ceiling",
           round: "round",
           formulaEditor: "formula",
-          concat: "concat",
         };
         return (
           <div
@@ -374,7 +378,37 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               {symbolMap[type] === "formula" && (
                 <span className="text-xs font-bold">ƒx</span>
               )}
+            </span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "concat":
+      case "replaceText":
+      case "subtractText":
+      case "sliceText": {
+        const symbolMap: Record<string, string> = {
+          concat: "concat",
+          replaceText: "replaceText",
+          subtractText: "subtractText",
+          sliceText: "sliceText",
+        };
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-fuchsia-600 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
               {symbolMap[type] === "concat" && <Link2 className="h-4 w-4" />}
+              {symbolMap[type] === "replaceText" && (
+                <ReplaceIcon className="h-5 w-5" />
+              )}
+              {symbolMap[type] === "subtractText" && (
+                <Eraser className="h-5 w-5" />
+              )}
+              {symbolMap[type] === "sliceText" && (
+                <Scissors className="h-5 w-5" />
+              )}
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>
@@ -382,7 +416,10 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       }
       case "comparison":
       case "and":
+      case "nand":
       case "or":
+      case "nor":
+      case "xor":
       case "not":
       case "switch":
       case "conditionalPair":
@@ -391,7 +428,10 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           and: "and",
+          nand: "nand",
           or: "or",
+          nor: "nor",
+          xor: "xor",
           not: "not",
           switch: "switch",
           conditionalPair: "conditionalPair",
@@ -443,8 +483,17 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
                 <span className="-rotate-90 text-2xl font-bold">=</span>
               )}
               {symbolMap[type] === "and" && <Ampersand className="h-5 w-5" />}
+              {symbolMap[type] === "nand" && (
+                <span className="text-xs font-bold">⊼</span>
+              )}
               {symbolMap[type] === "or" && (
                 <span className="text-xs font-bold">∨</span>
+              )}
+              {symbolMap[type] === "nor" && (
+                <span className="text-xs font-bold">⊽</span>
+              )}
+              {symbolMap[type] === "xor" && (
+                <span className="text-xs font-bold">⊕</span>
               )}
               {symbolMap[type] === "not" && (
                 <span className="text-xs font-bold">¬</span>
@@ -474,6 +523,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "unzip":
       case "filter":
       case "map":
+      case "sortList":
       case "accumulate":
       case "count": {
         const symbolMap: Record<string, string> = {
@@ -483,6 +533,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           unzip: "⇅",
           filter: "↓",
           map: "↦",
+          sortList: "sort",
           accumulate: "Σ",
           count: "#",
         };
@@ -492,7 +543,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
           >
             <span className="text-xl font-bold leading-none">
-              {symbolMap[type] ?? ""}
+              {symbolMap[type] === "sort" ? <ArrowUpDown className="h-5 w-5" /> : symbolMap[type] ?? ""}
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>

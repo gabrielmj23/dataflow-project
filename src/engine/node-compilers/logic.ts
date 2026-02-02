@@ -3,9 +3,12 @@ import { validateFormula } from "@/utils/formula";
 
 import {
   EngineAndNode,
+  EngineNandNode,
   EngineComparisonNode,
   EngineNotNode,
   EngineOrNode,
+  EngineNorNode,
+  EngineXorNode,
   EngineSwitchNode,
 } from "../nodes/logic-nodes";
 import type { SwitchCondition, SwitchOperator } from "../nodes/logic-nodes";
@@ -39,8 +42,14 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
     }
     case NODE_TYPES.AND_NODE:
       return new EngineAndNode();
+    case NODE_TYPES.NAND_NODE:
+      return new EngineNandNode();
     case NODE_TYPES.OR_NODE:
       return new EngineOrNode();
+    case NODE_TYPES.NOR_NODE:
+      return new EngineNorNode();
+    case NODE_TYPES.XOR_NODE:
+      return new EngineXorNode();
     case NODE_TYPES.NOT_NODE:
       return new EngineNotNode();
 
