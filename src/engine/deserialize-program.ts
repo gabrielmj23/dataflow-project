@@ -164,7 +164,19 @@ export function buildEngineStoresFromFlowGraph(params: {
   >();
   const selectorIncomingByNodeId = new Map<string, Set<string>>();
   const conditionalIncomingByNodeId = new Map<string, Set<string>>();
+  const scatterOutputCountByNodeId = new Map<string, number>();
   for (const edge of params.edges) {
+    const sourceId = String(edge.source);
+    const sourceNode = nodeById.get(sourceId);
+    if (sourceNode?.type === NODE_TYPES.SCATTER_NODE) {
+      const handleId = edge.sourceHandle ?? null;
+      const idx = parseIndexHandle(handleId) ?? (handleId == null ? 1 : null);
+      if (idx) {
+        const current = scatterOutputCountByNodeId.get(sourceId) ?? 0;
+        scatterOutputCountByNodeId.set(sourceId, Math.max(current, idx));
+      }
+    }
+
     const targetId = String(edge.target);
     const targetNode = nodeById.get(targetId);
     if (!targetNode) continue;
@@ -296,6 +308,7 @@ export function buildEngineStoresFromFlowGraph(params: {
       pulseSequenceIncomingByNodeId,
       selectorIncomingByNodeId,
       conditionalIncomingByNodeId,
+      scatterOutputCountByNodeId,
       onLog: params.onLog,
       onPrompt: params.onPrompt,
       signal: params.signal,
@@ -853,6 +866,7 @@ function flowNodeToEngineDefinition(
     >;
     selectorIncomingByNodeId?: Map<string, Set<string>>;
     conditionalIncomingByNodeId?: Map<string, Set<string>>;
+    scatterOutputCountByNodeId?: Map<string, number>;
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
     signal?: AbortSignal;
@@ -868,6 +882,7 @@ function flowNodeToEngineDefinition(
     pulseSequenceIncomingByNodeId: context?.pulseSequenceIncomingByNodeId,
     selectorIncomingByNodeId: context?.selectorIncomingByNodeId,
     conditionalIncomingByNodeId: context?.conditionalIncomingByNodeId,
+    scatterOutputCountByNodeId: context?.scatterOutputCountByNodeId,
     onLog: context?.onLog,
     onPrompt: context?.onPrompt,
     signal: context?.signal,
