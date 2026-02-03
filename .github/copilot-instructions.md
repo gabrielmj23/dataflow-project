@@ -18,6 +18,14 @@
 - **Lint/tests**: No custom test harness noted. Typechecks run via `pnpm build`. ESLint config at root `eslint.config.js`.
 - **WS server**: Minimal message router; see `packages/ws-server/README.md` for protocol (hello → runner/controller, then snapshot/control messages). Environment vars: `WS_HOST`, `WS_PORT`, `WS_MAX_MESSAGE_BYTES`.
 
+- **Routing / Pages**: The app uses `react-router-dom` and organizes top-level pages under `src/pages/`:
+  - `ModeSelectPage` (`src/pages/ModeSelectPage.tsx`) – landing / mode selection (route `/`).
+  - `ChallengesPage` (`src/pages/ChallengesPage.tsx`) – challenge browser (route `/challenges`).
+  - `EditorPage` (`src/pages/EditorPage.tsx`) – the main editor view (routes `/editor` and `/editor/:challengeId`).
+  - The router shell is `src/App.tsx`, which mounts `BrowserRouter` and the `Routes`.
+
+  When adding new full-screen views, place them under `src/pages/` and keep smaller components in `src/components/`.
+
 When implementing a new node:
 1) Add UI component using the appropriate shell; register in `node-types-core.ts` and `node-palette.ts` with icon entry in `app-sidebar.tsx`.
 2) Define engine class in `src/engine/nodes/*` and compiler case in the relevant `node-compilers/*.ts` file.
