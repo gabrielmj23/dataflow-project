@@ -707,7 +707,6 @@ export default function EditorPage() {
           }
         >
           <AppHeader
-            title="Nodi"
             nodesCount={nodes.length}
             onDownload={onDownloadClick}
             onLoad={onLoadClick}

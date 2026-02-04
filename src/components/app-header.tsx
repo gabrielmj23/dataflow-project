@@ -3,7 +3,6 @@ import { Download, Upload, Unplug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type AppHeaderProps = {
-  title?: string;
   nodesCount?: number;
   onDownload?: () => void;
   onLoad?: () => void;
@@ -11,7 +10,6 @@ type AppHeaderProps = {
 };
 
 export default function AppHeader({
-  title = "Nodi",
   onDownload,
   onLoad,
   onOpenRemoteConfig,
@@ -19,27 +17,11 @@ export default function AppHeader({
   return (
     <header
       data-app-header
-      className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-2"
+      className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
     >
-      <div className="flex items-center gap-3">
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-md bg-linear-to-br from-primary to-primary/80 text-white">
-          <svg
-            className="h-5 w-5"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M5 3v18l15-9L5 3z" />
-          </svg>
-        </div>
-        <div className="flex items-center gap-2 ml-4">
-          <h1 className="text-xl font-semibold tracking-tight text-white">
-            {title}
-          </h1>
-        </div>
+      <div className="flex items-center">
+        <img src="/nodi-robot-head-nobg.png" className="h-12 mb-1" />
+        <img src="/logo-nodi.png" alt="Nodi" className="h-12 mt-1" />
       </div>
 
       <div className="flex items-center gap-2">
