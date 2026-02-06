@@ -160,47 +160,65 @@ export function ChallengeMap({
                 pointerEvents: "auto",
               }}
             >
-              <Popover>
-                <PopoverTrigger>
-                  <button
-                    aria-label={`${challenge.title} — ${style.label}`}
-                    className={cn(
-                      "flex h-10 w-10 items-center justify-center rounded-full border-2",
-                      {
-                        "bg-amber-500 border-amber-600": status === "available",
-                        "bg-emerald-500 border-emerald-600":
-                          status === "completed",
-                        "bg-slate-400 border-slate-600": status === "locked",
-                      },
-                    )}
-                    onClick={() => onSelect(challenge.id)}
-                  />
-                </PopoverTrigger>
+              {status === "locked" ? (
+                <Button
+                  aria-label={`${challenge.title} — ${style.label}`}
+                  className={cn(
+                    "flex h-10 w-10 items-center justify-center rounded-full border-2",
+                    {
+                      "bg-slate-400 border-slate-600 hover:bg-slate-400 hover:cursor-default":
+                        status === "locked",
+                    },
+                  )}
+                />
+              ) : (
+                <Popover>
+                  <PopoverTrigger>
+                    <Button
+                      aria-label={`${challenge.title} — ${style.label}`}
+                      className={cn(
+                        "flex h-10 w-10 items-center justify-center rounded-full border-2",
+                        {
+                          "bg-amber-500 border-amber-600 hover:bg-amber-600 hover:border-amber-700":
+                            status === "available",
+                          "bg-emerald-500 border-emerald-600 hover:bg-emerald-600 hover:border-emerald-700":
+                            status === "completed",
+                        },
+                      )}
+                      onClick={() => onSelect(challenge.id)}
+                    />
+                  </PopoverTrigger>
 
-                <PopoverContent sideOffset={8} className="w-64">
-                  <PopoverHeader>
-                    <PopoverTitle>{challenge.title}</PopoverTitle>
-                  </PopoverHeader>
-                  <PopoverDescription>
-                    <div className="text-sm mb-2">{challenge.description}</div>
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      {challenge.objectives.map((o) => (
-                        <span key={o} className="rounded-full border px-2 py-1">
-                          {o}
-                        </span>
-                      ))}
-                    </div>
-                    <div className="mt-3 flex gap-2">
-                      <Button
-                        onClick={() => onSelect(challenge.id)}
-                        className="ml-auto inline-flex items-center gap-2 rounded-lg bg-green-600/90 hover:bg-green-600 px-3 py-2 text-sm font-semibold text-white"
-                      >
-                        Iniciar reto <Play fill="white" />
-                      </Button>
-                    </div>
-                  </PopoverDescription>
-                </PopoverContent>
-              </Popover>
+                  <PopoverContent sideOffset={8} className="w-64">
+                    <PopoverHeader>
+                      <PopoverTitle>{challenge.title}</PopoverTitle>
+                    </PopoverHeader>
+                    <PopoverDescription>
+                      <div className="text-sm mb-2">
+                        {challenge.description}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {challenge.objectives.map((o) => (
+                          <span
+                            key={o}
+                            className="rounded-full border px-2 py-1"
+                          >
+                            {o}
+                          </span>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          onClick={() => onSelect(challenge.id)}
+                          className="ml-auto inline-flex items-center gap-2 rounded-lg bg-green-600/90 hover:bg-green-600 px-3 py-2 text-sm font-semibold text-white"
+                        >
+                          Iniciar reto <Play fill="white" />
+                        </Button>
+                      </div>
+                    </PopoverDescription>
+                  </PopoverContent>
+                </Popover>
+              )}
             </div>
           );
         })}
