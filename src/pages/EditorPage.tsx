@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   ReactFlow,
   applyNodeChanges,
@@ -17,7 +18,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "@/App.css";
-import { Hand, MousePointer2, BrushCleaning } from "lucide-react";
+import { Hand, MousePointer2, BrushCleaning, ChevronDown, ChevronUp } from "lucide-react";
 import AppHeader from "@/components/app-header";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
@@ -31,6 +32,7 @@ import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
 import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
 import { TopBar } from "@/components/TopBar";
 import { TopActionPanel } from "@/components/TopActionPanel";
+import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { usePaletteDrag } from "@/hooks/usePaletteDrag";
 import { SubflowTemplateContext } from "@/flow/subflow-templates-context";
@@ -50,6 +52,15 @@ import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import { useRemoteConfigState } from "@/hooks/useRemoteConfig";
 import type { RemoteExecutor } from "@/engine/deserialize-program";
 import { RemoteControllersProvider } from "@/ws/remote-controllers-context";
+import { DataflowEngine } from "@/engine/engine";
+import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
+import { serializeProgram } from "@/flow/serialization";
+import {
+  loadChallengeDefinition,
+  type ChallengeDefinition,
+  type ChallengeTestCase,
+} from "@/challenges/definitions";
+import type { NodePaletteItem } from "@/flow/node-palette";
 import {
   type FlowBounds,
   type FlowEdge,
@@ -69,6 +80,8 @@ const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
 
 export default function EditorPage() {
+  const { challengeId } = useParams<{ challengeId?: string }>();
+
   const {
     config: remoteConfig,
     setConfig: setRemoteConfig,
@@ -76,6 +89,18 @@ export default function EditorPage() {
   } = useRemoteConfigState();
 
   const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
+
+  const [challengeDefinition, setChallengeDefinition] =
+    useState<ChallengeDefinition | null>(null);
+  const [isChallengeLoading, setIsChallengeLoading] = useState(false);
+  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [validationResult, setValidationResult] = useState<{
+    status: "idle" | "success" | "failure";
+    message?: string;
+    actualLines: string[];
+  }>({ status: "idle", actualLines: [] });
+  const [isValidating, setIsValidating] = useState(false);
+  const [isChallengeOpen, setIsChallengeOpen] = useState(true);
 
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
@@ -106,6 +131,7 @@ export default function EditorPage() {
     onNodeDragStop,
     isRestoringRef,
     isDraggingRef,
+    resetHistory,
   } = useFlowHistory({
     nodes,
     edges,
@@ -141,6 +167,25 @@ export default function EditorPage() {
     setNodes,
     isRuntimeUpdateRef,
   });
+
+  const normalizeLines = useCallback((text: string) => {
+    return text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }, []);
+
+  const latestConsoleLines = useMemo(
+    () => normalizeLines(consoleOutputText),
+    [consoleOutputText, normalizeLines],
+  );
+
+  const expectedOutputLines = useMemo(() => {
+    if (!challengeDefinition) return [] as string[];
+    return (challengeDefinition.grading.expectedConsole ?? [])
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+  }, [challengeDefinition]);
 
   // Engine event sink that can be wired to the WS runner bridge without
   // creating hook ordering cycles.
@@ -195,8 +240,256 @@ export default function EditorPage() {
     return onRunClick();
   }, [onRunClick]);
 
-  const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
-    usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
+  const runTestCase = useCallback(
+    async (testCase: ChallengeTestCase, opts: { caseInsensitive: boolean }) => {
+      const program = serializeProgram(
+        {
+          nodes,
+          edges,
+          programName,
+        },
+        false,
+      );
+
+      const actualLinesRaw: string[] = [];
+      const formatLogText = (data: unknown) => {
+        if (typeof data === "string") return data;
+        if (typeof data === "number" || typeof data === "boolean") return String(data);
+        if (data instanceof Error) return data.message;
+        try {
+          return JSON.stringify(data);
+        } catch {
+          return String(data);
+        }
+      };
+
+      let promptIndex = 0;
+
+      const onLog = ({ level, data }: { level: string; data: unknown }) => {
+        const baseText = formatLogText(data);
+        const text = level === "error" ? `Error: ${baseText}` : baseText;
+        actualLinesRaw.push(text);
+      };
+
+      const onPrompt = ({
+        type,
+        defaultValue,
+        submit,
+      }: {
+        nodeId: string;
+        prompt: string;
+        type: "number" | "text";
+        defaultValue?: unknown;
+        submit: (value: unknown) => void;
+        cancel: () => void;
+      }) => {
+        const value = (testCase.inputs ?? [])[promptIndex++] ?? "";
+        if (type === "number") {
+          const n = Number(value);
+          submit(Number.isFinite(n) ? n : Number(defaultValue ?? 0));
+        } else {
+          submit(value);
+        }
+      };
+
+      const stores = deserializeProgramToEngineStores(program, {
+        onLog: ({ level, message, data }) => onLog({ level, data: message === "write" ? data : data ?? message }),
+        onPrompt,
+        signal: new AbortController().signal,
+        remoteExecutor: remoteExecutorRef.current ?? undefined,
+        resolveSubflowTemplate: resolveTemplate,
+        maxSubflowDepth: 1000,
+      });
+
+      const engine = new DataflowEngine();
+      engine.setObserver({ onLog, onPrompt });
+
+      engine.loadProgram({
+        nodes: stores.nodeStore.getNodes(),
+        arcs: stores.arcStore.getArcs(),
+      });
+
+      await engine.run({ initialTokens: [], maxSteps: 10_000 });
+
+      const actualLines = normalizeLines(actualLinesRaw.join("\n"));
+      const expectedLines = normalizeLines(testCase.expected.join("\n"));
+
+      const matchMode = challengeDefinition?.grading.matchMode ?? "exact";
+      const caseInsensitive = opts.caseInsensitive;
+
+      const compare = (() => {
+        if (matchMode === "contains") {
+          return expectedLines.every((expected) =>
+            actualLines.some((line) =>
+              caseInsensitive
+                ? line.toLowerCase().includes(expected.toLowerCase())
+                : line.includes(expected),
+            ),
+          );
+        }
+        if (matchMode === "regex") {
+          return expectedLines.every((pattern) => {
+            try {
+              const flags = caseInsensitive ? "i" : "";
+              const regex = new RegExp(pattern, flags);
+              return actualLines.some((line) => regex.test(line));
+            } catch {
+              return false;
+            }
+          });
+        }
+
+        if (expectedLines.length !== actualLines.length) return false;
+        return expectedLines.every((line, idx) =>
+          caseInsensitive
+            ? line.toLowerCase() === actualLines[idx].toLowerCase()
+            : line === actualLines[idx],
+        );
+      })();
+
+      return { matches: compare, actualLines } as const;
+    },
+    [nodes, edges, programName, normalizeLines, remoteExecutorRef, resolveTemplate, challengeDefinition?.grading.matchMode],
+  );
+
+  const validateChallengeOutput = useCallback(async () => {
+    if (!challengeDefinition) return;
+
+    setIsConsoleOpen(true);
+    setIsValidating(true);
+
+    const expectedLines = expectedOutputLines;
+
+    const actualLines = latestConsoleLines;
+
+    const matchMode = challengeDefinition.grading.matchMode ?? "exact";
+    const caseInsensitive =
+      challengeDefinition.grading.caseInsensitive ?? true;
+
+    const compareLines = (expected: string[], actual: string[]) => {
+      if (matchMode === "contains") {
+        return expected.every((exp) =>
+          actual.some((line) =>
+            caseInsensitive
+              ? line.toLowerCase().includes(exp.toLowerCase())
+              : line.includes(exp),
+          ),
+        );
+      }
+      if (matchMode === "regex") {
+        return expected.every((pattern) => {
+          try {
+            const flags = caseInsensitive ? "i" : "";
+            const regex = new RegExp(pattern, flags);
+            return actual.some((line) => regex.test(line));
+          } catch {
+            return false;
+          }
+        });
+      }
+      if (expected.length !== actual.length) return false;
+      return expected.every((line, idx) =>
+        caseInsensitive
+          ? line.toLowerCase() === actual[idx].toLowerCase()
+          : line === actual[idx],
+      );
+    };
+
+    const testCases = challengeDefinition.grading.testCases;
+
+    if (testCases && testCases.length > 0) {
+      try {
+        let lastResult = { matches: true, actualLines: [] as string[] };
+
+        for (let i = 0; i < testCases.length; i++) {
+          const tc = testCases[i];
+          const result = await runTestCase(tc, { caseInsensitive });
+          lastResult = result;
+          if (!result.matches) {
+            setValidationResult({
+              status: "failure",
+              message: `Falló el caso "${tc.name ?? `Caso ${i + 1}`}". Ajusta tu flujo y vuelve a intentar.`,
+              actualLines: result.actualLines,
+            });
+            setIsValidating(false);
+            return;
+          }
+        }
+
+        setValidationResult({
+          status: "success",
+          message: "¡Correcto! Todas las pruebas pasaron.",
+          actualLines: lastResult.actualLines,
+        });
+      } catch (err) {
+        setValidationResult({
+          status: "failure",
+          message: "No se pudo ejecutar las pruebas automáticas.",
+          actualLines: [],
+        });
+      }
+      setIsValidating(false);
+      return;
+    }
+
+    if (!actualLines.length) {
+      setValidationResult({
+        status: "failure",
+        message: "Aún no hay salida en la consola para validar.",
+        actualLines,
+      });
+      setIsValidating(false);
+      return;
+    }
+
+    const matches = compareLines(expectedLines, actualLines);
+
+    setValidationResult({
+      status: matches ? "success" : "failure",
+      message: matches
+        ? "¡Correcto! La salida coincide con lo esperado."
+        : "La salida no es correcta. Revisa tus conexiones y vuelve a intentar.",
+      actualLines,
+    });
+
+    setIsValidating(false);
+  }, [
+    challengeDefinition,
+    expectedOutputLines,
+    latestConsoleLines,
+    runTestCase,
+  ]);
+
+  const {
+    paletteCategories: basePaletteCategories,
+    onPaletteDragStart: onPaletteDragStartInternal,
+    onDragOver,
+    onDrop,
+  } = usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
+
+  const challengeAllowSet = useMemo(() => {
+    if (!challengeDefinition) return null;
+    return new Set(challengeDefinition.constraints.paletteAllowList);
+  }, [challengeDefinition]);
+
+  const paletteCategories = useMemo(() => {
+    if (!challengeAllowSet) return basePaletteCategories;
+
+    return basePaletteCategories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) => challengeAllowSet.has(item.type)),
+      }))
+      .filter((category) => category.items.length > 0);
+  }, [basePaletteCategories, challengeAllowSet]);
+
+  const onPaletteDragStart = useCallback(
+    (event: React.DragEvent, item: NodePaletteItem) => {
+      if (challengeAllowSet && !challengeAllowSet.has(item.type)) return;
+      onPaletteDragStartInternal(event, item);
+    },
+    [challengeAllowSet, onPaletteDragStartInternal],
+  );
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -234,6 +527,75 @@ export default function EditorPage() {
       setProgramName,
     });
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (!challengeId) {
+        setChallengeDefinition(null);
+        setChallengeError(null);
+        setValidationResult({ status: "idle", actualLines: [] });
+        setIsChallengeLoading(false);
+        return;
+      }
+
+      setIsChallengeLoading(true);
+      setChallengeError(null);
+
+      try {
+        const definition = await loadChallengeDefinition(challengeId);
+        if (cancelled) return;
+        setIsChallengeLoading(false);
+
+        if (!definition) {
+          setChallengeDefinition(null);
+          setChallengeError("No se encontró el desafío solicitado.");
+          return;
+        }
+
+        const lockedNodes = (definition.constraints.lockedNodes ?? []).map<
+          FlowNode
+        >((node, index) => ({
+          id: node.id || `locked-${index + 1}`,
+          type: node.type,
+          position: node.position,
+          data: { ...(node.data ?? {}), locked: true },
+          draggable: node.movable === true,
+          deletable: false,
+          selectable: true,
+        }));
+
+        const initialNodes = [
+          ...(definition.constraints.initialNodes ?? []),
+          ...lockedNodes,
+        ];
+        const initialEdges = definition.constraints.initialEdges ?? [];
+
+        setChallengeDefinition(definition);
+        setProgramName(definition.title);
+        setNodes(initialNodes);
+        setEdges(initialEdges);
+        resetHistory({ nodes: initialNodes, edges: initialEdges });
+        setValidationResult({ status: "idle", actualLines: [] });
+      } catch (error) {
+        if (cancelled) return;
+        setIsChallengeLoading(false);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el desafío.";
+        setChallengeError(message);
+        setChallengeDefinition(null);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [challengeId, resetHistory, setEdges, setNodes, setProgramName]);
+
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
     if (!open) {
@@ -248,10 +610,27 @@ export default function EditorPage() {
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nodesSnapshot) => {
-      const removedChanges = changes.filter(
+      const lockedNodeIds = new Set(
+        nodesSnapshot
+          .filter((node) => {
+            const data =
+              node.data && typeof node.data === "object"
+                ? (node.data as Record<string, unknown>)
+                : null;
+            return data?.locked === true || node.deletable === false;
+          })
+          .map((node) => String(node.id)),
+      );
+
+      const filteredChanges = changes.filter((change) => {
+        if (change.type !== "remove") return true;
+        return !lockedNodeIds.has(String(change.id));
+      });
+
+      const removedChanges = filteredChanges.filter(
         (change) => change.type === "remove",
       );
-      let expandedChanges = changes;
+      let expandedChanges = filteredChanges;
 
       if (removedChanges.length > 0) {
         const removedIds = new Set(
@@ -283,9 +662,11 @@ export default function EditorPage() {
             }
           }
 
-          expandedChanges = changes.concat(
+          expandedChanges = filteredChanges.concat(
             Array.from(removedIds)
-              .filter((id) => !removedChanges.some((c) => String(c.id) === id))
+              .filter((id) =>
+                !removedChanges.some((c) => String(c.id) === id),
+              )
               .map((id) => ({ type: "remove", id }) as NodeChange),
           );
 
@@ -509,11 +890,27 @@ export default function EditorPage() {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
 
       setNodes((prevNodes) => {
-        const removedIds = new Set(
-          prevNodes.filter((n) => n.selected).map((n) => n.id),
+        const lockedNodeIds = new Set(
+          prevNodes
+            .filter((node) => {
+              const data =
+                node.data && typeof node.data === "object"
+                  ? (node.data as Record<string, unknown>)
+                  : null;
+              return data?.locked === true || node.deletable === false;
+            })
+            .map((node) => String(node.id)),
         );
 
-        const nextNodes = prevNodes.filter((n) => !n.selected);
+        const removable = prevNodes.filter(
+          (node) => node.selected && !lockedNodeIds.has(String(node.id)),
+        );
+
+        const removedIds = new Set(removable.map((n) => n.id));
+
+        const nextNodes = prevNodes.filter(
+          (node) => !removedIds.has(String(node.id)),
+        );
 
         setEdges((prevEdges) =>
           prevEdges.filter((edge) => {
@@ -711,6 +1108,7 @@ export default function EditorPage() {
             onDownload={onDownloadClick}
             onLoad={onLoadClick}
             onOpenRemoteConfig={() => setIsRemoteDialogOpen(true)}
+            centerTitle={challengeDefinition?.title}
           />
 
           <div className="flex flex-1 min-h-0">
@@ -733,143 +1131,224 @@ export default function EditorPage() {
                   onProgramNameChange={setProgramName}
                 />
 
-                <div className="relative flex-1">
-                  <RemoteSettingsDialog
-                    config={remoteConfig}
-                    onChange={setRemoteConfig}
-                    onReset={resetConfig}
-                    open={isRemoteDialogOpen}
-                    setOpen={setIsRemoteDialogOpen}
-                  />
+                <div className="relative flex flex-1 min-h-0">
+                  <div className="relative flex-1">
+                    <RemoteSettingsDialog
+                      config={remoteConfig}
+                      onChange={setRemoteConfig}
+                      onReset={resetConfig}
+                      open={isRemoteDialogOpen}
+                      setOpen={setIsRemoteDialogOpen}
+                    />
 
-                  {remoteConfig.role === "controller" ? (
-                    <RemoteControllerPanel remoteConfig={remoteConfig} />
-                  ) : null}
+                    {remoteConfig.role === "controller" ? (
+                      <RemoteControllerPanel remoteConfig={remoteConfig} />
+                    ) : null}
 
-                  <SubflowTemplateContext.Provider
-                    value={{
-                      addOrUpdateTemplate,
-                      isNameTaken,
-                      resolveTemplate,
-                    }}
-                  >
-                    <ConnectionHighlightProvider value={connectionHighlight}>
-                      <CanvasContextMenu
-                        onContextMenu={(e: React.MouseEvent) => {
-                          setContextPoint({ x: e.clientX, y: e.clientY });
-                        }}
-                        onAddComment={addCommentAtContext}
-                        copySelection={copySelection}
-                        pasteSelection={pasteSelection}
-                      >
-                        <ReactFlow
-                          nodes={nodes}
-                          edges={edges}
-                          nodeTypes={nodeTypes}
-                          edgeTypes={{ default: LabeledEdge }}
-                          connectionLineComponent={ArrowConnectionLine}
-                          isValidConnection={
-                            connectionTooltip.isValidConnection
-                          }
-                          defaultEdgeOptions={{
-                            markerEnd: {
-                              type: MarkerType.ArrowClosed,
-                              width: 14,
-                              height: 14,
-                            },
+                    <SubflowTemplateContext.Provider
+                      value={{
+                        addOrUpdateTemplate,
+                        isNameTaken,
+                        resolveTemplate,
+                      }}
+                    >
+                      <ConnectionHighlightProvider value={connectionHighlight}>
+                        <CanvasContextMenu
+                          onContextMenu={(e: React.MouseEvent) => {
+                            setContextPoint({ x: e.clientX, y: e.clientY });
                           }}
-                          onInit={setReactFlowInstance}
-                          onNodesChange={onNodesChange}
-                          onEdgesChange={onEdgesChange}
-                          onConnect={onConnect}
-                          onConnectStart={onConnectStart}
-                          onConnectEnd={onConnectEnd}
-                          onDrop={onDrop}
-                          onDragOver={onDragOver}
-                          onNodeDragStart={onNodeDragStart}
-                          onNodeDragStop={onNodeDragStop}
-                          onPaneMouseMove={onPaneMouseMove}
-                          panOnDrag={canvasMode === "pan"}
-                          selectionOnDrag={canvasMode === "select"}
-                          selectionMode={SelectionMode.Partial}
-                          className={
-                            canvasMode === "pan"
-                              ? "rf-mode-pan"
-                              : "rf-mode-select"
-                          }
-                          fitView
-                          proOptions={{ hideAttribution: true }}
+                          onAddComment={addCommentAtContext}
+                          copySelection={copySelection}
+                          pasteSelection={pasteSelection}
                         >
-                          <ConnectionErrorTooltip
-                            open={connectionTooltip.tooltip.open}
-                            message={connectionTooltip.tooltip.message}
-                            x={connectionTooltip.tooltip.x}
-                            y={connectionTooltip.tooltip.y}
-                            onClose={connectionTooltip.hide}
-                          />
-                          <CreateSubflowOverlay
-                            selectedNodes={selectedNodes}
+                          <ReactFlow
+                            nodes={nodes}
                             edges={edges}
-                            onCreateClick={openCreateSubflow}
-                          />
-                          <Background variant={BackgroundVariant.Dots} />
-                          <Controls>
-                            <ControlButton
-                              onClick={() => setCanvasMode("pan")}
-                              aria-pressed={canvasMode === "pan"}
-                              title="Modo arrastrar (mover canvas)"
-                              className="rf-mode-toggle"
-                            >
-                              <Hand className="rf-icon-hand" />
-                            </ControlButton>
-                            <ControlButton
-                              onClick={() => setCanvasMode("select")}
-                              aria-pressed={canvasMode === "select"}
-                              title="Modo selección (cuadro)"
-                              className="rf-mode-toggle"
-                            >
-                              <MousePointer2 />
-                            </ControlButton>
-                            <ControlButton
-                              title="Mejorar formato"
-                              onClick={onLayout}
-                            >
-                              <BrushCleaning className="fill-none!" />
-                            </ControlButton>
-                          </Controls>
-                          <MiniMap />
-                          <TopActionPanel
-                            nodesCount={nodes.length}
-                            isEngineRunning={isEngineRunning}
-                            onRunClick={handleRunClick}
-                            onStopClick={onStopClick}
-                          />
+                            nodeTypes={nodeTypes}
+                            edgeTypes={{ default: LabeledEdge }}
+                            connectionLineComponent={ArrowConnectionLine}
+                            isValidConnection={
+                              connectionTooltip.isValidConnection
+                            }
+                            defaultEdgeOptions={{
+                              markerEnd: {
+                                type: MarkerType.ArrowClosed,
+                                width: 14,
+                                height: 14,
+                              },
+                            }}
+                            onInit={setReactFlowInstance}
+                            onNodesChange={onNodesChange}
+                            onEdgesChange={onEdgesChange}
+                            onConnect={onConnect}
+                            onConnectStart={onConnectStart}
+                            onConnectEnd={onConnectEnd}
+                            onDrop={onDrop}
+                            onDragOver={onDragOver}
+                            onNodeDragStart={onNodeDragStart}
+                            onNodeDragStop={onNodeDragStop}
+                            onPaneMouseMove={onPaneMouseMove}
+                            panOnDrag={canvasMode === "pan"}
+                            selectionOnDrag={canvasMode === "select"}
+                            selectionMode={SelectionMode.Partial}
+                            className={
+                              canvasMode === "pan"
+                                ? "rf-mode-pan"
+                                : "rf-mode-select"
+                            }
+                            fitView
+                            proOptions={{ hideAttribution: true }}
+                          >
+                            {challengeDefinition ? (
+                              <div className="pointer-events-none absolute right-4 top-16 z-20 flex w-72 px-2">
+                                <div className="pointer-events-auto grid w-full grid-cols-1 gap-0 rounded-2xl bg-white/95 text-slate-900 shadow-lg max-w-xs overflow-hidden">
+                                  <div className="flex items-center justify-between  border-[var(--nodi-blue-border)] bg-[var(--nodi-blue)] px-3 py-2 text-sm font-medium text-white">
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="hover:bg-white/10"
+                                        onClick={() => setIsChallengeOpen((s) => !s)}
+                                        title={isChallengeOpen ? "Minimizar" : "Expandir"}
+                                        aria-label={isChallengeOpen ? "Minimizar" : "Expandir"}
+                                      >
+                                        {isChallengeOpen ? (
+                                          <ChevronDown className="text-white" />
+                                        ) : (
+                                          <ChevronUp className="text-white" />
+                                        )}
+                                      </Button>
+                                      <span className="uppercase tracking-[0.18em] text-[11px]">Desafío</span>
+                                    </div>
 
-                          <ConsolePanel
-                            consoleOutputText={consoleOutputText}
-                            activeRuntimePrompt={activeRuntimePrompt}
-                            getRuntimePromptText={getRuntimePromptText}
-                            runtimePromptInput={runtimePromptInput}
-                            setRuntimePromptInput={setRuntimePromptInput}
-                            onSubmitRuntimePrompt={onSubmitRuntimePrompt}
-                            onCancelRuntimePrompt={onCancelRuntimePrompt}
-                            onClearConsoleClick={onClearConsoleClick}
-                            consoleScrollRef={consoleScrollRef}
-                            consoleInputRef={consoleInputRef}
-                            isOpen={isConsoleOpen}
-                            onToggle={() => setIsConsoleOpen((prev) => !prev)}
-                          />
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="application/json,.json"
-                            className="hidden"
-                            onChange={onProgramFileChange}
-                          />
-                        </ReactFlow>
-                      </CanvasContextMenu>
-                    </ConnectionHighlightProvider>
-                  </SubflowTemplateContext.Provider>
+                                    <div>
+                                      <span
+                                        className={
+                                          validationResult.status === "success"
+                                            ? "rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700"
+                                            : validationResult.status === "failure"
+                                              ? "rounded-full bg-amber-100 px-2 py-0.5 text-amber-700"
+                                              : "rounded-full bg-slate-200 px-2 py-0.5 text-slate-700"
+                                        }
+                                      >
+                                        {validationResult.status === "success"
+                                          ? "Completado"
+                                          : validationResult.status === "failure"
+                                            ? "En progreso"
+                                            : "Pendiente"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {isChallengeOpen && challengeDefinition.description ? (
+                                    <div className="rounded-b-2xl border-2 border-[var(--nodi-blue)] bg-white px-3 pb-3 pt-2 text-sm text-slate-700">
+                                      <p className="font-semibold text-slate-800">Instrucciones</p>
+                                      <p className="mt-1 leading-snug">
+                                        {challengeDefinition.description}
+                                      </p>
+
+                                      <div className="mt-3 flex justify-center">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="default"
+                                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                                          disabled={isValidating}
+                                          onClick={validateChallengeOutput}
+                                        >
+                                          {isValidating ? "Validando…" : "Validar"}
+                                        </Button>
+                                      </div>
+
+                                      {validationResult.status === "failure" ? (
+                                        <div className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                                          <p>La salida no es correcta. Revisa tus conexiones y vuelve a intentar.</p>
+                                          <p className="mt-1 text-xs text-rose-700">
+                                            Salida: {validationResult.actualLines.length
+                                              ? validationResult.actualLines[validationResult.actualLines.length - 1]
+                                              : "Sin salida"}
+                                          </p>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            <ConnectionErrorTooltip
+                              open={connectionTooltip.tooltip.open}
+                              message={connectionTooltip.tooltip.message}
+                              x={connectionTooltip.tooltip.x}
+                              y={connectionTooltip.tooltip.y}
+                              onClose={connectionTooltip.hide}
+                            />
+                            <CreateSubflowOverlay
+                              selectedNodes={selectedNodes}
+                              edges={edges}
+                              onCreateClick={openCreateSubflow}
+                            />
+                            <Background variant={BackgroundVariant.Dots} />
+                            <Controls>
+                              <ControlButton
+                                onClick={() => setCanvasMode("pan")}
+                                aria-pressed={canvasMode === "pan"}
+                                title="Modo arrastrar (mover canvas)"
+                                className="rf-mode-toggle"
+                              >
+                                <Hand className="rf-icon-hand" />
+                              </ControlButton>
+                              <ControlButton
+                                onClick={() => setCanvasMode("select")}
+                                aria-pressed={canvasMode === "select"}
+                                title="Modo selección (cuadro)"
+                                className="rf-mode-toggle"
+                              >
+                                <MousePointer2 />
+                              </ControlButton>
+                              <ControlButton
+                                title="Mejorar formato"
+                                onClick={onLayout}
+                              >
+                                <BrushCleaning className="fill-none!" />
+                              </ControlButton>
+                            </Controls>
+                            <MiniMap />
+                            <TopActionPanel
+                              nodesCount={nodes.length}
+                              isEngineRunning={isEngineRunning}
+                              onRunClick={handleRunClick}
+                              onStopClick={onStopClick}
+                            />
+
+                            <ConsolePanel
+                              consoleOutputText={consoleOutputText}
+                              activeRuntimePrompt={activeRuntimePrompt}
+                              getRuntimePromptText={getRuntimePromptText}
+                              runtimePromptInput={runtimePromptInput}
+                              setRuntimePromptInput={setRuntimePromptInput}
+                              onSubmitRuntimePrompt={onSubmitRuntimePrompt}
+                              onCancelRuntimePrompt={onCancelRuntimePrompt}
+                              onClearConsoleClick={onClearConsoleClick}
+                              consoleScrollRef={consoleScrollRef}
+                              consoleInputRef={consoleInputRef}
+                              isOpen={isConsoleOpen}
+                              onToggle={() => setIsConsoleOpen((prev) => !prev)}
+                            />
+                            {/* bottom expected-output card removed; expected output is shown in the banner */}
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="application/json,.json"
+                              className="hidden"
+                              onChange={onProgramFileChange}
+                            />
+                          </ReactFlow>
+                        </CanvasContextMenu>
+                      </ConnectionHighlightProvider>
+                    </SubflowTemplateContext.Provider>
+                  </div>
                 </div>
 
                 <CreateSubflowDialog
