@@ -5,6 +5,16 @@ import type {
   ChallengeId,
 } from "@/challenges/challenge-registry";
 import type { ChallengeStatus } from "@/challenges/progress";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  PopoverHeader,
+  PopoverTitle,
+  PopoverDescription,
+} from "@/components/ui/popover";
+import { Button } from "../ui/button";
+import { Play } from "lucide-react";
 
 const STATUS_STYLE: Record<
   ChallengeStatus,
@@ -73,6 +83,7 @@ export function ChallengeMap({
         className="block h-full w-full select-none"
         role="img"
         aria-label="Mapa de desafíos"
+        style={{ pointerEvents: "none" }}
       >
         <image
           href={backgroundHref}
@@ -90,20 +101,7 @@ export function ChallengeMap({
           const point = resolvePoint(challenge.mapPoint);
 
           return (
-            <g
-              key={challenge.id}
-              role="button"
-              tabIndex={0}
-              aria-label={`${challenge.title}. ${style.label}.`}
-              onClick={() => onSelect(challenge.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onSelect(challenge.id);
-                }
-              }}
-              style={{ cursor: "pointer" }}
-            >
+            <g key={challenge.id}>
               <title>
                 {challenge.title} — {style.label}
               </title>
@@ -114,6 +112,7 @@ export function ChallengeMap({
                 r={outerR}
                 fill={style.ring}
                 opacity={isSelected ? 0.9 : 0.65}
+                pointerEvents="none"
               />
 
               <circle
@@ -123,6 +122,7 @@ export function ChallengeMap({
                 fill={style.fill}
                 stroke={style.stroke}
                 strokeWidth={3}
+                pointerEvents="none"
               />
 
               {isSelected ? (
@@ -133,12 +133,78 @@ export function ChallengeMap({
                   fill="none"
                   stroke="rgba(255,255,255,0.85)"
                   strokeWidth={3}
+                  pointerEvents="none"
                 />
               ) : null}
             </g>
           );
         })}
       </svg>
+
+      {/* HTML overlay for interactive Popover triggers */}
+      <div className="absolute inset-0 pointer-events-none">
+        {sorted.map((challenge) => {
+          const status = statuses[challenge.id] ?? "locked";
+          const style = STATUS_STYLE[status];
+          const point = resolvePoint(challenge.mapPoint);
+          const left = (point.x / viewBox.width) * 100;
+          const top = (point.y / viewBox.height) * 100;
+
+          return (
+            <div
+              key={challenge.id}
+              className="absolute -translate-x-1/2 -translate-y-1/2"
+              style={{
+                left: `${left}%`,
+                top: `${top}%`,
+                pointerEvents: "auto",
+              }}
+            >
+              <Popover>
+                <PopoverTrigger>
+                  <button
+                    aria-label={`${challenge.title} — ${style.label}`}
+                    className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-full border-2",
+                      {
+                        "bg-amber-500 border-amber-600": status === "available",
+                        "bg-emerald-500 border-emerald-600":
+                          status === "completed",
+                        "bg-slate-400 border-slate-600": status === "locked",
+                      },
+                    )}
+                    onClick={() => onSelect(challenge.id)}
+                  />
+                </PopoverTrigger>
+
+                <PopoverContent sideOffset={8} className="w-64">
+                  <PopoverHeader>
+                    <PopoverTitle>{challenge.title}</PopoverTitle>
+                  </PopoverHeader>
+                  <PopoverDescription>
+                    <div className="text-sm mb-2">{challenge.description}</div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {challenge.objectives.map((o) => (
+                        <span key={o} className="rounded-full border px-2 py-1">
+                          {o}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        onClick={() => onSelect(challenge.id)}
+                        className="ml-auto inline-flex items-center gap-2 rounded-lg bg-green-600/90 hover:bg-green-600 px-3 py-2 text-sm font-semibold text-white"
+                      >
+                        Iniciar reto <Play fill="white" />
+                      </Button>
+                    </div>
+                  </PopoverDescription>
+                </PopoverContent>
+              </Popover>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
