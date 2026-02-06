@@ -163,6 +163,16 @@ export function useFlowHistory({
     });
   }, [setEdges, setNodes]);
 
+  const resetHistory = useCallback(
+    (snapshot: FlowSnapshot) => {
+      setHistory({
+        stack: [snapshot],
+        index: 0,
+      });
+    },
+    [],
+  );
+
   return {
     undo,
     redo,
@@ -170,5 +180,6 @@ export function useFlowHistory({
     onNodeDragStop,
     isRestoringRef,
     isDraggingRef,
+    resetHistory,
   };
 }

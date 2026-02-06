@@ -7,21 +7,31 @@ type AppHeaderProps = {
   onDownload?: () => void;
   onLoad?: () => void;
   onOpenRemoteConfig?: () => void;
+  centerTitle?: string;
 };
 
 export default function AppHeader({
   onDownload,
   onLoad,
   onOpenRemoteConfig,
+  centerTitle,
 }: AppHeaderProps) {
   return (
     <header
       data-app-header
-      className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
+      className="sticky top-0 z-40 flex w-full items-center gap-4 border-b border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
     >
       <div className="flex items-center">
         <img src="/nodi-robot-head-nobg.png" className="h-12 mb-1" />
         <img src="/logo-nodi.png" alt="Nodi" className="h-12 mt-1" />
+      </div>
+
+      <div className="flex flex-1 items-center justify-center px-2">
+        {centerTitle ? (
+          <h1 className="truncate text-3xl  text-white">
+            {centerTitle}
+          </h1>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-2">
