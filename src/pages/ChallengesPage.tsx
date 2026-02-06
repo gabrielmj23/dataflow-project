@@ -46,7 +46,7 @@ export default function ChallengesPage() {
 
       <div className="relative z-10 flex h-screen flex-col pointer-events-none">
         <div className="pointer-events-auto">
-          <AppHeader />
+          <AppHeader centerTitle="Desafíos" />
         </div>
 
         <div className="flex-1 flex flex-col md:flex-row px-6 py-10 gap-6"></div>

@@ -1,21 +1,11 @@
-import { Download, Upload, Unplug } from "lucide-react";
-
-import { Button } from "@/components/ui/button";
+import type { ReactNode } from "react";
 
 type AppHeaderProps = {
-  nodesCount?: number;
-  onDownload?: () => void;
-  onLoad?: () => void;
-  onOpenRemoteConfig?: () => void;
   centerTitle?: string;
+  children?: ReactNode;
 };
 
-export default function AppHeader({
-  onDownload,
-  onLoad,
-  onOpenRemoteConfig,
-  centerTitle,
-}: AppHeaderProps) {
+export default function AppHeader({ centerTitle, children }: AppHeaderProps) {
   return (
     <header
       data-app-header
@@ -26,47 +16,15 @@ export default function AppHeader({
         <img src="/logo-nodi.png" alt="Nodi" className="h-12 mt-1" />
       </div>
 
-      <div className="flex flex-1 items-center justify-center px-2">
-        {centerTitle ? (
-          <h1 className="truncate text-3xl  text-white">{centerTitle}</h1>
-        ) : null}
-      </div>
+      {centerTitle ? (
+        <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 px-2">
+          <h1 className="truncate text-3xl text-white font-semibold text-center">
+            {centerTitle}
+          </h1>
+        </div>
+      ) : null}
 
-      <div className="flex items-center gap-2">
-        {onDownload && (
-          <Button
-            variant="secondary"
-            className="bg-transparent text-white hover:bg-white/10"
-            type="button"
-            onClick={onDownload}
-          >
-            Descargar
-            <Download className="text-white" />
-          </Button>
-        )}
-        {onLoad && (
-          <Button
-            variant="secondary"
-            className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
-            type="button"
-            onClick={onLoad}
-          >
-            Cargar
-            <Upload className="text-white" />
-          </Button>
-        )}
-        {onOpenRemoteConfig && (
-          <Button
-            variant="secondary"
-            className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
-            type="button"
-            onClick={onOpenRemoteConfig}
-          >
-            Conectar
-            <Unplug className="text-white" />
-          </Button>
-        )}
-      </div>
+      <div className="flex items-center gap-2">{children}</div>
     </header>
   );
 }

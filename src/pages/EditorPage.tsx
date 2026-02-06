@@ -18,7 +18,16 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "@/App.css";
-import { Hand, MousePointer2, BrushCleaning, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  Hand,
+  MousePointer2,
+  BrushCleaning,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Upload,
+  Unplug,
+} from "lucide-react";
 import AppHeader from "@/components/app-header";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
@@ -92,8 +101,8 @@ export default function EditorPage() {
 
   const [challengeDefinition, setChallengeDefinition] =
     useState<ChallengeDefinition | null>(null);
-  const [isChallengeLoading, setIsChallengeLoading] = useState(false);
-  const [challengeError, setChallengeError] = useState<string | null>(null);
+  const [, setIsChallengeLoading] = useState(false);
+  const [, setChallengeError] = useState<string | null>(null);
   const [validationResult, setValidationResult] = useState<{
     status: "idle" | "success" | "failure";
     message?: string;
@@ -254,7 +263,8 @@ export default function EditorPage() {
       const actualLinesRaw: string[] = [];
       const formatLogText = (data: unknown) => {
         if (typeof data === "string") return data;
-        if (typeof data === "number" || typeof data === "boolean") return String(data);
+        if (typeof data === "number" || typeof data === "boolean")
+          return String(data);
         if (data instanceof Error) return data.message;
         try {
           return JSON.stringify(data);
@@ -293,7 +303,11 @@ export default function EditorPage() {
       };
 
       const stores = deserializeProgramToEngineStores(program, {
-        onLog: ({ level, message, data }) => onLog({ level, data: message === "write" ? data : data ?? message }),
+        onLog: ({ level, message, data }) =>
+          onLog({
+            level,
+            data: message === "write" ? data : (data ?? message),
+          }),
         onPrompt,
         signal: new AbortController().signal,
         remoteExecutor: remoteExecutorRef.current ?? undefined,
@@ -302,7 +316,17 @@ export default function EditorPage() {
       });
 
       const engine = new DataflowEngine();
-      engine.setObserver({ onLog, onPrompt });
+      engine.setObserver({
+        onLog: (event) =>
+          onLog({
+            level: event.level,
+            data:
+              event.message === "write"
+                ? event.data
+                : (event.data ?? event.message),
+          }),
+        onPrompt,
+      });
 
       engine.loadProgram({
         nodes: stores.nodeStore.getNodes(),
@@ -349,7 +373,15 @@ export default function EditorPage() {
 
       return { matches: compare, actualLines } as const;
     },
-    [nodes, edges, programName, normalizeLines, remoteExecutorRef, resolveTemplate, challengeDefinition?.grading.matchMode],
+    [
+      nodes,
+      edges,
+      programName,
+      normalizeLines,
+      remoteExecutorRef,
+      resolveTemplate,
+      challengeDefinition?.grading.matchMode,
+    ],
   );
 
   const validateChallengeOutput = useCallback(async () => {
@@ -363,8 +395,7 @@ export default function EditorPage() {
     const actualLines = latestConsoleLines;
 
     const matchMode = challengeDefinition.grading.matchMode ?? "exact";
-    const caseInsensitive =
-      challengeDefinition.grading.caseInsensitive ?? true;
+    const caseInsensitive = challengeDefinition.grading.caseInsensitive ?? true;
 
     const compareLines = (expected: string[], actual: string[]) => {
       if (matchMode === "contains") {
@@ -421,7 +452,7 @@ export default function EditorPage() {
           message: "¡Correcto! Todas las pruebas pasaron.",
           actualLines: lastResult.actualLines,
         });
-      } catch (err) {
+      } catch {
         setValidationResult({
           status: "failure",
           message: "No se pudo ejecutar las pruebas automáticas.",
@@ -465,7 +496,12 @@ export default function EditorPage() {
     onPaletteDragStart: onPaletteDragStartInternal,
     onDragOver,
     onDrop,
-  } = usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
+  } = usePaletteDrag({
+    reactFlowInstance,
+    setNodes,
+    setEdges,
+    subflowTemplates,
+  });
 
   const challengeAllowSet = useMemo(() => {
     if (!challengeDefinition) return null;
@@ -478,7 +514,9 @@ export default function EditorPage() {
     return basePaletteCategories
       .map((category) => ({
         ...category,
-        items: category.items.filter((item) => challengeAllowSet.has(item.type)),
+        items: category.items.filter((item) =>
+          challengeAllowSet.has(item.type),
+        ),
       }))
       .filter((category) => category.items.length > 0);
   }, [basePaletteCategories, challengeAllowSet]);
@@ -553,9 +591,9 @@ export default function EditorPage() {
           return;
         }
 
-        const lockedNodes = (definition.constraints.lockedNodes ?? []).map<
-          FlowNode
-        >((node, index) => ({
+        const lockedNodes = (
+          definition.constraints.lockedNodes ?? []
+        ).map<FlowNode>((node, index) => ({
           id: node.id || `locked-${index + 1}`,
           type: node.type,
           position: node.position,
@@ -664,9 +702,7 @@ export default function EditorPage() {
 
           expandedChanges = filteredChanges.concat(
             Array.from(removedIds)
-              .filter((id) =>
-                !removedChanges.some((c) => String(c.id) === id),
-              )
+              .filter((id) => !removedChanges.some((c) => String(c.id) === id))
               .map((id) => ({ type: "remove", id }) as NodeChange),
           );
 
@@ -1103,13 +1139,35 @@ export default function EditorPage() {
             } as React.CSSProperties
           }
         >
-          <AppHeader
-            nodesCount={nodes.length}
-            onDownload={onDownloadClick}
-            onLoad={onLoadClick}
-            onOpenRemoteConfig={() => setIsRemoteDialogOpen(true)}
-            centerTitle={challengeDefinition?.title}
-          />
+          <AppHeader centerTitle={challengeDefinition?.title}>
+            <Button
+              variant="secondary"
+              className="bg-transparent text-white hover:bg-white/10"
+              type="button"
+              onClick={onDownloadClick}
+            >
+              Descargar
+              <Download className="text-white" />
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+              type="button"
+              onClick={onLoadClick}
+            >
+              Cargar
+              <Upload className="text-white" />
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+              type="button"
+              onClick={() => setIsRemoteDialogOpen(true)}
+            >
+              Conectar
+              <Unplug className="text-white" />
+            </Button>
+          </AppHeader>
 
           <div className="flex flex-1 min-h-0">
             <AppSidebar
@@ -1202,16 +1260,26 @@ export default function EditorPage() {
                             {challengeDefinition ? (
                               <div className="pointer-events-none absolute right-4 top-16 z-20 flex w-72 px-2">
                                 <div className="pointer-events-auto grid w-full grid-cols-1 gap-0 rounded-2xl bg-white/95 text-slate-900 shadow-lg max-w-xs overflow-hidden">
-                                  <div className="flex items-center justify-between  border-[var(--nodi-blue-border)] bg-[var(--nodi-blue)] px-3 py-2 text-sm font-medium text-white">
+                                  <div className="flex items-center justify-between border-(--nodi-blue-border) bg-(--nodi-blue) px-3 py-2 text-sm font-medium text-white">
                                     <div className="flex items-center gap-2">
                                       <Button
                                         type="button"
                                         variant="ghost"
                                         size="icon-sm"
                                         className="hover:bg-white/10"
-                                        onClick={() => setIsChallengeOpen((s) => !s)}
-                                        title={isChallengeOpen ? "Minimizar" : "Expandir"}
-                                        aria-label={isChallengeOpen ? "Minimizar" : "Expandir"}
+                                        onClick={() =>
+                                          setIsChallengeOpen((s) => !s)
+                                        }
+                                        title={
+                                          isChallengeOpen
+                                            ? "Minimizar"
+                                            : "Expandir"
+                                        }
+                                        aria-label={
+                                          isChallengeOpen
+                                            ? "Minimizar"
+                                            : "Expandir"
+                                        }
                                       >
                                         {isChallengeOpen ? (
                                           <ChevronDown className="text-white" />
@@ -1219,7 +1287,9 @@ export default function EditorPage() {
                                           <ChevronUp className="text-white" />
                                         )}
                                       </Button>
-                                      <span className="uppercase tracking-[0.18em] text-[11px]">Desafío</span>
+                                      <span className="uppercase tracking-[0.18em] text-[11px]">
+                                        Desafío
+                                      </span>
                                     </div>
 
                                     <div>
@@ -1227,23 +1297,28 @@ export default function EditorPage() {
                                         className={
                                           validationResult.status === "success"
                                             ? "rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700"
-                                            : validationResult.status === "failure"
+                                            : validationResult.status ===
+                                                "failure"
                                               ? "rounded-full bg-amber-100 px-2 py-0.5 text-amber-700"
                                               : "rounded-full bg-slate-200 px-2 py-0.5 text-slate-700"
                                         }
                                       >
                                         {validationResult.status === "success"
                                           ? "Completado"
-                                          : validationResult.status === "failure"
+                                          : validationResult.status ===
+                                              "failure"
                                             ? "En progreso"
                                             : "Pendiente"}
                                       </span>
                                     </div>
                                   </div>
 
-                                  {isChallengeOpen && challengeDefinition.description ? (
-                                    <div className="rounded-b-2xl border-2 border-[var(--nodi-blue)] bg-white px-3 pb-3 pt-2 text-sm text-slate-700">
-                                      <p className="font-semibold text-slate-800">Instrucciones</p>
+                                  {isChallengeOpen &&
+                                  challengeDefinition.description ? (
+                                    <div className="rounded-b-2xl border-2 border-(--nodi-blue) bg-white px-3 pb-3 pt-2 text-sm text-slate-700">
+                                      <p className="font-semibold text-slate-800">
+                                        Instrucciones
+                                      </p>
                                       <p className="mt-1 leading-snug">
                                         {challengeDefinition.description}
                                       </p>
@@ -1257,16 +1332,25 @@ export default function EditorPage() {
                                           disabled={isValidating}
                                           onClick={validateChallengeOutput}
                                         >
-                                          {isValidating ? "Validando…" : "Validar"}
+                                          {isValidating
+                                            ? "Validando…"
+                                            : "Validar"}
                                         </Button>
                                       </div>
 
                                       {validationResult.status === "failure" ? (
                                         <div className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                                          <p>La salida no es correcta. Revisa tus conexiones y vuelve a intentar.</p>
+                                          <p>
+                                            La salida no es correcta. Revisa tus
+                                            conexiones y vuelve a intentar.
+                                          </p>
                                           <p className="mt-1 text-xs text-rose-700">
-                                            Salida: {validationResult.actualLines.length
-                                              ? validationResult.actualLines[validationResult.actualLines.length - 1]
+                                            Salida:{" "}
+                                            {validationResult.actualLines.length
+                                              ? validationResult.actualLines[
+                                                  validationResult.actualLines
+                                                    .length - 1
+                                                ]
                                               : "Sin salida"}
                                           </p>
                                         </div>
