@@ -225,13 +225,6 @@ const definitions: Record<string, ChallengeDefinition> = {
       paletteAllowList: ["runtimeInput", "constantNumber", "multiply", "write"],
       lockedNodes: [
         {
-          id: "locked-const-2x",
-          type: "constantNumber",
-          position: { x: -140, y: 40 },
-          data: { value: 2 },
-          movable: false,
-        },
-        {
           id: "locked-read-number",
           type: "runtimeInput",
           position: { x: -180, y: -20 },
@@ -261,29 +254,6 @@ const definitions: Record<string, ChallengeDefinition> = {
     level: 6,
     constraints: {
       paletteAllowList: ["runtimeInput", "constantNumber", "comparison", "write"],
-      lockedNodes: [
-        {
-          id: "locked-const-120",
-          type: "constantNumber",
-          position: { x: -140, y: 20 },
-          data: { value: 120 },
-          movable: false,
-        },
-        {
-          id: "locked-read-altura",
-          type: "runtimeInput",
-          position: { x: -180, y: -40 },
-          data: { prompt: "Ingresa tu altura", valueType: "number" },
-          movable: false,
-        },
-        {
-          id: "locked-comparison",
-          type: "comparison",
-          position: { x: 0, y: 0 },
-          data: { operator: ">=" },
-          movable: false,
-        },
-      ],
       initialNodes: [],
       initialEdges: [],
     },
