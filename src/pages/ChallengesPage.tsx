@@ -1,9 +1,8 @@
 import { useMemo, useState } from "react";
 import {
   CHALLENGE_MAP_VIEWBOX,
-  challengeRegistry,
-  type ChallengeId,
-} from "@/challenges/challenge-registry";
+  listChallenges,
+} from "@/challenges/definitions";
 import {
   getChallengeStatuses,
   loadChallengeProgress,
@@ -13,21 +12,11 @@ import AppHeader from "@/components/app-header";
 
 export default function ChallengesPage() {
   const [progress] = useState(() => loadChallengeProgress());
+  const challenges = useMemo(() => listChallenges(), []);
 
   const statuses = useMemo(
-    () => getChallengeStatuses(challengeRegistry, progress),
-    [progress],
-  );
-
-  const firstSuggestedId = useMemo<ChallengeId | null>(() => {
-    const firstAvailable = challengeRegistry.find(
-      (challenge) => statuses[challenge.id] === "available",
-    )?.id;
-    return firstAvailable ?? challengeRegistry[0]?.id ?? null;
-  }, [statuses]);
-
-  const [selectedId, setSelectedId] = useState<ChallengeId | null>(
-    firstSuggestedId,
+    () => getChallengeStatuses(challenges, progress),
+    [challenges, progress],
   );
 
   const backgroundHref = "/challenge-map.png";
@@ -37,10 +26,8 @@ export default function ChallengesPage() {
       <ChallengeMap
         backgroundHref={backgroundHref}
         viewBox={CHALLENGE_MAP_VIEWBOX}
-        challenges={challengeRegistry}
+        challenges={challenges}
         statuses={statuses}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
         className="absolute inset-0 z-0 h-full w-full"
       />
 

@@ -1,9 +1,9 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import type {
   ChallengeDefinition,
   ChallengeId,
-} from "@/challenges/challenge-registry";
+} from "@/challenges/definitions";
 import type { ChallengeStatus } from "@/challenges/progress";
 import {
   Popover,
@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "../ui/button";
 import { Play } from "lucide-react";
+import { Link } from "react-router-dom";
 
 const STATUS_STYLE: Record<
   ChallengeStatus,
@@ -45,8 +46,6 @@ export type ChallengeMapProps = {
   viewBox: { width: number; height: number };
   challenges: ChallengeDefinition[];
   statuses: Record<ChallengeId, ChallengeStatus>;
-  selectedId?: ChallengeId | null;
-  onSelect: (id: ChallengeId) => void;
   className?: string;
 };
 
@@ -55,8 +54,6 @@ export function ChallengeMap({
   viewBox,
   challenges,
   statuses,
-  selectedId,
-  onSelect,
   className,
 }: ChallengeMapProps) {
   const sorted = useMemo(
@@ -67,6 +64,8 @@ export function ChallengeMap({
   const minDim = Math.min(viewBox.width, viewBox.height);
   const innerR = Math.max(36, minDim * 0.01);
   const outerR = innerR * 1.2;
+
+  const [selectedId, setSelectedId] = useState<ChallengeId | null>(null);
 
   const resolvePoint = (point: { x: number; y: number }) => {
     const isNormalized = point.x <= 1 && point.y <= 1;
@@ -185,7 +184,7 @@ export function ChallengeMap({
                             status === "completed",
                         },
                       )}
-                      onClick={() => onSelect(challenge.id)}
+                      onClick={() => setSelectedId(challenge.id)}
                     />
                   </PopoverTrigger>
 
@@ -197,22 +196,19 @@ export function ChallengeMap({
                       <div className="text-sm mb-2">
                         {challenge.description}
                       </div>
-                      <div className="flex flex-wrap gap-2 text-xs">
-                        {challenge.objectives.map((o) => (
-                          <span
-                            key={o}
-                            className="rounded-full border px-2 py-1"
-                          >
-                            {o}
-                          </span>
-                        ))}
+                      <div className="flex items-center gap-3 text-xs">
+                        <span>Grupo: {challenge.group}</span>
+                        <span>Nivel: {challenge.level}</span>
                       </div>
                       <div className="mt-3 flex gap-2">
-                        <Button
-                          onClick={() => onSelect(challenge.id)}
-                          className="ml-auto inline-flex items-center gap-2 rounded-lg bg-green-600/90 hover:bg-green-600 px-3 py-2 text-sm font-semibold text-white"
-                        >
-                          Iniciar reto <Play fill="white" />
+                        <Button className="ml-auto inline-flex items-center gap-2 rounded-lg bg-green-600/90 hover:bg-green-600 px-3 py-2 text-sm  text-white">
+                          <Link
+                            to={`/editor/${challenge.id}`}
+                            className="font-normal"
+                          >
+                            Iniciar reto{" "}
+                            <Play fill="white" className="inline" />
+                          </Link>
                         </Button>
                       </div>
                     </PopoverDescription>

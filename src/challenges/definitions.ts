@@ -1,5 +1,7 @@
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 
+export type ChallengeId = string;
+
 export type ChallengeConstraint = {
   paletteAllowList: string[];
   lockedNodes?: Array<{
@@ -41,7 +43,14 @@ export type ChallengeDefinition = {
   level: number;
   constraints: ChallengeConstraint;
   grading: ChallengeGrading;
+  mapPoint: { x: number; y: number };
+  prerequisites?: ChallengeId[];
 };
+
+export const CHALLENGE_MAP_VIEWBOX = {
+  width: 2752,
+  height: 1536,
+} as const;
 
 const definitions: Record<string, ChallengeDefinition> = {
   "sum-to-5": {
@@ -70,13 +79,14 @@ const definitions: Record<string, ChallengeDefinition> = {
       expectedConsole: ["5"],
       matchMode: "exact",
     },
+    mapPoint: { x: 0.15, y: 0.36 },
   },
-  
+
   "hola-mundo": {
     id: "hola-mundo",
     title: "Hola Mundo",
     description:
-      "Vamos a crear una máquina que diga \"Hola mundo\". Configura el nodo Constante de texto con el mensaje y conéctalo al nodo Escribir. Presiona Ejecutar para ver la salida.",
+      'Vamos a crear una máquina que diga "Hola mundo". Configura el nodo Constante de texto con el mensaje y conéctalo al nodo Escribir. Presiona Ejecutar para ver la salida.',
     sampleInput: "Salida esperada: Hola mundo",
     group: 1,
     level: 1,
@@ -96,6 +106,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
       caseInsensitive: true,
     },
+    prerequisites: ["sum-to-5"],
+    mapPoint: { x: 0.105, y: 0.76 },
   },
 
   "super-hero-name": {
@@ -141,6 +153,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
       caseInsensitive: true,
     },
+    prerequisites: ["hola-mundo"],
+    mapPoint: { x: 0.32, y: 0.7 },
   },
 
   "calculadora-compras": {
@@ -176,6 +190,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       testCases: [{ name: "Compra", inputs: [], expected: ["8"] }],
       matchMode: "exact",
     },
+    prerequisites: ["super-hero-name"],
+    mapPoint: { x: 0.438, y: 0.45 },
   },
 
   "la-resta": {
@@ -211,6 +227,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       testCases: [{ name: "Resta", inputs: [], expected: ["67"] }],
       matchMode: "exact",
     },
+    prerequisites: ["calculadora-compras"],
+    mapPoint: { x: 0.52, y: 0.65 },
   },
 
   "puntos-dobles": {
@@ -242,6 +260,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       matchMode: "exact",
     },
+    prerequisites: ["la-resta"],
+    mapPoint: { x: 0.61, y: 0.38 },
   },
 
   "control-altura": {
@@ -253,7 +273,12 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 1,
     level: 6,
     constraints: {
-      paletteAllowList: ["runtimeInput", "constantNumber", "comparison", "write"],
+      paletteAllowList: [
+        "runtimeInput",
+        "constantNumber",
+        "comparison",
+        "write",
+      ],
       initialNodes: [],
       initialEdges: [],
     },
@@ -264,6 +289,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       matchMode: "exact",
     },
+    prerequisites: ["puntos-dobles"],
+    mapPoint: { x: 0.76, y: 0.23 },
   },
 
   "puerta-automatica": {
@@ -322,6 +349,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "contains",
       caseInsensitive: true,
     },
+    prerequisites: ["control-altura"],
+    mapPoint: { x: 0.81, y: 0.485 },
   },
 
   "bonus-extra": {
@@ -357,6 +386,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       testCases: [{ name: "Bonus", inputs: [], expected: ["30"] }],
       matchMode: "exact",
     },
+    prerequisites: ["puerta-automatica"],
+    mapPoint: { x: 0.9, y: 0.75 },
   },
 
   "tabla-posiciones": {
@@ -392,6 +423,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "contains",
       caseInsensitive: true,
     },
+    prerequisites: ["bonus-extra"],
+    mapPoint: { x: 0.95, y: 0.6 },
   },
 };
 

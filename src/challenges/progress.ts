@@ -1,4 +1,4 @@
-import type { ChallengeDefinition, ChallengeId } from "./challenge-registry";
+import type { ChallengeDefinition, ChallengeId } from "./definitions";
 
 export type ChallengeProgress = {
   completedIds: ChallengeId[];
