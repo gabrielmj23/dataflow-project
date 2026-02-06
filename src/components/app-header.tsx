@@ -17,7 +17,7 @@ export default function AppHeader({
   return (
     <header
       data-app-header
-      className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
+      className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b-[0.5px] border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
     >
       <div className="flex items-center">
         <img src="/nodi-robot-head-nobg.png" className="h-12 mb-1" />
@@ -25,35 +25,39 @@ export default function AppHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        <Button
-          variant="secondary"
-          className="bg-transparent text-white hover:bg-white/10"
-          type="button"
-          onClick={onDownload}
-        >
-          Descargar
-          <Download className="text-white" />
-        </Button>
-
-        <Button
-          variant="secondary"
-          className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
-          type="button"
-          onClick={onLoad}
-        >
-          Cargar
-          <Upload className="text-white" />
-        </Button>
-
-        <Button
-          variant="secondary"
-          className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
-          type="button"
-          onClick={onOpenRemoteConfig}
-        >
-          Conectar
-          <Unplug className="text-white" />
-        </Button>
+        {onDownload && (
+          <Button
+            variant="secondary"
+            className="bg-transparent text-white hover:bg-white/10"
+            type="button"
+            onClick={onDownload}
+          >
+            Descargar
+            <Download className="text-white" />
+          </Button>
+        )}
+        {onLoad && (
+          <Button
+            variant="secondary"
+            className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+            type="button"
+            onClick={onLoad}
+          >
+            Cargar
+            <Upload className="text-white" />
+          </Button>
+        )}
+        {onOpenRemoteConfig && (
+          <Button
+            variant="secondary"
+            className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+            type="button"
+            onClick={onOpenRemoteConfig}
+          >
+            Conectar
+            <Unplug className="text-white" />
+          </Button>
+        )}
       </div>
     </header>
   );

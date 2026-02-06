@@ -23,7 +23,7 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<ModeSelectPage />} />
-        <Route path="/challenges" element={<ChallengesPage />} />
+        <Route path="/desafios" element={<ChallengesPage />} />
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/editor/:challengeId" element={<EditorPage />} />
         <Route path="*" element={<NotFoundPage />} />
