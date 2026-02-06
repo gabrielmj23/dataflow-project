@@ -55,8 +55,8 @@ export function ChallengeMap({
   );
 
   const minDim = Math.min(viewBox.width, viewBox.height);
-  const innerR = Math.max(14, minDim * 0.01);
-  const outerR = innerR * 1.4;
+  const innerR = Math.max(36, minDim * 0.01);
+  const outerR = innerR * 1.2;
 
   const resolvePoint = (point: { x: number; y: number }) => {
     const isNormalized = point.x <= 1 && point.y <= 1;
