@@ -52,9 +52,13 @@ import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import { useRemoteConfigState } from "@/hooks/useRemoteConfig";
 import type { RemoteExecutor } from "@/engine/deserialize-program";
 import { RemoteControllersProvider } from "@/ws/remote-controllers-context";
+import { DataflowEngine } from "@/engine/engine";
+import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
+import { serializeProgram } from "@/flow/serialization";
 import {
   loadChallengeDefinition,
   type ChallengeDefinition,
+  type ChallengeTestCase,
 } from "@/challenges/definitions";
 import type { NodePaletteItem } from "@/flow/node-palette";
 import {
@@ -236,7 +240,119 @@ export default function EditorPage() {
     return onRunClick();
   }, [onRunClick]);
 
-  const validateChallengeOutput = useCallback(() => {
+  const runTestCase = useCallback(
+    async (testCase: ChallengeTestCase, opts: { caseInsensitive: boolean }) => {
+      const program = serializeProgram(
+        {
+          nodes,
+          edges,
+          programName,
+        },
+        false,
+      );
+
+      const actualLinesRaw: string[] = [];
+      const formatLogText = (data: unknown) => {
+        if (typeof data === "string") return data;
+        if (typeof data === "number" || typeof data === "boolean") return String(data);
+        if (data instanceof Error) return data.message;
+        try {
+          return JSON.stringify(data);
+        } catch {
+          return String(data);
+        }
+      };
+
+      let promptIndex = 0;
+
+      const onLog = ({ level, data }: { level: string; data: unknown }) => {
+        const baseText = formatLogText(data);
+        const text = level === "error" ? `Error: ${baseText}` : baseText;
+        actualLinesRaw.push(text);
+      };
+
+      const onPrompt = ({
+        type,
+        defaultValue,
+        submit,
+      }: {
+        nodeId: string;
+        prompt: string;
+        type: "number" | "text";
+        defaultValue?: unknown;
+        submit: (value: unknown) => void;
+        cancel: () => void;
+      }) => {
+        const value = (testCase.inputs ?? [])[promptIndex++] ?? "";
+        if (type === "number") {
+          const n = Number(value);
+          submit(Number.isFinite(n) ? n : Number(defaultValue ?? 0));
+        } else {
+          submit(value);
+        }
+      };
+
+      const stores = deserializeProgramToEngineStores(program, {
+        onLog: ({ level, message, data }) => onLog({ level, data: message === "write" ? data : data ?? message }),
+        onPrompt,
+        signal: new AbortController().signal,
+        remoteExecutor: remoteExecutorRef.current ?? undefined,
+        resolveSubflowTemplate: resolveTemplate,
+        maxSubflowDepth: 1000,
+      });
+
+      const engine = new DataflowEngine();
+      engine.setObserver({ onLog, onPrompt });
+
+      engine.loadProgram({
+        nodes: stores.nodeStore.getNodes(),
+        arcs: stores.arcStore.getArcs(),
+      });
+
+      await engine.run({ initialTokens: [], maxSteps: 10_000 });
+
+      const actualLines = normalizeLines(actualLinesRaw.join("\n"));
+      const expectedLines = normalizeLines(testCase.expected.join("\n"));
+
+      const matchMode = challengeDefinition?.grading.matchMode ?? "exact";
+      const caseInsensitive = opts.caseInsensitive;
+
+      const compare = (() => {
+        if (matchMode === "contains") {
+          return expectedLines.every((expected) =>
+            actualLines.some((line) =>
+              caseInsensitive
+                ? line.toLowerCase().includes(expected.toLowerCase())
+                : line.includes(expected),
+            ),
+          );
+        }
+        if (matchMode === "regex") {
+          return expectedLines.every((pattern) => {
+            try {
+              const flags = caseInsensitive ? "i" : "";
+              const regex = new RegExp(pattern, flags);
+              return actualLines.some((line) => regex.test(line));
+            } catch {
+              return false;
+            }
+          });
+        }
+
+        if (expectedLines.length !== actualLines.length) return false;
+        return expectedLines.every((line, idx) =>
+          caseInsensitive
+            ? line.toLowerCase() === actualLines[idx].toLowerCase()
+            : line === actualLines[idx],
+        );
+      })();
+
+      return { matches: compare, actualLines } as const;
+    },
+    [nodes, edges, programName, normalizeLines, remoteExecutorRef, resolveTemplate, challengeDefinition?.grading.matchMode],
+  );
+
+  const validateChallengeOutput = useCallback(async () => {
     if (!challengeDefinition) return;
 
     setIsConsoleOpen(true);
@@ -245,6 +361,76 @@ export default function EditorPage() {
     const expectedLines = expectedOutputLines;
 
     const actualLines = latestConsoleLines;
+
+    const matchMode = challengeDefinition.grading.matchMode ?? "exact";
+    const caseInsensitive =
+      challengeDefinition.grading.caseInsensitive ?? true;
+
+    const compareLines = (expected: string[], actual: string[]) => {
+      if (matchMode === "contains") {
+        return expected.every((exp) =>
+          actual.some((line) =>
+            caseInsensitive
+              ? line.toLowerCase().includes(exp.toLowerCase())
+              : line.includes(exp),
+          ),
+        );
+      }
+      if (matchMode === "regex") {
+        return expected.every((pattern) => {
+          try {
+            const flags = caseInsensitive ? "i" : "";
+            const regex = new RegExp(pattern, flags);
+            return actual.some((line) => regex.test(line));
+          } catch {
+            return false;
+          }
+        });
+      }
+      if (expected.length !== actual.length) return false;
+      return expected.every((line, idx) =>
+        caseInsensitive
+          ? line.toLowerCase() === actual[idx].toLowerCase()
+          : line === actual[idx],
+      );
+    };
+
+    const testCases = challengeDefinition.grading.testCases;
+
+    if (testCases && testCases.length > 0) {
+      try {
+        let lastResult = { matches: true, actualLines: [] as string[] };
+
+        for (let i = 0; i < testCases.length; i++) {
+          const tc = testCases[i];
+          const result = await runTestCase(tc, { caseInsensitive });
+          lastResult = result;
+          if (!result.matches) {
+            setValidationResult({
+              status: "failure",
+              message: `Falló el caso "${tc.name ?? `Caso ${i + 1}`}". Ajusta tu flujo y vuelve a intentar.`,
+              actualLines: result.actualLines,
+            });
+            setIsValidating(false);
+            return;
+          }
+        }
+
+        setValidationResult({
+          status: "success",
+          message: "¡Correcto! Todas las pruebas pasaron.",
+          actualLines: lastResult.actualLines,
+        });
+      } catch (err) {
+        setValidationResult({
+          status: "failure",
+          message: "No se pudo ejecutar las pruebas automáticas.",
+          actualLines: [],
+        });
+      }
+      setIsValidating(false);
+      return;
+    }
 
     if (!actualLines.length) {
       setValidationResult({
@@ -256,39 +442,23 @@ export default function EditorPage() {
       return;
     }
 
-    const matchMode = challengeDefinition.grading.matchMode ?? "exact";
-
-    const matches = (() => {
-      if (matchMode === "contains") {
-        return expectedLines.every((expected) =>
-          actualLines.some((line) => line.includes(expected)),
-        );
-      }
-      if (matchMode === "regex") {
-        return expectedLines.every((pattern) => {
-          try {
-            const regex = new RegExp(pattern);
-            return actualLines.some((line) => regex.test(line));
-          } catch {
-            return false;
-          }
-        });
-      }
-
-      if (expectedLines.length !== actualLines.length) return false;
-      return expectedLines.every((line, idx) => line === actualLines[idx]);
-    })();
+    const matches = compareLines(expectedLines, actualLines);
 
     setValidationResult({
       status: matches ? "success" : "failure",
       message: matches
         ? "¡Correcto! La salida coincide con lo esperado."
-        : "Aún no coincide con la salida esperada.",
+        : "La salida no es correcta. Revisa tus conexiones y vuelve a intentar.",
       actualLines,
     });
 
     setIsValidating(false);
-  }, [challengeDefinition, expectedOutputLines, latestConsoleLines]);
+  }, [
+    challengeDefinition,
+    expectedOutputLines,
+    latestConsoleLines,
+    runTestCase,
+  ]);
 
   const {
     paletteCategories: basePaletteCategories,
@@ -1031,8 +1201,8 @@ export default function EditorPage() {
                           >
                             {challengeDefinition ? (
                               <div className="pointer-events-none absolute right-4 top-16 z-20 flex w-72 px-2">
-                                <div className="pointer-events-auto grid w-full grid-cols-1 gap-0 rounded-2xl border border-white/70 bg-white/95 text-slate-900 shadow-lg max-w-xs overflow-hidden">
-                                  <div className="flex items-center justify-between border-b border-[var(--nodi-blue-border)] bg-[var(--nodi-blue)] px-3 py-2 text-sm font-medium text-white">
+                                <div className="pointer-events-auto grid w-full grid-cols-1 gap-0 rounded-2xl bg-white/95 text-slate-900 shadow-lg max-w-xs overflow-hidden">
+                                  <div className="flex items-center justify-between  border-[var(--nodi-blue-border)] bg-[var(--nodi-blue)] px-3 py-2 text-sm font-medium text-white">
                                     <div className="flex items-center gap-2">
                                       <Button
                                         type="button"
@@ -1072,7 +1242,7 @@ export default function EditorPage() {
                                   </div>
 
                                   {isChallengeOpen && challengeDefinition.description ? (
-                                    <div className="px-3 pb-3 pt-2 text-sm text-slate-700">
+                                    <div className="rounded-b-2xl border-2 border-[var(--nodi-blue)] bg-white px-3 pb-3 pt-2 text-sm text-slate-700">
                                       <p className="font-semibold text-slate-800">Instrucciones</p>
                                       <p className="mt-1 leading-snug">
                                         {challengeDefinition.description}
@@ -1090,6 +1260,17 @@ export default function EditorPage() {
                                           {isValidating ? "Validando…" : "Validar"}
                                         </Button>
                                       </div>
+
+                                      {validationResult.status === "failure" ? (
+                                        <div className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                                          <p>La salida no es correcta. Revisa tus conexiones y vuelve a intentar.</p>
+                                          <p className="mt-1 text-xs text-rose-700">
+                                            Salida: {validationResult.actualLines.length
+                                              ? validationResult.actualLines[validationResult.actualLines.length - 1]
+                                              : "Sin salida"}
+                                          </p>
+                                        </div>
+                                      ) : null}
                                     </div>
                                   ) : null}
                                 </div>

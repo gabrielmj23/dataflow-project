@@ -39,6 +39,7 @@ export function CustomTypedHandle({
     if (raw.includes("border-sky-700")) return "ring-sky-700";
     if (raw.includes("border-orange-600")) return "ring-orange-600";
     if (raw.includes("border-rose-700")) return "ring-rose-700";
+    if (raw.includes("border-fuchsia-700")) return "ring-fuchsia-700";
     if (raw.includes("border-teal-800")) return "ring-teal-800";
     if (raw.includes("border-emerald-600")) return "ring-emerald-600";
     if (raw.includes("border-violet-700")) return "ring-violet-700";
