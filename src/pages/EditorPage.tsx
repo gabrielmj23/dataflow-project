@@ -5,7 +5,6 @@ import {
   applyNodeChanges,
   applyEdgeChanges,
   MarkerType,
-  MiniMap,
   Controls,
   Background,
   BackgroundVariant,
@@ -1398,7 +1397,6 @@ export default function EditorPage() {
                                 <BrushCleaning className="fill-none!" />
                               </ControlButton>
                             </Controls>
-                            <MiniMap />
                             <TopActionPanel
                               nodesCount={nodes.length}
                               isEngineRunning={isEngineRunning}
