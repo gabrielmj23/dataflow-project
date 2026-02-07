@@ -92,15 +92,21 @@ export function ChallengeMap({
           height={viewBox.height}
         />
 
-        {sorted.map((challenge) => {
+        {sorted.map((challenge, idx) => {
           const status = statuses[challenge.id] ?? "locked";
           const style = STATUS_STYLE[status];
           const isSelected = selectedId === challenge.id;
 
           const point = resolvePoint(challenge.mapPoint);
 
+          const delay = `${idx * 80}ms`;
+
           return (
-            <g key={challenge.id}>
+            <g
+              key={challenge.id}
+              className="map-point-appear"
+              style={{ animationDelay: delay }}
+            >
               <title>
                 {challenge.title} — {style.label}
               </title>
@@ -142,21 +148,25 @@ export function ChallengeMap({
 
       {/* HTML overlay for interactive Popover triggers */}
       <div className="absolute inset-0 pointer-events-none">
-        {sorted.map((challenge) => {
+        {sorted.map((challenge, idx) => {
           const status = statuses[challenge.id] ?? "locked";
           const style = STATUS_STYLE[status];
           const point = resolvePoint(challenge.mapPoint);
           const left = (point.x / viewBox.width) * 100;
           const top = (point.y / viewBox.height) * 100;
+          const delay = `${idx * 80}ms`;
 
           return (
             <div
               key={challenge.id}
-              className="absolute -translate-x-1/2 -translate-y-1/2"
+              className={cn(
+                "absolute -translate-x-1/2 -translate-y-1/2 map-button-appear",
+              )}
               style={{
                 left: `${left}%`,
                 top: `${top}%`,
                 pointerEvents: "auto",
+                animationDelay: delay,
               }}
             >
               {status === "locked" ? (
