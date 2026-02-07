@@ -35,9 +35,8 @@ export type ChallengeDefinition = {
   title: string;
   description: string;
   sampleInput?: string;
-  /** Group 1: 8-11, Group 2: 12-16 */
+
   group: 1 | 2;
-  /** Difficulty or progression level within the group. */
   level: number;
   constraints: ChallengeConstraint;
   grading: ChallengeGrading;
@@ -64,7 +63,14 @@ const definitions: Record<string, ChallengeDefinition> = {
         },
       ],
       initialNodes: [],
-      initialEdges: [],
+      initialEdges: [
+        {
+          id: "e-const2-to-mult",
+          source: "locked-const-2",
+          target: "locked-multiply",
+          targetHandle: "in-1",
+        },
+      ],
     },
     grading: {
       expectedConsole: ["5"],
@@ -83,7 +89,14 @@ const definitions: Record<string, ChallengeDefinition> = {
     constraints: {
       paletteAllowList: ["constantText", "write"],
       initialNodes: [],
-      initialEdges: [],
+      initialEdges: [
+        {
+          id: "e-const2-to-mult",
+          source: "locked-const-2",
+          target: "locked-multiply",
+          targetHandle: "in-1",
+        },
+      ],
     },
     grading: {
       testCases: [
@@ -107,12 +120,12 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 1,
     level: 2,
     constraints: {
-      paletteAllowList: ["runtimeInput", "constantText", "concat", "write"],
+      paletteAllowList: ["concat", "write"],
       lockedNodes: [
         {
           id: "locked-prefix-super",
           type: "constantText",
-          position: { x: 0, y: 0 },
+          position: { x: -150, y: -100 },
           data: { value: "Super ", label: "Prefijo" },
           movable: false,
         },
@@ -121,12 +134,6 @@ const definitions: Record<string, ChallengeDefinition> = {
           type: "runtimeInput",
           position: { x: -150, y: 0 },
           data: { prompt: "Escribe tu nombre", valueType: "text" },
-          movable: false,
-        },
-        {
-          id: "locked-write-name",
-          type: "write",
-          position: { x: 180, y: 0 },
           movable: false,
         },
       ],
@@ -328,7 +335,7 @@ const definitions: Record<string, ChallengeDefinition> = {
     id: "bonus-extra",
     title: "Bonus Extra",
     description:
-      "Tienes 10 puntos base. Además, ganaste un bono que vale 'el doble de tus puntos' (10 x 2). Saca dos cables del 10: uno directo a la Suma, y otro que pase por la Multiplicación antes de llegar a la Suma. Así sumarás 10 + 20.",
+      "Tienes 10 puntos. Además, ganaste un bono que vale 'el doble de tus puntos' (10 x 2). Saca dos cables del 10: uno directo a la Suma, y otro que pase por la Multiplicación antes de llegar a la Suma. Así sumarás 10 + 20.",
     sampleInput: "Salida esperada: 30",
     group: 1,
     level: 8,
@@ -336,17 +343,29 @@ const definitions: Record<string, ChallengeDefinition> = {
       paletteAllowList: ["constantNumber", "multiply", "sum", "write"],
       lockedNodes: [
         {
+          id: "locked-const-2",
+          type: "constantNumber",
+          position: { x: -140, y: -90 },
+          data: { value: 2 },
+          movable: false,
+        },
+        {
+          id: "locked-multiply",
+          type: "multiply",
+          position: { x: -20, y: -80 },
+          movable: false,
+        },
+        {
           id: "locked-const-10",
           type: "constantNumber",
-          position: { x: -180, y: -10 },
+          position: { x: -140, y: 10 },
           data: { value: 10 },
           movable: false,
         },
         {
-          id: "locked-const-2",
-          type: "constantNumber",
-          position: { x: -140, y: 70 },
-          data: { value: 2 },
+          id: "locked-sum",
+          type: "sum",
+          position: { x: 150, y: 0 },
           movable: false,
         },
       ],
@@ -391,6 +410,478 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       matchMode: "contains",
       caseInsensitive: true,
+    },
+  },
+
+  "autenticacion-dos-factores": {
+    id: "autenticacion-dos-factores",
+    title: "Autenticación de Dos Factores",
+    description:
+      "Diseña un sistema de seguridad. La puerta solo se abre si: 1) La contraseña es igual a 'admin' Y 2) El usuario es igual a 'user'. Usa el nodo AND para conectar ambas validaciones.",
+    sampleInput: "Salida esperada: true solo si usuario=user y contraseña=admin",
+    group: 2,
+    level: 1,
+    constraints: {
+      paletteAllowList: [
+        "runtimeInput",
+        "constantText",
+        "constantBoolean",
+        "comparison",
+        "and",
+        "write",
+      ],
+      lockedNodes: [
+        {
+          id: "locked-read-user",
+          type: "runtimeInput",
+          position: { x: -220, y: -40 },
+          data: { prompt: "Usuario", valueType: "text" },
+          movable: false,
+        },
+        {
+          id: "locked-read-pass",
+          type: "runtimeInput",
+          position: { x: -220, y: 60 },
+          data: { prompt: "Contraseña", valueType: "text" },
+          movable: false,
+        },
+        {
+          id: "locked-const-user",
+          type: "constantText",
+          position: { x: -60, y: -100 },
+          data: { value: "user" },
+          movable: false,
+        },
+        {
+          id: "locked-const-admin",
+          type: "constantText",
+          position: { x: -60, y: 140 },
+          data: { value: "admin" },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [],
+    },
+    grading: {
+      testCases: [
+        { name: "Credenciales correctas", inputs: ["user", "admin"], expected: ["true"] },
+        { name: "Clave incorrecta", inputs: ["user", "bad"], expected: ["false"] },
+        { name: "Usuario incorrecto", inputs: ["foo", "admin"], expected: ["false"] },
+      ],
+      matchMode: "exact",
+      caseInsensitive: true,
+    },
+  },
+
+  "detector-pares-impares": {
+    id: "detector-pares-impares",
+    title: "Detector de Pares e Impares",
+    description:
+      "Necesitamos clasificar números. Si el residuo (Módulo) de dividir un número entre 2 es igual a 0, el número es PAR. Crea un sistema que devuelva 'True' si el número ingresado es par.",
+    sampleInput: "Ejemplo: entrada 4 → true; entrada 5 → false",
+    group: 2,
+    level: 2,
+    constraints: {
+      paletteAllowList: ["runtimeInput", "constantNumber", "mod", "comparison", "write"],
+      lockedNodes: [
+        {
+          id: "locked-read-num",
+          type: "runtimeInput",
+          position: { x: -220, y: 0 },
+          data: { prompt: "Ingresa un número", valueType: "number" },
+          movable: false,
+        },
+        {
+          id: "locked-const-2-mod",
+          type: "constantNumber",
+          position: { x: -220, y: 100 },
+          data: { value: 2 },
+          movable: false,
+        },
+        {
+          id: "locked-mod",
+          type: "mod",
+          position: { x: -40, y: 0 },
+          movable: false,
+        },
+        {
+          id: "locked-compare-zero",
+          type: "comparison",
+          position: { x: 140, y: 0 },
+          data: { operator: "==" },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [
+        {
+          id: "e-const2-to-mod",
+          source: "locked-const-2-mod",
+          target: "locked-mod",
+          targetHandle: "in-2",
+        },
+      ],
+    },
+    grading: {
+      testCases: [
+        { name: "Par", inputs: ["4"], expected: ["true"] },
+        { name: "Impar", inputs: ["5"], expected: ["false"] },
+      ],
+      matchMode: "exact",
+    },
+  },
+
+  "censurador-chat": {
+    id: "censurador-chat",
+    title: "El Censurador de Chat",
+    description:
+      "Estás programando un bot de moderación para un chat. Si alguien escribe la palabra prohibida 'tonto', el sistema debe reemplazarla automáticamente por '*****'. El resto del mensaje debe quedar igual.",
+    sampleInput: "Ejemplo: 'Eres tonto' → 'Eres *****'",
+    group: 2,
+    level: 3,
+    constraints: {
+      paletteAllowList: ["runtimeInput", "constantText", "replaceText", "write"],
+      lockedNodes: [
+        {
+          id: "locked-read-msg",
+          type: "runtimeInput",
+          position: { x: -240, y: 0 },
+          data: { prompt: "Ingresa mensaje", valueType: "text" },
+          movable: false,
+        },
+        {
+          id: "locked-bad-word",
+          type: "constantText",
+          position: { x: -60, y: -80 },
+          data: { value: "tonto" },
+          movable: false,
+        },
+        {
+          id: "locked-mask-word",
+          type: "constantText",
+          position: { x: -60, y: 80 },
+          data: { value: "*****" },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [],
+    },
+    grading: {
+      testCases: [
+        { name: "Censura", inputs: ["Eres tonto"], expected: ["Eres *****"] },
+        { name: "Sin insulto", inputs: ["Hola amigo"], expected: ["Hola amigo"] },
+      ],
+      matchMode: "exact",
+      caseInsensitive: true,
+    },
+  },
+
+  "sistema-calificaciones": {
+    id: "sistema-calificaciones",
+    title: "Sistema de Calificaciones",
+    description:
+      "Automatiza las notas. Configura el Condicional + Selector con estas reglas: Si Nota >= 18 sale 'A'. Si Nota >= 10 sale 'B'. Si es menor, sale 'C'. Conecta las condiciones numéricas a las entradas correspondientes del selector.",
+    sampleInput: "Ejemplos: 19→A, 15→B, 9→C",
+    group: 2,
+    level: 4,
+    constraints: {
+      paletteAllowList: [
+        "runtimeInput",
+        "conditional",
+        "selector",
+        "comparison",
+        "constantNumber",
+        "constantText",
+        "write",
+      ],
+      lockedNodes: [
+        {
+          id: "locked-read-nota",
+          type: "runtimeInput",
+          position: { x: -260, y: 0 },
+          data: { prompt: "Ingresa nota", valueType: "number" },
+          movable: false,
+        },
+        {
+          id: "locked-const-18",
+          type: "constantNumber",
+          position: { x: -120, y: -90 },
+          data: { value: 18 },
+          movable: false,
+        },
+        {
+          id: "locked-const-10",
+          type: "constantNumber",
+          position: { x: -120, y: 90 },
+          data: { value: 10 },
+          movable: false,
+        },
+        {
+          id: "locked-cond",
+          type: "conditional",
+          position: { x: 0, y: 0 },
+          movable: false,
+        },
+        {
+          id: "locked-selector",
+          type: "selector",
+          position: { x: 180, y: 0 },
+          movable: false,
+        },
+        {
+          id: "locked-grade-a",
+          type: "constantText",
+          position: { x: 60, y: -120 },
+          data: { value: "A" },
+          movable: false,
+        },
+        {
+          id: "locked-grade-b",
+          type: "constantText",
+          position: { x: 60, y: 60 },
+          data: { value: "B" },
+          movable: false,
+        },
+        {
+          id: "locked-grade-c",
+          type: "constantText",
+          position: { x: 60, y: 160 },
+          data: { value: "C" },
+          movable: false,
+        },
+        {
+          id: "locked-write-grade",
+          type: "write",
+          position: { x: 360, y: 0 },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [],
+    },
+    grading: {
+      testCases: [
+        { name: "A", inputs: ["19"], expected: ["A"] },
+        { name: "B", inputs: ["15"], expected: ["B"] },
+        { name: "C", inputs: ["9"], expected: ["C"] },
+      ],
+      matchMode: "exact",
+      caseInsensitive: true,
+    },
+  },
+
+  "generador-numeros": {
+    id: "generador-numeros",
+    title: "Generador de Números",
+    description:
+      "Necesitamos probar el rendimiento del sistema. Genera una lista automática de datos de prueba que empiece en 0, termine en 100 y avance de 5 en 5 (Step).",
+    sampleInput: "Salida esperada: 0, 5, 10, ... 100",
+    group: 2,
+    level: 5,
+    constraints: {
+      paletteAllowList: ["sequence", "constantNumber", "write"],
+      lockedNodes: [],
+      initialNodes: [],
+      initialEdges: [],
+    },
+    grading: {
+      testCases: [
+        { name: "Rango", inputs: [], expected: ["0", "5", "50", "100"] },
+      ],
+      matchMode: "contains",
+    },
+  },
+
+  "aplicar-impuestos": {
+    id: "aplicar-impuestos",
+    title: "Aplicar Impuestos",
+    description:
+      "Tienes una lista bruta de precios. Tu tarea es aplicar el IVA (16%) a cada uno de los elementos de la lista. Usa el nodo Mapear para multiplicar cada precio por 1.16.",
+    sampleInput: "Salida esperada: [116, 232, 58]",
+    group: 2,
+    level: 6,
+    constraints: {
+      paletteAllowList: ["map", "multiply", "constantNumber", "constantList", "write"],
+      lockedNodes: [
+        {
+          id: "locked-prices",
+          type: "constantList",
+          position: { x: -220, y: 0 },
+          data: { items: [100, 200, 50] },
+          movable: false,
+        },
+        {
+          id: "locked-iva",
+          type: "constantNumber",
+          position: { x: -220, y: 120 },
+          data: { value: 1.16 },
+          movable: false,
+        },
+        {
+          id: "locked-map",
+          type: "map",
+          position: { x: -40, y: 0 },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [],
+    },
+    grading: {
+      testCases: [
+        { name: "IVA", inputs: [], expected: ["116", "232", "58"] },
+      ],
+      matchMode: "contains",
+    },
+  },
+
+  "filtro-aprobados": {
+    id: "filtro-aprobados",
+    title: "Filtro de Aprobados",
+    description:
+      "De la lista de todas las notas posibles (1-20), necesitamos extraer solo las aprobatorias. Usa Filtrar junto con una condición para dejar pasar solo los números mayores o iguales a 10.",
+    sampleInput: "Salida esperada: 10..20",
+    group: 2,
+    level: 7,
+    constraints: {
+      paletteAllowList: ["sequence", "filter", "comparison", "constantNumber", "write"],
+      lockedNodes: [
+        {
+          id: "locked-seq-notas",
+          type: "sequence",
+          position: { x: -220, y: -20 },
+          movable: false,
+        },
+        {
+          id: "locked-const-10-aprob",
+          type: "constantNumber",
+          position: { x: -220, y: 120 },
+          data: { value: 10 },
+          movable: false,
+        },
+        {
+          id: "locked-filter",
+          type: "filter",
+          position: { x: -40, y: 0 },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [],
+    },
+    grading: {
+      testCases: [
+        { name: "Aprobados", inputs: [], expected: ["10", "15", "20"] },
+      ],
+      matchMode: "contains",
+    },
+  },
+
+  "contador-ingresos": {
+    id: "contador-ingresos",
+    title: "Contador de Ingresos",
+    description:
+      "El jefe necesita el total de ventas del día. Usa el nodo Acumular (Reduce) configurado con una Suma para combinar todos los valores de la lista en un solo número total.",
+    sampleInput: "Salida esperada: 350",
+    group: 2,
+    level: 8,
+    constraints: {
+      paletteAllowList: ["reduce", "sum", "constantList", "write"],
+      lockedNodes: [
+        {
+          id: "locked-ventas",
+          type: "constantList",
+          position: { x: -200, y: 0 },
+          data: { items: [100, 200, 50] },
+          movable: false,
+        },
+        {
+          id: "locked-reduce",
+          type: "reduce",
+          position: { x: 0, y: 0 },
+          movable: false,
+        },
+        {
+          id: "locked-sum-op",
+          type: "sum",
+          position: { x: 180, y: 0 },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [],
+    },
+    grading: {
+      testCases: [{ name: "Total", inputs: [], expected: ["350"] }],
+      matchMode: "exact",
+    },
+  },
+
+  "base-usuarios": {
+    id: "base-usuarios",
+    title: "Base de Datos de Usuarios",
+    description:
+      "Tenemos una lista de nombres ['Ana', 'Bob', 'Carlos'] y una de IDs [101, 102, 103]. El sistema requiere que estén unidos. Usa Emparejar para crear una lista de tuplas donde cada usuario tenga su ID asociado.",
+    sampleInput: "Salida esperada: (Ana,101), (Bob,102), (Carlos,103)",
+    group: 2,
+    level: 9,
+    constraints: {
+      paletteAllowList: ["constantList", "zip", "write"],
+      lockedNodes: [
+        {
+          id: "locked-names",
+          type: "constantList",
+          position: { x: -220, y: -40 },
+          data: { items: ["Ana", "Bob", "Carlos"] },
+          movable: false,
+        },
+        {
+          id: "locked-ids",
+          type: "constantList",
+          position: { x: -220, y: 80 },
+          data: { items: [101, 102, 103] },
+          movable: false,
+        },
+        {
+          id: "locked-zip",
+          type: "zip",
+          position: { x: -40, y: 20 },
+          movable: false,
+        },
+        {
+          id: "locked-write-zip",
+          type: "write",
+          position: { x: 200, y: 20 },
+          movable: false,
+        },
+      ],
+      initialNodes: [],
+      initialEdges: [
+        {
+          id: "e-names-zip",
+          source: "locked-names",
+          target: "locked-zip",
+          targetHandle: "in-1",
+        },
+        {
+          id: "e-ids-zip",
+          source: "locked-ids",
+          target: "locked-zip",
+          targetHandle: "in-2",
+        },
+      ],
+    },
+    grading: {
+      testCases: [
+        {
+          name: "Zip",
+          inputs: [],
+          expected: ["Ana", "101", "Bob", "102", "Carlos", "103"],
+        },
+      ],
+      matchMode: "contains",
     },
   },
 };
