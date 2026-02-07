@@ -24,6 +24,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<ModeSelectPage />} />
         <Route path="/desafios" element={<ChallengesPage />} />
+        <Route path="/desafios/:groupId" element={<ChallengesPage />} />
         <Route path="/editor" element={<EditorPage />} />
         <Route path="/editor/:challengeId" element={<EditorPage />} />
         <Route path="*" element={<NotFoundPage />} />

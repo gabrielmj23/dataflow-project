@@ -47,15 +47,48 @@ export function getChallengeStatuses(
   const completed = new Set(progress.completedIds);
   const statusById: Record<ChallengeId, ChallengeStatus> = {};
 
-  for (const challenge of challenges) {
-    if (completed.has(challenge.id)) {
-      statusById[challenge.id] = "completed";
-      continue;
-    }
+  // Group challenges by `group` so we can apply sequential unlocking for groups
+  // that have no explicit prerequisites (e.g. group-based roadmap).
+  const byGroup = new Map<number, ChallengeDefinition[]>();
+  for (const ch of challenges) {
+    const arr = byGroup.get(ch.group) ?? [];
+    arr.push(ch);
+    byGroup.set(ch.group, arr);
+  }
 
-    const prereqs = challenge.prerequisites ?? [];
-    const isUnlocked = prereqs.every((id) => completed.has(id));
-    statusById[challenge.id] = isUnlocked ? "available" : "locked";
+  for (const [, list] of byGroup.entries()) {
+    // Sort by level to determine natural ordering within the group
+    const ordered = [...list].sort((a, b) => a.level - b.level);
+
+    // Find first non-completed challenge without prerequisites to mark available
+    let firstAvailableMarked = false;
+
+    for (const challenge of ordered) {
+      if (completed.has(challenge.id)) {
+        statusById[challenge.id] = "completed";
+        continue;
+      }
+
+      const prereqs = challenge.prerequisites ?? [];
+
+      if (prereqs.length > 0) {
+        // Preserve original behavior for challenges with explicit prerequisites
+        const isUnlocked = prereqs.every((id) => completed.has(id));
+        statusById[challenge.id] = isUnlocked ? "available" : "locked";
+        // If unlocked due to prerequisites, allow following items in order to be
+        // potentially available (they'll be evaluated in their turn).
+        if (isUnlocked) firstAvailableMarked = true;
+        continue;
+      }
+
+      // No prerequisites: apply sequential unlock within this group.
+      if (!firstAvailableMarked) {
+        statusById[challenge.id] = "available";
+        firstAvailableMarked = true;
+      } else {
+        statusById[challenge.id] = "locked";
+      }
+    }
   }
 
   return statusById;

@@ -52,42 +52,6 @@ export const CHALLENGE_MAP_VIEWBOX = {
 } as const;
 
 const definitions: Record<string, ChallengeDefinition> = {
-  "sum-to-5": {
-    id: "sum-to-5",
-    title: "Suma hasta 5",
-    description:
-      "Usa el nodo Sumar para producir el número 5 en la consola. Arrastra un nodo Sumar, conecta la constante fija y tu propia constante para lograr que la salida sea 5.",
-    sampleInput: "Salida esperada: 5",
-    group: 1,
-    level: 1,
-    constraints: {
-      paletteAllowList: ["sum", "constantNumber", "write"],
-      lockedNodes: [
-        {
-          id: "locked-const-2",
-          type: "constantNumber",
-          position: { x: 0, y: 0 },
-          data: { value: 2, label: "Base 2" },
-          movable: false,
-        },
-      ],
-      initialNodes: [],
-      initialEdges: [
-        {
-          id: "e-const2-to-mult",
-          source: "locked-const-2",
-          target: "locked-multiply",
-          targetHandle: "in-1",
-        },
-      ],
-    },
-    grading: {
-      expectedConsole: ["5"],
-      matchMode: "exact",
-    },
-    mapPoint: { x: 0.15, y: 0.36 },
-  },
-
   "hola-mundo": {
     id: "hola-mundo",
     title: "Hola Mundo",
@@ -119,8 +83,8 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
       caseInsensitive: true,
     },
-    prerequisites: ["sum-to-5"],
-    mapPoint: { x: 0.105, y: 0.76 },
+    prerequisites: [],
+    mapPoint: { x: 0.15, y: 0.36 },
   },
 
   "super-hero-name": {
@@ -161,7 +125,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       caseInsensitive: true,
     },
     prerequisites: ["hola-mundo"],
-    mapPoint: { x: 0.32, y: 0.7 },
+    mapPoint: { x: 0.105, y: 0.76 },
   },
 
   "calculadora-compras": {
@@ -198,7 +162,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
     },
     prerequisites: ["super-hero-name"],
-    mapPoint: { x: 0.438, y: 0.45 },
+    mapPoint: { x: 0.336, y: 0.7 },
   },
 
   "la-resta": {
@@ -235,7 +199,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
     },
     prerequisites: ["calculadora-compras"],
-    mapPoint: { x: 0.52, y: 0.65 },
+    mapPoint: { x: 0.438, y: 0.45 },
   },
 
   "puntos-dobles": {
@@ -268,7 +232,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
     },
     prerequisites: ["la-resta"],
-    mapPoint: { x: 0.61, y: 0.38 },
+    mapPoint: { x: 0.66, y: 0.38 },
   },
 
   "control-altura": {
@@ -297,7 +261,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
     },
     prerequisites: ["puntos-dobles"],
-    mapPoint: { x: 0.76, y: 0.23 },
+    mapPoint: { x: 0.57, y: 0.89 },
   },
 
   "puerta-automatica": {
@@ -357,7 +321,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       caseInsensitive: true,
     },
     prerequisites: ["control-altura"],
-    mapPoint: { x: 0.81, y: 0.485 },
+    mapPoint: { x: 0.78, y: 0.89 },
   },
 
   "bonus-extra": {
@@ -406,7 +370,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
     },
     prerequisites: ["puerta-automatica"],
-    mapPoint: { x: 0.9, y: 0.75 },
+    mapPoint: { x: 0.895, y: 0.66 },
   },
 
   "tabla-posiciones": {
@@ -443,7 +407,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       caseInsensitive: true,
     },
     prerequisites: ["bonus-extra"],
-    mapPoint: { x: 0.95, y: 0.6 },
+    mapPoint: { x: 0.85, y: 0.345 },
   },
 
   "autenticacion-dos-factores": {
@@ -451,7 +415,8 @@ const definitions: Record<string, ChallengeDefinition> = {
     title: "Autenticación de Dos Factores",
     description:
       "Diseña un sistema de seguridad. La puerta solo se abre si: 1) La contraseña es igual a 'admin' Y 2) El usuario es igual a 'user'. Usa el nodo AND para conectar ambas validaciones.",
-    sampleInput: "Salida esperada: true solo si usuario=user y contraseña=admin",
+    sampleInput:
+      "Salida esperada: true solo si usuario=user y contraseña=admin",
     group: 2,
     level: 1,
     constraints: {
@@ -498,13 +463,26 @@ const definitions: Record<string, ChallengeDefinition> = {
     },
     grading: {
       testCases: [
-        { name: "Credenciales correctas", inputs: ["user", "admin"], expected: ["true"] },
-        { name: "Clave incorrecta", inputs: ["user", "bad"], expected: ["false"] },
-        { name: "Usuario incorrecto", inputs: ["foo", "admin"], expected: ["false"] },
+        {
+          name: "Credenciales correctas",
+          inputs: ["user", "admin"],
+          expected: ["true"],
+        },
+        {
+          name: "Clave incorrecta",
+          inputs: ["user", "bad"],
+          expected: ["false"],
+        },
+        {
+          name: "Usuario incorrecto",
+          inputs: ["foo", "admin"],
+          expected: ["false"],
+        },
       ],
       matchMode: "exact",
       caseInsensitive: true,
     },
+    mapPoint: { x: 0.15, y: 0.36 },
   },
 
   "detector-pares-impares": {
@@ -516,7 +494,13 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 2,
     level: 2,
     constraints: {
-      paletteAllowList: ["runtimeInput", "constantNumber", "mod", "comparison", "write"],
+      paletteAllowList: [
+        "runtimeInput",
+        "constantNumber",
+        "mod",
+        "comparison",
+        "write",
+      ],
       lockedNodes: [
         {
           id: "locked-read-num",
@@ -563,6 +547,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       matchMode: "exact",
     },
+    mapPoint: { x: 0.105, y: 0.76 },
   },
 
   "censurador-chat": {
@@ -574,7 +559,12 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 2,
     level: 3,
     constraints: {
-      paletteAllowList: ["runtimeInput", "constantText", "replaceText", "write"],
+      paletteAllowList: [
+        "runtimeInput",
+        "constantText",
+        "replaceText",
+        "write",
+      ],
       lockedNodes: [
         {
           id: "locked-read-msg",
@@ -604,11 +594,16 @@ const definitions: Record<string, ChallengeDefinition> = {
     grading: {
       testCases: [
         { name: "Censura", inputs: ["Eres tonto"], expected: ["Eres *****"] },
-        { name: "Sin insulto", inputs: ["Hola amigo"], expected: ["Hola amigo"] },
+        {
+          name: "Sin insulto",
+          inputs: ["Hola amigo"],
+          expected: ["Hola amigo"],
+        },
       ],
       matchMode: "exact",
       caseInsensitive: true,
     },
+    mapPoint: { x: 0.336, y: 0.7 },
   },
 
   "sistema-calificaciones": {
@@ -703,6 +698,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       matchMode: "exact",
       caseInsensitive: true,
     },
+    mapPoint: { x: 0.438, y: 0.45 },
   },
 
   "generador-numeros": {
@@ -725,6 +721,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       matchMode: "contains",
     },
+    mapPoint: { x: 0.66, y: 0.38 },
   },
 
   "aplicar-impuestos": {
@@ -736,7 +733,13 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 2,
     level: 6,
     constraints: {
-      paletteAllowList: ["map", "multiply", "constantNumber", "constantList", "write"],
+      paletteAllowList: [
+        "map",
+        "multiply",
+        "constantNumber",
+        "constantList",
+        "write",
+      ],
       lockedNodes: [
         {
           id: "locked-prices",
@@ -763,11 +766,10 @@ const definitions: Record<string, ChallengeDefinition> = {
       initialEdges: [],
     },
     grading: {
-      testCases: [
-        { name: "IVA", inputs: [], expected: ["116", "232", "58"] },
-      ],
+      testCases: [{ name: "IVA", inputs: [], expected: ["116", "232", "58"] }],
       matchMode: "contains",
     },
+    mapPoint: { x: 0.57, y: 0.89 },
   },
 
   "filtro-aprobados": {
@@ -779,7 +781,13 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 2,
     level: 7,
     constraints: {
-      paletteAllowList: ["sequence", "filter", "comparison", "constantNumber", "write"],
+      paletteAllowList: [
+        "sequence",
+        "filter",
+        "comparison",
+        "constantNumber",
+        "write",
+      ],
       lockedNodes: [
         {
           id: "locked-seq-notas",
@@ -810,6 +818,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       matchMode: "contains",
     },
+    mapPoint: { x: 0.78, y: 0.89 },
   },
 
   "contador-ingresos": {
@@ -850,6 +859,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       testCases: [{ name: "Total", inputs: [], expected: ["350"] }],
       matchMode: "exact",
     },
+    mapPoint: { x: 0.895, y: 0.66 },
   },
 
   "base-usuarios": {
@@ -916,6 +926,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       matchMode: "contains",
     },
+    mapPoint: { x: 0.85, y: 0.345 },
   },
 };
 
@@ -927,4 +938,8 @@ export async function loadChallengeDefinition(
 
 export function listChallenges(): ChallengeDefinition[] {
   return Object.values(definitions);
+}
+
+export function getChallengesByGroup(group: 1 | 2): ChallengeDefinition[] {
+  return Object.values(definitions).filter((c) => c.group === group);
 }

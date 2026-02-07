@@ -97,7 +97,7 @@ function AgeSelectionDialog({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Link
-            to="/desafios"
+            to="/desafios/1"
             className="group flex flex-col items-center gap-5 border-2 border-blue-100 rounded-3xl p-8 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-300"
           >
             <img
@@ -116,7 +116,7 @@ function AgeSelectionDialog({
           </Link>
 
           <Link
-            to="/desafios"
+            to="/desafios/2"
             className="group flex flex-col items-center gap-5 border-2 border-fuchsia-100 rounded-3xl p-8 hover:border-fuchsia-500 hover:bg-fuchsia-50/50 transition-all duration-300"
           >
             <img
