@@ -296,8 +296,6 @@ register([NODE_TYPES.SWITCH_NODE], (p) => {
     throw unknownInputHandle({ nodeId, nodeType, handleId });
   }
 
-  if (handleId === "out-default") return "outputDefault";
-
   const idx = parseIndexHandle(handleId);
   if (handleId?.startsWith("out-") && idx) return `output${idx}`;
   throw unknownOutputHandle({ nodeId, nodeType, handleId });

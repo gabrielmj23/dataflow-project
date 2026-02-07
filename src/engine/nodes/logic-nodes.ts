@@ -179,7 +179,6 @@ export class EngineSwitchNode extends NodeDefinition {
   constructor(conditions: SwitchCondition[]) {
     const safeConditions = Array.isArray(conditions) ? conditions : [];
     const outputPorts = safeConditions.map((_, i) => `output${i + 1}`);
-    const defaultPort = "outputDefault";
 
     super(
       (value: unknown) => {
@@ -190,10 +189,11 @@ export class EngineSwitchNode extends NodeDefinition {
           }
         }
 
-        return [new DataToken(value, new PortAddress("", defaultPort))];
+        // No default output; drop the token if nothing matches.
+        return [];
       },
       [FirePatterns.EXISTS],
-      ["value", ...outputPorts, defaultPort]
+      ["value", ...outputPorts]
     );
   }
 }
