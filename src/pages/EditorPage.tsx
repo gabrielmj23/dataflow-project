@@ -26,6 +26,7 @@ import {
   Download,
   Upload,
   Unplug,
+  Play,
 } from "lucide-react";
 import AppHeader from "@/components/app-header";
 import { nodeTypes } from "@/flow/node-types";
@@ -81,6 +82,8 @@ import {
   CreateSubflowOverlay,
   type CreateSubflowRequest,
 } from "@/components/CreateSubflowOverlay";
+import { useWindowSize } from "react-use";
+import Confetti from "react-confetti";
 
 type SubflowPorts = { inCount: number; outCount: number };
 
@@ -1169,8 +1172,14 @@ export default function EditorPage() {
     };
   }, []);
 
+  const { width: windowWidth, height: windowHeight } = useWindowSize();
+
   return (
     <RemoteControllersProvider controllers={runnerBridge.controllers}>
+      {validationResult.status === "success" && (
+        <Confetti width={windowWidth - 5} height={windowHeight - 10} initialVelocityY={15} />
+      )}
+
       <SidebarProvider>
         <div
           className="flex h-svh w-full flex-col"
@@ -1366,22 +1375,26 @@ export default function EditorPage() {
                                         {challengeDefinition.description}
                                       </p>
 
-                                      <div className="mt-3 flex justify-center">
-                                        <Button
-                                          type="button"
-                                          size="sm"
-                                          variant="default"
-                                          className="bg-blue-600 hover:bg-blue-700 text-white"
-                                          disabled={isValidating}
-                                          onClick={validateChallengeOutput}
-                                        >
-                                          {isValidating
-                                            ? "Validando…"
-                                            : "Validar"}
-                                        </Button>
-                                      </div>
+                                      {validationResult.status !==
+                                        "success" && (
+                                        <div className="mt-3 flex justify-center">
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="default"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                                            disabled={isValidating}
+                                            onClick={validateChallengeOutput}
+                                          >
+                                            {isValidating
+                                              ? "Validando…"
+                                              : "Validar"}
+                                          </Button>
+                                        </div>
+                                      )}
 
-                                      {validationResult.status === "failure" ? (
+                                      {validationResult.status ===
+                                        "failure" && (
                                         <div className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
                                           <p>
                                             La salida no es correcta. Revisa tus
@@ -1397,7 +1410,24 @@ export default function EditorPage() {
                                               : "Sin salida"}
                                           </p>
                                         </div>
-                                      ) : null}
+                                      )}
+
+                                      {validationResult.status ===
+                                        "success" && (
+                                        <div className="mt-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                                          <p>
+                                            ¡Felicidades! Has completado el
+                                            desafío con éxito, puedes continuar.
+                                          </p>
+                                          <Button className="rounded-lg mt-2 mb-1 bg-green-600/90 hover:bg-green-600">
+                                            Siguiente{" "}
+                                            <Play
+                                              fill="white"
+                                              className="inline"
+                                            />
+                                          </Button>
+                                        </div>
+                                      )}
                                     </div>
                                   ) : null}
                                 </div>
