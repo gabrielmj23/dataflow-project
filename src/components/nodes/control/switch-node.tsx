@@ -114,7 +114,7 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
   }, [rawConditions]);
 
   const outputHandleIds = useMemo(
-    () => [...conditions.map((_, i) => `out-${i + 1}`), "out-default"],
+    () => [...conditions.map((_, i) => `out-${i + 1}`)],
     [conditions]
   );
 
@@ -314,14 +314,6 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                   </div>
                 </div>
               ))}
-            </div>
-
-            <div className="rounded-md border p-3">
-              <div className="text-sm font-medium">Salida por defecto</div>
-              <p className="text-sm text-muted-foreground">
-                Si ninguna condición coincide, el valor saldrá por la salida
-                final.
-              </p>
             </div>
 
             <div className="flex items-center justify-between">

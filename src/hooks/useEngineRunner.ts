@@ -112,13 +112,47 @@ export function useEngineRunner({
   }, []);
 
   const formatLogText = useCallback((data: unknown) => {
-    if (typeof data === "string") return data;
-    if (typeof data === "number" || typeof data === "boolean") {
-      return String(data);
+    const toEsBoolean = (v: boolean) => (v ? "Verdadero" : "Falso");
+    const normalizeNumber = (n: number) => {
+      const roundedInt = Math.round(n);
+      if (Math.abs(n - roundedInt) < 1e-9) return roundedInt;
+      return Math.round((n + Number.EPSILON) * 1000) / 1000; // keep up to 3 decimals
+    };
+
+    const normalizeValue = (value: unknown): unknown => {
+      if (typeof value === "boolean") return toEsBoolean(value);
+      if (typeof value === "number") return normalizeNumber(value);
+      if (typeof value === "string") {
+        const lower = value.trim().toLowerCase();
+        if (lower === "true") return "Verdadero";
+        if (lower === "false") return "Falso";
+        try {
+          const parsed = JSON.parse(value);
+          const normalized = normalizeValue(parsed);
+          return typeof normalized === "object"
+            ? JSON.stringify(normalized)
+            : String(normalized);
+        } catch {
+          return value;
+        }
+      }
+      if (Array.isArray(value)) return value.map((v) => normalizeValue(v));
+      if (value && typeof value === "object") {
+        const entries = Object.entries(value).map(([k, v]) => [k, normalizeValue(v)]);
+        return Object.fromEntries(entries);
+      }
+      return value;
+    };
+
+    if (typeof data === "string") {
+      const normalized = normalizeValue(data);
+      return typeof normalized === "string" ? normalized : String(normalized);
     }
+    if (typeof data === "number") return String(normalizeNumber(data));
+    if (typeof data === "boolean") return toEsBoolean(data);
     if (data instanceof Error) return data.message;
     try {
-      return JSON.stringify(data);
+      return JSON.stringify(normalizeValue(data));
     } catch {
       return String(data);
     }

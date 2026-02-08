@@ -60,14 +60,15 @@ import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import { useRemoteConfigState } from "@/hooks/useRemoteConfig";
 import type { RemoteExecutor } from "@/engine/deserialize-program";
 import { RemoteControllersProvider } from "@/ws/remote-controllers-context";
-import { DataflowEngine } from "@/engine/engine";
+import { DataflowEngine, type EngineLogLevel } from "@/engine/engine";
 import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
 import {
   loadChallengeDefinition,
   type ChallengeDefinition,
+  type ChallengeConstraint,
   type ChallengeTestCase,
-} from "@/challenges/definitions";
+} from "../challenges/definitions";
 import type { NodePaletteItem } from "@/flow/node-palette";
 import {
   type FlowBounds,
@@ -179,8 +180,8 @@ export default function EditorPage() {
   const normalizeLines = useCallback((text: string) => {
     return text
       .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
   }, []);
 
   const latestConsoleLines = useMemo(
@@ -191,8 +192,8 @@ export default function EditorPage() {
   const expectedOutputLines = useMemo(() => {
     if (!challengeDefinition) return [] as string[];
     return (challengeDefinition.grading.expectedConsole ?? [])
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
   }, [challengeDefinition]);
 
   // Engine event sink that can be wired to the WS runner bridge without
@@ -261,12 +262,52 @@ export default function EditorPage() {
 
       const actualLinesRaw: string[] = [];
       const formatLogText = (data: unknown) => {
-        if (typeof data === "string") return data;
-        if (typeof data === "number" || typeof data === "boolean")
-          return String(data);
+        const toEsBoolean = (v: boolean) => (v ? "Verdadero" : "Falso");
+        const normalizeNumber = (n: number) => {
+          const roundedInt = Math.round(n);
+          if (Math.abs(n - roundedInt) < 1e-9) return roundedInt;
+          return Math.round((n + Number.EPSILON) * 1000) / 1000;
+        };
+
+        const normalizeValue = (value: unknown): unknown => {
+          if (typeof value === "boolean") return toEsBoolean(value);
+          if (typeof value === "number") return normalizeNumber(value);
+          if (typeof value === "string") {
+            const lower = value.trim().toLowerCase();
+            if (lower === "true") return "Verdadero";
+            if (lower === "false") return "Falso";
+            try {
+              const parsed = JSON.parse(value);
+              const normalized = normalizeValue(parsed);
+              return typeof normalized === "object"
+                ? JSON.stringify(normalized)
+                : String(normalized);
+            } catch {
+              return value;
+            }
+          }
+          if (Array.isArray(value)) return value.map((v) => normalizeValue(v));
+          if (value && typeof value === "object") {
+            const entries = Object.entries(value).map(([k, v]) => [
+              k,
+              normalizeValue(v),
+            ]);
+            return Object.fromEntries(entries);
+          }
+          return value;
+        };
+
+        if (typeof data === "string") {
+          const normalized = normalizeValue(data);
+          return typeof normalized === "string"
+            ? normalized
+            : String(normalized);
+        }
+        if (typeof data === "number") return String(normalizeNumber(data));
+        if (typeof data === "boolean") return toEsBoolean(data);
         if (data instanceof Error) return data.message;
         try {
-          return JSON.stringify(data);
+          return JSON.stringify(normalizeValue(data));
         } catch {
           return String(data);
         }
@@ -274,8 +315,18 @@ export default function EditorPage() {
 
       let promptIndex = 0;
 
-      const onLog = ({ level, data }: { level: string; data: unknown }) => {
-        const baseText = formatLogText(data);
+      const onLog = ({
+        level,
+        message,
+        data,
+      }: {
+        level: EngineLogLevel;
+        nodeId?: string;
+        message: string;
+        data?: unknown;
+      }) => {
+        const payload = message === "write" ? data : (data ?? message);
+        const baseText = formatLogText(payload);
         const text = level === "error" ? `Error: ${baseText}` : baseText;
         actualLinesRaw.push(text);
       };
@@ -302,11 +353,7 @@ export default function EditorPage() {
       };
 
       const stores = deserializeProgramToEngineStores(program, {
-        onLog: ({ level, message, data }) =>
-          onLog({
-            level,
-            data: message === "write" ? data : (data ?? message),
-          }),
+        onLog,
         onPrompt,
         signal: new AbortController().signal,
         remoteExecutor: remoteExecutorRef.current ?? undefined,
@@ -316,14 +363,7 @@ export default function EditorPage() {
 
       const engine = new DataflowEngine();
       engine.setObserver({
-        onLog: (event) =>
-          onLog({
-            level: event.level,
-            data:
-              event.message === "write"
-                ? event.data
-                : (event.data ?? event.message),
-          }),
+        onLog,
         onPrompt,
       });
 
@@ -590,17 +630,21 @@ export default function EditorPage() {
           return;
         }
 
-        const lockedNodes = (
-          definition.constraints.lockedNodes ?? []
-        ).map<FlowNode>((node, index) => ({
-          id: node.id || `locked-${index + 1}`,
-          type: node.type,
-          position: node.position,
-          data: { ...(node.data ?? {}), locked: true },
-          draggable: node.movable === true,
-          deletable: false,
-          selectable: true,
-        }));
+        const lockedNodesSource = definition.constraints.lockedNodes ?? [];
+        const lockedNodes = lockedNodesSource.map<FlowNode>(
+          (
+            node: NonNullable<ChallengeConstraint["lockedNodes"]>[number],
+            index: number,
+          ) => ({
+            id: node.id || `locked-${index + 1}`,
+            type: node.type,
+            position: node.position,
+            data: { ...(node.data ?? {}), locked: true },
+            draggable: node.movable === true,
+            deletable: false,
+            selectable: true,
+          }),
+        );
 
         const initialNodes = [
           ...(definition.constraints.initialNodes ?? []),

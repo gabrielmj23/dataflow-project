@@ -37,8 +37,9 @@ export type ChallengeDefinition = {
   title: string;
   description: string;
   sampleInput?: string;
-
+  /** Group 1: 8-11, Group 2: 12-16 */
   group: 1 | 2;
+  /** Difficulty or progression level within the group. */
   level: number;
   constraints: ChallengeConstraint;
   grading: ChallengeGrading;
@@ -63,23 +64,10 @@ const definitions: Record<string, ChallengeDefinition> = {
     constraints: {
       paletteAllowList: ["constantText", "write"],
       initialNodes: [],
-      initialEdges: [
-        {
-          id: "e-const2-to-mult",
-          source: "locked-const-2",
-          target: "locked-multiply",
-          targetHandle: "in-1",
-        },
-      ],
+      initialEdges: [],
     },
     grading: {
-      testCases: [
-        {
-          name: "Caso único",
-          inputs: [],
-          expected: ["Hola mundo"],
-        },
-      ],
+      testCases: [{ name: "Caso único", inputs: [], expected: ["Hola mundo"] }],
       matchMode: "exact",
       caseInsensitive: true,
     },
@@ -96,12 +84,12 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 1,
     level: 2,
     constraints: {
-      paletteAllowList: ["concat", "write"],
+      paletteAllowList: ["runtimeInput", "constantText", "concat", "write"],
       lockedNodes: [
         {
           id: "locked-prefix-super",
           type: "constantText",
-          position: { x: -150, y: -100 },
+          position: { x: 0, y: 0 },
           data: { value: "Super ", label: "Prefijo" },
           movable: false,
         },
@@ -110,6 +98,12 @@ const definitions: Record<string, ChallengeDefinition> = {
           type: "runtimeInput",
           position: { x: -150, y: 0 },
           data: { prompt: "Escribe tu nombre", valueType: "text" },
+          movable: false,
+        },
+        {
+          id: "locked-write-name",
+          type: "write",
+          position: { x: 180, y: 0 },
           movable: false,
         },
       ],
@@ -214,6 +208,13 @@ const definitions: Record<string, ChallengeDefinition> = {
       paletteAllowList: ["runtimeInput", "constantNumber", "multiply", "write"],
       lockedNodes: [
         {
+          id: "locked-const-2x",
+          type: "constantNumber",
+          position: { x: -140, y: 40 },
+          data: { value: 2 },
+          movable: false,
+        },
+        {
           id: "locked-read-number",
           type: "runtimeInput",
           position: { x: -180, y: -20 },
@@ -240,7 +241,7 @@ const definitions: Record<string, ChallengeDefinition> = {
     title: "Control de altura",
     description:
       "Para entrar al juego debes medir 120 cm o más. Configura el nodo Comparar para ver si cumples la estatura.",
-    sampleInput: "Ejemplo: entrada 130 → true",
+    sampleInput: "Ejemplo: entrada 130 → Verdadero",
     group: 1,
     level: 6,
     constraints: {
@@ -255,8 +256,9 @@ const definitions: Record<string, ChallengeDefinition> = {
     },
     grading: {
       testCases: [
-        { name: ">=120 ok", inputs: ["130"], expected: ["true"] },
-        { name: "<120 fail", inputs: ["110"], expected: ["false"] },
+        { name: ">=120 ok", inputs: ["130"], expected: ["Verdadero"] },
+        { name: "<120 fail", inputs: ["110"], expected: ["Falso"] },
+        { name: "=120 ok", inputs: ["120"], expected: ["Verdadero"] },
       ],
       matchMode: "exact",
     },
@@ -268,7 +270,7 @@ const definitions: Record<string, ChallengeDefinition> = {
     id: "puerta-automatica",
     title: "La puerta automática",
     description:
-      "Si el interruptor está encendido (Verdadero), la puerta debe decir 'Abierto'. Si está apagado (Falso), debe decir 'Cerrado'. Conecta los textos a las salidas SI y NO del nodo Switch.",
+      "Si el interruptor está encendido (Verdadero), la puerta debe decir 'Abierto'. Si está apagado (Falso), debe decir 'Cerrado'. Conecta los textos a las salidas SI y NO del nodo Switch. Asegurate de configurar las salidas de texto los mensajes de Abierto y Cerrado",
     sampleInput: "Salida esperada: Abierto/Cerrado según interruptor",
     group: 1,
     level: 7,
@@ -286,27 +288,6 @@ const definitions: Record<string, ChallengeDefinition> = {
           id: "locked-switch",
           type: "switch",
           position: { x: -40, y: 0 },
-          data: { condition: { operator: "truthy" } },
-          movable: false,
-        },
-        {
-          id: "locked-text-open",
-          type: "constantText",
-          position: { x: 140, y: -40 },
-          data: { value: "Abierto" },
-          movable: false,
-        },
-        {
-          id: "locked-text-closed",
-          type: "constantText",
-          position: { x: 140, y: 40 },
-          data: { value: "Cerrado" },
-          movable: false,
-        },
-        {
-          id: "locked-write-door",
-          type: "write",
-          position: { x: 260, y: 0 },
           movable: false,
         },
       ],
@@ -363,7 +344,14 @@ const definitions: Record<string, ChallengeDefinition> = {
         },
       ],
       initialNodes: [],
-      initialEdges: [],
+      initialEdges: [
+        {
+          id: "e-const2-to-mult",
+          source: "locked-const-2",
+          target: "locked-multiply",
+          targetHandle: "in-1",
+        },
+      ],
     },
     grading: {
       testCases: [{ name: "Bonus", inputs: [], expected: ["30"] }],
@@ -382,7 +370,7 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 1,
     level: 9,
     constraints: {
-      paletteAllowList: ["constantList", "sortList", "write"],
+      paletteAllowList: ["sortList", "write"],
       lockedNodes: [
         {
           id: "locked-list-scores",
@@ -400,7 +388,7 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           name: "Orden ascendente",
           inputs: [],
-          expected: ["10", "20", "30", "50", "100"],
+          expected: ["[10,20,30,50,100]"],
         },
       ],
       matchMode: "contains",
@@ -416,23 +404,16 @@ const definitions: Record<string, ChallengeDefinition> = {
     description:
       "Diseña un sistema de seguridad. La puerta solo se abre si: 1) La contraseña es igual a 'admin' Y 2) El usuario es igual a 'user'. Usa el nodo AND para conectar ambas validaciones.",
     sampleInput:
-      "Salida esperada: true solo si usuario=user y contraseña=admin",
+      "Salida esperada: Verdadero solo si usuario=user y contraseña=admin",
     group: 2,
     level: 1,
     constraints: {
-      paletteAllowList: [
-        "runtimeInput",
-        "constantText",
-        "constantBoolean",
-        "comparison",
-        "and",
-        "write",
-      ],
+      paletteAllowList: ["comparison", "and", "write"],
       lockedNodes: [
         {
           id: "locked-read-user",
           type: "runtimeInput",
-          position: { x: -220, y: -40 },
+          position: { x: -220, y: -30 },
           data: { prompt: "Usuario", valueType: "text" },
           movable: false,
         },
@@ -446,14 +427,14 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           id: "locked-const-user",
           type: "constantText",
-          position: { x: -60, y: -100 },
+          position: { x: -220, y: -100 },
           data: { value: "user" },
           movable: false,
         },
         {
           id: "locked-const-admin",
           type: "constantText",
-          position: { x: -60, y: 140 },
+          position: { x: -220, y: 130 },
           data: { value: "admin" },
           movable: false,
         },
@@ -466,17 +447,17 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           name: "Credenciales correctas",
           inputs: ["user", "admin"],
-          expected: ["true"],
+          expected: ["Verdadero"],
         },
         {
           name: "Clave incorrecta",
           inputs: ["user", "bad"],
-          expected: ["false"],
+          expected: ["Falso"],
         },
         {
           name: "Usuario incorrecto",
           inputs: ["foo", "admin"],
-          expected: ["false"],
+          expected: ["Falso"],
         },
       ],
       matchMode: "exact",
@@ -489,8 +470,8 @@ const definitions: Record<string, ChallengeDefinition> = {
     id: "detector-pares-impares",
     title: "Detector de Pares e Impares",
     description:
-      "Necesitamos clasificar números. Si el residuo (Módulo) de dividir un número entre 2 es igual a 0, el número es PAR. Crea un sistema que devuelva 'True' si el número ingresado es par.",
-    sampleInput: "Ejemplo: entrada 4 → true; entrada 5 → false",
+      "Necesitamos clasificar números. Si el residuo (Módulo) de dividir un número entre 2 es igual a 0, el número es PAR. Crea un sistema que devuelva 'Verdadero' si el número ingresado es par.",
+    sampleInput: "Ejemplo: entrada 4 → Verdadero; entrada 5 → Falso",
     group: 2,
     level: 2,
     constraints: {
@@ -542,8 +523,8 @@ const definitions: Record<string, ChallengeDefinition> = {
     },
     grading: {
       testCases: [
-        { name: "Par", inputs: ["4"], expected: ["true"] },
-        { name: "Impar", inputs: ["5"], expected: ["false"] },
+        { name: "Par", inputs: ["4"], expected: ["Verdadero"] },
+        { name: "Impar", inputs: ["5"], expected: ["Falso"] },
       ],
       matchMode: "exact",
     },
@@ -569,14 +550,14 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           id: "locked-read-msg",
           type: "runtimeInput",
-          position: { x: -240, y: 0 },
+          position: { x: -60, y: -80 },
           data: { prompt: "Ingresa mensaje", valueType: "text" },
           movable: false,
         },
         {
           id: "locked-bad-word",
           type: "constantText",
-          position: { x: -60, y: -80 },
+          position: { x: -60, y: 0 },
           data: { value: "tonto" },
           movable: false,
         },
@@ -619,73 +600,12 @@ const definitions: Record<string, ChallengeDefinition> = {
         "runtimeInput",
         "conditional",
         "selector",
-        "comparison",
+        "conditionalPair",
         "constantNumber",
         "constantText",
         "write",
       ],
-      lockedNodes: [
-        {
-          id: "locked-read-nota",
-          type: "runtimeInput",
-          position: { x: -260, y: 0 },
-          data: { prompt: "Ingresa nota", valueType: "number" },
-          movable: false,
-        },
-        {
-          id: "locked-const-18",
-          type: "constantNumber",
-          position: { x: -120, y: -90 },
-          data: { value: 18 },
-          movable: false,
-        },
-        {
-          id: "locked-const-10",
-          type: "constantNumber",
-          position: { x: -120, y: 90 },
-          data: { value: 10 },
-          movable: false,
-        },
-        {
-          id: "locked-cond",
-          type: "conditional",
-          position: { x: 0, y: 0 },
-          movable: false,
-        },
-        {
-          id: "locked-selector",
-          type: "selector",
-          position: { x: 180, y: 0 },
-          movable: false,
-        },
-        {
-          id: "locked-grade-a",
-          type: "constantText",
-          position: { x: 60, y: -120 },
-          data: { value: "A" },
-          movable: false,
-        },
-        {
-          id: "locked-grade-b",
-          type: "constantText",
-          position: { x: 60, y: 60 },
-          data: { value: "B" },
-          movable: false,
-        },
-        {
-          id: "locked-grade-c",
-          type: "constantText",
-          position: { x: 60, y: 160 },
-          data: { value: "C" },
-          movable: false,
-        },
-        {
-          id: "locked-write-grade",
-          type: "write",
-          position: { x: 360, y: 0 },
-          movable: false,
-        },
-      ],
+
       initialNodes: [],
       initialEdges: [],
     },
@@ -749,13 +669,6 @@ const definitions: Record<string, ChallengeDefinition> = {
           movable: false,
         },
         {
-          id: "locked-iva",
-          type: "constantNumber",
-          position: { x: -220, y: 120 },
-          data: { value: 1.16 },
-          movable: false,
-        },
-        {
           id: "locked-map",
           type: "map",
           position: { x: -40, y: 0 },
@@ -790,19 +703,6 @@ const definitions: Record<string, ChallengeDefinition> = {
       ],
       lockedNodes: [
         {
-          id: "locked-seq-notas",
-          type: "sequence",
-          position: { x: -220, y: -20 },
-          movable: false,
-        },
-        {
-          id: "locked-const-10-aprob",
-          type: "constantNumber",
-          position: { x: -220, y: 120 },
-          data: { value: 10 },
-          movable: false,
-        },
-        {
           id: "locked-filter",
           type: "filter",
           position: { x: -40, y: 0 },
@@ -830,25 +730,13 @@ const definitions: Record<string, ChallengeDefinition> = {
     group: 2,
     level: 8,
     constraints: {
-      paletteAllowList: ["reduce", "sum", "constantList", "write"],
+      paletteAllowList: ["accumulate", "constantList", "write"],
       lockedNodes: [
         {
           id: "locked-ventas",
           type: "constantList",
           position: { x: -200, y: 0 },
           data: { items: [100, 200, 50] },
-          movable: false,
-        },
-        {
-          id: "locked-reduce",
-          type: "reduce",
-          position: { x: 0, y: 0 },
-          movable: false,
-        },
-        {
-          id: "locked-sum-op",
-          type: "sum",
-          position: { x: 180, y: 0 },
           movable: false,
         },
       ],
@@ -887,34 +775,8 @@ const definitions: Record<string, ChallengeDefinition> = {
           data: { items: [101, 102, 103] },
           movable: false,
         },
-        {
-          id: "locked-zip",
-          type: "zip",
-          position: { x: -40, y: 20 },
-          movable: false,
-        },
-        {
-          id: "locked-write-zip",
-          type: "write",
-          position: { x: 200, y: 20 },
-          movable: false,
-        },
       ],
       initialNodes: [],
-      initialEdges: [
-        {
-          id: "e-names-zip",
-          source: "locked-names",
-          target: "locked-zip",
-          targetHandle: "in-1",
-        },
-        {
-          id: "e-ids-zip",
-          source: "locked-ids",
-          target: "locked-zip",
-          targetHandle: "in-2",
-        },
-      ],
     },
     grading: {
       testCases: [
