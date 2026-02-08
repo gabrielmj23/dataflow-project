@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   ReactFlow,
   applyNodeChanges,
@@ -70,6 +70,7 @@ import {
   type ChallengeConstraint,
   type ChallengeTestCase,
 } from "../challenges/definitions";
+import { useChallengeProgress } from "@/challenges/progress-context";
 import type { NodePaletteItem } from "@/flow/node-palette";
 import {
   type FlowBounds,
@@ -93,6 +94,7 @@ const initialEdges: FlowEdge[] = [];
 
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
+  const navigate = useNavigate();
 
   const {
     config: remoteConfig,
@@ -106,6 +108,7 @@ export default function EditorPage() {
     useState<ChallengeDefinition | null>(null);
   const [, setIsChallengeLoading] = useState(false);
   const [, setChallengeError] = useState<string | null>(null);
+  const { progress, markCompleted } = useChallengeProgress();
   const [validationResult, setValidationResult] = useState<{
     status: "idle" | "success" | "failure";
     message?: string;
@@ -494,6 +497,7 @@ export default function EditorPage() {
           message: "¡Correcto! Todas las pruebas pasaron.",
           actualLines: lastResult.actualLines,
         });
+        markCompleted(challengeDefinition.id);
       } catch {
         setValidationResult({
           status: "failure",
@@ -524,14 +528,32 @@ export default function EditorPage() {
         : "La salida no es correcta. Revisa tus conexiones y vuelve a intentar.",
       actualLines,
     });
+    if (matches) {
+      markCompleted(challengeDefinition.id);
+    }
 
     setIsValidating(false);
   }, [
     challengeDefinition,
     expectedOutputLines,
     latestConsoleLines,
+    markCompleted,
     runTestCase,
   ]);
+
+  useEffect(() => {
+    if (!challengeDefinition) return;
+    if (!progress.completedIds.includes(challengeDefinition.id)) return;
+    setValidationResult((prev) =>
+      prev.status === "success"
+        ? prev
+        : {
+            status: "success",
+            message: "Desafío ya completado.",
+            actualLines: [],
+          },
+    );
+  }, [challengeDefinition, progress.completedIds]);
 
   const {
     paletteCategories: basePaletteCategories,
@@ -633,6 +655,18 @@ export default function EditorPage() {
           return;
         }
 
+        // If the user hasn't completed prerequisites, return to the challenges map
+        const prereqs = definition.prerequisites ?? [];
+        if (prereqs.length > 0) {
+          const hasAll = prereqs.every((id) =>
+            progress.completedIds.includes(id),
+          );
+          if (!hasAll) {
+            navigate("/desafios");
+            return;
+          }
+        }
+
         const lockedNodesSource = definition.constraints.lockedNodes ?? [];
         const lockedNodes = lockedNodesSource.map<FlowNode>(
           (
@@ -678,7 +712,15 @@ export default function EditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [challengeId, resetHistory, setEdges, setNodes, setProgramName]);
+  }, [
+    challengeId,
+    resetHistory,
+    setEdges,
+    setNodes,
+    setProgramName,
+    navigate,
+    progress.completedIds,
+  ]);
 
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
@@ -1177,7 +1219,11 @@ export default function EditorPage() {
   return (
     <RemoteControllersProvider controllers={runnerBridge.controllers}>
       {validationResult.status === "success" && (
-        <Confetti width={windowWidth - 5} height={windowHeight - 10} initialVelocityY={15} />
+        <Confetti
+          width={windowWidth - 5}
+          height={windowHeight - 10}
+          initialVelocityY={15}
+        />
       )}
 
       <SidebarProvider>

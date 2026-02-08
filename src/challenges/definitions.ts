@@ -89,7 +89,7 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           id: "locked-prefix-super",
           type: "constantText",
-          position: { x: 0, y: 0 },
+          position: { x: -150, y: 100 },
           data: { value: "Super ", label: "Prefijo" },
           movable: false,
         },
@@ -103,7 +103,7 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           id: "locked-write-name",
           type: "write",
-          position: { x: 180, y: 0 },
+          position: { x: 150, y: 50 },
           movable: false,
         },
       ],

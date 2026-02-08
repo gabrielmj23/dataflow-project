@@ -1,23 +1,21 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import {
   CHALLENGE_MAP_VIEWBOX,
   getChallengesByGroup,
   listChallenges,
 } from "@/challenges/definitions";
-import {
-  getChallengeStatuses,
-  loadChallengeProgress,
-} from "@/challenges/progress";
+import { getChallengeStatuses } from "@/challenges/progress";
+import { useChallengeProgress } from "@/challenges/progress-context";
 import { ChallengeMap } from "@/components/challenges/ChallengeMap";
 import AppHeader from "@/components/app-header";
 
 export default function ChallengesPage() {
   const { groupId } = useParams<{ groupId: string }>();
-  const [progress] = useState(() => loadChallengeProgress());
+  const { progress } = useChallengeProgress();
 
   const challenges = useMemo(() => {
-    const g = parseInt(groupId || "");
+    const g = parseInt(groupId || "1");
     if (g === 1 || g === 2) {
       return getChallengesByGroup(g);
     }
