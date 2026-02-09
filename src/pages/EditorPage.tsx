@@ -66,6 +66,7 @@ import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
 import {
   loadChallengeDefinition,
+  getChallengesByGroup,
   type ChallengeDefinition,
   type ChallengeConstraint,
   type ChallengeTestCase,
@@ -201,6 +202,25 @@ export default function EditorPage() {
       .map((line: string) => line.trim())
       .filter((line: string) => line.length > 0);
   }, [challengeDefinition]);
+
+  const nextChallenge = useMemo(() => {
+    if (!challengeDefinition) return null;
+    const groupChallenges = getChallengesByGroup(challengeDefinition.group);
+    const sorted = [...groupChallenges].sort((a, b) => a.level - b.level);
+    const currentIndex = sorted.findIndex(
+      (ch) => ch.id === challengeDefinition.id,
+    );
+    if (currentIndex === -1 || currentIndex === sorted.length - 1) return null;
+    return sorted[currentIndex + 1];
+  }, [challengeDefinition]);
+
+  const onNextChallengeClick = useCallback(() => {
+    if (nextChallenge) {
+      navigate(`/editor/${nextChallenge.id}`);
+    } else {
+      navigate("/");
+    }
+  }, [navigate, nextChallenge]);
 
   // Engine event sink that can be wired to the WS runner bridge without
   // creating hook ordering cycles.
@@ -655,18 +675,6 @@ export default function EditorPage() {
           return;
         }
 
-        // If the user hasn't completed prerequisites, return to the challenges map
-        const prereqs = definition.prerequisites ?? [];
-        if (prereqs.length > 0) {
-          const hasAll = prereqs.every((id) =>
-            progress.completedIds.includes(id),
-          );
-          if (!hasAll) {
-            navigate("/desafios");
-            return;
-          }
-        }
-
         const lockedNodesSource = definition.constraints.lockedNodes ?? [];
         const lockedNodes = lockedNodesSource.map<FlowNode>(
           (
@@ -712,15 +720,19 @@ export default function EditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [
-    challengeId,
-    resetHistory,
-    setEdges,
-    setNodes,
-    setProgramName,
-    navigate,
-    progress.completedIds,
-  ]);
+  }, [challengeId, resetHistory, setEdges, setNodes, setProgramName]);
+
+  useEffect(() => {
+    if (!challengeDefinition) return;
+
+    const prereqs = challengeDefinition.prerequisites ?? [];
+    if (prereqs.length === 0) return;
+
+    const hasAll = prereqs.every((id) => progress.completedIds.includes(id));
+    if (!hasAll) {
+      navigate("/desafios");
+    }
+  }, [challengeDefinition, navigate, progress.completedIds]);
 
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
@@ -1462,11 +1474,17 @@ export default function EditorPage() {
                                         "success" && (
                                         <div className="mt-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
                                           <p>
-                                            ¡Felicidades! Has completado el
-                                            desafío con éxito, puedes continuar.
+                                            {nextChallenge
+                                              ? "¡Felicidades! Has completado el desafío con éxito, puedes continuar."
+                                              : "¡Felicidades por terminar los desafíos de tu nivel!"}
                                           </p>
-                                          <Button className="rounded-lg mt-2 mb-1 bg-green-600/90 hover:bg-green-600">
-                                            Siguiente{" "}
+                                          <Button
+                                            className="rounded-lg mt-2 mb-1 bg-green-600/90 hover:bg-green-600"
+                                            onClick={onNextChallengeClick}
+                                          >
+                                            {nextChallenge
+                                              ? "Siguiente"
+                                              : "Volver al inicio"}{" "}
                                             <Play
                                               fill="white"
                                               className="inline"
