@@ -27,6 +27,8 @@ import {
   Upload,
   Unplug,
   Play,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import AppHeader from "@/components/app-header";
 import { nodeTypes } from "@/flow/node-types";
@@ -72,6 +74,7 @@ import {
   type ChallengeTestCase,
 } from "../challenges/definitions";
 import { useChallengeProgress } from "@/challenges/progress-context";
+import { isSoundEnabled, toggleSoundEnabled } from "@/lib/sound";
 import type { NodePaletteItem } from "@/flow/node-palette";
 import {
   type FlowBounds,
@@ -128,6 +131,9 @@ export default function EditorPage() {
   } | null>(null);
   const [canvasMode, setCanvasMode] = useState<"pan" | "select">("pan");
   const [isConsoleOpen, setIsConsoleOpen] = useState(false);
+  const [soundsEnabled, setSoundsEnabledState] = useState<boolean>(() =>
+    isSoundEnabled(),
+  );
 
   const {
     subflowTemplates,
@@ -1519,6 +1525,20 @@ export default function EditorPage() {
                                 className="rf-mode-toggle"
                               >
                                 <Hand className="rf-icon-hand" />
+                              </ControlButton>
+                              <ControlButton
+                                title={
+                                  soundsEnabled
+                                    ? "Silenciar sonidos"
+                                    : "Activar sonidos"
+                                }
+                                onClick={() => {
+                                  const next = toggleSoundEnabled();
+                                  setSoundsEnabledState(next);
+                                }}
+                                aria-pressed={soundsEnabled}
+                              >
+                                {soundsEnabled ? <Volume2 /> : <VolumeX />}
                               </ControlButton>
                               <ControlButton
                                 onClick={() => setCanvasMode("select")}

@@ -1,8 +1,34 @@
+const LOCAL_KEY = "df:sounds-enabled";
+
+export function isSoundEnabled(): boolean {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (raw === null) return true; // default on
+    return raw === "1";
+  } catch {
+    return true;
+  }
+}
+
+export function setSoundEnabled(enabled: boolean): void {
+  try {
+    localStorage.setItem(LOCAL_KEY, enabled ? "1" : "0");
+  } catch {
+    // ignore
+  }
+}
+
+export function toggleSoundEnabled(): boolean {
+  const next = !isSoundEnabled();
+  setSoundEnabled(next);
+  return next;
+}
+
 export function playPop(): void {
+  if (!isSoundEnabled()) return;
   try {
     const audio = new Audio("/pop.mp3");
     audio.preload = "auto";
-    // Attempt to play; ignore promise rejection (autoplay policies may block until user interacts)
     void audio.play().catch(() => {});
   } catch {
     // ignore
@@ -10,6 +36,7 @@ export function playPop(): void {
 }
 
 export function playCorrect(): void {
+  if (!isSoundEnabled()) return;
   try {
     const audio = new Audio("/correct.mp3");
     audio.preload = "auto";
