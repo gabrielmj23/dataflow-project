@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Link } from "react-router-dom";
 
 type AppHeaderProps = {
   centerTitle?: string;
@@ -11,10 +12,10 @@ export default function AppHeader({ centerTitle, children }: AppHeaderProps) {
       data-app-header
       className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b-[0.5px] border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
     >
-      <div className="flex items-center">
+      <Link to="/" className="flex items-center">
         <img src="/nodi-robot-head-nobg.png" className="h-12 mb-1" />
         <img src="/logo-nodi.png" alt="Nodi" className="h-12 mt-1" />
-      </div>
+      </Link>
 
       {centerTitle ? (
         <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 px-2">
