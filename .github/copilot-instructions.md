@@ -20,7 +20,7 @@
 
 - **Routing / Pages**: The app uses `react-router-dom` and organizes top-level pages under `src/pages/`:
   - `ModeSelectPage` (`src/pages/ModeSelectPage.tsx`) – landing / mode selection (route `/`).
-  - `ChallengesPage` (`src/pages/ChallengesPage.tsx`) – challenge browser (route `/challenges`).
+  - `ChallengesPage` (`src/pages/ChallengesPage.tsx`) – challenge browser (route `/desafios`).
   - `EditorPage` (`src/pages/EditorPage.tsx`) – the main editor view (routes `/editor` and `/editor/:challengeId`).
   - The router shell is `src/App.tsx`, which mounts `BrowserRouter` and the `Routes`.
 

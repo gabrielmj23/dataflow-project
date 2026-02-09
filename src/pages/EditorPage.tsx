@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   ReactFlow,
   applyNodeChanges,
   applyEdgeChanges,
   MarkerType,
-  MiniMap,
   Controls,
   Background,
   BackgroundVariant,
@@ -17,7 +17,17 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import "@/App.css";
-import { Hand, MousePointer2, BrushCleaning } from "lucide-react";
+import {
+  Hand,
+  MousePointer2,
+  BrushCleaning,
+  ChevronDown,
+  ChevronUp,
+  Download,
+  Upload,
+  Unplug,
+  Play,
+} from "lucide-react";
 import AppHeader from "@/components/app-header";
 import { nodeTypes } from "@/flow/node-types";
 import { LabeledEdge } from "@/flow/labeled-edge";
@@ -31,6 +41,7 @@ import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
 import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
 import { TopBar } from "@/components/TopBar";
 import { TopActionPanel } from "@/components/TopActionPanel";
+import { Button } from "@/components/ui/button";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { usePaletteDrag } from "@/hooks/usePaletteDrag";
 import { SubflowTemplateContext } from "@/flow/subflow-templates-context";
@@ -50,6 +61,18 @@ import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import { useRemoteConfigState } from "@/hooks/useRemoteConfig";
 import type { RemoteExecutor } from "@/engine/deserialize-program";
 import { RemoteControllersProvider } from "@/ws/remote-controllers-context";
+import { DataflowEngine, type EngineLogLevel } from "@/engine/engine";
+import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
+import { serializeProgram } from "@/flow/serialization";
+import {
+  loadChallengeDefinition,
+  getChallengesByGroup,
+  type ChallengeDefinition,
+  type ChallengeConstraint,
+  type ChallengeTestCase,
+} from "../challenges/definitions";
+import { useChallengeProgress } from "@/challenges/progress-context";
+import type { NodePaletteItem } from "@/flow/node-palette";
 import {
   type FlowBounds,
   type FlowEdge,
@@ -61,6 +84,8 @@ import {
   CreateSubflowOverlay,
   type CreateSubflowRequest,
 } from "@/components/CreateSubflowOverlay";
+import { useWindowSize } from "react-use";
+import Confetti from "react-confetti";
 
 type SubflowPorts = { inCount: number; outCount: number };
 
@@ -69,6 +94,9 @@ const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
 
 export default function EditorPage() {
+  const { challengeId } = useParams<{ challengeId?: string }>();
+  const navigate = useNavigate();
+
   const {
     config: remoteConfig,
     setConfig: setRemoteConfig,
@@ -76,6 +104,19 @@ export default function EditorPage() {
   } = useRemoteConfigState();
 
   const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
+
+  const [challengeDefinition, setChallengeDefinition] =
+    useState<ChallengeDefinition | null>(null);
+  const [, setIsChallengeLoading] = useState(false);
+  const [, setChallengeError] = useState<string | null>(null);
+  const { progress, markCompleted } = useChallengeProgress();
+  const [validationResult, setValidationResult] = useState<{
+    status: "idle" | "success" | "failure";
+    message?: string;
+    actualLines: string[];
+  }>({ status: "idle", actualLines: [] });
+  const [isValidating, setIsValidating] = useState(false);
+  const [isChallengeOpen, setIsChallengeOpen] = useState(true);
 
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
@@ -106,6 +147,7 @@ export default function EditorPage() {
     onNodeDragStop,
     isRestoringRef,
     isDraggingRef,
+    resetHistory,
   } = useFlowHistory({
     nodes,
     edges,
@@ -141,6 +183,44 @@ export default function EditorPage() {
     setNodes,
     isRuntimeUpdateRef,
   });
+
+  const normalizeLines = useCallback((text: string) => {
+    return text
+      .split(/\r?\n/)
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
+  }, []);
+
+  const latestConsoleLines = useMemo(
+    () => normalizeLines(consoleOutputText),
+    [consoleOutputText, normalizeLines],
+  );
+
+  const expectedOutputLines = useMemo(() => {
+    if (!challengeDefinition) return [] as string[];
+    return (challengeDefinition.grading.expectedConsole ?? [])
+      .map((line: string) => line.trim())
+      .filter((line: string) => line.length > 0);
+  }, [challengeDefinition]);
+
+  const nextChallenge = useMemo(() => {
+    if (!challengeDefinition) return null;
+    const groupChallenges = getChallengesByGroup(challengeDefinition.group);
+    const sorted = [...groupChallenges].sort((a, b) => a.level - b.level);
+    const currentIndex = sorted.findIndex(
+      (ch) => ch.id === challengeDefinition.id,
+    );
+    if (currentIndex === -1 || currentIndex === sorted.length - 1) return null;
+    return sorted[currentIndex + 1];
+  }, [challengeDefinition]);
+
+  const onNextChallengeClick = useCallback(() => {
+    if (nextChallenge) {
+      navigate(`/editor/${nextChallenge.id}`);
+    } else {
+      navigate("/");
+    }
+  }, [navigate, nextChallenge]);
 
   // Engine event sink that can be wired to the WS runner bridge without
   // creating hook ordering cycles.
@@ -195,8 +275,343 @@ export default function EditorPage() {
     return onRunClick();
   }, [onRunClick]);
 
-  const { paletteCategories, onPaletteDragStart, onDragOver, onDrop } =
-    usePaletteDrag({ reactFlowInstance, setNodes, setEdges, subflowTemplates });
+  const runTestCase = useCallback(
+    async (testCase: ChallengeTestCase, opts: { caseInsensitive: boolean }) => {
+      const program = serializeProgram(
+        {
+          nodes,
+          edges,
+          programName,
+        },
+        false,
+      );
+
+      const actualLinesRaw: string[] = [];
+      const formatLogText = (data: unknown) => {
+        const toEsBoolean = (v: boolean) => (v ? "Verdadero" : "Falso");
+        const normalizeNumber = (n: number) => {
+          const roundedInt = Math.round(n);
+          if (Math.abs(n - roundedInt) < 1e-9) return roundedInt;
+          return Math.round((n + Number.EPSILON) * 1000) / 1000;
+        };
+
+        const normalizeValue = (value: unknown): unknown => {
+          if (typeof value === "boolean") return toEsBoolean(value);
+          if (typeof value === "number") return normalizeNumber(value);
+          if (typeof value === "string") {
+            const lower = value.trim().toLowerCase();
+            if (lower === "true") return "Verdadero";
+            if (lower === "false") return "Falso";
+            try {
+              const parsed = JSON.parse(value);
+              const normalized = normalizeValue(parsed);
+              return typeof normalized === "object"
+                ? JSON.stringify(normalized)
+                : String(normalized);
+            } catch {
+              return value;
+            }
+          }
+          if (Array.isArray(value)) return value.map((v) => normalizeValue(v));
+          if (value && typeof value === "object") {
+            const entries = Object.entries(value).map(([k, v]) => [
+              k,
+              normalizeValue(v),
+            ]);
+            return Object.fromEntries(entries);
+          }
+          return value;
+        };
+
+        if (typeof data === "string") {
+          const normalized = normalizeValue(data);
+          return typeof normalized === "string"
+            ? normalized
+            : String(normalized);
+        }
+        if (typeof data === "number") return String(normalizeNumber(data));
+        if (typeof data === "boolean") return toEsBoolean(data);
+        if (data instanceof Error) return data.message;
+        try {
+          return JSON.stringify(normalizeValue(data));
+        } catch {
+          return String(data);
+        }
+      };
+
+      let promptIndex = 0;
+
+      const onLog = ({
+        level,
+        message,
+        data,
+      }: {
+        level: EngineLogLevel;
+        nodeId?: string;
+        message: string;
+        data?: unknown;
+      }) => {
+        const payload = message === "write" ? data : (data ?? message);
+        const baseText = formatLogText(payload);
+        const text = level === "error" ? `Error: ${baseText}` : baseText;
+        actualLinesRaw.push(text);
+      };
+
+      const onPrompt = ({
+        type,
+        defaultValue,
+        submit,
+      }: {
+        nodeId: string;
+        prompt: string;
+        type: "number" | "text";
+        defaultValue?: unknown;
+        submit: (value: unknown) => void;
+        cancel: () => void;
+      }) => {
+        const value = (testCase.inputs ?? [])[promptIndex++] ?? "";
+        if (type === "number") {
+          const n = Number(value);
+          submit(Number.isFinite(n) ? n : Number(defaultValue ?? 0));
+        } else {
+          submit(value);
+        }
+      };
+
+      const stores = deserializeProgramToEngineStores(program, {
+        onLog,
+        onPrompt,
+        signal: new AbortController().signal,
+        remoteExecutor: remoteExecutorRef.current ?? undefined,
+        resolveSubflowTemplate: resolveTemplate,
+        maxSubflowDepth: 1000,
+      });
+
+      const engine = new DataflowEngine();
+      engine.setObserver({
+        onLog,
+        onPrompt,
+      });
+
+      engine.loadProgram({
+        nodes: stores.nodeStore.getNodes(),
+        arcs: stores.arcStore.getArcs(),
+      });
+
+      await engine.run({ initialTokens: [], maxSteps: 10_000 });
+
+      const actualLines = normalizeLines(actualLinesRaw.join("\n"));
+      const expectedLines = normalizeLines(testCase.expected.join("\n"));
+
+      const matchMode = challengeDefinition?.grading.matchMode ?? "exact";
+      const caseInsensitive = opts.caseInsensitive;
+
+      const compare = (() => {
+        if (matchMode === "contains") {
+          return expectedLines.every((expected) =>
+            actualLines.some((line) =>
+              caseInsensitive
+                ? line.toLowerCase().includes(expected.toLowerCase())
+                : line.includes(expected),
+            ),
+          );
+        }
+        if (matchMode === "regex") {
+          return expectedLines.every((pattern) => {
+            try {
+              const flags = caseInsensitive ? "i" : "";
+              const regex = new RegExp(pattern, flags);
+              return actualLines.some((line) => regex.test(line));
+            } catch {
+              return false;
+            }
+          });
+        }
+
+        if (expectedLines.length !== actualLines.length) return false;
+        return expectedLines.every((line, idx) =>
+          caseInsensitive
+            ? line.toLowerCase() === actualLines[idx].toLowerCase()
+            : line === actualLines[idx],
+        );
+      })();
+
+      return { matches: compare, actualLines } as const;
+    },
+    [
+      nodes,
+      edges,
+      programName,
+      normalizeLines,
+      remoteExecutorRef,
+      resolveTemplate,
+      challengeDefinition?.grading.matchMode,
+    ],
+  );
+
+  const validateChallengeOutput = useCallback(async () => {
+    if (!challengeDefinition) return;
+
+    setIsConsoleOpen(true);
+    setIsValidating(true);
+
+    const expectedLines = expectedOutputLines;
+
+    const actualLines = latestConsoleLines;
+
+    const matchMode = challengeDefinition.grading.matchMode ?? "exact";
+    const caseInsensitive = challengeDefinition.grading.caseInsensitive ?? true;
+
+    const compareLines = (expected: string[], actual: string[]) => {
+      if (matchMode === "contains") {
+        return expected.every((exp) =>
+          actual.some((line) =>
+            caseInsensitive
+              ? line.toLowerCase().includes(exp.toLowerCase())
+              : line.includes(exp),
+          ),
+        );
+      }
+      if (matchMode === "regex") {
+        return expected.every((pattern) => {
+          try {
+            const flags = caseInsensitive ? "i" : "";
+            const regex = new RegExp(pattern, flags);
+            return actual.some((line) => regex.test(line));
+          } catch {
+            return false;
+          }
+        });
+      }
+      if (expected.length !== actual.length) return false;
+      return expected.every((line, idx) =>
+        caseInsensitive
+          ? line.toLowerCase() === actual[idx].toLowerCase()
+          : line === actual[idx],
+      );
+    };
+
+    const testCases = challengeDefinition.grading.testCases;
+
+    if (testCases && testCases.length > 0) {
+      try {
+        let lastResult = { matches: true, actualLines: [] as string[] };
+
+        for (let i = 0; i < testCases.length; i++) {
+          const tc = testCases[i];
+          const result = await runTestCase(tc, { caseInsensitive });
+          lastResult = result;
+          if (!result.matches) {
+            setValidationResult({
+              status: "failure",
+              message: `Falló el caso "${tc.name ?? `Caso ${i + 1}`}". Ajusta tu flujo y vuelve a intentar.`,
+              actualLines: result.actualLines,
+            });
+            setIsValidating(false);
+            return;
+          }
+        }
+
+        setValidationResult({
+          status: "success",
+          message: "¡Correcto! Todas las pruebas pasaron.",
+          actualLines: lastResult.actualLines,
+        });
+        markCompleted(challengeDefinition.id);
+      } catch {
+        setValidationResult({
+          status: "failure",
+          message: "No se pudo ejecutar las pruebas automáticas.",
+          actualLines: [],
+        });
+      }
+      setIsValidating(false);
+      return;
+    }
+
+    if (!actualLines.length) {
+      setValidationResult({
+        status: "failure",
+        message: "Aún no hay salida en la consola para validar.",
+        actualLines,
+      });
+      setIsValidating(false);
+      return;
+    }
+
+    const matches = compareLines(expectedLines, actualLines);
+
+    setValidationResult({
+      status: matches ? "success" : "failure",
+      message: matches
+        ? "¡Correcto! La salida coincide con lo esperado."
+        : "La salida no es correcta. Revisa tus conexiones y vuelve a intentar.",
+      actualLines,
+    });
+    if (matches) {
+      markCompleted(challengeDefinition.id);
+    }
+
+    setIsValidating(false);
+  }, [
+    challengeDefinition,
+    expectedOutputLines,
+    latestConsoleLines,
+    markCompleted,
+    runTestCase,
+  ]);
+
+  useEffect(() => {
+    if (!challengeDefinition) return;
+    if (!progress.completedIds.includes(challengeDefinition.id)) return;
+    setValidationResult((prev) =>
+      prev.status === "success"
+        ? prev
+        : {
+            status: "success",
+            message: "Desafío ya completado.",
+            actualLines: [],
+          },
+    );
+  }, [challengeDefinition, progress.completedIds]);
+
+  const {
+    paletteCategories: basePaletteCategories,
+    onPaletteDragStart: onPaletteDragStartInternal,
+    onDragOver,
+    onDrop,
+  } = usePaletteDrag({
+    reactFlowInstance,
+    setNodes,
+    setEdges,
+    subflowTemplates,
+  });
+
+  const challengeAllowSet = useMemo(() => {
+    if (!challengeDefinition) return null;
+    return new Set(challengeDefinition.constraints.paletteAllowList);
+  }, [challengeDefinition]);
+
+  const paletteCategories = useMemo(() => {
+    if (!challengeAllowSet) return basePaletteCategories;
+
+    return basePaletteCategories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((item) =>
+          challengeAllowSet.has(item.type),
+        ),
+      }))
+      .filter((category) => category.items.length > 0);
+  }, [basePaletteCategories, challengeAllowSet]);
+
+  const onPaletteDragStart = useCallback(
+    (event: React.DragEvent, item: NodePaletteItem) => {
+      if (challengeAllowSet && !challengeAllowSet.has(item.type)) return;
+      onPaletteDragStartInternal(event, item);
+    },
+    [challengeAllowSet, onPaletteDragStartInternal],
+  );
 
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
@@ -234,6 +649,91 @@ export default function EditorPage() {
       setProgramName,
     });
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      if (!challengeId) {
+        setChallengeDefinition(null);
+        setChallengeError(null);
+        setValidationResult({ status: "idle", actualLines: [] });
+        setIsChallengeLoading(false);
+        return;
+      }
+
+      setIsChallengeLoading(true);
+      setChallengeError(null);
+
+      try {
+        const definition = await loadChallengeDefinition(challengeId);
+        if (cancelled) return;
+        setIsChallengeLoading(false);
+
+        if (!definition) {
+          setChallengeDefinition(null);
+          setChallengeError("No se encontró el desafío solicitado.");
+          return;
+        }
+
+        const lockedNodesSource = definition.constraints.lockedNodes ?? [];
+        const lockedNodes = lockedNodesSource.map<FlowNode>(
+          (
+            node: NonNullable<ChallengeConstraint["lockedNodes"]>[number],
+            index: number,
+          ) => ({
+            id: node.id || `locked-${index + 1}`,
+            type: node.type,
+            position: node.position,
+            data: { ...(node.data ?? {}), locked: true },
+            draggable: node.movable === true,
+            deletable: false,
+            selectable: true,
+          }),
+        );
+
+        const initialNodes = [
+          ...(definition.constraints.initialNodes ?? []),
+          ...lockedNodes,
+        ];
+        const initialEdges = definition.constraints.initialEdges ?? [];
+
+        setChallengeDefinition(definition);
+        setProgramName(definition.title);
+        setNodes(initialNodes);
+        setEdges(initialEdges);
+        resetHistory({ nodes: initialNodes, edges: initialEdges });
+        setValidationResult({ status: "idle", actualLines: [] });
+      } catch (error) {
+        if (cancelled) return;
+        setIsChallengeLoading(false);
+        const message =
+          error instanceof Error
+            ? error.message
+            : "No se pudo cargar el desafío.";
+        setChallengeError(message);
+        setChallengeDefinition(null);
+      }
+    };
+
+    void load();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [challengeId, resetHistory, setEdges, setNodes, setProgramName]);
+
+  useEffect(() => {
+    if (!challengeDefinition) return;
+
+    const prereqs = challengeDefinition.prerequisites ?? [];
+    if (prereqs.length === 0) return;
+
+    const hasAll = prereqs.every((id) => progress.completedIds.includes(id));
+    if (!hasAll) {
+      navigate("/desafios");
+    }
+  }, [challengeDefinition, navigate, progress.completedIds]);
+
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
     if (!open) {
@@ -248,10 +748,27 @@ export default function EditorPage() {
 
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((nodesSnapshot) => {
-      const removedChanges = changes.filter(
+      const lockedNodeIds = new Set(
+        nodesSnapshot
+          .filter((node) => {
+            const data =
+              node.data && typeof node.data === "object"
+                ? (node.data as Record<string, unknown>)
+                : null;
+            return data?.locked === true || node.deletable === false;
+          })
+          .map((node) => String(node.id)),
+      );
+
+      const filteredChanges = changes.filter((change) => {
+        if (change.type !== "remove") return true;
+        return !lockedNodeIds.has(String(change.id));
+      });
+
+      const removedChanges = filteredChanges.filter(
         (change) => change.type === "remove",
       );
-      let expandedChanges = changes;
+      let expandedChanges = filteredChanges;
 
       if (removedChanges.length > 0) {
         const removedIds = new Set(
@@ -283,7 +800,7 @@ export default function EditorPage() {
             }
           }
 
-          expandedChanges = changes.concat(
+          expandedChanges = filteredChanges.concat(
             Array.from(removedIds)
               .filter((id) => !removedChanges.some((c) => String(c.id) === id))
               .map((id) => ({ type: "remove", id }) as NodeChange),
@@ -509,11 +1026,27 @@ export default function EditorPage() {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
 
       setNodes((prevNodes) => {
-        const removedIds = new Set(
-          prevNodes.filter((n) => n.selected).map((n) => n.id),
+        const lockedNodeIds = new Set(
+          prevNodes
+            .filter((node) => {
+              const data =
+                node.data && typeof node.data === "object"
+                  ? (node.data as Record<string, unknown>)
+                  : null;
+              return data?.locked === true || node.deletable === false;
+            })
+            .map((node) => String(node.id)),
         );
 
-        const nextNodes = prevNodes.filter((n) => !n.selected);
+        const removable = prevNodes.filter(
+          (node) => node.selected && !lockedNodeIds.has(String(node.id)),
+        );
+
+        const removedIds = new Set(removable.map((n) => n.id));
+
+        const nextNodes = prevNodes.filter(
+          (node) => !removedIds.has(String(node.id)),
+        );
 
         setEdges((prevEdges) =>
           prevEdges.filter((edge) => {
@@ -693,8 +1226,18 @@ export default function EditorPage() {
     };
   }, []);
 
+  const { width: windowWidth, height: windowHeight } = useWindowSize();
+
   return (
     <RemoteControllersProvider controllers={runnerBridge.controllers}>
+      {validationResult.status === "success" && (
+        <Confetti
+          width={windowWidth - 5}
+          height={windowHeight - 10}
+          initialVelocityY={15}
+        />
+      )}
+
       <SidebarProvider>
         <div
           className="flex h-svh w-full flex-col"
@@ -706,12 +1249,35 @@ export default function EditorPage() {
             } as React.CSSProperties
           }
         >
-          <AppHeader
-            nodesCount={nodes.length}
-            onDownload={onDownloadClick}
-            onLoad={onLoadClick}
-            onOpenRemoteConfig={() => setIsRemoteDialogOpen(true)}
-          />
+          <AppHeader centerTitle={challengeDefinition?.title}>
+            <Button
+              variant="secondary"
+              className="bg-transparent text-white hover:bg-white/10"
+              type="button"
+              onClick={onDownloadClick}
+            >
+              Descargar
+              <Download className="text-white" />
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+              type="button"
+              onClick={onLoadClick}
+            >
+              Cargar
+              <Upload className="text-white" />
+            </Button>
+            <Button
+              variant="secondary"
+              className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+              type="button"
+              onClick={() => setIsRemoteDialogOpen(true)}
+            >
+              Conectar
+              <Unplug className="text-white" />
+            </Button>
+          </AppHeader>
 
           <div className="flex flex-1 min-h-0">
             <AppSidebar
@@ -733,143 +1299,276 @@ export default function EditorPage() {
                   onProgramNameChange={setProgramName}
                 />
 
-                <div className="relative flex-1">
-                  <RemoteSettingsDialog
-                    config={remoteConfig}
-                    onChange={setRemoteConfig}
-                    onReset={resetConfig}
-                    open={isRemoteDialogOpen}
-                    setOpen={setIsRemoteDialogOpen}
-                  />
+                <div className="relative flex flex-1 min-h-0">
+                  <div className="relative flex-1">
+                    <RemoteSettingsDialog
+                      config={remoteConfig}
+                      onChange={setRemoteConfig}
+                      onReset={resetConfig}
+                      open={isRemoteDialogOpen}
+                      setOpen={setIsRemoteDialogOpen}
+                    />
 
-                  {remoteConfig.role === "controller" ? (
-                    <RemoteControllerPanel remoteConfig={remoteConfig} />
-                  ) : null}
+                    {remoteConfig.role === "controller" ? (
+                      <RemoteControllerPanel remoteConfig={remoteConfig} />
+                    ) : null}
 
-                  <SubflowTemplateContext.Provider
-                    value={{
-                      addOrUpdateTemplate,
-                      isNameTaken,
-                      resolveTemplate,
-                    }}
-                  >
-                    <ConnectionHighlightProvider value={connectionHighlight}>
-                      <CanvasContextMenu
-                        onContextMenu={(e: React.MouseEvent) => {
-                          setContextPoint({ x: e.clientX, y: e.clientY });
-                        }}
-                        onAddComment={addCommentAtContext}
-                        copySelection={copySelection}
-                        pasteSelection={pasteSelection}
-                      >
-                        <ReactFlow
-                          nodes={nodes}
-                          edges={edges}
-                          nodeTypes={nodeTypes}
-                          edgeTypes={{ default: LabeledEdge }}
-                          connectionLineComponent={ArrowConnectionLine}
-                          isValidConnection={
-                            connectionTooltip.isValidConnection
-                          }
-                          defaultEdgeOptions={{
-                            markerEnd: {
-                              type: MarkerType.ArrowClosed,
-                              width: 14,
-                              height: 14,
-                            },
+                    <SubflowTemplateContext.Provider
+                      value={{
+                        addOrUpdateTemplate,
+                        isNameTaken,
+                        resolveTemplate,
+                      }}
+                    >
+                      <ConnectionHighlightProvider value={connectionHighlight}>
+                        <CanvasContextMenu
+                          onContextMenu={(e: React.MouseEvent) => {
+                            setContextPoint({ x: e.clientX, y: e.clientY });
                           }}
-                          onInit={setReactFlowInstance}
-                          onNodesChange={onNodesChange}
-                          onEdgesChange={onEdgesChange}
-                          onConnect={onConnect}
-                          onConnectStart={onConnectStart}
-                          onConnectEnd={onConnectEnd}
-                          onDrop={onDrop}
-                          onDragOver={onDragOver}
-                          onNodeDragStart={onNodeDragStart}
-                          onNodeDragStop={onNodeDragStop}
-                          onPaneMouseMove={onPaneMouseMove}
-                          panOnDrag={canvasMode === "pan"}
-                          selectionOnDrag={canvasMode === "select"}
-                          selectionMode={SelectionMode.Partial}
-                          className={
-                            canvasMode === "pan"
-                              ? "rf-mode-pan"
-                              : "rf-mode-select"
-                          }
-                          fitView
-                          proOptions={{ hideAttribution: true }}
+                          onAddComment={addCommentAtContext}
+                          copySelection={copySelection}
+                          pasteSelection={pasteSelection}
                         >
-                          <ConnectionErrorTooltip
-                            open={connectionTooltip.tooltip.open}
-                            message={connectionTooltip.tooltip.message}
-                            x={connectionTooltip.tooltip.x}
-                            y={connectionTooltip.tooltip.y}
-                            onClose={connectionTooltip.hide}
-                          />
-                          <CreateSubflowOverlay
-                            selectedNodes={selectedNodes}
+                          <ReactFlow
+                            nodes={nodes}
                             edges={edges}
-                            onCreateClick={openCreateSubflow}
-                          />
-                          <Background variant={BackgroundVariant.Dots} />
-                          <Controls>
-                            <ControlButton
-                              onClick={() => setCanvasMode("pan")}
-                              aria-pressed={canvasMode === "pan"}
-                              title="Modo arrastrar (mover canvas)"
-                              className="rf-mode-toggle"
-                            >
-                              <Hand className="rf-icon-hand" />
-                            </ControlButton>
-                            <ControlButton
-                              onClick={() => setCanvasMode("select")}
-                              aria-pressed={canvasMode === "select"}
-                              title="Modo selección (cuadro)"
-                              className="rf-mode-toggle"
-                            >
-                              <MousePointer2 />
-                            </ControlButton>
-                            <ControlButton
-                              title="Mejorar formato"
-                              onClick={onLayout}
-                            >
-                              <BrushCleaning className="fill-none!" />
-                            </ControlButton>
-                          </Controls>
-                          <MiniMap />
-                          <TopActionPanel
-                            nodesCount={nodes.length}
-                            isEngineRunning={isEngineRunning}
-                            onRunClick={handleRunClick}
-                            onStopClick={onStopClick}
-                          />
+                            nodeTypes={nodeTypes}
+                            edgeTypes={{ default: LabeledEdge }}
+                            connectionLineComponent={ArrowConnectionLine}
+                            isValidConnection={
+                              connectionTooltip.isValidConnection
+                            }
+                            defaultEdgeOptions={{
+                              markerEnd: {
+                                type: MarkerType.ArrowClosed,
+                                width: 14,
+                                height: 14,
+                              },
+                            }}
+                            onInit={setReactFlowInstance}
+                            onNodesChange={onNodesChange}
+                            onEdgesChange={onEdgesChange}
+                            onConnect={onConnect}
+                            onConnectStart={onConnectStart}
+                            onConnectEnd={onConnectEnd}
+                            onDrop={onDrop}
+                            onDragOver={onDragOver}
+                            onNodeDragStart={onNodeDragStart}
+                            onNodeDragStop={onNodeDragStop}
+                            onPaneMouseMove={onPaneMouseMove}
+                            panOnDrag={canvasMode === "pan"}
+                            selectionOnDrag={canvasMode === "select"}
+                            selectionMode={SelectionMode.Partial}
+                            className={
+                              canvasMode === "pan"
+                                ? "rf-mode-pan"
+                                : "rf-mode-select"
+                            }
+                            fitView
+                            proOptions={{ hideAttribution: true }}
+                          >
+                            {challengeDefinition ? (
+                              <div className="pointer-events-none absolute right-4 top-16 z-20 flex w-72 px-2">
+                                <div className="pointer-events-auto grid w-full grid-cols-1 gap-0 rounded-2xl bg-white/95 text-slate-900 shadow-lg max-w-xs overflow-hidden">
+                                  <div className="flex items-center justify-between border-(--nodi-blue-border) bg-(--nodi-blue) px-3 py-2 text-sm font-medium text-white">
+                                    <div className="flex items-center gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        className="hover:bg-white/10"
+                                        onClick={() =>
+                                          setIsChallengeOpen((s) => !s)
+                                        }
+                                        title={
+                                          isChallengeOpen
+                                            ? "Minimizar"
+                                            : "Expandir"
+                                        }
+                                        aria-label={
+                                          isChallengeOpen
+                                            ? "Minimizar"
+                                            : "Expandir"
+                                        }
+                                      >
+                                        {isChallengeOpen ? (
+                                          <ChevronDown className="text-white" />
+                                        ) : (
+                                          <ChevronUp className="text-white" />
+                                        )}
+                                      </Button>
+                                      <span className="uppercase tracking-[0.18em] text-[11px]">
+                                        Desafío
+                                      </span>
+                                    </div>
 
-                          <ConsolePanel
-                            consoleOutputText={consoleOutputText}
-                            activeRuntimePrompt={activeRuntimePrompt}
-                            getRuntimePromptText={getRuntimePromptText}
-                            runtimePromptInput={runtimePromptInput}
-                            setRuntimePromptInput={setRuntimePromptInput}
-                            onSubmitRuntimePrompt={onSubmitRuntimePrompt}
-                            onCancelRuntimePrompt={onCancelRuntimePrompt}
-                            onClearConsoleClick={onClearConsoleClick}
-                            consoleScrollRef={consoleScrollRef}
-                            consoleInputRef={consoleInputRef}
-                            isOpen={isConsoleOpen}
-                            onToggle={() => setIsConsoleOpen((prev) => !prev)}
-                          />
-                          <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="application/json,.json"
-                            className="hidden"
-                            onChange={onProgramFileChange}
-                          />
-                        </ReactFlow>
-                      </CanvasContextMenu>
-                    </ConnectionHighlightProvider>
-                  </SubflowTemplateContext.Provider>
+                                    <div>
+                                      <span
+                                        className={
+                                          validationResult.status === "success"
+                                            ? "rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700"
+                                            : validationResult.status ===
+                                                "failure"
+                                              ? "rounded-full bg-amber-100 px-2 py-0.5 text-amber-700"
+                                              : "rounded-full bg-slate-200 px-2 py-0.5 text-slate-700"
+                                        }
+                                      >
+                                        {validationResult.status === "success"
+                                          ? "Completado"
+                                          : validationResult.status ===
+                                              "failure"
+                                            ? "En progreso"
+                                            : "Pendiente"}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {isChallengeOpen &&
+                                  challengeDefinition.description ? (
+                                    <div className="rounded-b-2xl border-2 border-(--nodi-blue) bg-white px-3 pb-3 pt-2 text-sm text-slate-700">
+                                      <p className="font-semibold text-slate-800">
+                                        Instrucciones
+                                      </p>
+                                      <p className="mt-1 leading-snug">
+                                        {challengeDefinition.description}
+                                      </p>
+
+                                      {validationResult.status !==
+                                        "success" && (
+                                        <div className="mt-3 flex justify-center">
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="default"
+                                            className="bg-blue-600 hover:bg-blue-700 text-white"
+                                            disabled={isValidating}
+                                            onClick={validateChallengeOutput}
+                                          >
+                                            {isValidating
+                                              ? "Validando…"
+                                              : "Validar"}
+                                          </Button>
+                                        </div>
+                                      )}
+
+                                      {validationResult.status ===
+                                        "failure" && (
+                                        <div className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                                          <p>
+                                            La salida no es correcta. Revisa tus
+                                            conexiones y vuelve a intentar.
+                                          </p>
+                                          <p className="mt-1 text-xs text-rose-700">
+                                            Salida:{" "}
+                                            {validationResult.actualLines.length
+                                              ? validationResult.actualLines[
+                                                  validationResult.actualLines
+                                                    .length - 1
+                                                ]
+                                              : "Sin salida"}
+                                          </p>
+                                        </div>
+                                      )}
+
+                                      {validationResult.status ===
+                                        "success" && (
+                                        <div className="mt-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                                          <p>
+                                            {nextChallenge
+                                              ? "¡Felicidades! Has completado el desafío con éxito, puedes continuar."
+                                              : "¡Felicidades por terminar los desafíos de tu nivel!"}
+                                          </p>
+                                          <Button
+                                            className="rounded-lg mt-2 mb-1 bg-green-600/90 hover:bg-green-600"
+                                            onClick={onNextChallengeClick}
+                                          >
+                                            {nextChallenge
+                                              ? "Siguiente"
+                                              : "Volver al inicio"}{" "}
+                                            <Play
+                                              fill="white"
+                                              className="inline"
+                                            />
+                                          </Button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+                            ) : null}
+
+                            <ConnectionErrorTooltip
+                              open={connectionTooltip.tooltip.open}
+                              message={connectionTooltip.tooltip.message}
+                              x={connectionTooltip.tooltip.x}
+                              y={connectionTooltip.tooltip.y}
+                              onClose={connectionTooltip.hide}
+                            />
+                            <CreateSubflowOverlay
+                              selectedNodes={selectedNodes}
+                              edges={edges}
+                              onCreateClick={openCreateSubflow}
+                            />
+                            <Background variant={BackgroundVariant.Dots} />
+                            <Controls>
+                              <ControlButton
+                                onClick={() => setCanvasMode("pan")}
+                                aria-pressed={canvasMode === "pan"}
+                                title="Modo arrastrar (mover canvas)"
+                                className="rf-mode-toggle"
+                              >
+                                <Hand className="rf-icon-hand" />
+                              </ControlButton>
+                              <ControlButton
+                                onClick={() => setCanvasMode("select")}
+                                aria-pressed={canvasMode === "select"}
+                                title="Modo selección (cuadro)"
+                                className="rf-mode-toggle"
+                              >
+                                <MousePointer2 />
+                              </ControlButton>
+                              <ControlButton
+                                title="Mejorar formato"
+                                onClick={onLayout}
+                              >
+                                <BrushCleaning className="fill-none!" />
+                              </ControlButton>
+                            </Controls>
+                            <TopActionPanel
+                              nodesCount={nodes.length}
+                              isEngineRunning={isEngineRunning}
+                              onRunClick={handleRunClick}
+                              onStopClick={onStopClick}
+                            />
+
+                            <ConsolePanel
+                              consoleOutputText={consoleOutputText}
+                              activeRuntimePrompt={activeRuntimePrompt}
+                              getRuntimePromptText={getRuntimePromptText}
+                              runtimePromptInput={runtimePromptInput}
+                              setRuntimePromptInput={setRuntimePromptInput}
+                              onSubmitRuntimePrompt={onSubmitRuntimePrompt}
+                              onCancelRuntimePrompt={onCancelRuntimePrompt}
+                              onClearConsoleClick={onClearConsoleClick}
+                              consoleScrollRef={consoleScrollRef}
+                              consoleInputRef={consoleInputRef}
+                              isOpen={isConsoleOpen}
+                              onToggle={() => setIsConsoleOpen((prev) => !prev)}
+                            />
+                            {/* bottom expected-output card removed; expected output is shown in the banner */}
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="application/json,.json"
+                              className="hidden"
+                              onChange={onProgramFileChange}
+                            />
+                          </ReactFlow>
+                        </CanvasContextMenu>
+                      </ConnectionHighlightProvider>
+                    </SubflowTemplateContext.Provider>
+                  </div>
                 </div>
 
                 <CreateSubflowDialog

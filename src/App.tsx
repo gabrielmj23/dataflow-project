@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { ChallengeProgressProvider } from "@/challenges/progress-context";
 import ChallengesPage from "./pages/ChallengesPage";
 import EditorPage from "./pages/EditorPage";
 import ModeSelectPage from "./pages/ModeSelectPage";
@@ -20,14 +21,17 @@ function NotFoundPage() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<ModeSelectPage />} />
-        <Route path="/challenges" element={<ChallengesPage />} />
-        <Route path="/editor" element={<EditorPage />} />
-        <Route path="/editor/:challengeId" element={<EditorPage />} />
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+    <ChallengeProgressProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<ModeSelectPage />} />
+          <Route path="/desafios" element={<ChallengesPage />} />
+          <Route path="/desafios/:groupId" element={<ChallengesPage />} />
+          <Route path="/editor" element={<EditorPage />} />
+          <Route path="/editor/:challengeId" element={<EditorPage />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
+      </BrowserRouter>
+    </ChallengeProgressProvider>
   );
 }

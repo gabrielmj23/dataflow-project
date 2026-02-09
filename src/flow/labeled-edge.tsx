@@ -70,10 +70,6 @@ function getSwitchEdgeLabel(params: {
   const type = (sourceNode as { type?: unknown }).type;
   if (type !== "switch") return null;
 
-  if (sourceHandleId === "out-default") {
-    return "Por defecto";
-  }
-
   const idx = parseOutIndex(sourceHandleId);
   if (!idx) return null;
 
@@ -142,7 +138,6 @@ function getTextTransformEdgeLabel(params: {
  *
  * - For edges whose source node is a Switch:
  *   - `out-N` edges show the condition label (or a derived description)
- *   - `out-default` shows "Por defecto"
  */
 export function LabeledEdge(props: EdgeProps) {
   const { id, source, target, markerEnd, style, selected } = props;
