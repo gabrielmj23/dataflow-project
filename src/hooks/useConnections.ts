@@ -6,6 +6,7 @@ import { useConnectionValidationTooltip } from "@/flow/use-connection-validation
 import type { ConnectionHighlightState } from "@/flow/connection-highlight-context";
 import { createNodeId } from "@/utils/id";
 import type { FlowNode } from "@/utils/flow";
+import { playClick } from "@/lib/sound";
 
 type UseConnectionsParams = {
   nodes: FlowNode[];
@@ -109,6 +110,11 @@ export function useConnections({ nodes, setNodes, setEdges }: UseConnectionsPara
       }
 
       setEdges((edgesSnapshot) => [...edgesSnapshot, newEdge]);
+      try {
+        playClick();
+      } catch {
+        // ignore
+      }
     },
     [connectionTooltip, nodes, setEdges, setNodes]
   );

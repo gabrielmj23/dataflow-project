@@ -45,3 +45,14 @@ export function playCorrect(): void {
     // ignore
   }
 }
+
+export function playClick(): void {
+  if (!isSoundEnabled()) return;
+  try {
+    const audio = new Audio("/click.mp3");
+    audio.preload = "auto";
+    void audio.play().catch(() => {});
+  } catch {
+    // ignore
+  }
+}
