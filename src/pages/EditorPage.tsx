@@ -96,6 +96,12 @@ const initialNodes: FlowNode[] = [];
 
 const initialEdges: FlowEdge[] = [];
 
+// Desplazamiento visual (en px) aplicado al viewport para mover el foco
+// ligeramente hacia arriba e izquierda. Ajusta estos valores según sea necesario.
+const CHALLENGE_VIEWPORT_SHIFT = { x: 100, y: 60 } as const;
+
+
+
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
   const navigate = useNavigate();
@@ -125,6 +131,11 @@ export default function EditorPage() {
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const [editorSize, setEditorSize] = useState<{ width: number; height: number } | null>(
+    null,
+  );
+  const appliedViewportRef = useRef<boolean>(false);
   const [contextPoint, setContextPoint] = useState<{
     x: number;
     y: number;
@@ -709,6 +720,22 @@ export default function EditorPage() {
         setEdges(initialEdges);
         resetHistory({ nodes: initialNodes, edges: initialEdges });
         setValidationResult({ status: "idle", actualLines: [] });
+        // Clear runtime console, pending prompts and close panel when loading a new challenge
+        try {
+          onClearConsoleClick();
+        } catch (e) {
+          /* ignore */
+        }
+        try {
+          clearPromptQueue();
+        } catch (e) {
+          /* ignore */
+        }
+        try {
+          setIsConsoleOpen(false);
+        } catch (e) {
+          /* ignore */
+        }
       } catch (error) {
         if (cancelled) return;
         setIsChallengeLoading(false);
@@ -726,7 +753,92 @@ export default function EditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [challengeId, resetHistory, setEdges, setNodes, setProgramName]);
+  }, [challengeId, resetHistory, setEdges, setNodes, setProgramName, onClearConsoleClick, clearPromptQueue, setIsConsoleOpen]);
+
+  // Reset applied flag when challenge changes so viewport can be applied once
+  useEffect(() => {
+    appliedViewportRef.current = false;
+  }, [challengeDefinition?.id]);
+
+  // Measure editor container size so we can compute viewport to fit nodes
+  useEffect(() => {
+    const el = editorContainerRef.current;
+    if (!el) {
+      setEditorSize(null);
+      return;
+    }
+
+    const ro = new ResizeObserver(() => {
+      setEditorSize({ width: el.clientWidth, height: el.clientHeight });
+    });
+    ro.observe(el);
+    // set initial
+    setEditorSize({ width: el.clientWidth, height: el.clientHeight });
+    return () => ro.disconnect();
+  }, [editorContainerRef]);
+
+  // Auto-fit challenge nodes into the visible editor area with padding.
+  useEffect(() => {
+    if (!challengeDefinition) return;
+    if (!reactFlowInstance) return;
+    if (!editorSize) return;
+    if (appliedViewportRef.current) return;
+
+    const allNodes = reactFlowInstance.getNodes();
+    if (!allNodes || allNodes.length === 0) return;
+
+    // Consider only nodes that belong to the challenge initial/locked set
+    // Nodes created later by user edits shouldn't affect initial centering,
+    // so we filter nodes that have `data.locked === true` or nodes whose id
+    // was part of the initial load (we approximate by presence of locked flag).
+    const targetNodes = allNodes.filter((n) => (n.data as any)?.locked === true);
+    const nodesToUse = targetNodes.length > 0 ? targetNodes : allNodes;
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const n of nodesToUse) {
+      const px = Number(n.position?.x ?? 0);
+      const py = Number(n.position?.y ?? 0);
+      if (px < minX) minX = px;
+      if (py < minY) minY = py;
+      if (px > maxX) maxX = px;
+      if (py > maxY) maxY = py;
+    }
+
+    if (!isFinite(minX) || !isFinite(minY)) return;
+
+    // Add padding in pixels (so nodes are comfortably inside the red box)
+    const padding = 120; // tweak this to match the red rectangle margin
+
+    const bboxWidth = Math.max(10, maxX - minX);
+    const bboxHeight = Math.max(10, maxY - minY);
+
+    // Compute desired zoom to fit bbox + padding into editorSize
+    const zoomX = editorSize.width / (bboxWidth + padding * 2);
+    const zoomY = editorSize.height / (bboxHeight + padding * 2);
+    // conservative zoom
+    let targetZoom = Math.min(zoomX, zoomY);
+    // Clamp zoom to reasonable limits
+    targetZoom = Math.max(0.2, Math.min(1.5, targetZoom));
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    // Compute viewport x,y so that flow center maps to editor center,
+    // then apply a small shift so the nodes appear a bit up/left.
+    const viewportX = editorSize.width / 2 - centerX * targetZoom - CHALLENGE_VIEWPORT_SHIFT.x;
+    const viewportY = editorSize.height / 2 - centerY * targetZoom - CHALLENGE_VIEWPORT_SHIFT.y;
+
+    try {
+      reactFlowInstance.setViewport({ x: viewportX, y: viewportY, zoom: targetZoom }, { duration: 0 });
+      appliedViewportRef.current = true;
+    } catch (e) {
+      // ignore
+    }
+  }, [challengeDefinition, reactFlowInstance, editorSize]);
 
   useEffect(() => {
     if (!challengeDefinition) return;
@@ -1335,7 +1447,8 @@ export default function EditorPage() {
                           copySelection={copySelection}
                           pasteSelection={pasteSelection}
                         >
-                          <ReactFlow
+                          <div ref={editorContainerRef} className="relative h-full w-full">
+                            <ReactFlow
                             nodes={nodes}
                             edges={edges}
                             nodeTypes={nodeTypes}
@@ -1370,7 +1483,7 @@ export default function EditorPage() {
                                 ? "rf-mode-pan"
                                 : "rf-mode-select"
                             }
-                            fitView
+                            fitView={!challengeDefinition}
                             proOptions={{ hideAttribution: true }}
                           >
                             {challengeDefinition ? (
@@ -1584,7 +1697,8 @@ export default function EditorPage() {
                               className="hidden"
                               onChange={onProgramFileChange}
                             />
-                          </ReactFlow>
+                            </ReactFlow>
+                          </div>
                         </CanvasContextMenu>
                       </ConnectionHighlightProvider>
                     </SubflowTemplateContext.Provider>
