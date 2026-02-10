@@ -32,6 +32,8 @@ export function ConsolePanel({
 }) {
   const [height, setHeight] = useState(120);
   const [isResizing, setIsResizing] = useState(false);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -41,6 +43,27 @@ export function ConsolePanel({
   const stopResizing = useCallback(() => {
     setIsResizing(false);
   }, []);
+
+  const startDragging = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest("button")) return;
+    setIsDragging(true);
+  }, []);
+
+  const stopDragging = useCallback(() => {
+    setIsDragging(false);
+  }, []);
+
+  const drag = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging) {
+        setOffset((prev) => ({
+          x: prev.x + e.movementX,
+          y: prev.y + e.movementY,
+        }));
+      }
+    },
+    [isDragging],
+  );
 
   const resize = useCallback(
     (e: MouseEvent) => {
@@ -59,30 +82,39 @@ export function ConsolePanel({
       window.addEventListener("mousemove", resize);
       window.addEventListener("mouseup", stopResizing);
       document.body.style.cursor = "ns-resize";
+    } else if (isDragging) {
+      window.addEventListener("mousemove", drag);
+      window.addEventListener("mouseup", stopDragging);
+      document.body.style.cursor = "grabbing";
     } else {
       window.removeEventListener("mousemove", resize);
       window.removeEventListener("mouseup", stopResizing);
+      window.removeEventListener("mousemove", drag);
+      window.removeEventListener("mouseup", stopDragging);
       document.body.style.cursor = "";
     }
 
     return () => {
       window.removeEventListener("mousemove", resize);
       window.removeEventListener("mouseup", stopResizing);
+      window.removeEventListener("mousemove", drag);
+      window.removeEventListener("mouseup", stopDragging);
       document.body.style.cursor = "";
     };
-  }, [isResizing, resize, stopResizing]);
+  }, [isResizing, isDragging, resize, stopResizing, drag, stopDragging]);
 
   return (
     <Panel
       position="bottom-left"
-      className="w-80"
+      className="w-80 select-none"
       style={{
         left: "50%",
-        transform: "translateX(-50%)",
         bottom: 16,
+        transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
+        zIndex: isDragging || isResizing ? 1000 : 10,
       }}
     >
-      <div className="overflow-hidden rounded-md border bg-background/90 relative">
+      <div className="overflow-hidden rounded-md shadow-md bg-background/90 relative">
         {isOpen && (
           <div
             className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize z-10 hover:bg-white/20 transition-colors"
@@ -90,13 +122,16 @@ export function ConsolePanel({
             title="Arrastrar para cambiar altura"
           />
         )}
-        <div className="flex items-center justify-between border-b border-(--nodi-blue-border) bg-(--nodi-blue) px-2 py-1 text-sm font-medium text-white">
-          <div className="flex items-center gap-1">
+        <div
+          className="flex items-center justify-between bg-(--nodi-blue) rounded-t-md px-2 pt-1 text-sm font-medium text-white cursor-grab active:cursor-grabbing"
+          onMouseDown={startDragging}
+        >
+          <div className="flex items-center gap-1 pointer-events-none">
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              className="hover:bg-white/10"
+              className="hover:bg-white/10 pointer-events-auto"
               onClick={onToggle}
               title={isOpen ? "Minimizar consola" : "Expandir consola"}
               aria-label={isOpen ? "Minimizar consola" : "Expandir consola"}
@@ -126,8 +161,8 @@ export function ConsolePanel({
         </div>
 
         {isOpen && (
-          <div className="p-2">
-            <div className="overflow-hidden rounded-md border bg-background/60">
+          <div className="p-1 select-text bg-(--nodi-blue)">
+            <div className="overflow-hidden rounded-sm bg-neutral-50">
               <div
                 ref={consoleScrollRef}
                 className="overflow-auto p-2 text-xs font-mono text-foreground whitespace-pre-wrap"
