@@ -38,6 +38,7 @@ import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { ConnectionHighlightProvider } from "@/flow/connection-highlight-context";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CanvasContextMenu } from "@/components/CanvasContextMenu";
+import LevelCompleteDialog from "@/components/LevelCompleteDialog";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
 import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
@@ -125,6 +126,8 @@ export default function EditorPage() {
   const [shouldCelebrate, setShouldCelebrate] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isChallengeOpen, setIsChallengeOpen] = useState(true);
+  const [isLevelCompleteDialogOpen, setIsLevelCompleteDialogOpen] =
+    useState(false);
 
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
@@ -538,6 +541,9 @@ export default function EditorPage() {
           setShouldCelebrate(true);
         }
         markCompleted(challengeDefinition.id);
+        if (!nextChallenge) {
+          setIsLevelCompleteDialogOpen(true);
+        }
       } catch {
         setValidationResult({
           status: "failure",
@@ -566,6 +572,9 @@ export default function EditorPage() {
         setShouldCelebrate(true);
       }
       markCompleted(challengeDefinition.id);
+      if (!nextChallenge) {
+        setIsLevelCompleteDialogOpen(true);
+      }
     }
     setValidationResult({
       status: matches ? "success" : "failure",
@@ -583,6 +592,7 @@ export default function EditorPage() {
     markCompleted,
     runTestCase,
     progress.completedIds,
+    nextChallenge,
   ]);
 
   useEffect(() => {
@@ -1790,6 +1800,20 @@ export default function EditorPage() {
             }
             setPendingDeleteTemplateId(null);
             setPendingDeleteTemplateName(null);
+          }}
+        />
+
+        <LevelCompleteDialog
+          open={isLevelCompleteDialogOpen}
+          onOpenChange={setIsLevelCompleteDialogOpen}
+          onGoHome={() => navigate("/")}
+          onGoEditor={() => {
+            setNodes([]);
+            setEdges([]);
+            setProgramName("Sin título");
+            resetHistory({ nodes: [], edges: [] });
+            setIsLevelCompleteDialogOpen(false);
+            navigate("/editor");
           }}
         />
       </SidebarProvider>
