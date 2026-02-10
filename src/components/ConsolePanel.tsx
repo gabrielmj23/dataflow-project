@@ -1,5 +1,6 @@
+import { useState, useCallback, useEffect } from "react";
 import { Panel } from "@xyflow/react";
-import { ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Trash2, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export function ConsolePanel({
@@ -29,6 +30,48 @@ export function ConsolePanel({
   isOpen: boolean;
   onToggle: () => void;
 }) {
+  const [height, setHeight] = useState(120);
+  const [isResizing, setIsResizing] = useState(false);
+
+  const startResizing = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+  }, []);
+
+  const stopResizing = useCallback(() => {
+    setIsResizing(false);
+  }, []);
+
+  const resize = useCallback(
+    (e: MouseEvent) => {
+      if (isResizing) {
+        setHeight((prev) => {
+          const newHeight = prev - e.movementY;
+          return Math.max(100, Math.min(newHeight, window.innerHeight * 0.8));
+        });
+      }
+    },
+    [isResizing],
+  );
+
+  useEffect(() => {
+    if (isResizing) {
+      window.addEventListener("mousemove", resize);
+      window.addEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "ns-resize";
+    } else {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "";
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", resize);
+      window.removeEventListener("mouseup", stopResizing);
+      document.body.style.cursor = "";
+    };
+  }, [isResizing, resize, stopResizing]);
+
   return (
     <Panel
       position="bottom-left"
@@ -39,8 +82,15 @@ export function ConsolePanel({
         bottom: 16,
       }}
     >
-      <div className="overflow-hidden rounded-md border bg-background/90">
-        <div className="flex items-center justify-between border-b border-[var(--nodi-blue-border)] bg-[var(--nodi-blue)] px-2 py-1 text-sm font-medium text-white">
+      <div className="overflow-hidden rounded-md border bg-background/90 relative">
+        {isOpen && (
+          <div
+            className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize z-10 hover:bg-white/20 transition-colors"
+            onMouseDown={startResizing}
+            title="Arrastrar para cambiar altura"
+          />
+        )}
+        <div className="flex items-center justify-between border-b border-(--nodi-blue-border) bg-(--nodi-blue) px-2 py-1 text-sm font-medium text-white">
           <div className="flex items-center gap-1">
             <Button
               type="button"
@@ -51,9 +101,16 @@ export function ConsolePanel({
               title={isOpen ? "Minimizar consola" : "Expandir consola"}
               aria-label={isOpen ? "Minimizar consola" : "Expandir consola"}
             >
-              {isOpen ? <ChevronDown className="text-white" /> : <ChevronUp className="text-white" />}
+              {isOpen ? (
+                <ChevronDown className="text-white" />
+              ) : (
+                <ChevronUp className="text-white" />
+              )}
             </Button>
             <span className="select-none">Consola</span>
+            {isOpen && (
+              <GripHorizontal className="w-3 h-3 text-white/30 ml-1" />
+            )}
           </div>
           <Button
             type="button"
@@ -73,7 +130,8 @@ export function ConsolePanel({
             <div className="overflow-hidden rounded-md border bg-background/60">
               <div
                 ref={consoleScrollRef}
-                className="h-48 overflow-auto p-2 text-xs font-mono text-foreground whitespace-pre-wrap"
+                className="overflow-auto p-2 text-xs font-mono text-foreground whitespace-pre-wrap"
+                style={{ height: `${height}px` }}
               >
                 {consoleOutputText}
 
