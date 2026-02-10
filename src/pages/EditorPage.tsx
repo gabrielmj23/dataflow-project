@@ -38,6 +38,7 @@ import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { ConnectionHighlightProvider } from "@/flow/connection-highlight-context";
 import { AppSidebar } from "@/components/app-sidebar";
 import { CanvasContextMenu } from "@/components/CanvasContextMenu";
+import LevelCompleteDialog from "@/components/LevelCompleteDialog";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
 import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
@@ -100,8 +101,6 @@ const initialEdges: FlowEdge[] = [];
 // ligeramente hacia arriba e izquierda. Ajusta estos valores según sea necesario.
 const CHALLENGE_VIEWPORT_SHIFT = { x: 100, y: 60 } as const;
 
-
-
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
   const navigate = useNavigate();
@@ -124,17 +123,21 @@ export default function EditorPage() {
     message?: string;
     actualLines: string[];
   }>({ status: "idle", actualLines: [] });
+  const [shouldCelebrate, setShouldCelebrate] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isChallengeOpen, setIsChallengeOpen] = useState(true);
+  const [isLevelCompleteDialogOpen, setIsLevelCompleteDialogOpen] =
+    useState(false);
 
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
   const [reactFlowInstance, setReactFlowInstance] =
     useState<ReactFlowInstance | null>(null);
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
-  const [editorSize, setEditorSize] = useState<{ width: number; height: number } | null>(
-    null,
-  );
+  const [editorSize, setEditorSize] = useState<{
+    width: number;
+    height: number;
+  } | null>(null);
   const appliedViewportRef = useRef<boolean>(false);
   const [contextPoint, setContextPoint] = useState<{
     x: number;
@@ -534,7 +537,13 @@ export default function EditorPage() {
           message: "¡Correcto! Todas las pruebas pasaron.",
           actualLines: lastResult.actualLines,
         });
+        if (!progress.completedIds.includes(challengeDefinition.id)) {
+          setShouldCelebrate(true);
+        }
         markCompleted(challengeDefinition.id);
+        if (!nextChallenge) {
+          setIsLevelCompleteDialogOpen(true);
+        }
       } catch {
         setValidationResult({
           status: "failure",
@@ -558,6 +567,15 @@ export default function EditorPage() {
 
     const matches = compareLines(expectedLines, actualLines);
 
+    if (matches) {
+      if (!progress.completedIds.includes(challengeDefinition.id)) {
+        setShouldCelebrate(true);
+      }
+      markCompleted(challengeDefinition.id);
+      if (!nextChallenge) {
+        setIsLevelCompleteDialogOpen(true);
+      }
+    }
     setValidationResult({
       status: matches ? "success" : "failure",
       message: matches
@@ -565,9 +583,6 @@ export default function EditorPage() {
         : "La salida no es correcta. Revisa tus conexiones y vuelve a intentar.",
       actualLines,
     });
-    if (matches) {
-      markCompleted(challengeDefinition.id);
-    }
 
     setIsValidating(false);
   }, [
@@ -576,7 +591,19 @@ export default function EditorPage() {
     latestConsoleLines,
     markCompleted,
     runTestCase,
+    progress.completedIds,
+    nextChallenge,
   ]);
+
+  useEffect(() => {
+    setShouldCelebrate(false);
+  }, [challengeDefinition?.id]);
+
+  useEffect(() => {
+    if (!shouldCelebrate) return;
+    const id = window.setTimeout(() => setShouldCelebrate(false), 20000);
+    return () => window.clearTimeout(id);
+  }, [shouldCelebrate]);
 
   useEffect(() => {
     if (!challengeDefinition) return;
@@ -723,17 +750,17 @@ export default function EditorPage() {
         // Clear runtime console, pending prompts and close panel when loading a new challenge
         try {
           onClearConsoleClick();
-        } catch (e) {
+        } catch {
           /* ignore */
         }
         try {
           clearPromptQueue();
-        } catch (e) {
+        } catch {
           /* ignore */
         }
         try {
           setIsConsoleOpen(false);
-        } catch (e) {
+        } catch {
           /* ignore */
         }
       } catch (error) {
@@ -753,7 +780,16 @@ export default function EditorPage() {
     return () => {
       cancelled = true;
     };
-  }, [challengeId, resetHistory, setEdges, setNodes, setProgramName, onClearConsoleClick, clearPromptQueue, setIsConsoleOpen]);
+  }, [
+    challengeId,
+    resetHistory,
+    setEdges,
+    setNodes,
+    setProgramName,
+    onClearConsoleClick,
+    clearPromptQueue,
+    setIsConsoleOpen,
+  ]);
 
   // Reset applied flag when challenge changes so viewport can be applied once
   useEffect(() => {
@@ -791,7 +827,7 @@ export default function EditorPage() {
     // Nodes created later by user edits shouldn't affect initial centering,
     // so we filter nodes that have `data.locked === true` or nodes whose id
     // was part of the initial load (we approximate by presence of locked flag).
-    const targetNodes = allNodes.filter((n) => (n.data as any)?.locked === true);
+    const targetNodes = allNodes.filter((n) => n.data?.locked === true);
     const nodesToUse = targetNodes.length > 0 ? targetNodes : allNodes;
 
     let minX = Infinity;
@@ -829,13 +865,18 @@ export default function EditorPage() {
 
     // Compute viewport x,y so that flow center maps to editor center,
     // then apply a small shift so the nodes appear a bit up/left.
-    const viewportX = editorSize.width / 2 - centerX * targetZoom - CHALLENGE_VIEWPORT_SHIFT.x;
-    const viewportY = editorSize.height / 2 - centerY * targetZoom - CHALLENGE_VIEWPORT_SHIFT.y;
+    const viewportX =
+      editorSize.width / 2 - centerX * targetZoom - CHALLENGE_VIEWPORT_SHIFT.x;
+    const viewportY =
+      editorSize.height / 2 - centerY * targetZoom - CHALLENGE_VIEWPORT_SHIFT.y;
 
     try {
-      reactFlowInstance.setViewport({ x: viewportX, y: viewportY, zoom: targetZoom }, { duration: 0 });
+      reactFlowInstance.setViewport(
+        { x: viewportX, y: viewportY, zoom: targetZoom },
+        { duration: 0 },
+      );
       appliedViewportRef.current = true;
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [challengeDefinition, reactFlowInstance, editorSize]);
@@ -1348,7 +1389,7 @@ export default function EditorPage() {
 
   return (
     <RemoteControllersProvider controllers={runnerBridge.controllers}>
-      {validationResult.status === "success" && (
+      {shouldCelebrate && (
         <Confetti
           width={windowWidth - 5}
           height={windowHeight - 10}
@@ -1447,113 +1488,115 @@ export default function EditorPage() {
                           copySelection={copySelection}
                           pasteSelection={pasteSelection}
                         >
-                          <div ref={editorContainerRef} className="relative h-full w-full">
-                            <ReactFlow
-                            nodes={nodes}
-                            edges={edges}
-                            nodeTypes={nodeTypes}
-                            edgeTypes={{ default: LabeledEdge }}
-                            connectionLineComponent={ArrowConnectionLine}
-                            isValidConnection={
-                              connectionTooltip.isValidConnection
-                            }
-                            defaultEdgeOptions={{
-                              markerEnd: {
-                                type: MarkerType.ArrowClosed,
-                                width: 14,
-                                height: 14,
-                              },
-                            }}
-                            onInit={setReactFlowInstance}
-                            onNodesChange={onNodesChange}
-                            onEdgesChange={onEdgesChange}
-                            onConnect={onConnect}
-                            onConnectStart={onConnectStart}
-                            onConnectEnd={onConnectEnd}
-                            onDrop={onDrop}
-                            onDragOver={onDragOver}
-                            onNodeDragStart={onNodeDragStart}
-                            onNodeDragStop={onNodeDragStop}
-                            onPaneMouseMove={onPaneMouseMove}
-                            panOnDrag={canvasMode === "pan"}
-                            selectionOnDrag={canvasMode === "select"}
-                            selectionMode={SelectionMode.Partial}
-                            className={
-                              canvasMode === "pan"
-                                ? "rf-mode-pan"
-                                : "rf-mode-select"
-                            }
-                            fitView={!challengeDefinition}
-                            proOptions={{ hideAttribution: true }}
+                          <div
+                            ref={editorContainerRef}
+                            className="relative h-full w-full"
                           >
-                            {challengeDefinition ? (
-                              <div className="pointer-events-none absolute right-4 top-16 z-20 flex w-72 px-2">
-                                <div className="pointer-events-auto grid w-full grid-cols-1 gap-0 rounded-2xl bg-white/95 text-slate-900 shadow-lg max-w-xs overflow-hidden">
-                                  <div className="flex items-center justify-between border-(--nodi-blue-border) bg-(--nodi-blue) px-3 py-2 text-sm font-medium text-white">
-                                    <div className="flex items-center gap-2">
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon-sm"
-                                        className="hover:bg-white/10"
-                                        onClick={() =>
-                                          setIsChallengeOpen((s) => !s)
-                                        }
-                                        title={
-                                          isChallengeOpen
-                                            ? "Minimizar"
-                                            : "Expandir"
-                                        }
-                                        aria-label={
-                                          isChallengeOpen
-                                            ? "Minimizar"
-                                            : "Expandir"
-                                        }
-                                      >
-                                        {isChallengeOpen ? (
-                                          <ChevronDown className="text-white" />
-                                        ) : (
-                                          <ChevronUp className="text-white" />
-                                        )}
-                                      </Button>
-                                      <span className="uppercase tracking-[0.18em] text-[11px]">
-                                        Desafío
-                                      </span>
-                                    </div>
+                            <ReactFlow
+                              nodes={nodes}
+                              edges={edges}
+                              nodeTypes={nodeTypes}
+                              edgeTypes={{ default: LabeledEdge }}
+                              connectionLineComponent={ArrowConnectionLine}
+                              isValidConnection={
+                                connectionTooltip.isValidConnection
+                              }
+                              defaultEdgeOptions={{
+                                markerEnd: {
+                                  type: MarkerType.ArrowClosed,
+                                  width: 14,
+                                  height: 14,
+                                },
+                              }}
+                              onInit={setReactFlowInstance}
+                              onNodesChange={onNodesChange}
+                              onEdgesChange={onEdgesChange}
+                              onConnect={onConnect}
+                              onConnectStart={onConnectStart}
+                              onConnectEnd={onConnectEnd}
+                              onDrop={onDrop}
+                              onDragOver={onDragOver}
+                              onNodeDragStart={onNodeDragStart}
+                              onNodeDragStop={onNodeDragStop}
+                              onPaneMouseMove={onPaneMouseMove}
+                              panOnDrag={canvasMode === "pan"}
+                              selectionOnDrag={canvasMode === "select"}
+                              selectionMode={SelectionMode.Partial}
+                              className={
+                                canvasMode === "pan"
+                                  ? "rf-mode-pan"
+                                  : "rf-mode-select"
+                              }
+                              fitView={!challengeDefinition}
+                              proOptions={{ hideAttribution: true }}
+                            >
+                              {challengeDefinition ? (
+                                <div className="pointer-events-none absolute right-4 top-16 z-20 flex w-72 px-2">
+                                  <div className="pointer-events-auto grid w-full grid-cols-1 gap-0 rounded-2xl bg-white/95 text-slate-900 shadow-lg max-w-xs overflow-hidden">
+                                    <div className="flex items-center justify-between border-(--nodi-blue-border) bg-(--nodi-blue) px-3 py-2 text-sm font-medium text-white">
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon-sm"
+                                          className="hover:bg-white/10"
+                                          onClick={() =>
+                                            setIsChallengeOpen((s) => !s)
+                                          }
+                                          title={
+                                            isChallengeOpen
+                                              ? "Minimizar"
+                                              : "Expandir"
+                                          }
+                                          aria-label={
+                                            isChallengeOpen
+                                              ? "Minimizar"
+                                              : "Expandir"
+                                          }
+                                        >
+                                          {isChallengeOpen ? (
+                                            <ChevronDown className="text-white" />
+                                          ) : (
+                                            <ChevronUp className="text-white" />
+                                          )}
+                                        </Button>
+                                        <span className="uppercase tracking-[0.18em] text-[11px]">
+                                          Desafío
+                                        </span>
+                                      </div>
 
-                                    <div>
-                                      <span
-                                        className={
-                                          validationResult.status === "success"
-                                            ? "rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700"
+                                      <div>
+                                        <span
+                                          className={
+                                            validationResult.status ===
+                                            "success"
+                                              ? "rounded-full bg-emerald-100 px-2 py-0.5 text-emerald-700"
+                                              : validationResult.status ===
+                                                  "failure"
+                                                ? "rounded-full bg-amber-100 px-2 py-0.5 text-amber-700"
+                                                : "rounded-full bg-slate-200 px-2 py-0.5 text-slate-700"
+                                          }
+                                        >
+                                          {validationResult.status === "success"
+                                            ? "Completado"
                                             : validationResult.status ===
                                                 "failure"
-                                              ? "rounded-full bg-amber-100 px-2 py-0.5 text-amber-700"
-                                              : "rounded-full bg-slate-200 px-2 py-0.5 text-slate-700"
-                                        }
-                                      >
-                                        {validationResult.status === "success"
-                                          ? "Completado"
-                                          : validationResult.status ===
-                                              "failure"
-                                            ? "En progreso"
-                                            : "Pendiente"}
-                                      </span>
+                                              ? "En progreso"
+                                              : "Pendiente"}
+                                        </span>
+                                      </div>
                                     </div>
-                                  </div>
 
-                                  {isChallengeOpen &&
-                                  challengeDefinition.description ? (
-                                    <div className="rounded-b-2xl border-2 border-(--nodi-blue) bg-white px-3 pb-3 pt-2 text-sm text-slate-700">
-                                      <p className="font-semibold text-slate-800">
-                                        Instrucciones
-                                      </p>
-                                      <p className="mt-1 leading-snug">
-                                        {challengeDefinition.description}
-                                      </p>
+                                    {isChallengeOpen &&
+                                    challengeDefinition.description ? (
+                                      <div className="rounded-b-2xl border-2 border-(--nodi-blue) bg-white px-3 pb-3 pt-2 text-sm text-slate-700">
+                                        <p className="font-semibold text-slate-800">
+                                          Instrucciones
+                                        </p>
+                                        <p className="mt-1 leading-snug">
+                                          {challengeDefinition.description}
+                                        </p>
 
-                                      {validationResult.status !==
-                                        "success" && (
                                         <div className="mt-3 flex justify-center">
                                           <Button
                                             type="button"
@@ -1564,139 +1607,142 @@ export default function EditorPage() {
                                             onClick={validateChallengeOutput}
                                           >
                                             {isValidating
-                                              ? "Validando…"
-                                              : "Validar"}
+                                              ? "Probando..."
+                                              : "Probar"}
                                           </Button>
                                         </div>
-                                      )}
 
-                                      {validationResult.status ===
-                                        "failure" && (
-                                        <div className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-                                          <p>
-                                            La salida no es correcta. Revisa tus
-                                            conexiones y vuelve a intentar.
-                                          </p>
-                                          <p className="mt-1 text-xs text-rose-700">
-                                            Salida:{" "}
-                                            {validationResult.actualLines.length
-                                              ? validationResult.actualLines[
-                                                  validationResult.actualLines
-                                                    .length - 1
-                                                ]
-                                              : "Sin salida"}
-                                          </p>
-                                        </div>
-                                      )}
+                                        {validationResult.status ===
+                                          "failure" && (
+                                          <div className="mt-2 rounded-md border border-rose-100 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+                                            <p>
+                                              La salida no es correcta. Revisa
+                                              tus conexiones y vuelve a
+                                              intentar.
+                                            </p>
+                                            <p className="mt-1 text-xs text-rose-700">
+                                              Salida:{" "}
+                                              {validationResult.actualLines
+                                                .length
+                                                ? validationResult.actualLines[
+                                                    validationResult.actualLines
+                                                      .length - 1
+                                                  ]
+                                                : "Sin salida"}
+                                            </p>
+                                          </div>
+                                        )}
 
-                                      {validationResult.status ===
-                                        "success" && (
-                                        <div className="mt-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
-                                          <p>
-                                            {nextChallenge
-                                              ? "¡Felicidades! Has completado el desafío con éxito, puedes continuar."
-                                              : "¡Felicidades por terminar los desafíos de tu nivel!"}
-                                          </p>
-                                          <Button
-                                            className="rounded-lg mt-2 mb-1 bg-green-600/90 hover:bg-green-600"
-                                            onClick={onNextChallengeClick}
-                                          >
-                                            {nextChallenge
-                                              ? "Siguiente"
-                                              : "Volver al inicio"}{" "}
-                                            <Play
-                                              fill="white"
-                                              className="inline"
-                                            />
-                                          </Button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  ) : null}
+                                        {validationResult.status ===
+                                          "success" && (
+                                          <div className="mt-2 rounded-md border border-green-100 bg-green-50 px-3 py-2 text-sm text-green-800">
+                                            <p>
+                                              {nextChallenge
+                                                ? "¡Felicidades! Has completado el desafío con éxito, puedes continuar."
+                                                : "¡Felicidades por terminar los desafíos de tu nivel!"}
+                                            </p>
+                                            <Button
+                                              className="rounded-lg mt-2 mb-1 bg-green-600/90 hover:bg-green-600"
+                                              onClick={onNextChallengeClick}
+                                            >
+                                              {nextChallenge
+                                                ? "Siguiente"
+                                                : "Volver al inicio"}{" "}
+                                              <Play
+                                                fill="white"
+                                                className="inline"
+                                              />
+                                            </Button>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : null}
+                                  </div>
                                 </div>
-                              </div>
-                            ) : null}
+                              ) : null}
 
-                            <ConnectionErrorTooltip
-                              open={connectionTooltip.tooltip.open}
-                              message={connectionTooltip.tooltip.message}
-                              x={connectionTooltip.tooltip.x}
-                              y={connectionTooltip.tooltip.y}
-                              onClose={connectionTooltip.hide}
-                            />
-                            <CreateSubflowOverlay
-                              selectedNodes={selectedNodes}
-                              edges={edges}
-                              onCreateClick={openCreateSubflow}
-                            />
-                            <Background variant={BackgroundVariant.Dots} />
-                            <Controls>
-                              <ControlButton
-                                onClick={() => setCanvasMode("pan")}
-                                aria-pressed={canvasMode === "pan"}
-                                title="Modo arrastrar (mover canvas)"
-                                className="rf-mode-toggle"
-                              >
-                                <Hand className="rf-icon-hand" />
-                              </ControlButton>
-                              <ControlButton
-                                title={
-                                  soundsEnabled
-                                    ? "Silenciar sonidos"
-                                    : "Activar sonidos"
+                              <ConnectionErrorTooltip
+                                open={connectionTooltip.tooltip.open}
+                                message={connectionTooltip.tooltip.message}
+                                x={connectionTooltip.tooltip.x}
+                                y={connectionTooltip.tooltip.y}
+                                onClose={connectionTooltip.hide}
+                              />
+                              <CreateSubflowOverlay
+                                selectedNodes={selectedNodes}
+                                edges={edges}
+                                onCreateClick={openCreateSubflow}
+                              />
+                              <Background variant={BackgroundVariant.Dots} />
+                              <Controls>
+                                <ControlButton
+                                  onClick={() => setCanvasMode("pan")}
+                                  aria-pressed={canvasMode === "pan"}
+                                  title="Modo arrastrar (mover canvas)"
+                                  className="rf-mode-toggle"
+                                >
+                                  <Hand className="rf-icon-hand" />
+                                </ControlButton>
+                                <ControlButton
+                                  title={
+                                    soundsEnabled
+                                      ? "Silenciar sonidos"
+                                      : "Activar sonidos"
+                                  }
+                                  onClick={() => {
+                                    const next = toggleSoundEnabled();
+                                    setSoundsEnabledState(next);
+                                  }}
+                                  aria-pressed={soundsEnabled}
+                                >
+                                  {soundsEnabled ? <Volume2 /> : <VolumeX />}
+                                </ControlButton>
+                                <ControlButton
+                                  onClick={() => setCanvasMode("select")}
+                                  aria-pressed={canvasMode === "select"}
+                                  title="Modo selección (cuadro)"
+                                  className="rf-mode-toggle"
+                                >
+                                  <MousePointer2 />
+                                </ControlButton>
+                                <ControlButton
+                                  title="Mejorar formato"
+                                  onClick={onLayout}
+                                >
+                                  <BrushCleaning className="fill-none!" />
+                                </ControlButton>
+                              </Controls>
+                              <TopActionPanel
+                                nodesCount={nodes.length}
+                                isEngineRunning={isEngineRunning}
+                                onRunClick={handleRunClick}
+                                onStopClick={onStopClick}
+                              />
+
+                              <ConsolePanel
+                                consoleOutputText={consoleOutputText}
+                                activeRuntimePrompt={activeRuntimePrompt}
+                                getRuntimePromptText={getRuntimePromptText}
+                                runtimePromptInput={runtimePromptInput}
+                                setRuntimePromptInput={setRuntimePromptInput}
+                                onSubmitRuntimePrompt={onSubmitRuntimePrompt}
+                                onCancelRuntimePrompt={onCancelRuntimePrompt}
+                                onClearConsoleClick={onClearConsoleClick}
+                                consoleScrollRef={consoleScrollRef}
+                                consoleInputRef={consoleInputRef}
+                                isOpen={isConsoleOpen}
+                                onToggle={() =>
+                                  setIsConsoleOpen((prev) => !prev)
                                 }
-                                onClick={() => {
-                                  const next = toggleSoundEnabled();
-                                  setSoundsEnabledState(next);
-                                }}
-                                aria-pressed={soundsEnabled}
-                              >
-                                {soundsEnabled ? <Volume2 /> : <VolumeX />}
-                              </ControlButton>
-                              <ControlButton
-                                onClick={() => setCanvasMode("select")}
-                                aria-pressed={canvasMode === "select"}
-                                title="Modo selección (cuadro)"
-                                className="rf-mode-toggle"
-                              >
-                                <MousePointer2 />
-                              </ControlButton>
-                              <ControlButton
-                                title="Mejorar formato"
-                                onClick={onLayout}
-                              >
-                                <BrushCleaning className="fill-none!" />
-                              </ControlButton>
-                            </Controls>
-                            <TopActionPanel
-                              nodesCount={nodes.length}
-                              isEngineRunning={isEngineRunning}
-                              onRunClick={handleRunClick}
-                              onStopClick={onStopClick}
-                            />
-
-                            <ConsolePanel
-                              consoleOutputText={consoleOutputText}
-                              activeRuntimePrompt={activeRuntimePrompt}
-                              getRuntimePromptText={getRuntimePromptText}
-                              runtimePromptInput={runtimePromptInput}
-                              setRuntimePromptInput={setRuntimePromptInput}
-                              onSubmitRuntimePrompt={onSubmitRuntimePrompt}
-                              onCancelRuntimePrompt={onCancelRuntimePrompt}
-                              onClearConsoleClick={onClearConsoleClick}
-                              consoleScrollRef={consoleScrollRef}
-                              consoleInputRef={consoleInputRef}
-                              isOpen={isConsoleOpen}
-                              onToggle={() => setIsConsoleOpen((prev) => !prev)}
-                            />
-                            {/* bottom expected-output card removed; expected output is shown in the banner */}
-                            <input
-                              ref={fileInputRef}
-                              type="file"
-                              accept="application/json,.json"
-                              className="hidden"
-                              onChange={onProgramFileChange}
-                            />
+                              />
+                              {/* bottom expected-output card removed; expected output is shown in the banner */}
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="application/json,.json"
+                                className="hidden"
+                                onChange={onProgramFileChange}
+                              />
                             </ReactFlow>
                           </div>
                         </CanvasContextMenu>
@@ -1754,6 +1800,20 @@ export default function EditorPage() {
             }
             setPendingDeleteTemplateId(null);
             setPendingDeleteTemplateName(null);
+          }}
+        />
+
+        <LevelCompleteDialog
+          open={isLevelCompleteDialogOpen}
+          onOpenChange={setIsLevelCompleteDialogOpen}
+          onGoHome={() => navigate("/")}
+          onGoEditor={() => {
+            setNodes([]);
+            setEdges([]);
+            setProgramName("Sin título");
+            resetHistory({ nodes: [], edges: [] });
+            setIsLevelCompleteDialogOpen(false);
+            navigate("/editor");
           }}
         />
       </SidebarProvider>
