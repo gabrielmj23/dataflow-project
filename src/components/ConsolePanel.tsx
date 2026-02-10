@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from "react";
 import { Panel } from "@xyflow/react";
 import { ChevronDown, ChevronUp, Trash2, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export function ConsolePanel({
   consoleOutputText,
@@ -123,7 +124,10 @@ export function ConsolePanel({
           />
         )}
         <div
-          className="flex items-center justify-between bg-(--nodi-blue) rounded-t-md px-2 pt-1 text-sm font-medium text-white cursor-grab active:cursor-grabbing"
+          className={cn(
+            "flex items-center justify-between bg-(--nodi-blue) rounded-t-md px-2 pt-1 text-sm font-medium text-white cursor-grab active:cursor-grabbing",
+            !isOpen && "pb-1",
+          )}
           onMouseDown={startDragging}
         >
           <div className="flex items-center gap-1 pointer-events-none">
