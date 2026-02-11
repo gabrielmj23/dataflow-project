@@ -23,6 +23,7 @@ import {
 import { Hand, MousePointer2 } from "lucide-react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
+import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 import {
   Dialog,
   DialogContent,
@@ -199,6 +200,10 @@ export type FilterNodeData = {
   label?: string;
   filterNodes?: Node[];
   filterEdges?: Edge[];
+  executionTarget?: "local" | "microbit" | "controller";
+  transport?: "serial" | "bluetooth";
+  controllerId?: string;
+  controllerName?: string;
 };
 
 const FILTER_INPUT_NODE_ID = "filter-input-value";
@@ -211,7 +216,20 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
     label = "Filtrar",
     filterNodes,
     filterEdges,
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
   } = (data ?? {}) as FilterNodeData;
+
+  const config = useMicrobitExecutionConfig({
+    nodeId: id,
+    title: "Configurar ejecucion",
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  });
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
@@ -464,7 +482,9 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
         nodeType="filter"
         icon={<span className="text-lg font-bold">↓</span>}
         label={label}
+        subtitle={config.subtitle}
         variant="singleInSingleOut"
+        onConnectClick={config.onConfigClick}
         onConfigClick={() => {
           const baseNodes = filterNodes ?? [];
           const hasInput = baseNodes.some((n) => n.id === FILTER_INPUT_NODE_ID);
@@ -490,6 +510,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
           setIsEditorOpen(true);
         }}
       />
+      {config.dialog}
 
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen} modal={false}>
         <DialogContent

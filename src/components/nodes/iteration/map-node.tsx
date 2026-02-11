@@ -23,6 +23,7 @@ import {
 import { Hand, MousePointer2 } from "lucide-react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
+import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 import {
   Dialog,
   DialogContent,
@@ -199,6 +200,10 @@ export type MapNodeData = {
   label?: string;
   mapNodes?: Node[];
   mapEdges?: Edge[];
+  executionTarget?: "local" | "microbit" | "controller";
+  transport?: "serial" | "bluetooth";
+  controllerId?: string;
+  controllerName?: string;
 };
 
 const MAP_INPUT_NODE_ID = "map-input-value";
@@ -207,7 +212,24 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   const { setNodes } = useReactFlow();
   const templateContext = useSubflowTemplateContext();
 
-  const { label = "Map", mapNodes, mapEdges } = (data ?? {}) as MapNodeData;
+  const {
+    label = "Map",
+    mapNodes,
+    mapEdges,
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  } = (data ?? {}) as MapNodeData;
+
+  const config = useMicrobitExecutionConfig({
+    nodeId: id,
+    title: "Configurar ejecucion",
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  });
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
@@ -461,7 +483,9 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
         nodeType="map"
         icon={<span className="text-sm font-bold">↦</span>}
         label={label}
+        subtitle={config.subtitle}
         variant="singleInSingleOut"
+        onConnectClick={config.onConfigClick}
         onConfigClick={() => {
           const baseNodes = mapNodes ?? [];
           const hasInput = baseNodes.some((n) => n.id === MAP_INPUT_NODE_ID);
@@ -485,6 +509,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
           setIsEditorOpen(true);
         }}
       />
+      {config.dialog}
 
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen} modal={false}>
         <DialogContent
