@@ -417,6 +417,7 @@ function formatValue(value: unknown): string {
 }
 
 const TRANSIENT_VISIBLE_MS = 4300;
+const FADE_MS = 200;
 
 function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
   const [transient, setTransient] = useState<unknown | null>(null);
@@ -527,7 +528,34 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     bubbleValue = formatValue(lastSnapshot.value);
   }
 
-  if (!variant || !bubbleValue) {
+  // Manage mount/unmount to allow fade-out animation when the bubble disappears.
+  const [mounted, setMounted] = useState<boolean>(() => !!variant && !!bubbleValue);
+  const [visible, setVisible] = useState<boolean>(() => !!variant && !!bubbleValue);
+  const [renderValue, setRenderValue] = useState<string | null>(() => bubbleValue ?? null);
+
+  useEffect(() => {
+    // When a new variant/value appears, ensure we mount and show it.
+    if (variant && bubbleValue) {
+      setRenderValue(bubbleValue);
+      setMounted(true);
+      // small delay to allow mount before setting visible so transition runs
+      window.setTimeout(() => setVisible(true), 10);
+      return;
+    }
+
+    // When variant/value becomes null, trigger hide animation then unmount.
+    if (mounted) {
+      setVisible(false);
+      const t = window.setTimeout(() => {
+        setMounted(false);
+        setRenderValue(null);
+      }, FADE_MS);
+      return () => window.clearTimeout(t);
+    }
+  }, [variant, bubbleValue]);
+
+  // If nothing to render (not mounted), show the small invisible hit area like before.
+  if (!mounted) {
     return (
       <div
         className="button-edge__label nodrag nopan absolute"
@@ -550,6 +578,22 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     );
   }
 
+  const animStyle: React.CSSProperties = {
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    whiteSpace: "nowrap",
+    width: "auto",
+    fontFamily: "inherit",
+    fontSize: "0.875rem",
+    fontWeight: "normal",
+    lineHeight: 1,
+    letterSpacing: "normal",
+    transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease`,
+    opacity: visible ? (variant === "hover" ? 0.85 : 1) : 0,
+    transform: visible ? "translateY(0) scale(1)" : "translateY(-4px) scale(0.96)",
+  };
+
   return (
     <div
       className="button-edge__label nodrag nopan absolute"
@@ -571,22 +615,9 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     >
       <div
         className="pointer-events-none rounded-full nodi-blue px-2 py-0.5 text-xs shadow-sm"
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          justifyContent: "center",
-          whiteSpace: "nowrap",
-          width: "auto",
-          fontFamily: "inherit",
-          fontSize: "0.875rem",
-          fontWeight: "normal",
-          lineHeight: 1,
-          letterSpacing: "normal",
-          opacity: variant === "hover" ? 0.85 : 1,
-          transition: "opacity 160ms ease",
-        }}
+        style={animStyle}
       >
-        {bubbleValue}
+        {renderValue}
       </div>
     </div>
   );
