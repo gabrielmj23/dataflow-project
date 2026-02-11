@@ -35,8 +35,16 @@ const ORDER_OPTIONS: Array<{
   label: string;
   icon: ReactElement;
 }> = [
-  { value: "asc", label: "De Menor a Mayor", icon: <ArrowUpAZ className="h-5 w-5" /> },
-  { value: "desc", label: "De Mayor a Menor", icon: <ArrowDownAZ className="h-5 w-5" /> },
+  {
+    value: "asc",
+    label: "De Menor a Mayor",
+    icon: <ArrowUpAZ className="h-5 w-5" />,
+  },
+  {
+    value: "desc",
+    label: "De Mayor a Menor",
+    icon: <ArrowDownAZ className="h-5 w-5" />,
+  },
 ];
 
 export const SortListNode = memo(({ id, data }: NodeProps) => {
@@ -93,7 +101,12 @@ export const SortListNode = memo(({ id, data }: NodeProps) => {
 
   const headingId = useId();
 
-  const activeIcon = order === "asc" ? <ArrowUpAZ className="h-4 w-4" /> : <ArrowDownAZ className="h-4 w-4" />;
+  const activeIcon =
+    order === "asc" ? (
+      <ArrowUpAZ className="h-4 w-4" />
+    ) : (
+      <ArrowDownAZ className="h-4 w-4" />
+    );
 
   return (
     <>

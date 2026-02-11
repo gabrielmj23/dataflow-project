@@ -1,6 +1,11 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import type { Edge, Node, NodeProps, OnConnectStartParams } from "@xyflow/react";
+import type {
+  Edge,
+  Node,
+  NodeProps,
+  OnConnectStartParams,
+} from "@xyflow/react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -55,7 +60,7 @@ function parseWriteTargetHandleIndex(handle: unknown): number {
 
 function clampWriteTemplateToMaxVar(
   template: unknown,
-  maxVar: number
+  maxVar: number,
 ): string | undefined {
   if (typeof template !== "string") return undefined;
   if (!Number.isFinite(maxVar) || maxVar < 1) {
@@ -71,7 +76,7 @@ function clampWriteTemplateToMaxVar(
 
 function reconcileWriteGraph(
   nodes: Node[],
-  edges: Edge[]
+  edges: Edge[],
 ): {
   nodes: Node[];
   edges: Edge[];
@@ -164,7 +169,7 @@ function reconcileWriteGraph(
 
     const clampedTemplate = clampWriteTemplateToMaxVar(
       remappedTemplate ?? template,
-      info.maxVarAllowed
+      info.maxVarAllowed,
     );
 
     const needsInputCountUpdate = current !== info.desiredInputCount;
@@ -233,7 +238,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
-    "pan"
+    "pan",
   );
   const [draftNodes, setDraftNodes] = useState<Node[]>(() => filterNodes ?? []);
   const [draftEdges, setDraftEdges] = useState<Edge[]>(() => filterEdges ?? []);
@@ -242,6 +247,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
   // inside the embedded editor (same behavior as the main canvas).
   useEffect(() => {
     const result = reconcileWriteGraph(draftNodes, draftEdges);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (result.changedEdges) setDraftEdges(result.edges);
     if (result.changedNodes) setDraftNodes(result.nodes);
   }, [draftEdges, draftNodes]);
@@ -255,7 +261,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       (change) =>
         change.type === "remove" &&
         "id" in change &&
-        change.id === FILTER_INPUT_NODE_ID
+        change.id === FILTER_INPUT_NODE_ID,
     );
 
     setDraftNodes((snapshot) => {
@@ -291,7 +297,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       }
       setDraftEdges((snapshot) => addEdge(connection, snapshot));
     },
-    [connectionTooltip, draftNodes]
+    [connectionTooltip, draftNodes],
   );
 
   const onEditorConnectStart = useCallback(
@@ -304,7 +310,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       }
 
       const sourceNode = draftNodes.find(
-        (n) => String(n.id) === String(params.nodeId)
+        (n) => String(n.id) === String(params.nodeId),
       );
       const nodeType =
         sourceNode && typeof sourceNode.type === "string"
@@ -317,7 +323,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       });
       setConnectionHighlight({ sourceMask });
     },
-    [connectionTooltip, draftNodes]
+    [connectionTooltip, draftNodes],
   );
 
   const onEditorConnectEnd = useCallback(
@@ -325,7 +331,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       connectionTooltip.onConnectEnd(event);
       setConnectionHighlight(null);
     },
-    [connectionTooltip]
+    [connectionTooltip],
   );
 
   const editorFlowId = useMemo(() => `filter-editor-${id}`, [id]);
@@ -365,7 +371,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       }
 
       const templateIdRaw = event.dataTransfer.getData(
-        "application/subflow-template-id"
+        "application/subflow-template-id",
       );
       const templateId = templateIdRaw || null;
 
@@ -417,7 +423,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
 
       setDraftNodes((prev) => [...prev, newNode]);
     },
-    [createInnerNodeId, paletteLabelByType, templateContext]
+    [createInnerNodeId, paletteLabelByType, templateContext],
   );
 
   const editorNodeTypes = useMemo(
@@ -426,7 +432,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       subflow: NestedSubflowNode,
       filterInputValue: ListInputValueNode,
     }),
-    []
+    [],
   );
 
   // Delete selected nodes/edges with Backspace/Delete when editor is open
@@ -453,7 +459,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
 
       setDraftNodes((prev) => {
         const removedIds = new Set(
-          prev.filter((n) => n.selected).map((n) => n.id)
+          prev.filter((n) => n.selected).map((n) => n.id),
         );
         const nextNodes = prev.filter((n) => !n.selected);
 
@@ -464,7 +470,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
             const tgt = String((edge as Edge).target);
             if (removedIds.has(src) || removedIds.has(tgt)) return false;
             return true;
-          })
+          }),
         );
 
         return nextNodes;
@@ -492,7 +498,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
             ? baseNodes.map((n) =>
                 n.id === FILTER_INPUT_NODE_ID
                   ? { ...n, type: "filterInputValue" }
-                  : n
+                  : n,
               )
             : [
                 {
@@ -535,68 +541,68 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
               <ReactFlowProvider>
                 <ConnectionHighlightProvider value={connectionHighlight}>
                   <ReactFlow
-                  id={editorFlowId}
-                  nodes={draftNodes}
-                  edges={draftEdges}
-                  nodeTypes={editorNodeTypes}
-                  defaultEdgeOptions={{
-                    markerEnd: {
-                      type: MarkerType.ArrowClosed,
-                      width: 14,
-                      height: 14,
-                    },
-                  }}
-                  connectionLineComponent={ArrowConnectionLine}
-                  onNodesChange={onEditorNodesChange}
-                  onEdgesChange={onEditorEdgesChange}
-                  onConnect={onEditorConnect}
-                  edgeTypes={{ default: LabeledEdge }}
-                  isValidConnection={connectionTooltip.isValidConnection}
-                  onConnectStart={onEditorConnectStart}
-                  onConnectEnd={onEditorConnectEnd}
-                  panOnDrag={editorCanvasMode === "pan"}
-                  selectionOnDrag={editorCanvasMode === "select"}
-                  selectionMode={SelectionMode.Partial}
-                  className={
-                    editorCanvasMode === "pan"
-                      ? "rf-mode-pan"
-                      : "rf-mode-select"
-                  }
-                  onInit={(instance) => {
-                    editorInstanceRef.current = instance;
-                  }}
-                  onDrop={onEditorDrop}
-                  onDragOver={onEditorDragOver}
-                  fitView
-                  proOptions={{ hideAttribution: true }}
-                >
-                  <ConnectionErrorTooltip
-                    open={connectionTooltip.tooltip.open}
-                    message={connectionTooltip.tooltip.message}
-                    x={connectionTooltip.tooltip.x}
-                    y={connectionTooltip.tooltip.y}
-                    onClose={connectionTooltip.hide}
-                  />
-                  <Background variant={BackgroundVariant.Dots} />
-                  <Controls>
-                    <ControlButton
-                      className="rf-mode-toggle"
-                      aria-pressed={editorCanvasMode === "pan"}
-                      title="Modo arrastrar"
-                      onClick={() => setEditorCanvasMode("pan")}
-                    >
-                      <Hand className="rf-icon-hand" size={22} />
-                    </ControlButton>
-                    <ControlButton
-                      className="rf-mode-toggle"
-                      aria-pressed={editorCanvasMode === "select"}
-                      title="Modo selección"
-                      onClick={() => setEditorCanvasMode("select")}
-                    >
-                      <MousePointer2 size={22} />
-                    </ControlButton>
-                  </Controls>
-                </ReactFlow>
+                    id={editorFlowId}
+                    nodes={draftNodes}
+                    edges={draftEdges}
+                    nodeTypes={editorNodeTypes}
+                    defaultEdgeOptions={{
+                      markerEnd: {
+                        type: MarkerType.ArrowClosed,
+                        width: 14,
+                        height: 14,
+                      },
+                    }}
+                    connectionLineComponent={ArrowConnectionLine}
+                    onNodesChange={onEditorNodesChange}
+                    onEdgesChange={onEditorEdgesChange}
+                    onConnect={onEditorConnect}
+                    edgeTypes={{ default: LabeledEdge }}
+                    isValidConnection={connectionTooltip.isValidConnection}
+                    onConnectStart={onEditorConnectStart}
+                    onConnectEnd={onEditorConnectEnd}
+                    panOnDrag={editorCanvasMode === "pan"}
+                    selectionOnDrag={editorCanvasMode === "select"}
+                    selectionMode={SelectionMode.Partial}
+                    className={
+                      editorCanvasMode === "pan"
+                        ? "rf-mode-pan"
+                        : "rf-mode-select"
+                    }
+                    onInit={(instance) => {
+                      editorInstanceRef.current = instance;
+                    }}
+                    onDrop={onEditorDrop}
+                    onDragOver={onEditorDragOver}
+                    fitView
+                    proOptions={{ hideAttribution: true }}
+                  >
+                    <ConnectionErrorTooltip
+                      open={connectionTooltip.tooltip.open}
+                      message={connectionTooltip.tooltip.message}
+                      x={connectionTooltip.tooltip.x}
+                      y={connectionTooltip.tooltip.y}
+                      onClose={connectionTooltip.hide}
+                    />
+                    <Background variant={BackgroundVariant.Dots} />
+                    <Controls>
+                      <ControlButton
+                        className="rf-mode-toggle"
+                        aria-pressed={editorCanvasMode === "pan"}
+                        title="Modo arrastrar"
+                        onClick={() => setEditorCanvasMode("pan")}
+                      >
+                        <Hand className="rf-icon-hand" size={22} />
+                      </ControlButton>
+                      <ControlButton
+                        className="rf-mode-toggle"
+                        aria-pressed={editorCanvasMode === "select"}
+                        title="Modo selección"
+                        onClick={() => setEditorCanvasMode("select")}
+                      >
+                        <MousePointer2 size={22} />
+                      </ControlButton>
+                    </Controls>
+                  </ReactFlow>
                 </ConnectionHighlightProvider>
               </ReactFlowProvider>
             </div>
@@ -613,7 +619,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
                 type="button"
                 onClick={() => {
                   const ensured = draftNodes.some(
-                    (n) => n.id === FILTER_INPUT_NODE_ID
+                    (n) => n.id === FILTER_INPUT_NODE_ID,
                   )
                     ? draftNodes
                     : [
@@ -642,7 +648,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
                           filterEdges: draftEdges,
                         },
                       };
-                    })
+                    }),
                   );
 
                   setIsEditorOpen(false);

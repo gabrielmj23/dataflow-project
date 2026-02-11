@@ -168,17 +168,20 @@ enum DfpType {
   String = 1,
   Bool = 2,
   Null = 3,
+  List = 4,
 }
 class DfpVal {
   tag: DfpType;
   num: number;
   str: string;
   bool: boolean;
+  list: DfpVal[];
   constructor(t: DfpType) {
     this.tag = t;
     this.num = 0;
     this.str = "";
     this.bool = false;
+    this.list = [];
   }
 }
 
@@ -201,11 +204,24 @@ function valBool(b: boolean): DfpVal {
 function valNull(): DfpVal {
   return new DfpVal(DfpType.Null);
 }
+function valList(items: DfpVal[]): DfpVal {
+  let v = new DfpVal(DfpType.List);
+  v.list = items;
+  return v;
+}
 
 function valToString(v: DfpVal): string {
   if (v.tag == DfpType.Number) return "" + v.num;
   if (v.tag == DfpType.String) return v.str;
   if (v.tag == DfpType.Bool) return v.bool ? "true" : "false";
+  if (v.tag == DfpType.List) {
+    let out = "[";
+    for (let i = 0; i < v.list.length; i++) {
+      if (i > 0) out += ",";
+      out += valToString(v.list[i]);
+    }
+    return out + "]";
+  }
   return "null";
 }
 
@@ -222,11 +238,64 @@ function valEncodeHex(v: DfpVal): string {
     return "01" + lenHex + dfpHexFromString(s);
   } else if (v.tag == DfpType.Bool) {
     return "02" + (v.bool ? "01" : "00");
+  } else if (v.tag == DfpType.List) {
+    const items = v.list || [];
+    const safeLen = Math.min(255, items.length);
+    let out = "04" + dfpByteToHex(safeLen & 0xff);
+    for (let i = 0; i < safeLen; i++) {
+      out += valEncodeHex(items[i]);
+    }
+    return out;
   }
   return "03";
 }
 
 // Decodifica argumentos entrantes en HEX
+function decodeValueFromBuffer(
+  buf: Buffer,
+  offset: number,
+): { value: DfpVal; next: number } {
+  if (offset >= buf.length) {
+    return { value: valNull(), next: offset };
+  }
+
+  const tag = buf[offset++];
+  if (tag == DfpType.Number) {
+    if (offset + 3 >= buf.length) return { value: valNull(), next: offset };
+    const n = buf.getNumber(NumberFormat.Float32LE, offset);
+    return { value: valNum(n), next: offset + 4 };
+  }
+
+  if (tag == DfpType.String) {
+    if (offset + 1 >= buf.length) return { value: valNull(), next: offset };
+    const len = buf.getNumber(NumberFormat.UInt16LE, offset);
+    offset += 2;
+    const s = buf.slice(offset, len).toString();
+    return { value: valStr(s), next: offset + len };
+  }
+
+  if (tag == DfpType.Bool) {
+    if (offset >= buf.length) return { value: valNull(), next: offset };
+    const b = buf[offset++] != 0;
+    return { value: valBool(b), next: offset };
+  }
+
+  if (tag == DfpType.List) {
+    if (offset >= buf.length) return { value: valList([]), next: offset };
+    const len = buf[offset++];
+    const items: DfpVal[] = [];
+    let off = offset;
+    for (let i = 0; i < len && off < buf.length; i++) {
+      const decoded = decodeValueFromBuffer(buf, off);
+      items.push(decoded.value);
+      off = decoded.next;
+    }
+    return { value: valList(items), next: off };
+  }
+
+  return { value: valNull(), next: offset };
+}
+
 function decodeArgs(hex: string): DfpVal[] {
   const args: DfpVal[] = [];
   const buf = dfpHexToBuffer(hex);
@@ -237,27 +306,9 @@ function decodeArgs(hex: string): DfpVal[] {
   const argc = buf[off++];
 
   for (let i = 0; i < argc && off < buf.length; i++) {
-    const tag = buf[off++];
-    if (tag == 0) {
-      // Number
-      const n = buf.getNumber(NumberFormat.Float32LE, off);
-      args.push(valNum(n));
-      off += 4;
-    } else if (tag == 1) {
-      // String
-      const len = buf.getNumber(NumberFormat.UInt16LE, off);
-      off += 2;
-      const s = buf.slice(off, len).toString();
-      args.push(valStr(s));
-      off += len;
-    } else if (tag == 2) {
-      // Bool
-      const b = buf[off++] != 0;
-      args.push(valBool(b));
-    } else {
-      // Null
-      args.push(valNull());
-    }
+    const decoded = decodeValueFromBuffer(buf, off);
+    args.push(decoded.value);
+    off = decoded.next;
   }
   return args;
 }
@@ -286,22 +337,9 @@ function executeVm(runId: string, args: DfpVal[]) {
     const constPool: DfpVal[] = [];
 
     for (let i = 0; i < constCount; i++) {
-      const tag = dfpProgBuffer[offset++];
-      if (tag == 0) {
-        const n = dfpProgBuffer.getNumber(NumberFormat.Float32LE, offset);
-        constPool.push(valNum(n));
-        offset += 4;
-      } else if (tag == 1) {
-        const len = dfpProgBuffer.getNumber(NumberFormat.UInt16LE, offset);
-        offset += 2;
-        const s = dfpProgBuffer.slice(offset, len).toString();
-        constPool.push(valStr(s));
-        offset += len;
-      } else if (tag == 2) {
-        constPool.push(valBool(dfpProgBuffer[offset++] != 0));
-      } else {
-        constPool.push(valNull());
-      }
+      const decoded = decodeValueFromBuffer(dfpProgBuffer, offset);
+      constPool.push(decoded.value);
+      offset = decoded.next;
     }
 
     // 3. Preparar Pila
@@ -370,6 +408,83 @@ function executeVm(runId: string, args: DfpVal[]) {
           const strB = valToString(stack.pop() || valNull());
           const strA = valToString(stack.pop() || valNull());
           stack.push(valStr((strA + strB).substr(0, DFP1_MAX_STR_LEN)));
+          break;
+
+        case 0x50: // LIST_COUNT
+          const listCountVal = stack.pop() || valNull();
+          const listCount =
+            listCountVal.tag == DfpType.List ? listCountVal.list.length : 0;
+          stack.push(valNum(listCount));
+          break;
+
+        case 0x51: // LIST_SORT_ASC
+        case 0x52: // LIST_SORT_DESC
+          const listSortVal = stack.pop() || valNull();
+          const listItems =
+            listSortVal.tag == DfpType.List ? listSortVal.list.slice() : [];
+          const isNumeric = listItems.every(
+            (item) => item.tag == DfpType.Number,
+          );
+          if (isNumeric) {
+            listItems.sort((a, b) =>
+              op == 0x51 ? a.num - b.num : b.num - a.num,
+            );
+          } else {
+            listItems.sort((a, b) => {
+              const left = valToString(a);
+              const right = valToString(b);
+              if (left == right) return 0;
+              if (op == 0x51) return left < right ? -1 : 1;
+              return left > right ? -1 : 1;
+            });
+          }
+          stack.push(valList(listItems));
+          break;
+
+        case 0x53: // LIST_ACCUMULATE
+          const listAccVal = stack.pop() || valNull();
+          const accItems =
+            listAccVal.tag == DfpType.List ? listAccVal.list : [];
+          let acc = 0;
+          for (let i = 0; i < accItems.length; i++) {
+            if (accItems[i].tag == DfpType.Number) {
+              acc += accItems[i].num;
+            }
+          }
+          stack.push(valNum(acc));
+          break;
+
+        case 0x54: // LIST_ZIP
+          const listB = stack.pop() || valNull();
+          const listA = stack.pop() || valNull();
+          const itemsA = listA.tag == DfpType.List ? listA.list : [];
+          const itemsB = listB.tag == DfpType.List ? listB.list : [];
+          const maxZip = Math.min(itemsA.length, itemsB.length);
+          const zipped: DfpVal[] = [];
+          for (let i = 0; i < maxZip; i++) {
+            zipped.push(valList([itemsA[i], itemsB[i]]));
+          }
+          stack.push(valList(zipped));
+          break;
+
+        case 0x55: // LIST_UNZIP_A
+        case 0x56: // LIST_UNZIP_B
+          const listZipVal = stack.pop() || valNull();
+          const zipItems =
+            listZipVal.tag == DfpType.List ? listZipVal.list : [];
+          const unzipIndex = op == 0x56 ? 1 : 0;
+          const outItems: DfpVal[] = [];
+          for (let i = 0; i < zipItems.length; i++) {
+            const pair = zipItems[i];
+            if (
+              pair &&
+              pair.tag == DfpType.List &&
+              pair.list.length > unzipIndex
+            ) {
+              outItems.push(pair.list[unzipIndex]);
+            }
+          }
+          stack.push(valList(outItems));
           break;
 
         case 0x30: // DISPLAY_TEXT

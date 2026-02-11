@@ -99,7 +99,7 @@ export function IterationRectNodeShell({
                   indicatorClassName="border-teal-800"
                 />
               );
-            })()
+            })(),
           )}
 
           {offsets.map((offset, index) =>
@@ -120,7 +120,7 @@ export function IterationRectNodeShell({
                   indicatorClassName="border-teal-800"
                 />
               );
-            })()
+            })(),
           )}
         </>
       )}
