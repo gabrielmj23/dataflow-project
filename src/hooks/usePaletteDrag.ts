@@ -6,6 +6,7 @@ import {
   type NodePaletteItem,
 } from "@/flow/node-palette";
 import { createNodeId } from "@/utils/id";
+import { playPop } from "@/lib/sound";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 
 type SubflowTemplate = {
@@ -73,27 +74,27 @@ export function usePaletteDrag({
       if (item.templateId) {
         event.dataTransfer.setData(
           "application/subflow-template-id",
-          item.templateId
+          item.templateId,
         );
       }
 
       try {
         const buttonEl = event.currentTarget as unknown as HTMLElement | null;
         const previewEl = buttonEl?.querySelector<HTMLElement>(
-          "[data-drag-preview]"
+          "[data-drag-preview]",
         );
         if (previewEl) {
           event.dataTransfer.setDragImage(
             previewEl,
             Math.round(previewEl.offsetWidth / 2),
-            Math.round(previewEl.offsetHeight / 2)
+            Math.round(previewEl.offsetHeight / 2),
           );
         }
       } catch {
         // ignore
       }
     },
-    []
+    [],
   );
 
   const onDragOver = useCallback((event: React.DragEvent) => {
@@ -113,7 +114,7 @@ export function usePaletteDrag({
       }
 
       const templateIdRaw = event.dataTransfer.getData(
-        "application/subflow-template-id"
+        "application/subflow-template-id",
       );
       const templateId = templateIdRaw || null;
 
@@ -131,8 +132,7 @@ export function usePaletteDrag({
         | null;
 
       const screenPos = { x: event.clientX, y: event.clientY };
-      const position =
-        instance?.screenToFlowPosition?.(screenPos) ??
+      const position = instance?.screenToFlowPosition?.(screenPos) ??
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       const label = paletteLabelByType.get(type);
@@ -234,7 +234,12 @@ export function usePaletteDrag({
           id: conditionalId,
           type: "conditional",
           position,
-          data: { label: "Condicional", pairId, pairRole: "conditional", pairOffsetY: 160 },
+          data: {
+            label: "Condicional",
+            pairId,
+            pairRole: "conditional",
+            pairOffsetY: 160,
+          },
           selected: true,
         };
 
@@ -242,7 +247,12 @@ export function usePaletteDrag({
           id: selectorId,
           type: "selector",
           position: { x: position.x, y: position.y + 160 },
-          data: { label: "Selector", pairId, pairRole: "selector", pairOffsetY: 160 },
+          data: {
+            label: "Selector",
+            pairId,
+            pairRole: "selector",
+            pairOffsetY: 160,
+          },
           selected: false,
         };
 
@@ -265,6 +275,8 @@ export function usePaletteDrag({
           return [...cleared, conditionalNode, selectorNode];
         });
         setEdges((prev) => [...prev, edge]);
+        // Play placement sound
+        playPop();
         draggingTypeRef.current = null;
         return;
       }
@@ -280,9 +292,17 @@ export function usePaletteDrag({
         const cleared = prev.map((n) => ({ ...n, selected: false }));
         return [...cleared, { ...newNode, selected: true }];
       });
+      // Play placement sound
+      playPop();
       draggingTypeRef.current = null;
     },
-    [paletteLabelByType, reactFlowInstance, setEdges, setNodes, subflowTemplates]
+    [
+      paletteLabelByType,
+      reactFlowInstance,
+      setEdges,
+      setNodes,
+      subflowTemplates,
+    ],
   );
 
   return {

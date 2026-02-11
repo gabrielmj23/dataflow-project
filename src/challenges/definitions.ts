@@ -89,21 +89,21 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           id: "locked-prefix-super",
           type: "constantText",
-          position: { x: -150, y: 100 },
+          position: { x: -80, y: 0 },
           data: { value: "Super ", label: "Prefijo" },
           movable: false,
         },
         {
           id: "locked-read-name",
           type: "runtimeInput",
-          position: { x: -150, y: 0 },
+          position: { x: -80, y: 100 },
           data: { prompt: "Escribe tu nombre", valueType: "text" },
           movable: false,
         },
         {
           id: "locked-write-name",
           type: "write",
-          position: { x: 150, y: 50 },
+          position: { x: 200, y: 50 },
           movable: false,
         },
       ],
@@ -173,7 +173,7 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           id: "locked-const-80",
           type: "constantNumber",
-          position: { x: -140, y: -30 },
+          position: { x: -140, y: -50 },
           data: { value: 80 },
           movable: false,
         },
@@ -217,7 +217,7 @@ const definitions: Record<string, ChallengeDefinition> = {
         {
           id: "locked-read-number",
           type: "runtimeInput",
-          position: { x: -180, y: -20 },
+          position: { x: -180, y: -50 },
           data: { prompt: "Ingresa un número", valueType: "number" },
           movable: false,
         },
@@ -240,7 +240,7 @@ const definitions: Record<string, ChallengeDefinition> = {
     id: "control-altura",
     title: "Control de altura",
     description:
-      "Para entrar al juego debes medir 120 cm o más. Configura el nodo Comparar para ver si cumples la estatura.",
+      "Para entrar al juego debes medir 120 cm o más. Puedes configurar el nodo de Entrada para cambiar el mensaje para pedir la altura. Configura el nodo Comparar para ver si cumples la altura.",
     sampleInput: "Ejemplo: entrada 130 → Verdadero",
     group: 1,
     level: 6,
@@ -251,7 +251,17 @@ const definitions: Record<string, ChallengeDefinition> = {
         "comparison",
         "write",
       ],
-      initialNodes: [],
+      initialNodes: [
+        {
+          id: "initial-input-height",
+          type: "runtimeInput",
+          position: { x: -180, y: -20 },
+          data: { valueType: "number" },
+          draggable: true,
+          deletable: true,
+          selectable: true,
+        },
+      ],
       initialEdges: [],
     },
     grading: {

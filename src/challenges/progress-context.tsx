@@ -6,6 +6,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { playCorrect } from "@/lib/sound";
 import {
   loadChallengeProgress,
   saveChallengeProgress,
@@ -38,7 +39,14 @@ export function ChallengeProgressProvider({
   const markCompleted = useCallback((id: ChallengeId) => {
     setProgress((prev) => {
       if (prev.completedIds.includes(id)) return prev;
-      return { completedIds: [...prev.completedIds, id] };
+      const next = { completedIds: [...prev.completedIds, id] };
+      // Play success sound for newly completed challenge
+      try {
+        playCorrect();
+      } catch {
+        // ignore
+      }
+      return next;
     });
   }, []);
 
