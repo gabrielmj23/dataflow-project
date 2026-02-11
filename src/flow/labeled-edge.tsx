@@ -345,7 +345,7 @@ export function LabeledEdge(props: EdgeProps) {
   // For straight edges we still render the straight `edgePath`, but use
   // the Bezier math to obtain a stable center point that stays centered
   // when the edge moves.
-  const [_bezierPath, bezierLabelX, bezierLabelY] = getBezierPath({
+  getBezierPath({
     sourceX: props.sourceX,
     sourceY: props.sourceY,
     sourcePosition: props.sourcePosition,
@@ -434,17 +434,25 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
   const left = Math.round(x);
   const top = Math.round(y);
 
-  useEffect(() => subscribeEdgeFeedbackMode(setMode), []);
-  useEffect(
-    () =>
-      subscribeEdgeFocus((state) =>
-        setFocusState({
-          hoveredEdgeId: state.hoveredEdgeId,
-          latchedEdgeIds: new Set(state.latchedEdgeIds),
-        })
-      ),
-    []
-  );
+  useEffect(() => {
+    const unsub = subscribeEdgeFeedbackMode(setMode);
+    return () => {
+      // call unsubscribe and ignore its boolean return value
+      unsub();
+    };
+  }, []);
+
+  useEffect(() => {
+    const unsub = subscribeEdgeFocus((state) =>
+      setFocusState({
+        hoveredEdgeId: state.hoveredEdgeId,
+        latchedEdgeIds: new Set(state.latchedEdgeIds),
+      })
+    );
+    return () => {
+      unsub();
+    };
+  }, []);
 
   useEffect(() => () => {
     clearHoveredEdge(id);
