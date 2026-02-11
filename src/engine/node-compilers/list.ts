@@ -248,6 +248,69 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       const filterNodes = data.filterNodes;
       const filterEdges = data.filterEdges;
 
+      if (
+        executionTarget === "microbit" &&
+        isNonEmptyArray<Node>(filterNodes) &&
+        Array.isArray(filterEdges)
+      ) {
+        const transport = parseTransport(data);
+        const plan = ctx.helpers.computeSubflowExecutionPlan({
+          subflowNodes: filterNodes as Node[],
+          subflowEdges: filterEdges as Edge[],
+          inCount: 1,
+          outCount: 1,
+          onLog: ctx.onLog,
+          onPrompt: ctx.onPrompt,
+          signal: ctx.signal,
+          remoteExecutor: ctx.remoteExecutor,
+          runtimeCtx: ctx.subflowRuntimeContext,
+        });
+
+        const programId = sanitizeProgramId(`${String(flowNode.id)}-filter`);
+
+        return new NodeDefinition(
+          async (inputList: unknown[]) => {
+            const items = Array.isArray(inputList) ? inputList : [];
+            const connection = await ensureMicrobitConnected({ transport });
+            const output: unknown[] = [];
+
+            for (let i = 0; i < items.length; i += 1) {
+              if (ctx.signal?.aborted) {
+                const err = new Error("Abortado");
+                (err as { name?: string }).name = "AbortError";
+                throw err;
+              }
+
+              const args = plan.selectedInputs.map((_entry, idx) =>
+                idx === 0 ? items[i] : null,
+              );
+
+              const predicate = await sendSubflowToMicrobit({
+                connection,
+                nodes: filterNodes as Node[],
+                edges: filterEdges as Edge[],
+                selectedInputs: plan.selectedInputs,
+                outputSources: plan.outputSources,
+                args,
+                programId,
+                signal: ctx.signal,
+              });
+
+              if (predicate) {
+                output.push(items[i]);
+              }
+            }
+
+            return output;
+          },
+          [FirePatterns.EXISTS],
+          ["inputList", "outputList"],
+          {
+            stickyInputPorts: ["inputList"],
+          },
+        );
+      }
+
       if (isNonEmptyArray<Node>(filterNodes) && Array.isArray(filterEdges)) {
         const runPredicate = ctx.helpers.compileSingleInputGraph({
           graphNodes: filterNodes,
@@ -269,6 +332,67 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
     case NODE_TYPES.MAP_NODE: {
       const mapNodes = data.mapNodes;
       const mapEdges = data.mapEdges;
+
+      if (
+        executionTarget === "microbit" &&
+        isNonEmptyArray<Node>(mapNodes) &&
+        Array.isArray(mapEdges)
+      ) {
+        const transport = parseTransport(data);
+        const plan = ctx.helpers.computeSubflowExecutionPlan({
+          subflowNodes: mapNodes as Node[],
+          subflowEdges: mapEdges as Edge[],
+          inCount: 1,
+          outCount: 1,
+          onLog: ctx.onLog,
+          onPrompt: ctx.onPrompt,
+          signal: ctx.signal,
+          remoteExecutor: ctx.remoteExecutor,
+          runtimeCtx: ctx.subflowRuntimeContext,
+        });
+
+        const programId = sanitizeProgramId(`${String(flowNode.id)}-map`);
+
+        return new NodeDefinition(
+          async (inputList: unknown[]) => {
+            const items = Array.isArray(inputList) ? inputList : [];
+            const connection = await ensureMicrobitConnected({ transport });
+            const output: unknown[] = [];
+
+            for (let i = 0; i < items.length; i += 1) {
+              if (ctx.signal?.aborted) {
+                const err = new Error("Abortado");
+                (err as { name?: string }).name = "AbortError";
+                throw err;
+              }
+
+              const args = plan.selectedInputs.map((_entry, idx) =>
+                idx === 0 ? items[i] : null,
+              );
+
+              const mapped = await sendSubflowToMicrobit({
+                connection,
+                nodes: mapNodes as Node[],
+                edges: mapEdges as Edge[],
+                selectedInputs: plan.selectedInputs,
+                outputSources: plan.outputSources,
+                args,
+                programId,
+                signal: ctx.signal,
+              });
+
+              output.push(mapped);
+            }
+
+            return output;
+          },
+          [FirePatterns.EXISTS],
+          ["inputList", "outputList"],
+          {
+            stickyInputPorts: ["inputList"],
+          },
+        );
+      }
 
       if (isNonEmptyArray<Node>(mapNodes) && Array.isArray(mapEdges)) {
         const runMapper = ctx.helpers.compileSingleInputGraph({

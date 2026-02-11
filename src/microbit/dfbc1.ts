@@ -281,7 +281,9 @@ export function compileSubflowToDfbc1(
       });
 
     switch (type) {
-      case NODE_TYPES.SUBFLOW_INPUT: {
+      case NODE_TYPES.SUBFLOW_INPUT:
+      case NODE_TYPES.FILTER_INPUT_VALUE:
+      case NODE_TYPES.MAP_INPUT_VALUE: {
         const argIndex = argIndexByNodeId.get(nodeId);
         if (argIndex == null) {
           pushConst({ tag: 3 });
