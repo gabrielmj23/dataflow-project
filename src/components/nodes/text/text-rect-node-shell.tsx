@@ -24,6 +24,19 @@ export function TextRectNodeShell({
   runtimeError,
   inputCount = 2,
 }: TextRectNodeShellProps) {
+  const inputLabels = (() => {
+    if (nodeType === "replaceText") return ["Texto", "Buscar", "Nuevo"];
+    if (nodeType === "subtractText") return ["Texto", "Eliminar"];
+    if (nodeType === "sliceText") return ["Texto", "Inicio", "Fin"];
+    return [] as string[];
+  })();
+  const inputOffsets =
+    inputCount === 1
+      ? ["50%"]
+      : inputCount === 2
+        ? ["35%", "65%"]
+        : ["30%", "50%", "70%"];
+
   const in1Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-1" });
   const in2Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-2" });
   const in3Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-3" });
@@ -37,9 +50,9 @@ export function TextRectNodeShell({
   return (
     <BaseNode
       runtimeError={runtimeError}
-      className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-fuchsia-700 bg-fuchsia-600 px-5 text-center text-white shadow-md"
+      className="relative flex h-18 w-36 flex-col justify-center rounded-2xl border-fuchsia-700 bg-fuchsia-600 px-6 text-white shadow-md"
     >
-      <div className="flex flex-col items-center gap-0.5">
+      <div className={`flex flex-col gap-0.5 items-center ${inputLabels.length > 0 ? "ml-10" : ""}`}>
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
       </div>
@@ -87,6 +100,21 @@ export function TextRectNodeShell({
         className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
         indicatorClassName="border-fuchsia-700"
       />
+
+      {inputLabels.length > 0 &&
+        inputOffsets.map((offset, index) => {
+          const text = inputLabels[index];
+          if (!text) return null;
+          return (
+            <div
+              key={`input-label-${text}-${offset}`}
+              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90"
+              style={{ top: offset }}
+            >
+              {text}
+            </div>
+          );
+        })}
     </BaseNode>
   );
 }

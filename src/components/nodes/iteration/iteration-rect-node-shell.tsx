@@ -31,6 +31,11 @@ export function IterationRectNodeShell({
   onConfigClick,
 }: IterationRectNodeShellProps) {
   const offsets = ["15%", "35%", "65%", "85%"];
+  const inputLabels =
+    variant === "tripleInSingleOut" &&
+    (nodeType === "sequence" || nodeType === "pulseSequence")
+      ? ["Inicio", "Fin", "Paso"]
+      : [];
 
   const maskFor = (params: {
     handleType: "source" | "target";
@@ -50,11 +55,15 @@ export function IterationRectNodeShell({
   return (
     <BaseNode
       onConfigClick={onConfigClick}
-      className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-teal-800 bg-teal-600 px-5 text-center text-white shadow-md"
+      className="relative flex h-18 w-36 flex-col justify-center rounded-2xl border-teal-800 bg-teal-600 px-6 text-white shadow-md"
     >
-      <div className="flex flex-col items-center gap-0.5">
-        <div className="text-lg font-bold leading-none">{icon}</div>
-        <div className="text-xs leading-tight">{label}</div>
+      <div className={`flex flex-col gap-0.5 items-center ${inputLabels.length > 0 ? "ml-10" : ""}`}>
+        <div className="w-full flex justify-center">
+          <div className="text-lg font-bold leading-none">{icon}</div>
+        </div>
+        <div className="w-full flex justify-center">
+          <div className="text-xs leading-tight text-center">{label}</div>
+        </div>
       </div>
 
       {variant === "source" && (
@@ -249,6 +258,24 @@ export function IterationRectNodeShell({
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
             indicatorClassName="border-teal-800"
           />
+        </>
+      )}
+
+      {inputLabels.length > 0 && (
+        <>
+          {[
+            { top: "25%", label: inputLabels[0] },
+            { top: "50%", label: inputLabels[1] },
+            { top: "75%", label: inputLabels[2] },
+          ].map(({ top, label }) => (
+            <div
+              key={`iter-input-${label}-${top}`}
+              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90"
+              style={{ top }}
+            >
+              {label}
+            </div>
+          ))}
         </>
       )}
     </BaseNode>
