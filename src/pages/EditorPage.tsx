@@ -29,6 +29,8 @@ import {
   Play,
   Volume2,
   VolumeX,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import AppHeader from "@/components/app-header";
 import { nodeTypes } from "@/flow/node-types";
@@ -1454,6 +1456,19 @@ export default function EditorPage() {
               Conectar
               <Unplug className="text-white" />
             </Button>
+              <Button
+                variant="secondary"
+                className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+                type="button"
+                onClick={toggleEdgeFeedbackMode}
+              >
+                Mostrar valores
+                {edgeFeedbackMode === "transient" ? (
+                  <Unlock className="ml-2 text-white" />
+                ) : (
+                  <Lock className="ml-2 text-white" />
+                )}
+              </Button>
           </AppHeader>
 
           <div className="flex flex-1 min-h-0">
@@ -1735,8 +1750,6 @@ export default function EditorPage() {
                                 isEngineRunning={isEngineRunning}
                                 onRunClick={handleRunClick}
                                 onStopClick={onStopClick}
-                                edgeFeedbackMode={edgeFeedbackMode}
-                                onToggleEdgeFeedbackMode={toggleEdgeFeedbackMode}
                               />
 
                               <ConsolePanel
