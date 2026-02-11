@@ -261,6 +261,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
         },
         firePatterns,
         [...inputPorts, ...outputPorts],
+        { skipStepDelay: true },
       );
     }
 
@@ -303,6 +304,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
         },
         firePatterns,
         [...inputPorts, ...outputPorts],
+        { skipStepDelay: true },
       );
     }
 
@@ -354,6 +356,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
         },
         firePatterns,
         [...inputPorts, ...outputPorts],
+        { skipStepDelay: true },
       );
     }
 

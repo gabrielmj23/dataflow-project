@@ -119,7 +119,8 @@ export class EngineFilterNode extends NodeDefinition {
         return out;
       },
       [FirePatterns.EXISTS],
-      ["inputList", "outputList"]
+      ["inputList", "outputList"],
+      { skipStepDelay: true }
     );
   }
 }
@@ -135,7 +136,8 @@ export class EngineMapNode extends NodeDefinition {
         return out;
       },
       [FirePatterns.EXISTS],
-      ["inputList", "outputList"]
+      ["inputList", "outputList"],
+      { skipStepDelay: true }
     );
   }
 }

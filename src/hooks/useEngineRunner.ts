@@ -49,6 +49,7 @@ type UseEngineRunnerParams = {
   reactFlowInstance: ReactFlowInstance | null;
   setNodes: React.Dispatch<React.SetStateAction<FlowNode[]>>;
   isRuntimeUpdateRef: React.MutableRefObject<boolean>;
+  stepDelayMs: number;
   appendConsoleLines: (
     lines: string[],
     opts?: { level?: EngineLogLevel; nodeId?: string },
@@ -77,6 +78,7 @@ export function useEngineRunner({
   reactFlowInstance,
   setNodes,
   isRuntimeUpdateRef,
+  stepDelayMs,
   appendConsoleLines,
   enqueuePrompt,
   clearPromptQueue,
@@ -274,7 +276,7 @@ export function useEngineRunner({
         resolveSubflowTemplate,
         maxSubflowDepth,
       });
-      const engine = new DataflowEngine();
+      const engine = new DataflowEngine({ stepDelayMs });
 
       engine.setObserver({
         onRunStart: () => {
@@ -351,6 +353,7 @@ export function useEngineRunner({
     remoteExecutor,
     resolveSubflowTemplate,
     maxSubflowDepth,
+    stepDelayMs,
     formatLogText,
     appendConsoleLines,
     onEngineEvent,

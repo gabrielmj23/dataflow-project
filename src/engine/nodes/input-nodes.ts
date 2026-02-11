@@ -2,13 +2,17 @@ import { FirePatterns, NodeDefinition } from "../program-elements";
 
 export class EngineConstantNode extends NodeDefinition {
   constructor(constantValue: number | string | boolean) {
-    super(() => constantValue, [FirePatterns.ALWAYS], ["output"]);
+    super(() => constantValue, [FirePatterns.ALWAYS], ["output"], {
+      skipStepDelay: true,
+    });
   }
 }
 
 export class EngineConstantListNode extends NodeDefinition {
   constructor(items: Array<string | number>) {
-    super(() => items.slice(), [FirePatterns.ALWAYS], ["output"]);
+    super(() => items.slice(), [FirePatterns.ALWAYS], ["output"], {
+      skipStepDelay: true,
+    });
   }
 }
 
@@ -30,7 +34,8 @@ export class EngineRandomNode extends NodeDefinition {
         return Math.floor(Math.random() * (maxInt - minInt + 1)) + minInt;
       },
       [FirePatterns.ALWAYS],
-      ["output"]
+      ["output"],
+      { skipStepDelay: true }
     );
   }
 }
@@ -44,7 +49,8 @@ export class EngineChoiceNode extends NodeDefinition {
         return choices[idx];
       },
       [FirePatterns.ALWAYS],
-      ["output"]
+      ["output"],
+      { skipStepDelay: true }
     );
   }
 }

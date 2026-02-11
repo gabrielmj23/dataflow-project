@@ -7,10 +7,11 @@ import {
   PortAddress,
 } from "./program-elements";
 import { ArcStore, NodeStore, TokenStore } from "./stores";
+import { BASE_ENGINE_STEP_DELAY_MS } from "./engine-speed";
 
 // Global artificial delay (in ms) applied before each node execution.
 // Set to 0 to disable the slowdown effect.
-export const ENGINE_STEP_DELAY_MS = 50;
+export const ENGINE_STEP_DELAY_MS = BASE_ENGINE_STEP_DELAY_MS;
 
 export type EngineNodeStatus = "waiting" | "running" | "done" | "error";
 export type EngineLogLevel = "info" | "error";
@@ -144,6 +145,7 @@ export class DataflowEngine {
   private nodeStore: NodeStore;
   private tokenStore: TokenStore;
   private observer: EngineObserver | null = null;
+  private stepDelayMs: number;
   // Tracks last input values per node/port for sticky inputs.
   private lastInputValues: Map<string, Map<string, unknown>> = new Map();
 
@@ -298,11 +300,13 @@ export class DataflowEngine {
   /**
    * Creates a new in-memory dataflow engine with empty stores.
    */
-  constructor() {
+  constructor(params?: { stepDelayMs?: number }) {
     this.arcStore = new ArcStore();
     this.nodeStore = new NodeStore();
     this.tokenStore = new TokenStore();
     this.lastInputValues = new Map();
+    this.stepDelayMs =
+      typeof params?.stepDelayMs === "number" ? params.stepDelayMs : ENGINE_STEP_DELAY_MS;
   }
 
   setObserver(observer: EngineObserver | null): void {
@@ -801,8 +805,12 @@ export class DataflowEngine {
     });
 
     // Optional slow-motion delay to visualize program execution.
-    if (ENGINE_STEP_DELAY_MS > 0) {
-      await abortableDelay(ENGINE_STEP_DELAY_MS, signal);
+    const stepDelayMs = this.stepDelayMs;
+    // Do not apply the artificial step delay to nodes that opt out via
+    // meta.skipStepDelay or to runtime input nodes which must prompt immediately.
+    const isRuntimeInput = (nodeDefinition.meta && (nodeDefinition.meta as { kind?: unknown }).kind) === "runtimeInput";
+    if (stepDelayMs > 0 && !nodeDefinition.meta.skipStepDelay && !isRuntimeInput) {
+      await abortableDelay(stepDelayMs, signal);
     }
 
     throwIfAborted(signal);

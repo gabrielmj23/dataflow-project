@@ -67,6 +67,11 @@ import { useRemoteConfigState } from "@/hooks/useRemoteConfig";
 import type { RemoteExecutor } from "@/engine/deserialize-program";
 import { RemoteControllersProvider } from "@/ws/remote-controllers-context";
 import { DataflowEngine, type EngineLogLevel } from "@/engine/engine";
+import {
+  DEFAULT_ENGINE_SPEED_ID,
+  ENGINE_SPEED_OPTIONS,
+  getEngineSpeedOption,
+} from "@/engine/engine-speed";
 import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
 import {
@@ -137,6 +142,14 @@ export default function EditorPage() {
 
   const [edgeFeedbackMode, setEdgeFeedbackMode] = useState<EdgeFeedbackMode>(
     "transient",
+  );
+
+  const [engineSpeedId, setEngineSpeedId] = useState<string>(
+    DEFAULT_ENGINE_SPEED_ID,
+  );
+  const engineSpeed = useMemo(
+    () => getEngineSpeedOption(engineSpeedId),
+    [engineSpeedId],
   );
 
   useEffect(() => {
@@ -285,6 +298,7 @@ export default function EditorPage() {
     reactFlowInstance,
     setNodes,
     isRuntimeUpdateRef,
+    stepDelayMs: engineSpeed.delayMs,
     appendConsoleLines,
     enqueuePrompt,
     clearPromptQueue,
@@ -1750,6 +1764,9 @@ export default function EditorPage() {
                                 isEngineRunning={isEngineRunning}
                                 onRunClick={handleRunClick}
                                 onStopClick={onStopClick}
+                                engineSpeedOptions={ENGINE_SPEED_OPTIONS}
+                                engineSpeedId={engineSpeedId}
+                                onEngineSpeedChange={setEngineSpeedId}
                               />
 
                               <ConsolePanel

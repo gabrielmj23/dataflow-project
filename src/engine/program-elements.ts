@@ -17,6 +17,8 @@ export type NodeMeta = {
   microbitSlot?: number;
   /** Connection transport for micro:bit nodes. */
   connectionType?: "bluetooth" | "serial";
+  /** Skip the global step delay for this node. */
+  skipStepDelay?: boolean;
   /**
    * Optional list of input port IDs that keep the last received value
    * ("sticky" inputs). If no new token arrives on that port, the last

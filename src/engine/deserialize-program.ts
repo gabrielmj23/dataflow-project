@@ -493,7 +493,7 @@ function compileSingleInputGraph(params: {
         signal: params.signal,
       });
 
-      const engine = new DataflowEngine();
+      const engine = new DataflowEngine({ stepDelayMs: 0 });
       if (params.onLog || params.onPrompt) {
         engine.setObserver({
           onLog: params.onLog,
@@ -810,7 +810,7 @@ function compileSubflowNodeDefinition(params: {
         ctx.depth += 1;
       }
 
-      const engine = new DataflowEngine();
+      const engine = new DataflowEngine({ stepDelayMs: 0 });
       if (params.onLog || params.onPrompt) {
         engine.setObserver({
           onLog: params.onLog,
@@ -862,6 +862,7 @@ function compileSubflowNodeDefinition(params: {
     },
     firePatterns,
     [...inputPorts, ...outputPorts],
+    { skipStepDelay: true },
   );
 }
 
