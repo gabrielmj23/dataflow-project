@@ -9,7 +9,8 @@ export class EngineTimerNode extends NodeDefinition {
         return value;
       },
       mode === "delay" ? [FirePatterns.EXISTS] : [FirePatterns.DONT_CARE],
-      ["input", "output"]
+      ["input", "output"],
+      { skipStepDelay: true }
     );
   }
 }

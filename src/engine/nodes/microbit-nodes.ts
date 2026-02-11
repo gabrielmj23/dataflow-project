@@ -912,6 +912,7 @@ export class EngineMicrobitReadButtonNode extends NodeDefinition {
       },
       [FirePatterns.ALWAYS],
       ["output"],
+      { skipStepDelay: true },
     );
   }
 }
