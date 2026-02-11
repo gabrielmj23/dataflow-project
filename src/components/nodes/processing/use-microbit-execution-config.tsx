@@ -249,7 +249,7 @@ export function useMicrobitExecutionConfig(
                 <SelectValue placeholder="Selecciona" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="local">Local</SelectItem>
+                <SelectItem value="local">Esta PC</SelectItem>
                 <SelectItem value="microbit">micro:bit</SelectItem>
                 <SelectItem value="controller">Otra PC</SelectItem>
               </SelectContent>
@@ -259,7 +259,7 @@ export function useMicrobitExecutionConfig(
           {executionTarget === "controller" && (
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-900">
-                Controller remoto
+                PC remota
               </label>
               <Select
                 value={controllerId || undefined}
@@ -269,7 +269,7 @@ export function useMicrobitExecutionConfig(
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecciona un controller" />
+                  <SelectValue placeholder="Selecciona una PC" />
                 </SelectTrigger>
                 <SelectContent>
                   {controllers.length === 0 ? (

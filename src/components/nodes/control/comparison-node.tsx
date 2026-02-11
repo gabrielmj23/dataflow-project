@@ -9,6 +9,7 @@ import {
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 
 import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 import {
   Dialog,
   DialogContent,
@@ -60,11 +61,22 @@ export type ComparisonNodeData = {
   label?: string;
   operator?: ComparisonOperator;
   runtimeError?: string | null;
+  executionTarget?: "local" | "microbit" | "controller";
+  transport?: "serial" | "bluetooth";
+  controllerId?: string;
+  controllerName?: string;
 };
 
 export const ComparisonNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Comparación", operator: rawOperator, runtimeError } = (data ??
-    {}) as ComparisonNodeData;
+  const {
+    label = "Comparación",
+    operator: rawOperator,
+    runtimeError,
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  } = (data ?? {}) as ComparisonNodeData;
 
   const operator = useMemo<ComparisonOperator>(() => {
     if (
@@ -104,6 +116,15 @@ export const ComparisonNode = memo(({ id, data }: NodeProps) => {
   const [draftOperator, setDraftOperator] =
     useState<ComparisonOperator>(operator);
 
+  const config = useMicrobitExecutionConfig({
+    nodeId: id,
+    title: "Configurar ejecucion",
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  });
+
   const openDialog = useCallback(() => {
     setDraftOperator(operator);
     setIsDialogOpen(true);
@@ -117,9 +138,12 @@ export const ComparisonNode = memo(({ id, data }: NodeProps) => {
         nodeType="comparison"
         icon={OPERATORS.find(({ op }) => op === operator)?.icon ?? "?"}
         label={label}
+        subtitle={config.subtitle}
         runtimeError={runtimeError}
+        onConnectClick={config.onConfigClick}
         onConfigClick={openDialog}
       />
+      {config.dialog}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>

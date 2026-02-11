@@ -161,7 +161,7 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "iteration",
-    title: "Iteración y listas",
+    title: "Listas",
     items: [
       {
         type: "sequence",
@@ -216,7 +216,7 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "abstraction",
-    title: "Abstracción",
+    title: "Subflujos",
     items: [
       {
         type: "subflow",

@@ -10,6 +10,7 @@ import { ArrowDownAZ, ArrowUpAZ } from "lucide-react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
+import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 import {
   Dialog,
   DialogContent,
@@ -23,6 +24,10 @@ type SortOrder = "asc" | "desc";
 type SortListNodeData = {
   label?: string;
   order?: SortOrder;
+  executionTarget?: "local" | "microbit" | "controller";
+  transport?: "serial" | "bluetooth";
+  controllerId?: string;
+  controllerName?: string;
 };
 
 const ORDER_OPTIONS: Array<{
@@ -30,12 +35,27 @@ const ORDER_OPTIONS: Array<{
   label: string;
   icon: ReactElement;
 }> = [
-  { value: "asc", label: "De Menor a Mayor", icon: <ArrowUpAZ className="h-5 w-5" /> },
-  { value: "desc", label: "De Mayor a Menor", icon: <ArrowDownAZ className="h-5 w-5" /> },
+  {
+    value: "asc",
+    label: "De Menor a Mayor",
+    icon: <ArrowUpAZ className="h-5 w-5" />,
+  },
+  {
+    value: "desc",
+    label: "De Mayor a Menor",
+    icon: <ArrowDownAZ className="h-5 w-5" />,
+  },
 ];
 
 export const SortListNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Ordenar lista", order: rawOrder } = (data ?? {}) as SortListNodeData;
+  const {
+    label = "Ordenar lista",
+    order: rawOrder,
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  } = (data ?? {}) as SortListNodeData;
 
   const order = useMemo<SortOrder>(() => {
     if (rawOrder === "asc" || rawOrder === "desc") return rawOrder;
@@ -65,6 +85,15 @@ export const SortListNode = memo(({ id, data }: NodeProps) => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draftOrder, setDraftOrder] = useState<SortOrder>(order);
 
+  const config = useMicrobitExecutionConfig({
+    nodeId: id,
+    title: "Configurar ejecucion",
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  });
+
   const openDialog = useCallback(() => {
     setDraftOrder(order);
     setIsDialogOpen(true);
@@ -72,7 +101,12 @@ export const SortListNode = memo(({ id, data }: NodeProps) => {
 
   const headingId = useId();
 
-  const activeIcon = order === "asc" ? <ArrowUpAZ className="h-4 w-4" /> : <ArrowDownAZ className="h-4 w-4" />;
+  const activeIcon =
+    order === "asc" ? (
+      <ArrowUpAZ className="h-4 w-4" />
+    ) : (
+      <ArrowDownAZ className="h-4 w-4" />
+    );
 
   return (
     <>
@@ -80,9 +114,12 @@ export const SortListNode = memo(({ id, data }: NodeProps) => {
         nodeType="sortList"
         icon={activeIcon}
         label={label}
+        subtitle={config.subtitle}
         variant="singleInSingleOut"
         onConfigClick={openDialog}
+        onConnectClick={config.onConfigClick}
       />
+      {config.dialog}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>

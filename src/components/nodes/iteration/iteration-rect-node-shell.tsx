@@ -13,6 +13,7 @@ type IterationRectNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
   label: string;
+  subtitle?: string;
   variant?:
     | "multi"
     | "singleInDoubleOut"
@@ -21,14 +22,17 @@ type IterationRectNodeShellProps = {
     | "tripleInSingleOut"
     | "source";
   onConfigClick?: () => void;
+  onConnectClick?: () => void;
 };
 
 export function IterationRectNodeShell({
   nodeType,
   icon,
   label,
+  subtitle,
   variant = "multi",
   onConfigClick,
+  onConnectClick,
 }: IterationRectNodeShellProps) {
   const offsets = ["15%", "35%", "65%", "85%"];
 
@@ -50,11 +54,17 @@ export function IterationRectNodeShell({
   return (
     <BaseNode
       onConfigClick={onConfigClick}
+      onConnectClick={onConnectClick}
       className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-teal-800 bg-teal-600 px-5 text-center text-white shadow-md"
     >
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-lg font-bold leading-none">{icon}</div>
         <div className="text-xs leading-tight">{label}</div>
+        {subtitle && (
+          <div className="text-[10px] leading-tight text-white/85">
+            {subtitle}
+          </div>
+        )}
       </div>
 
       {variant === "source" && (
@@ -89,7 +99,7 @@ export function IterationRectNodeShell({
                   indicatorClassName="border-teal-800"
                 />
               );
-            })()
+            })(),
           )}
 
           {offsets.map((offset, index) =>
@@ -110,7 +120,7 @@ export function IterationRectNodeShell({
                   indicatorClassName="border-teal-800"
                 />
               );
-            })()
+            })(),
           )}
         </>
       )}

@@ -6,7 +6,8 @@ export type DfbcValue =
   | { tag: 0; value: number }
   | { tag: 1; value: string }
   | { tag: 2; value: boolean }
-  | { tag: 3 };
+  | { tag: 3 }
+  | { tag: 4; value: DfbcValue[] };
 
 export type DfbcCompileParams = {
   nodes: Node[];
@@ -43,6 +44,25 @@ const OPCODES = {
   DISPLAY_TEXT: 0x30,
   DISPLAY_NUMBER: 0x31,
   PLAY_TONE: 0x32,
+  LIST_COUNT: 0x50,
+  LIST_SORT_ASC: 0x51,
+  LIST_SORT_DESC: 0x52,
+  LIST_ACCUMULATE: 0x53,
+  LIST_ZIP: 0x54,
+  LIST_UNZIP_A: 0x55,
+  LIST_UNZIP_B: 0x56,
+  CMP_EQ: 0x60,
+  CMP_NEQ: 0x61,
+  CMP_LT: 0x62,
+  CMP_LTE: 0x63,
+  CMP_GT: 0x64,
+  CMP_GTE: 0x65,
+  LOGIC_AND: 0x70,
+  LOGIC_NAND: 0x71,
+  LOGIC_OR: 0x72,
+  LOGIC_NOR: 0x73,
+  LOGIC_XOR: 0x74,
+  LOGIC_NOT: 0x75,
   RETURN: 0x40,
 } as const;
 
@@ -66,6 +86,69 @@ function float32ToBytes(value: number): number[] {
     view.getUint8(2),
     view.getUint8(3),
   ];
+}
+
+function encodeDfbcValueToBytes(value: DfbcValue): number[] {
+  if (value.tag === 0) {
+    return [0, ...float32ToBytes(value.value)];
+  }
+  if (value.tag === 1) {
+    const bytes = stringToLatin1Bytes(value.value);
+    const len = bytes.length & 0xffff;
+    return [1, len & 0xff, (len >> 8) & 0xff, ...bytes];
+  }
+  if (value.tag === 2) {
+    return [2, value.value ? 1 : 0];
+  }
+  if (value.tag === 4) {
+    const list = value.value ?? [];
+    const safeLen = Math.min(255, list.length);
+    const bytes: number[] = [4, safeLen & 0xff];
+    for (let i = 0; i < safeLen; i += 1) {
+      bytes.push(...encodeDfbcValueToBytes(list[i]));
+    }
+    return bytes;
+  }
+  return [3];
+}
+
+function toDfbcValue(value: unknown): DfbcValue {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return { tag: 0, value };
+  }
+  if (typeof value === "string") {
+    return { tag: 1, value };
+  }
+  if (typeof value === "boolean") {
+    return { tag: 2, value };
+  }
+  if (Array.isArray(value)) {
+    return {
+      tag: 4,
+      value: value.map((item) => toDfbcValue(item)),
+    };
+  }
+  return { tag: 3 };
+}
+
+function mapOutputHandleFromPort(params: {
+  nodeType: string;
+  portId?: string | null;
+}): string | null {
+  const portId = params.portId ?? null;
+  if (!portId) return null;
+
+  if (params.nodeType === NODE_TYPES.UNZIP_NODE) {
+    if (portId === "listA") return "out-1";
+    if (portId === "listB") return "out-2";
+    return null;
+  }
+
+  if (portId === "output" || portId === "outputList") {
+    return "out";
+  }
+
+  return null;
 }
 
 function buildIncomingMap(edges: Edge[]): IncomingMap {
@@ -96,6 +179,7 @@ function pickOutputTarget(
   outputSources?: Array<{ nodeId: string; portId: string }>,
 ): {
   nodeId: string;
+  portId?: string | null;
   kind: "subflowOutput" | "node";
 } | null {
   const outputs = nodes
@@ -115,7 +199,11 @@ function pickOutputTarget(
   }
 
   if (outputSources && outputSources.length > 0) {
-    return { nodeId: String(outputSources[0].nodeId), kind: "node" };
+    return {
+      nodeId: String(outputSources[0].nodeId),
+      portId: outputSources[0].portId ?? null,
+      kind: "node",
+    };
   }
 
   return null;
@@ -174,10 +262,14 @@ export function compileSubflowToDfbc1(
       pushConst({ tag: 3 });
       return;
     }
-    compileValueFromNode(String(edge.source));
+    compileValueFromNode(String(edge.source), edge.sourceHandle ?? null);
   }
 
-  function compileValueFromNode(nodeId: string) {
+  function compileValueFromNode(
+    nodeId: string,
+    outputHandleId?: string | null,
+    outputPortId?: string | null,
+  ) {
     if (visiting.has(nodeId)) {
       throw new Error(
         "El subflujo contiene un ciclo o referencias recursivas.",
@@ -193,9 +285,17 @@ export function compileSubflowToDfbc1(
     visiting.add(nodeId);
     const type = String(node.type);
     const data = (node.data ?? {}) as Record<string, unknown>;
+    const resolvedOutputHandle =
+      outputHandleId ??
+      mapOutputHandleFromPort({
+        nodeType: type,
+        portId: outputPortId ?? null,
+      });
 
     switch (type) {
-      case NODE_TYPES.SUBFLOW_INPUT: {
+      case NODE_TYPES.SUBFLOW_INPUT:
+      case NODE_TYPES.FILTER_INPUT_VALUE:
+      case NODE_TYPES.MAP_INPUT_VALUE: {
         const argIndex = argIndexByNodeId.get(nodeId);
         if (argIndex == null) {
           pushConst({ tag: 3 });
@@ -223,17 +323,14 @@ export function compileSubflowToDfbc1(
         pushConst({ tag: 2, value });
         break;
       }
+      case NODE_TYPES.CONSTANT_LIST_INPUT: {
+        const items = Array.isArray(data.items) ? data.items : [];
+        pushConst({ tag: 4, value: items.map((item) => toDfbcValue(item)) });
+        break;
+      }
       case NODE_TYPES.CONSTANT_INPUT: {
         const raw = data.value;
-        if (typeof raw === "number") {
-          pushConst({ tag: 0, value: raw });
-        } else if (typeof raw === "string") {
-          pushConst({ tag: 1, value: raw });
-        } else if (typeof raw === "boolean") {
-          pushConst({ tag: 2, value: raw });
-        } else {
-          pushConst({ tag: 3 });
-        }
+        pushConst(toDfbcValue(raw));
         break;
       }
       case NODE_TYPES.SUM_NODE:
@@ -278,6 +375,88 @@ export function compileSubflowToDfbc1(
         emit(OPCODES.CONCAT);
         break;
       }
+      case NODE_TYPES.ZIP_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LIST_ZIP);
+        break;
+      }
+      case NODE_TYPES.COMPARISON_NODE: {
+        const operator = data.operator;
+        const op =
+          operator === "!="
+            ? OPCODES.CMP_NEQ
+            : operator === "<"
+              ? OPCODES.CMP_LT
+              : operator === "<="
+                ? OPCODES.CMP_LTE
+                : operator === ">"
+                  ? OPCODES.CMP_GT
+                  : operator === ">="
+                    ? OPCODES.CMP_GTE
+                    : OPCODES.CMP_EQ;
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(op);
+        break;
+      }
+      case NODE_TYPES.AND_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_AND);
+        break;
+      }
+      case NODE_TYPES.NAND_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_NAND);
+        break;
+      }
+      case NODE_TYPES.OR_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_OR);
+        break;
+      }
+      case NODE_TYPES.NOR_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_NOR);
+        break;
+      }
+      case NODE_TYPES.XOR_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_XOR);
+        break;
+      }
+      case NODE_TYPES.NOT_NODE: {
+        compileInputForNode(nodeId, "in");
+        emit(OPCODES.LOGIC_NOT);
+        break;
+      }
+      case NODE_TYPES.UNZIP_NODE: {
+        compileInputForNode(nodeId, "in");
+        const handle = resolvedOutputHandle;
+        emit(handle === "out-2" ? OPCODES.LIST_UNZIP_B : OPCODES.LIST_UNZIP_A);
+        break;
+      }
+      case NODE_TYPES.COUNT_NODE: {
+        compileInputForNode(nodeId, "in");
+        emit(OPCODES.LIST_COUNT);
+        break;
+      }
+      case NODE_TYPES.SORT_LIST_NODE: {
+        compileInputForNode(nodeId, "in");
+        const order = data.order === "desc" ? "desc" : "asc";
+        emit(order === "desc" ? OPCODES.LIST_SORT_DESC : OPCODES.LIST_SORT_ASC);
+        break;
+      }
+      case NODE_TYPES.REDUCE_NODE: {
+        compileInputForNode(nodeId, "in");
+        emit(OPCODES.LIST_ACCUMULATE);
+        break;
+      }
       case NODE_TYPES.MICROBIT_WRITE: {
         compileInputForNode(nodeId, "in-1");
         emit(OPCODES.DISPLAY_TEXT);
@@ -309,7 +488,11 @@ export function compileSubflowToDfbc1(
     if (outputTarget.kind === "subflowOutput") {
       compileInputForNode(outputTarget.nodeId, "value");
     } else {
-      compileValueFromNode(outputTarget.nodeId);
+      compileValueFromNode(
+        outputTarget.nodeId,
+        null,
+        outputTarget.portId ?? null,
+      );
     }
   } else {
     pushConst({ tag: 3 });
@@ -336,6 +519,13 @@ export function compileSubflowToDfbc1(
       byteParts.push(1, len & 0xff, (len >> 8) & 0xff, ...bytes);
     } else if (c.tag === 2) {
       byteParts.push(2, c.value ? 1 : 0);
+    } else if (c.tag === 4) {
+      const list = c.value ?? [];
+      const safeLen = Math.min(255, list.length);
+      byteParts.push(4, safeLen & 0xff);
+      for (let i = 0; i < safeLen; i += 1) {
+        byteParts.push(...encodeDfbcValueToBytes(list[i]));
+      }
     } else {
       byteParts.push(3);
     }
@@ -355,18 +545,7 @@ export function compileSubflowToDfbc1(
 }
 
 export function encodeValueToBytes(value: unknown): number[] {
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return [0, ...float32ToBytes(value)];
-  }
-  if (typeof value === "string") {
-    const bytes = stringToLatin1Bytes(value);
-    const len = bytes.length & 0xffff;
-    return [1, len & 0xff, (len >> 8) & 0xff, ...bytes];
-  }
-  if (typeof value === "boolean") {
-    return [2, value ? 1 : 0];
-  }
-  return [3];
+  return encodeDfbcValueToBytes(toDfbcValue(value));
 }
 
 export function encodeArgsHex(args: unknown[]): string {
@@ -384,6 +563,47 @@ export function encodeArgsHex(args: unknown[]): string {
   return hex;
 }
 
+function decodeValueFromBytes(
+  bytes: number[],
+  start: number,
+): { value: unknown; next: number } {
+  if (start >= bytes.length) {
+    return { value: null, next: start };
+  }
+
+  const tag = bytes[start];
+  if (tag === 0 && start + 4 < bytes.length) {
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+    view.setUint8(0, bytes[start + 1]);
+    view.setUint8(1, bytes[start + 2]);
+    view.setUint8(2, bytes[start + 3]);
+    view.setUint8(3, bytes[start + 4]);
+    return { value: view.getFloat32(0, true), next: start + 5 };
+  }
+  if (tag === 1 && start + 2 < bytes.length) {
+    const len = bytes[start + 1] | (bytes[start + 2] << 8);
+    const slice = bytes.slice(start + 3, start + 3 + len);
+    return { value: String.fromCharCode(...slice), next: start + 3 + len };
+  }
+  if (tag === 2 && start + 1 < bytes.length) {
+    return { value: bytes[start + 1] !== 0, next: start + 2 };
+  }
+  if (tag === 4 && start + 1 < bytes.length) {
+    const len = bytes[start + 1];
+    const items: unknown[] = [];
+    let idx = start + 2;
+    for (let i = 0; i < len && idx < bytes.length; i += 1) {
+      const decoded = decodeValueFromBytes(bytes, idx);
+      items.push(decoded.value);
+      idx = decoded.next;
+    }
+    return { value: items, next: idx };
+  }
+
+  return { value: null, next: start + 1 };
+}
+
 export function decodeValueHex(hex: string): unknown {
   const bytes: number[] = [];
   const clean = (hex ?? "").trim();
@@ -393,25 +613,7 @@ export function decodeValueHex(hex: string): unknown {
     bytes.push(byte & 0xff);
   }
   if (bytes.length === 0) return null;
-  const tag = bytes[0];
-  if (tag === 0 && bytes.length >= 5) {
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
-    view.setUint8(0, bytes[1]);
-    view.setUint8(1, bytes[2]);
-    view.setUint8(2, bytes[3]);
-    view.setUint8(3, bytes[4]);
-    return view.getFloat32(0, true);
-  }
-  if (tag === 1 && bytes.length >= 3) {
-    const len = bytes[1] | (bytes[2] << 8);
-    const slice = bytes.slice(3, 3 + len);
-    return String.fromCharCode(...slice);
-  }
-  if (tag === 2 && bytes.length >= 2) {
-    return bytes[1] !== 0;
-  }
-  return null;
+  return decodeValueFromBytes(bytes, 0).value;
 }
 
 export function crc32(bytes: Uint8Array): number {
