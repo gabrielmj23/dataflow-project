@@ -225,6 +225,41 @@ function valToString(v: DfpVal): string {
   return "null";
 }
 
+function valTruthy(v: DfpVal): boolean {
+  if (v.tag == DfpType.Bool) return v.bool;
+  if (v.tag == DfpType.Number) return v.num != 0;
+  if (v.tag == DfpType.String) return v.str.length > 0;
+  if (v.tag == DfpType.List) return v.list.length > 0;
+  return false;
+}
+
+function valToNumber(v: DfpVal): number {
+  if (v.tag == DfpType.Number) return v.num;
+  if (v.tag == DfpType.Bool) return v.bool ? 1 : 0;
+  if (v.tag == DfpType.String) {
+    const n = parseFloat(v.str);
+    return isNaN(n) ? 0 : n;
+  }
+  if (v.tag == DfpType.List) return v.list.length;
+  return 0;
+}
+
+function valEquals(a: DfpVal, b: DfpVal): boolean {
+  if (a.tag != b.tag) return false;
+  if (a.tag == DfpType.Number) return a.num == b.num;
+  if (a.tag == DfpType.String) return a.str == b.str;
+  if (a.tag == DfpType.Bool) return a.bool == b.bool;
+  if (a.tag == DfpType.Null) return true;
+  if (a.tag == DfpType.List) {
+    if (a.list.length != b.list.length) return false;
+    for (let i = 0; i < a.list.length; i++) {
+      if (!valEquals(a.list[i], b.list[i])) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
 function valEncodeHex(v: DfpVal): string {
   if (v.tag == DfpType.Number) {
     const b = control.createBuffer(4);
@@ -408,6 +443,52 @@ function executeVm(runId: string, args: DfpVal[]) {
           const strB = valToString(stack.pop() || valNull());
           const strA = valToString(stack.pop() || valNull());
           stack.push(valStr((strA + strB).substr(0, DFP1_MAX_STR_LEN)));
+          break;
+
+        case 0x60: // CMP_EQ
+        case 0x61: // CMP_NEQ
+        case 0x62: // CMP_LT
+        case 0x63: // CMP_LTE
+        case 0x64: // CMP_GT
+        case 0x65: // CMP_GTE
+          const cmpB = stack.pop() || valNull();
+          const cmpA = stack.pop() || valNull();
+          let cmpResult = false;
+          if (op == 0x60 || op == 0x61) {
+            cmpResult = valEquals(cmpA, cmpB);
+            if (op == 0x61) cmpResult = !cmpResult;
+          } else {
+            const numA = valToNumber(cmpA);
+            const numB = valToNumber(cmpB);
+            if (op == 0x62) cmpResult = numA < numB;
+            if (op == 0x63) cmpResult = numA <= numB;
+            if (op == 0x64) cmpResult = numA > numB;
+            if (op == 0x65) cmpResult = numA >= numB;
+          }
+          stack.push(valBool(cmpResult));
+          break;
+
+        case 0x70: // LOGIC_AND
+        case 0x71: // LOGIC_NAND
+        case 0x72: // LOGIC_OR
+        case 0x73: // LOGIC_NOR
+        case 0x74: // LOGIC_XOR
+          const logicB = stack.pop() || valNull();
+          const logicA = stack.pop() || valNull();
+          const aTruth = valTruthy(logicA);
+          const bTruth = valTruthy(logicB);
+          let logicResult = false;
+          if (op == 0x70) logicResult = aTruth && bTruth;
+          if (op == 0x71) logicResult = !(aTruth && bTruth);
+          if (op == 0x72) logicResult = aTruth || bTruth;
+          if (op == 0x73) logicResult = !(aTruth || bTruth);
+          if (op == 0x74) logicResult = aTruth != bTruth;
+          stack.push(valBool(logicResult));
+          break;
+
+        case 0x75: // LOGIC_NOT
+          const logicIn = stack.pop() || valNull();
+          stack.push(valBool(!valTruthy(logicIn)));
           break;
 
         case 0x50: // LIST_COUNT

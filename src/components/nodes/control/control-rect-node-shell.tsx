@@ -13,6 +13,7 @@ type ControlRectNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
   label: string;
+  subtitle?: string;
   /** optional extra className to merge with the default shell classes */
   className?: string;
   variant?:
@@ -30,6 +31,7 @@ type ControlRectNodeShellProps = {
    */
   outputHandleIds?: string[];
   onConfigClick?: () => void;
+  onConnectClick?: () => void;
   runtimeError?: string | null;
 };
 
@@ -48,10 +50,12 @@ export function ControlRectNodeShell({
   nodeType,
   icon,
   label,
+  subtitle,
   variant = "default",
   outputCount,
   outputHandleIds,
   onConfigClick,
+  onConnectClick,
   runtimeError,
   className,
 }: ControlRectNodeShellProps) {
@@ -83,11 +87,17 @@ export function ControlRectNodeShell({
     <BaseNode
       runtimeError={runtimeError}
       onConfigClick={onConfigClick}
+      onConnectClick={onConnectClick}
       className={className ? `${baseClass} ${className}` : baseClass}
     >
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
+        {subtitle && (
+          <div className="text-xs leading-tight text-white/85">
+            {subtitle}
+          </div>
+        )}
       </div>
 
       {variant === "default" && (

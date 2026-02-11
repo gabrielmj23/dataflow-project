@@ -51,6 +51,18 @@ const OPCODES = {
   LIST_ZIP: 0x54,
   LIST_UNZIP_A: 0x55,
   LIST_UNZIP_B: 0x56,
+  CMP_EQ: 0x60,
+  CMP_NEQ: 0x61,
+  CMP_LT: 0x62,
+  CMP_LTE: 0x63,
+  CMP_GT: 0x64,
+  CMP_GTE: 0x65,
+  LOGIC_AND: 0x70,
+  LOGIC_NAND: 0x71,
+  LOGIC_OR: 0x72,
+  LOGIC_NOR: 0x73,
+  LOGIC_XOR: 0x74,
+  LOGIC_NOT: 0x75,
   RETURN: 0x40,
 } as const;
 
@@ -367,6 +379,60 @@ export function compileSubflowToDfbc1(
         compileInputForNode(nodeId, "in-1");
         compileInputForNode(nodeId, "in-2");
         emit(OPCODES.LIST_ZIP);
+        break;
+      }
+      case NODE_TYPES.COMPARISON_NODE: {
+        const operator = data.operator;
+        const op =
+          operator === "!="
+            ? OPCODES.CMP_NEQ
+            : operator === "<"
+              ? OPCODES.CMP_LT
+              : operator === "<="
+                ? OPCODES.CMP_LTE
+                : operator === ">"
+                  ? OPCODES.CMP_GT
+                  : operator === ">="
+                    ? OPCODES.CMP_GTE
+                    : OPCODES.CMP_EQ;
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(op);
+        break;
+      }
+      case NODE_TYPES.AND_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_AND);
+        break;
+      }
+      case NODE_TYPES.NAND_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_NAND);
+        break;
+      }
+      case NODE_TYPES.OR_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_OR);
+        break;
+      }
+      case NODE_TYPES.NOR_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_NOR);
+        break;
+      }
+      case NODE_TYPES.XOR_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.LOGIC_XOR);
+        break;
+      }
+      case NODE_TYPES.NOT_NODE: {
+        compileInputForNode(nodeId, "in");
+        emit(OPCODES.LOGIC_NOT);
         break;
       }
       case NODE_TYPES.UNZIP_NODE: {
