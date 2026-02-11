@@ -127,6 +127,7 @@ async function executeSubflowPayload(
         new Arc(
           new PortAddress(out.nodeId, out.portId),
           new PortAddress("", "out-1"),
+          `${out.nodeId}:${out.portId}->out-1`,
         ),
       );
     }

@@ -39,6 +39,7 @@ export function TopActionPanel({
         Detener
         <Pause className="ml-2" />
       </Button>
+
     </Panel>
   );
 }

@@ -179,6 +179,38 @@
   will-change: transform, opacity;
 }
 
+/* Edge value bubble animation */
+.edge-value-bubble {
+  animation:
+    edgeValuePop 240ms cubic-bezier(0.2, 0.9, 0.3, 1) both,
+    /* keep pop/fade durations and easing, increase delay so bubble stays visible longer */
+    edgeValueFade 2200ms ease 1800ms forwards;
+}
+
+@keyframes edgeValuePop {
+  0% {
+    transform: translate(-50%, -90%) scale(0.45);
+    opacity: 0;
+  }
+  60% {
+    transform: translate(-50%, -90%) scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -90%) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes edgeValueFade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes popIn {
   0% {
     transform: scale(0);

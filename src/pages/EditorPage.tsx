@@ -29,6 +29,8 @@ import {
   Play,
   Volume2,
   VolumeX,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import AppHeader from "@/components/app-header";
 import { nodeTypes } from "@/flow/node-types";
@@ -67,6 +69,10 @@ import { RemoteControllersProvider } from "@/ws/remote-controllers-context";
 import { DataflowEngine, type EngineLogLevel } from "@/engine/engine";
 import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
+import {
+  setEdgeFeedbackMode as setEdgeFeedbackModeGlobal,
+  type EdgeFeedbackMode,
+} from "@/flow/edge-feedback-mode";
 import {
   loadChallengeDefinition,
   getChallengesByGroup,
@@ -128,6 +134,20 @@ export default function EditorPage() {
   const [isChallengeOpen, setIsChallengeOpen] = useState(true);
   const [isLevelCompleteDialogOpen, setIsLevelCompleteDialogOpen] =
     useState(false);
+
+  const [edgeFeedbackMode, setEdgeFeedbackMode] = useState<EdgeFeedbackMode>(
+    "transient",
+  );
+
+  useEffect(() => {
+    setEdgeFeedbackModeGlobal(edgeFeedbackMode);
+  }, [edgeFeedbackMode]);
+
+  const toggleEdgeFeedbackMode = useCallback(() => {
+    setEdgeFeedbackMode((prev) =>
+      prev === "transient" ? "persistent" : "transient",
+    );
+  }, []);
 
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
@@ -1436,6 +1456,19 @@ export default function EditorPage() {
               Conectar
               <Unplug className="text-white" />
             </Button>
+              <Button
+                variant="secondary"
+                className="bg-transparent text-white hover:bg-white/10 disabled:bg-gray-300 disabled:text-gray-600"
+                type="button"
+                onClick={toggleEdgeFeedbackMode}
+              >
+                Mostrar valores
+                {edgeFeedbackMode === "transient" ? (
+                  <Unlock className="ml-2 text-white" />
+                ) : (
+                  <Lock className="ml-2 text-white" />
+                )}
+              </Button>
           </AppHeader>
 
           <div className="flex flex-1 min-h-0">

@@ -37,6 +37,14 @@ export type EngineObserver = {
     submit: (value: unknown) => void;
     cancel: () => void;
   }) => void;
+  onEdgeValue?: (event: {
+    edgeId: string;
+    value: unknown;
+    sourceNodeId: string;
+    sourcePortId: string;
+    targetNodeId: string;
+    targetPortId: string;
+  }) => void;
 };
 
 function coerceTextInput(value: unknown): string {
@@ -664,6 +672,17 @@ export class DataflowEngine {
     destinations.forEach((arc) => {
       const target = arc.target;
       const next = new DataToken<unknown>(token.value, target);
+
+      if (arc.id) {
+        this.observer?.onEdgeValue?.({
+          edgeId: arc.id,
+          value: token.value,
+          sourceNodeId: location.nodeId,
+          sourcePortId: location.portId,
+          targetNodeId: target.nodeId,
+          targetPortId: target.portId,
+        });
+      }
 
       const isInternal =
         target.nodeId !== "" &&
