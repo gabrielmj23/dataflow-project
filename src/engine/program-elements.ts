@@ -175,12 +175,18 @@ export class ExecuteToken {
  * A connection between two ports
  */
 export class Arc {
+  private _id: string | null;
   private _source: PortAddress;
   private _target: PortAddress;
 
-  constructor(source: PortAddress, target: PortAddress) {
+  constructor(source: PortAddress, target: PortAddress, id?: string | null) {
+    this._id = typeof id === "string" && id.length > 0 ? id : null;
     this._source = source;
     this._target = target;
+  }
+
+  get id(): string | null {
+    return this._id;
   }
 
   get source(): PortAddress {

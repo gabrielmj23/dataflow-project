@@ -371,6 +371,7 @@ export function buildEngineStoresFromFlowGraph(params: {
       new Arc(
         new PortAddress(sourceId, sourcePortId),
         new PortAddress(targetId, targetPortId),
+        String(edge.id),
       ),
     );
   }
@@ -533,13 +534,14 @@ function compileSingleInputGraph(params: {
       }
 
       const OUT_PORT = "result";
-      const augmentedArcs = [
-        ...engineArcs,
-        new Arc(
-          new PortAddress(chosen.nodeId, chosen.portId),
-          new PortAddress("", OUT_PORT),
-        ),
-      ];
+        const augmentedArcs = [
+          ...engineArcs,
+          new Arc(
+            new PortAddress(chosen.nodeId, chosen.portId),
+            new PortAddress("", OUT_PORT),
+            `${chosen.nodeId}:${chosen.portId}->${OUT_PORT}`,
+          ),
+        ];
 
       engine.loadProgram({ nodes: engineNodes, arcs: augmentedArcs });
       const emitted = await engine.run({
@@ -823,6 +825,7 @@ function compileSubflowNodeDefinition(params: {
             new Arc(
               new PortAddress(out.nodeId, out.portId),
               new PortAddress("", "out-1"),
+              `${out.nodeId}:${out.portId}->out-1`,
             ),
           );
         }

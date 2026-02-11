@@ -1,17 +1,21 @@
 import { Panel } from "@xyflow/react";
 import { Button } from "@/components/ui/button";
-import { Play, Pause } from "lucide-react";
+import { Play, Pause, Lock, Unlock } from "lucide-react";
 
 export function TopActionPanel({
   nodesCount,
   isEngineRunning,
   onRunClick,
   onStopClick,
+  edgeFeedbackMode,
+  onToggleEdgeFeedbackMode,
 }: {
   nodesCount: number;
   isEngineRunning: boolean;
   onRunClick: () => void;
   onStopClick: () => void;
+  edgeFeedbackMode: "transient" | "persistent";
+  onToggleEdgeFeedbackMode: () => void;
 }) {
   return (
     <Panel position="top-right" className="flex gap-2 items-center mr-4 mt-2">
@@ -38,6 +42,21 @@ export function TopActionPanel({
       >
         Detener
         <Pause className="ml-2" />
+      </Button>
+
+      <Button
+        variant="secondary"
+        size="lg"
+        className="bg-blue-600 text-white hover:bg-blue-700 rounded-full px-4 py-2"
+        type="button"
+        onClick={onToggleEdgeFeedbackMode}
+      >
+        Mostrar valores
+        {edgeFeedbackMode === "transient" ? (
+          <Unlock className="ml-2" />
+        ) : (
+          <Lock className="ml-2" />
+        )}
       </Button>
     </Panel>
   );

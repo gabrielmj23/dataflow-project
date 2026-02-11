@@ -67,6 +67,10 @@ import { DataflowEngine, type EngineLogLevel } from "@/engine/engine";
 import { deserializeProgramToEngineStores } from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
 import {
+  setEdgeFeedbackMode as setEdgeFeedbackModeGlobal,
+  type EdgeFeedbackMode,
+} from "@/flow/edge-feedback-mode";
+import {
   loadChallengeDefinition,
   getChallengesByGroup,
   type ChallengeDefinition,
@@ -126,6 +130,20 @@ export default function EditorPage() {
   }>({ status: "idle", actualLines: [] });
   const [isValidating, setIsValidating] = useState(false);
   const [isChallengeOpen, setIsChallengeOpen] = useState(true);
+
+  const [edgeFeedbackMode, setEdgeFeedbackMode] = useState<EdgeFeedbackMode>(
+    "transient",
+  );
+
+  useEffect(() => {
+    setEdgeFeedbackModeGlobal(edgeFeedbackMode);
+  }, [edgeFeedbackMode]);
+
+  const toggleEdgeFeedbackMode = useCallback(() => {
+    setEdgeFeedbackMode((prev) =>
+      prev === "transient" ? "persistent" : "transient",
+    );
+  }, []);
 
   const [nodes, setNodes] = useState<FlowNode[]>(initialNodes);
   const [edges, setEdges] = useState<FlowEdge[]>(initialEdges);
@@ -1673,6 +1691,8 @@ export default function EditorPage() {
                               isEngineRunning={isEngineRunning}
                               onRunClick={handleRunClick}
                               onStopClick={onStopClick}
+                              edgeFeedbackMode={edgeFeedbackMode}
+                              onToggleEdgeFeedbackMode={toggleEdgeFeedbackMode}
                             />
 
                             <ConsolePanel

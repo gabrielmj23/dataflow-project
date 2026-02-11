@@ -10,6 +10,7 @@ import {
   type RemoteExecutor,
 } from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
+import { clearEdgeValues, publishEdgeValue } from "@/flow/edge-value-bus";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
 
@@ -34,6 +35,11 @@ export type EngineRunnerEvent =
       prompt: string;
       inputType: "number" | "text";
       defaultValue?: unknown;
+    }
+  | {
+      type: "edge_value";
+      edgeId: string;
+      value: unknown;
     };
 
 type UseEngineRunnerParams = {
@@ -198,6 +204,8 @@ export function useEngineRunner({
     if (isEngineRunning) return;
     if (!reactFlowInstance) return;
 
+    clearEdgeValues();
+
     // Reset visual runtime state for a new execution.
     setAllNodesRuntimeState("waiting");
 
@@ -302,6 +310,10 @@ export function useEngineRunner({
         },
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
+        onEdgeValue: ({ edgeId, value }) => {
+          publishEdgeValue({ edgeId, value });
+          onEngineEvent?.({ type: "edge_value", edgeId, value });
+        },
       });
 
       engine.loadProgram({
@@ -343,6 +355,8 @@ export function useEngineRunner({
     appendConsoleLines,
     onEngineEvent,
     enqueuePrompt,
+    clearEdgeValues,
+    publishEdgeValue,
     isRuntimeUpdateRef,
     setNodes,
     stripRuntimeClasses,
