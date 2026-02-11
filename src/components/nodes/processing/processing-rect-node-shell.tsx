@@ -17,13 +17,39 @@ type ProcessingRectNodeShellProps = {
   runtimeError?: string | null;
   inputCount?: 1 | 2 | 3;
   onConfigClick?: () => void;
+  onConnectClick?: () => void;
 };
 
-export function ProcessingRectNodeShell({ nodeType, icon, label, subtitle, runtimeError, inputCount = 2, onConfigClick }: ProcessingRectNodeShellProps) {
-  const in1Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-1" });
-  const in2Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-2" });
-  const in3Mask = getPortTypeMask({ nodeType, handleType: "target", handleId: "in-3" });
-  const outMask = getPortTypeMask({ nodeType, handleType: "source", handleId: "out" });
+export function ProcessingRectNodeShell({
+  nodeType,
+  icon,
+  label,
+  subtitle,
+  runtimeError,
+  inputCount = 2,
+  onConfigClick,
+  onConnectClick,
+}: ProcessingRectNodeShellProps) {
+  const in1Mask = getPortTypeMask({
+    nodeType,
+    handleType: "target",
+    handleId: "in-1",
+  });
+  const in2Mask = getPortTypeMask({
+    nodeType,
+    handleType: "target",
+    handleId: "in-2",
+  });
+  const in3Mask = getPortTypeMask({
+    nodeType,
+    handleType: "target",
+    handleId: "in-3",
+  });
+  const outMask = getPortTypeMask({
+    nodeType,
+    handleType: "source",
+    handleId: "out",
+  });
 
   const in1Type = maskToVisualPortDataType(in1Mask);
   const in2Type = maskToVisualPortDataType(in2Mask);
@@ -34,6 +60,7 @@ export function ProcessingRectNodeShell({ nodeType, icon, label, subtitle, runti
     <BaseNode
       runtimeError={runtimeError}
       onConfigClick={onConfigClick}
+      onConnectClick={onConnectClick}
       className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 px-5 text-center text-white shadow-md"
     >
       <div className="flex flex-col items-center gap-0.5">
@@ -47,7 +74,9 @@ export function ProcessingRectNodeShell({ nodeType, icon, label, subtitle, runti
       <CustomTypedHandle
         type="target"
         position={Position.Left}
-        style={{ top: inputCount === 1 ? "50%" : inputCount === 2 ? "35%" : "30%" }}
+        style={{
+          top: inputCount === 1 ? "50%" : inputCount === 2 ? "35%" : "30%",
+        }}
         id="in-1"
         dataType={in1Type}
         typeMask={in1Mask}

@@ -17,6 +17,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import NodeConnectionButton from "./ui/node-connection-button";
 
 type BaseNodeProps = ComponentProps<"div"> & {
   hideRuntimeBadges?: boolean;
@@ -29,6 +30,8 @@ type BaseNodeProps = ComponentProps<"div"> & {
   runtimeError?: string | null;
   /** Optional handler to open the node configuration dialog. */
   onConfigClick?: (() => void) | null;
+  /** Optional handler to open the node remote connection dialog. */
+  onConnectClick?: (() => void) | null;
   /** Optional handler to delete the node. Defaults to removing the current node. */
   onDelete?: (() => void) | null;
   /** Hide the delete button (mostly for embedded previews). */
@@ -46,6 +49,7 @@ export function BaseNode({
   disableRuntimeStyles,
   runtimeError,
   onConfigClick,
+  onConnectClick,
   onDelete,
   hideDeleteButton,
   sideActions,
@@ -139,6 +143,13 @@ export function BaseNode({
           {onConfigClick && (
             <NodeSettingsButton
               onClick={onConfigClick}
+              className="pointer-events-auto"
+            />
+          )}
+
+          {onConnectClick && (
+            <NodeConnectionButton
+              onClick={onConnectClick}
               className="pointer-events-auto"
             />
           )}

@@ -249,7 +249,7 @@ export function useMicrobitExecutionConfig(
                 <SelectValue placeholder="Selecciona" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="local">Local</SelectItem>
+                <SelectItem value="local">Esta PC</SelectItem>
                 <SelectItem value="microbit">micro:bit</SelectItem>
                 <SelectItem value="controller">Otra PC</SelectItem>
               </SelectContent>

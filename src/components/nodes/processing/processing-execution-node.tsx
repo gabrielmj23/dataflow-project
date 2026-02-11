@@ -58,7 +58,7 @@ export const ProcessingExecutionNode = memo(
           subtitle={config.subtitle}
           inputCount={inputCount}
           runtimeError={runtimeError}
-          onConfigClick={config.onConfigClick}
+          onConnectClick={config.onConfigClick}
         />
         {config.dialog}
       </>
