@@ -215,48 +215,25 @@ function getSwitchEdgeLabel(params: {
 
 function getSequenceEdgeLabel(params: {
   targetNode: unknown;
-  targetHandleId: string | null | undefined;
 }): string | null {
-  const { targetNode, targetHandleId } = params;
+  const { targetNode } = params;
   if (!targetNode || typeof targetNode !== "object") return null;
   const type = (targetNode as { type?: unknown }).type;
 
   // Apply the same labels to both sequence and pulseSequence nodes.
   if (type !== "sequence" && type !== "pulseSequence") return null;
 
-  switch (targetHandleId) {
-    case "in-1":
-      return "Inicio";
-    case "in-2":
-      return "Fin";
-    case "in-3":
-      return "Paso";
-    default:
-      return null;
-  }
+  return null;
 }
 
 function getTextTransformEdgeLabel(params: {
   targetNode: unknown;
-  targetHandleId: string | null | undefined;
 }): string | null {
-  const { targetNode, targetHandleId } = params;
+  const { targetNode } = params;
   if (!targetNode || typeof targetNode !== "object") return null;
   const type = (targetNode as { type?: unknown }).type;
 
   if (type !== "replaceText" && type !== "subtractText" && type !== "sliceText") return null;
-
-  if (targetHandleId === "in-1") return "Texto";
-  if (targetHandleId === "in-2") {
-    if (type === "replaceText") return "Buscar";
-    if (type === "subtractText") return "Eliminar";
-    if (type === "sliceText") return "Inicio";
-  }
-  if (targetHandleId === "in-3") {
-    if (type === "replaceText") return "Nuevo";
-    if (type === "sliceText") return "Fin";
-  }
-
   return null;
 }
 
@@ -314,8 +291,8 @@ export function LabeledEdge(props: EdgeProps) {
 
   const label =
     getSwitchEdgeLabel({ sourceNode, sourceHandleId }) ??
-    getSequenceEdgeLabel({ targetNode, targetHandleId }) ??
-    getTextTransformEdgeLabel({ targetNode, targetHandleId });
+    getSequenceEdgeLabel({ targetNode }) ??
+    getTextTransformEdgeLabel({ targetNode });
 
   const useStraight =
     Boolean(props.data) &&
