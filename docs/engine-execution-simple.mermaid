@@ -1,0 +1,20 @@
+flowchart TD
+  %% Versión ejecutiva (alto nivel): qué entra, qué hace el motor, y qué sale
+
+  In["Inputs (tokens iniciales)"] --> Engine
+
+  subgraph Engine["DataflowEngine"]
+    Program["Programa (Nodes + Arcs)"]
+    Tokens["TokenStore"]
+    Sched["Scheduler (tryEnableBatch)"]
+    Exec["Execute (executeUnit)"]
+    Tx["Transmit (transmitToken)"]
+
+    Program --> Sched
+    Tokens --> Sched
+    Sched --> Exec --> Tx
+    Tx --> Tokens
+  end
+
+  Tx --> Out["Outputs externos"]
+  Engine -."events".-> Obs["Observer / UI (status, logs, prompts)"]

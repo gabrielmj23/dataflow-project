@@ -1,0 +1,81 @@
+
+flowchart LR
+  %% ===== Stores y programa cargado =====
+  subgraph Program["Programa de dataflow"]
+    NS[("NodeStore")]
+    AS[("ArcStore")]
+  end
+
+  TS[("TokenStore")]
+
+  %% ===== Orquestación (run) =====
+  subgraph RunLoop["Ejecución"]
+    In[/"initialTokens"/]
+    Run["run()"]
+
+    Sched["scheduleAvailable()"]
+    Batch["tryEnableBatch"]
+
+    Active["Active"]
+
+    Exec["ExecuteUnit"]
+
+    Tx["TransmitToken"]
+
+    Ext[/"External outputs"/]
+
+    FinishOk(["onRunEnd({ ok: true })"])
+  end
+
+  %% ===== Observer/UI =====
+  UI["Observer / UI"]
+
+  %% ===== Flujo principal =====
+  In -->|"addToken"| TS
+  Run --> Sched
+  Sched --> Batch
+
+  %% Scheduler consulta stores del programa y tokens
+  Batch -."lee".-> NS
+  Batch -."lee".-> AS
+  Batch -."lee".-> TS
+
+  %% Batch lanza ejecuciones concurrentes
+  Batch -->|"ExecuteToken[]"| Active
+  Active -->|"start"| Exec
+
+  %% Resultados
+  Exec -->|"outputTokens"| Tx
+  Tx -->|"internal"| TS
+  Tx -->|"external"| Ext
+
+  %% Iteración: tokens nuevos pueden desbloquear más nodos
+  Tx --> Sched
+
+  %% Terminación
+  Sched -->|"no hay batch"| FinishOk
+
+  %% ===== Runtime input, logs y errores por nodo =====
+  Prompt["awaitRuntimeInput()"]
+  WriteLog["write"]
+  Status["onNodeStatus(running/done)" ]
+
+  Exec --> Status --> UI
+  Exec -->|"meta.kind = runtimeInput"| Prompt --> UI
+  Exec -->|"meta.kind = write"| WriteLog --> UI
+
+  %% ===== APIs unitarias (modo step-by-step) =====
+  subgraph UnitAPI["APIs unitarias"]
+    EnableUnit["EnableUnit(token)"]
+    TransmitUnit["TransmitUnit(token)"]
+    IoUnit["IOUnit(token)"]
+  end
+
+  EnableUnit -.-> TS
+  EnableUnit -.-> NS
+  EnableUnit -.-> AS
+
+  TransmitUnit -.-> TS
+  TransmitUnit -.-> AS
+
+  IoUnit -.-> NS

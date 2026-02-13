@@ -1,0 +1,24 @@
+flowchart LR
+  %% Arquitectura: Editor, Servidor (Orquestador), Micro:bit y PCs remotos
+  classDef device fill:#fff,stroke:#333,stroke-width:1px;
+
+  subgraph Hub["PC (Hub)"]
+    direction TB
+    Editor(("Editor (Frontend)"))
+    Server(("Servidor (Orquestador)"))
+  end
+
+  MicroA["Micro:bit"]:::device
+  MicroB["Micro:bit"]:::device
+  PC1["PC"]:::device
+  PC2["PC"]:::device
+
+  %% Conexiones
+  MicroA <--> |"WebBluetooth / WebSerial"| Editor
+  MicroB <--> |"WebBluetooth / WebSerial"| Editor
+
+  Editor <--> |"WebSockets"| Server
+
+  Server --> |"WebSockets"| PC1
+  Server --> |"WebSockets"| PC2
+  
