@@ -3,39 +3,15 @@ import type { IncomingMessage } from "node:http";
 import { randomUUID } from "node:crypto";
 
 import { WebSocketServer, WebSocket } from "ws";
-import type { ControllerSnapshot, SessionSnapshot } from "./types.ts";
-
-type Role = "runner" | "controller";
-
-type Client = {
-  id: string;
-  role: Role;
-  sessionKey: string;
-  socket: WebSocket;
-  lastSeenMs: number;
-  name?: string;
-};
-
-type Session = {
-  key: string;
-  runner: Client | null;
-  controllers: Map<string, Client>;
-};
-
-type AnyMessage = Record<string, unknown> & { type?: unknown };
-
-type HelloMessage = {
-  type: "hello";
-  role: Role;
-  protocol: number;
-  sessionKey: string;
-  clientName?: string;
-  hubName?: string;
-};
-
-type WebSocketHubOptions = {
-  maxPayloadBytes: number;
-};
+import type { ControllerSnapshot, SessionSnapshot } from "../types.ts";
+import type {
+  AnyMessage,
+  Client,
+  HelloMessage,
+  Role,
+  Session,
+  WebSocketHubOptions,
+} from "./ws.types.ts";
 
 const PROTOCOL_VERSION = 1;
 const HEARTBEAT_MS = 15_000;

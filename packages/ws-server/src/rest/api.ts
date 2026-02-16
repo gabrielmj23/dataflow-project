@@ -1,6 +1,6 @@
 import express from "express";
 
-import type { RestApiOptions } from "./types.ts";
+import type { RestApiOptions } from "../types.ts";
 
 export function createRestApp(options: RestApiOptions): express.Express {
   const app = express();
