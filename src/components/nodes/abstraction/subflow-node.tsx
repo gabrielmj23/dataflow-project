@@ -43,13 +43,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 import { nodePalette } from "@/flow/node-palette";
@@ -72,14 +65,8 @@ import {
   filterLockedEdgeChanges,
   handlePairedNodeChanges,
 } from "@/utils/conditional-pair";
-import { useRemoteControllers } from "@/ws/remote-controllers-context";
-import {
-  connectMicrobit,
-  disconnectMicrobit,
-  getMicrobitTransport,
-  isMicrobitConnected,
-  type MicrobitTransport,
-} from "@/microbit/connection-manager";
+import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
+import { type MicrobitTransport } from "@/microbit/connection-manager";
 
 export type SubflowNodeData = {
   label?: string;
@@ -152,7 +139,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const inOffsets = offsets(inCount);
   const outOffsets = offsets(outCount);
-  const controllers = useRemoteControllers();
   const executionTarget =
     rawExecutionTarget === "controller"
       ? "controller"
@@ -218,56 +204,14 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [draftLabel, setDraftLabel] = useState(label);
   const [addToPalette, setAddToPalette] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
-  const [draftExecutionTarget, setDraftExecutionTarget] = useState<
-    "local" | "controller" | "microbit"
-  >(executionTarget);
-  const [draftTransport, setDraftTransport] =
-    useState<MicrobitTransport>(transport);
-  const [draftControllerId, setDraftControllerId] = useState(controllerId);
-  const [draftControllerName, setDraftControllerName] =
-    useState(controllerName);
-  const [isConnectingMicrobit, setIsConnectingMicrobit] = useState(false);
-  const [microbitError, setMicrobitError] = useState<string | null>(null);
-
-  const connectedInfo = (() => {
-    if (!isMicrobitConnected()) return { ok: false as const, text: "" };
-    const t = getMicrobitTransport();
-    return {
-      ok: true as const,
-      text:
-        t === "bluetooth"
-          ? "Conectado por Bluetooth"
-          : t === "serial"
-            ? "Conectado por cable (Serial)"
-            : "Conectado",
-    };
-  })();
-
-  const connectMicrobitNow = useCallback(async () => {
-    setIsConnectingMicrobit(true);
-    setMicrobitError(null);
-    try {
-      await connectMicrobit({ transport: draftTransport });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setMicrobitError(msg);
-    } finally {
-      setIsConnectingMicrobit(false);
-    }
-  }, [draftTransport]);
-
-  const disconnectMicrobitNow = useCallback(async () => {
-    setIsConnectingMicrobit(true);
-    setMicrobitError(null);
-    try {
-      await disconnectMicrobit();
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setMicrobitError(msg);
-    } finally {
-      setIsConnectingMicrobit(false);
-    }
-  }, []);
+  const config = useMicrobitExecutionConfig({
+    nodeId: id,
+    title: "Configurar ejecucion",
+    executionTarget,
+    transport,
+    controllerId,
+    controllerName,
+  });
 
   const explicitInputCountDraft = useMemo(
     () => draftNodes.filter((n) => String(n.type) === "subflowInput").length,
@@ -627,27 +571,24 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   };
 
   return (
-    <BaseNode
-      className="relative flex w-52 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md"
-      style={{ minHeight: `${minHeight}px` }}
-      onConfigClick={
-        !isSelfCall
-          ? () => {
-              setDraftNodes(subflowNodes ?? []);
-              setDraftEdges(subflowEdges ?? []);
-              setDraftLabel(label);
-              setAddToPalette(false);
-              setNameError(null);
-              setDraftExecutionTarget(executionTarget);
-              setDraftTransport(transport);
-              setDraftControllerId(controllerId);
-              setDraftControllerName(controllerName);
-              setMicrobitError(null);
-              setIsEditorOpen(true);
-            }
-          : undefined
-      }
-    >
+    <>
+      <BaseNode
+        className="relative flex w-52 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md"
+        style={{ minHeight: `${minHeight}px` }}
+        onConfigClick={
+          !isSelfCall
+            ? () => {
+                setDraftNodes(subflowNodes ?? []);
+                setDraftEdges(subflowEdges ?? []);
+                setDraftLabel(label);
+                setAddToPalette(false);
+                setNameError(null);
+                setIsEditorOpen(true);
+              }
+            : undefined
+        }
+        onConnectClick={!isSelfCall ? config.onConfigClick : undefined}
+      >
       {(() => {
         const hasInputs = explicitInputNodes.length > 0 || inCount > 0;
         return (
@@ -658,6 +599,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               <PictureInPicture2 />
             </div>
             <div className="text-sm leading-tight">{label}</div>
+            {config.subtitle && (
+              <div className="text-xs leading-tight text-white/85">
+                {config.subtitle}
+              </div>
+            )}
           </div>
         );
       })()}
@@ -753,133 +699,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               />
             </div>
 
-            <div className="grid gap-2">
-              <label className="text-sm font-medium">Ejecutar en</label>
-              <Select
-                value={draftExecutionTarget}
-                onValueChange={(value) => {
-                  if (
-                    value === "local" ||
-                    value === "controller" ||
-                    value === "microbit"
-                  ) {
-                    setDraftExecutionTarget(value);
-                    if (value === "local" || value === "microbit") {
-                      setDraftControllerId("");
-                      setDraftControllerName("");
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecciona" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="local">Local</SelectItem>
-                  <SelectItem value="microbit">micro:bit</SelectItem>
-                  <SelectItem value="controller">Otra PC</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {draftExecutionTarget === "microbit" && (
-              <div className="space-y-3 rounded-md border bg-muted/30 p-3">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-gray-900">
-                    Método de conexión
-                  </label>
-                  <Select
-                    value={draftTransport}
-                    onValueChange={(value) => {
-                      if (value === "serial" || value === "bluetooth") {
-                        setDraftTransport(value);
-                      }
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecciona" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="serial">Cable (Web Serial)</SelectItem>
-                      <SelectItem value="bluetooth">
-                        Bluetooth (Web Bluetooth)
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Nota: Para que aparezca el selector de dispositivo, usa
-                    Chrome o Edge y ejecuta la app en localhost/https.
-                  </p>
-                </div>
-
-                {microbitError && (
-                  <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-                    {microbitError}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-muted-foreground">
-                    {connectedInfo.ok ? connectedInfo.text : "No conectado"}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="secondary"
-                      disabled={isConnectingMicrobit}
-                      onClick={disconnectMicrobitNow}
-                    >
-                      Desconectar
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={isConnectingMicrobit}
-                      onClick={connectMicrobitNow}
-                    >
-                      {isConnectingMicrobit ? "Conectando…" : "Conectar"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {draftExecutionTarget === "controller" && (
-              <div className="grid gap-2">
-                <label className="text-sm font-medium">Controller remoto</label>
-                <Select
-                  value={draftControllerId || undefined}
-                  onValueChange={(value) => {
-                    if (value === "__none__") return;
-                    setDraftControllerId(value);
-                    const nextName = controllers.find(
-                      (item) => item.id === value,
-                    )?.name;
-                    if (nextName) {
-                      setDraftControllerName(nextName);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecciona un controller" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {controllers.length === 0 ? (
-                      <SelectItem value="__none__" disabled>
-                        (Sin controllers conectados)
-                      </SelectItem>
-                    ) : (
-                      controllers.map((controller) => (
-                        <SelectItem key={controller.id} value={controller.id}>
-                          {controller.name ?? controller.id}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
             {nameError && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
                 {nameError}
@@ -1163,12 +982,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   }
 
                   const finalLabel = (draftLabel || label).trim() || label;
-                  const resolvedControllerName =
-                    draftExecutionTarget === "controller" && draftControllerId
-                      ? (controllers.find((c) => c.id === draftControllerId)
-                          ?.name ?? draftControllerName)
-                      : undefined;
-
                   // Prevent saving if any subflow input labels are empty
                   const hasEmptyInputs = syncedDraftNodes.some((n) => {
                     if (String(n.type) !== "subflowInput") return false;
@@ -1256,16 +1069,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                           subflowEdges: effectiveDraftEdges,
                           inCount: nextInCount,
                           outCount: nextOutCount,
-                          executionTarget: draftExecutionTarget,
-                          transport: draftTransport,
-                          controllerId:
-                            draftExecutionTarget === "controller"
-                              ? draftControllerId || undefined
-                              : undefined,
-                          controllerName:
-                            draftExecutionTarget === "controller"
-                              ? resolvedControllerName
-                              : undefined,
                         },
                       };
                     }),
@@ -1298,7 +1101,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </BaseNode>
+      </BaseNode>
+      {!isSelfCall && config.dialog}
+    </>
   );
 });
 
