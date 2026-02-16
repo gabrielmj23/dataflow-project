@@ -1,12 +1,12 @@
 import http from "node:http";
 
-import { createRestApp } from "./rest/api.ts";
-import { getServerConfig } from "./common.ts";
+import { createRestApp } from "./rest/api.js";
+import { getServerConfig } from "./common.js";
 import {
   attachWebSocketHub,
   getSessionSnapshot,
   getSessionsSnapshot,
-} from "./ws/ws-hub.ts";
+} from "./ws/ws-hub.js";
 
 const config = getServerConfig();
 

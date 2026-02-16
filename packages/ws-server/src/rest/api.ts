@@ -1,6 +1,6 @@
 import express from "express";
-
 import type { RestApiOptions } from "../types.ts";
+import { usersRouter } from "./modules/users/users.controller.js";
 
 export function createRestApp(options: RestApiOptions): express.Express {
   const app = express();
@@ -31,6 +31,8 @@ export function createRestApp(options: RestApiOptions): express.Express {
 
     res.status(200).json(session);
   });
+
+  app.use("/users", usersRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "not found" });
