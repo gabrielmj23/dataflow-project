@@ -11,9 +11,11 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "express": "^4.21.2",
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@types/express": "^5.0.3",
     "@types/ws": "^8.18.1",
     "tsx": "^4.20.5",
     "typescript": "~5.9.3",
