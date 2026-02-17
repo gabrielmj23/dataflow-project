@@ -3,6 +3,32 @@ import { logIn, signUp } from "./auth.service.js";
 
 const authRouter = Router();
 
+/**
+ * @openapi
+ * /auth/sign-up:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Crea un usuario y devuelve token.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SignUpBody'
+ *     responses:
+ *       201:
+ *         description: Usuario creado correctamente.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Error de validación o creación.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 authRouter.post("/sign-up", async (req, res) => {
   try {
     const result = await signUp(req.body);
@@ -15,6 +41,32 @@ authRouter.post("/sign-up", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /auth/log-in:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Inicia sesión y devuelve token.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LogInBody'
+ *     responses:
+ *       200:
+ *         description: Login correcto.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Credenciales inválidas.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
 authRouter.post("/log-in", async (req, res) => {
   try {
     const { email, password } = req.body;

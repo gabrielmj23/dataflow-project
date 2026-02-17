@@ -14,6 +14,10 @@ export async function findUserById(id: string): Promise<UserSelect> {
     .where(eq(usersTable.id, id))
     .limit(1);
 
+  if (!user.length) {
+    throw new Error("Usuario no encontrado");
+  }
+
   return user[0];
 }
 

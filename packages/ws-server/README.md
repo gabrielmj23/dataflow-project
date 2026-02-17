@@ -23,6 +23,8 @@ Variables de entorno (opcionales):
 - `GET /health` → estado básico del servicio.
 - `GET /sessions` → lista de salas activas, con runner/controllers conectados.
 - `GET /sessions/:sessionKey` → detalle de una sala activa específica.
+- `GET /docs` → UI de Swagger/OpenAPI.
+- `GET /docs-json` → especificación OpenAPI en JSON.
 
 ## Protocolo (v1)
 
