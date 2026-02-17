@@ -1,6 +1,8 @@
 import express from "express";
 import type { RestApiOptions } from "../types.ts";
 import { usersRouter } from "./modules/users/users.controller.js";
+import { authRouter } from "./modules/auth/auth.controller.js";
+import { authGuard } from "./modules/auth/auth.guard.js";
 
 export function createRestApp(options: RestApiOptions): express.Express {
   const app = express();
@@ -32,7 +34,9 @@ export function createRestApp(options: RestApiOptions): express.Express {
     res.status(200).json(session);
   });
 
-  app.use("/users", usersRouter);
+  app.use("/users", authGuard, usersRouter);
+
+  app.use("/auth", authRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "not found" });
