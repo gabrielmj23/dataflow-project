@@ -29,6 +29,16 @@ const openApiDefinition = {
         },
         required: ["error"],
       },
+      ProjectSearchParams: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          authorId: { type: "string" },
+          remixedFromId: { type: "string" },
+          page: { type: "integer" },
+          pageSize: { type: "integer" },
+        },
+      },
       ControllerSnapshot: {
         type: "object",
         properties: {
@@ -82,6 +92,47 @@ const openApiDefinition = {
           password: { type: "string" },
         },
         required: ["email", "password"],
+      },
+      ProjectGet: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          authorId: { type: "string" },
+          authorName: { type: "string" },
+          remixedFromId: { type: ["string", "null"] },
+          remixedFromName: { type: ["string", "null"] },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+        required: [
+          "id",
+          "name",
+          "description",
+          "authorId",
+          "authorName",
+          "remixedFromId",
+          "remixedFromName",
+          "createdAt",
+          "updatedAt",
+        ],
+      },
+      ProjectCreate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          remixedFrom: { type: "string" },
+          program: { type: "object" },
+        },
+        required: ["name", "program"],
+      },
+      ProjectUpdate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          program: { type: "object" },
+        },
       },
     },
   },
