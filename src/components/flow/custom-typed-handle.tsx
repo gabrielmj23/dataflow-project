@@ -14,7 +14,13 @@ export type CustomTypedHandleProps = Omit<HandleProps, "children"> & {
    * Example: "border border-sky-700 bg-white".
    */
   indicatorClassName?: string;
+  /** Additional classes that control the rendered size/scale of the handle.
+   * Use this to make handles visually larger without changing the XYFlow interaction box.
+   */
+  indicatorSizeClassName?: string;
 };
+
+export const DEFAULT_INDICATOR_SIZE_CLASS = "scale-150";
 
 /**
  * XYFlow Handle with a custom visual child.
@@ -25,6 +31,7 @@ export function CustomTypedHandle({
   dataType = "any",
   typeMask,
   indicatorClassName,
+  indicatorSizeClassName,
   className,
   style,
   ...props
@@ -55,6 +62,8 @@ export function CustomTypedHandle({
       targetType: typeMask ?? portDataTypeToMask(dataType),
     });
 
+  const sizeClasses = cn(DEFAULT_INDICATOR_SIZE_CLASS, indicatorSizeClassName);
+
   return (
     <Handle
       {...props}
@@ -75,10 +84,13 @@ export function CustomTypedHandle({
           "pointer-events-none absolute left-0 top-0 h-full w-full border bg-white",
           getHandleShapeClasses(dataType),
           indicatorClassName,
+          sizeClasses,
           shouldHighlight &&
-            // On very small handles (h-2 w-2), ring-offset can cover the border.
-            // Keep it simple and visible: a colored ring without offset.
-            cn("ring-2", ringColorClass)
+            cn(
+              // Use a thinner ring so the highlight doesn't look like a big halo.
+              "ring-1",
+              ringColorClass
+            )
         )}
       />
     </Handle>
