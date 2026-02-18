@@ -3,6 +3,7 @@ import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { Keyboard } from "lucide-react";
 
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
+import InputRectNodeShell from "@/components/nodes/input/input-rect-node-shell";
 import {
   Dialog,
   DialogContent,
@@ -65,13 +66,14 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <InputCircleNodeShell
+      <InputRectNodeShell
         nodeType="runtimeInput"
         icon={<Keyboard className="h-4 w-4" />}
         label={identifierLabelDisplay}
         labelClassName="text-[9px]"
-        sublabel={null}
-        onConfigClick={() => setIsDialogOpen(true)}
+        prompt={promptText}
+        onPromptChange={(next) => setData({ prompt: next })}
+        onLabelChange={(next) => setData({ identifier: next })}
       />
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
