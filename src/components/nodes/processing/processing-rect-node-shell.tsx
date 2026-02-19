@@ -80,7 +80,7 @@ export function ProcessingRectNodeShell({
         id="in-1"
         dataType={in1Type}
         typeMask={in1Mask}
-        className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+        className="absolute -left-1 h-4 w-4 -translate-y-1/2"
         indicatorClassName="border-sky-700"
       />
       {inputCount >= 2 && (
@@ -91,7 +91,7 @@ export function ProcessingRectNodeShell({
           id="in-2"
           dataType={in2Type}
           typeMask={in2Mask}
-          className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+          className="absolute -left-1 h-4 w-4 -translate-y-1/2"
           indicatorClassName="border-sky-700"
         />
       )}
@@ -103,7 +103,7 @@ export function ProcessingRectNodeShell({
           id="in-3"
           dataType={in3Type}
           typeMask={in3Mask}
-          className="absolute -left-1 h-2 w-2 -translate-y-1/2"
+          className="absolute -left-1 h-4 w-4 -translate-y-1/2"
           indicatorClassName="border-sky-700"
         />
       )}
@@ -113,7 +113,7 @@ export function ProcessingRectNodeShell({
         id="out"
         dataType={outType}
         typeMask={outMask}
-        className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
+        className="absolute -right-1 top-1/2 h-4 w-4 -translate-y-1/2"
         indicatorClassName="border-sky-700"
       />
     </BaseNode>

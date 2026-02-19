@@ -27,6 +27,18 @@ export default function ChallengesPage() {
     [challenges, progress],
   );
 
+  const initialSelectedId = useMemo(() => {
+    const unlocked = challenges.filter(
+      (challenge) => (statuses[challenge.id] ?? "locked") !== "locked",
+    );
+    if (!unlocked.length) return null;
+    const sorted = [...unlocked].sort((a, b) => {
+      if (a.group !== b.group) return a.group - b.group;
+      return a.level - b.level;
+    });
+    return sorted[sorted.length - 1].id;
+  }, [challenges, statuses]);
+
   const backgroundHref = "/challenge-map.png";
 
   return (
@@ -36,6 +48,7 @@ export default function ChallengesPage() {
         viewBox={CHALLENGE_MAP_VIEWBOX}
         challenges={challenges}
         statuses={statuses}
+        initialSelectedId={initialSelectedId}
         className="absolute inset-0 z-0 h-full w-full"
       />
 
