@@ -1,4 +1,4 @@
-# Micro:bit Subflow Protocol (DFP1)
+# Micro:bit Dataflow Protocol (DFP1)
 
 Este documento define un **protocolo unificado (Serial + Bluetooth UART)** para enviar “subflujos” (programas compilados) desde Dataflow al micro:bit.
 
