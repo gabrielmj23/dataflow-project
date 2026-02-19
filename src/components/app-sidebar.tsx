@@ -23,6 +23,7 @@ import {
   MessageSquareText,
   Volume2,
   PictureInPicture2,
+  Copy,
   GitFork,
   Replace as ReplaceIcon,
   Eraser,
@@ -424,9 +425,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "xor":
       case "not":
       case "switch":
-      case "conditionalPair":
-      case NODE_TYPES.SCATTER_NODE:
-      case NODE_TYPES.GATHER_NODE: {
+      case "conditionalPair": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           and: "and",
@@ -437,10 +436,50 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           not: "not",
           switch: "switch",
           conditionalPair: "conditionalPair",
-          [NODE_TYPES.SCATTER_NODE]: NODE_TYPES.SCATTER_NODE,
-          [NODE_TYPES.GATHER_NODE]: NODE_TYPES.GATHER_NODE,
         };
 
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              {symbolMap[type] === "comparison" && (
+                <span className="-rotate-90 text-2xl font-bold">=</span>
+              )}
+              {symbolMap[type] === "and" && <Ampersand className="h-5 w-5" />}
+              {symbolMap[type] === "nand" && (
+                <span className="text-xs font-bold">⊼</span>
+              )}
+              {symbolMap[type] === "or" && (
+                <span className="text-xs font-bold">∨</span>
+              )}
+              {symbolMap[type] === "nor" && (
+                <span className="text-xs font-bold">⊽</span>
+              )}
+              {symbolMap[type] === "xor" && (
+                <span className="text-xs font-bold">⊕</span>
+              )}
+              {symbolMap[type] === "not" && (
+                <span className="text-xs font-bold">¬</span>
+              )}
+              {symbolMap[type] === "switch" && (
+                <ToggleRight className="h-4 w-4" />
+              )}
+              {symbolMap[type] === "conditionalPair" && (
+                <span className="flex items-center gap-1">
+                  <ListChecks className="h-4 w-4" />
+                  <Shuffle className="h-4 w-4" />
+                </span>
+              )}
+            </span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case NODE_TYPES.REPLICATE_FLOW:
+      case NODE_TYPES.SCATTER_NODE:
+      case NODE_TYPES.GATHER_NODE: {
         if (type === NODE_TYPES.SCATTER_NODE) {
           return (
             <div
@@ -478,42 +517,10 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md"
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-yellow-600 bg-yellow-500 px-3 text-center text-white shadow-md"
           >
             <span className="text-xl font-bold leading-none">
-              {symbolMap[type] === "comparison" && (
-                <span className="-rotate-90 text-2xl font-bold">=</span>
-              )}
-              {symbolMap[type] === "and" && <Ampersand className="h-5 w-5" />}
-              {symbolMap[type] === "nand" && (
-                <span className="text-xs font-bold">⊼</span>
-              )}
-              {symbolMap[type] === "or" && (
-                <span className="text-xs font-bold">∨</span>
-              )}
-              {symbolMap[type] === "nor" && (
-                <span className="text-xs font-bold">⊽</span>
-              )}
-              {symbolMap[type] === "xor" && (
-                <span className="text-xs font-bold">⊕</span>
-              )}
-              {symbolMap[type] === "not" && (
-                <span className="text-xs font-bold">¬</span>
-              )}
-              {symbolMap[type] === "switch" && (
-                <ToggleRight className="h-4 w-4" />
-              )}
-              {symbolMap[type] === "conditionalPair" && (
-                <span className="flex items-center gap-1">
-                  <ListChecks className="h-4 w-4" />
-                  <Shuffle className="h-4 w-4" />
-                </span>
-              )}
-              {symbolMap[type] === NODE_TYPES.SCATTER_NODE && (
-                <span>
-                  <GitFork className="h-4 w-4 rotate-90" />
-                </span>
-              )}
+              <Copy className="h-5 w-5 rotate-90" />
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>

@@ -10,6 +10,10 @@ import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import type { NodeCompiler } from "./types";
 
+function isSubflowLikeType(type: string): boolean {
+  return type === NODE_TYPES.SUBFLOW || type === NODE_TYPES.REPLICATE_FLOW;
+}
+
 function resolveTemplateForRemote(
   templateId: string,
   ctx: Parameters<NodeCompiler>[1],
@@ -54,7 +58,7 @@ function materializeSubflowGraphForRemote(
   visited: Set<string>,
 ): { nodes: Node[]; edges: Edge[] } {
   const materializedNodes = nodes.map((n) => {
-    if (String(n.type) !== NODE_TYPES.SUBFLOW) return n;
+    if (!isSubflowLikeType(String(n.type))) return n;
 
     const data = asRecord(n.data);
     const hasEmbedded =
@@ -163,7 +167,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
     );
   }
 
-  if (nodeType !== NODE_TYPES.SUBFLOW) return null;
+  if (!isSubflowLikeType(nodeType)) return null;
 
   const templateIdRaw = data.templateId;
   const templateId =

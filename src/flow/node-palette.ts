@@ -208,6 +208,12 @@ export const nodePalette: NodePaletteCategory[] = [
     title: "Distribución",
     items: [
       {
+        type: "replicateFlow",
+        label: "Replicar flujo",
+        description:
+          "Configura y almacena un flujo interno reutilizable dentro del nodo.",
+      },
+      {
         type: "scatter",
         label: "Distribuir",
         description: "Distribuye una lista a varios nodos",
