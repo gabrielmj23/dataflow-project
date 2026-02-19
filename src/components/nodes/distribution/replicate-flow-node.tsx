@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { DragEvent } from "react";
 import type { Edge, Node, NodeProps } from "@xyflow/react";
 import {
@@ -28,14 +36,24 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { nodePalette } from "@/flow/node-palette";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
+import { useRemoteControllers } from "@/ws/remote-controllers-context";
+import type { MicrobitTransport } from "@/microbit/connection-manager";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
@@ -53,8 +71,70 @@ export type ReplicateFlowNodeData = {
   outCount?: number;
   subflowNodes?: Node[];
   subflowEdges?: Edge[];
+  remoteConnections?: ReplicateFlowRemoteConnection[];
   isSelfCall?: boolean;
 };
+
+type ReplicateFlowExecutionTarget = "local" | "controller" | "microbit";
+
+type ReplicateFlowRemoteConnection = {
+  id: string;
+  executionTarget: ReplicateFlowExecutionTarget;
+  transport?: MicrobitTransport;
+  controllerId?: string;
+  controllerName?: string;
+};
+
+function parseReplicateFlowConnections(params: {
+  rawRemoteConnections: ReplicateFlowNodeData["remoteConnections"];
+}): ReplicateFlowRemoteConnection[] {
+  const entries = Array.isArray(params.rawRemoteConnections)
+    ? params.rawRemoteConnections
+        .map((entry, index): ReplicateFlowRemoteConnection | null => {
+          if (!entry || typeof entry !== "object") return null;
+          const item = entry as Partial<ReplicateFlowRemoteConnection>;
+          const executionTarget: ReplicateFlowExecutionTarget =
+            item.executionTarget === "controller" ||
+            item.executionTarget === "microbit"
+              ? item.executionTarget
+              : "local";
+          const transport: MicrobitTransport =
+            item.transport === "bluetooth" ? "bluetooth" : "serial";
+          const idValue =
+            typeof item.id === "string" && item.id.trim().length > 0
+              ? item.id.trim()
+              : `conn-${index + 1}`;
+          return {
+            id: idValue,
+            executionTarget,
+            transport,
+            controllerId:
+              typeof item.controllerId === "string"
+                ? item.controllerId
+                : undefined,
+            controllerName:
+              typeof item.controllerName === "string"
+                ? item.controllerName
+                : undefined,
+          };
+        })
+        .filter((value): value is ReplicateFlowRemoteConnection =>
+          Boolean(value),
+        )
+    : [];
+
+  if (entries.length > 0) {
+    return entries;
+  }
+
+  return [
+    {
+      id: "conn-1",
+      executionTarget: "local",
+      transport: "serial",
+    },
+  ];
+}
 
 type ReplicateFlowRfNode = Node<ReplicateFlowNodeData>;
 
@@ -90,6 +170,8 @@ function offsets(count: number): string[] {
 export const ReplicateFlowNode = memo(
   ({ id, data }: NodeProps<ReplicateFlowRfNode>) => {
     const { setNodes } = useReactFlow();
+    const controllers = useRemoteControllers();
+    const targetSelectId = useId();
 
     const {
       label = "Replicar flujo",
@@ -97,6 +179,7 @@ export const ReplicateFlowNode = memo(
       outCount: rawOutCount,
       subflowNodes,
       subflowEdges,
+      remoteConnections: rawRemoteConnections,
       isSelfCall = false,
     } = (data ?? {}) as ReplicateFlowNodeData;
 
@@ -106,7 +189,20 @@ export const ReplicateFlowNode = memo(
     const inOffsets = offsets(inCount);
     const outOffsets = offsets(outCount);
 
+    const parsedConnections = parseReplicateFlowConnections({
+      rawRemoteConnections,
+    });
+
+    const connectionSubtitle = (() => {
+      const count = parsedConnections.length;
+      return count === 1 ? "1 conexión" : `${count} conexiones`;
+    })();
+
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
+    const [connectionDraft, setConnectionDraft] = useState<
+      ReplicateFlowRemoteConnection[]
+    >(() => parsedConnections);
     const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
       "pan",
     );
@@ -310,6 +406,72 @@ export const ReplicateFlowNode = memo(
       [createInnerNodeId, paletteLabelByType, setDraftNodes, setDraftEdges],
     );
 
+    const updateDraftConnection = (
+      connectionId: string,
+      patch: Partial<ReplicateFlowRemoteConnection>,
+    ) => {
+      setConnectionDraft((prev) =>
+        prev.map((entry) =>
+          entry.id === connectionId ? { ...entry, ...patch } : entry,
+        ),
+      );
+    };
+
+    const addConnection = () => {
+      setConnectionDraft((prev) => {
+        const nextId = `conn-${Date.now()}-${prev.length + 1}`;
+        return [
+          ...prev,
+          {
+            id: nextId,
+            executionTarget: "local" as const,
+            transport: "serial" as const,
+          },
+        ];
+      });
+    };
+
+    const removeConnection = (connectionId: string) => {
+      setConnectionDraft((prev) => {
+        if (prev.length <= 1) return prev;
+        return prev.filter((entry) => entry.id !== connectionId);
+      });
+    };
+
+    const saveConnections = () => {
+      const safeEntries =
+        connectionDraft.length > 0
+          ? connectionDraft
+          : [
+              {
+                id: "conn-1",
+                executionTarget: "local" as const,
+                transport: "serial" as const,
+              },
+            ];
+
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.id !== id) return node;
+
+          return {
+            ...node,
+            data: {
+              ...(node.data ?? {}),
+              remoteConnections: safeEntries,
+              activeConnectionId: undefined,
+              executionTarget: undefined,
+              transport: undefined,
+              controllerId: undefined,
+              controllerName: undefined,
+            },
+          };
+        }),
+      );
+
+      setIsConnectionDialogOpen(false);
+    };
+
     return (
       <BaseNode
         className="relative flex w-36 flex-col items-center justify-center rounded-xl border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md"
@@ -323,12 +485,23 @@ export const ReplicateFlowNode = memo(
               }
             : undefined
         }
+        onConnectClick={
+          !isSelfCall
+            ? () => {
+                setConnectionDraft(parsedConnections);
+                setIsConnectionDialogOpen(true);
+              }
+            : undefined
+        }
       >
         <div className="flex flex-col items-center gap-0.5">
           <div className="text-xl font-bold leading-none">
             <Copy className="rotate-90" />
           </div>
           <div className="text-sm leading-tight">{label}</div>
+          <div className="text-[10px] leading-tight text-white/90">
+            {connectionSubtitle}
+          </div>
         </div>
 
         {inOffsets.map((offset, index) => (
@@ -689,6 +862,184 @@ export const ReplicateFlowNode = memo(
                 </div>
               </DialogFooter>
             </div>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog
+          open={isConnectionDialogOpen}
+          onOpenChange={setIsConnectionDialogOpen}
+        >
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Configurar conexiones remotas</DialogTitle>
+              <DialogDescription>
+                Agrega varias conexiones para este nodo. Todas se usarán en la
+                ejecución.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-3 max-h-[55vh] overflow-y-auto pr-1">
+              {connectionDraft.map((entry, index) => (
+                <div
+                  key={entry.id}
+                  className="rounded-md border border-border bg-muted/20 p-3 space-y-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium text-foreground">
+                      Conexión {index + 1}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeConnection(entry.id)}
+                        disabled={connectionDraft.length <= 1}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor={`${targetSelectId}-${entry.id}`}
+                      className="mb-1 block text-xs font-medium text-foreground"
+                    >
+                      Ejecutar en
+                    </label>
+                    <Select
+                      value={entry.executionTarget}
+                      onValueChange={(value) => {
+                        if (
+                          value !== "local" &&
+                          value !== "controller" &&
+                          value !== "microbit"
+                        ) {
+                          return;
+                        }
+
+                        updateDraftConnection(entry.id, {
+                          executionTarget: value,
+                          transport:
+                            value === "microbit"
+                              ? (entry.transport ?? "serial")
+                              : undefined,
+                          controllerId:
+                            value === "controller"
+                              ? (entry.controllerId ?? undefined)
+                              : undefined,
+                          controllerName:
+                            value === "controller"
+                              ? (entry.controllerName ?? undefined)
+                              : undefined,
+                        });
+                      }}
+                    >
+                      <SelectTrigger id={`${targetSelectId}-${entry.id}`}>
+                        <SelectValue placeholder="Selecciona" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="local">Esta PC</SelectItem>
+                        <SelectItem value="controller">Otra PC</SelectItem>
+                        <SelectItem value="microbit">micro:bit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {entry.executionTarget === "controller" && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-foreground">
+                        PC remota
+                      </label>
+                      <Select
+                        value={entry.controllerId || undefined}
+                        onValueChange={(value) => {
+                          if (value === "__none__") return;
+                          const controller = controllers.find(
+                            (item) => item.id === value,
+                          );
+                          updateDraftConnection(entry.id, {
+                            controllerId: value,
+                            controllerName: controller?.name ?? undefined,
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una PC" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {controllers.length === 0 ? (
+                            <SelectItem value="__none__" disabled>
+                              (Sin PCs conectadas)
+                            </SelectItem>
+                          ) : (
+                            controllers.map((controller) => (
+                              <SelectItem
+                                key={controller.id}
+                                value={controller.id}
+                              >
+                                {controller.name ?? controller.id}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {entry.executionTarget === "microbit" && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-foreground">
+                        Método de conexión
+                      </label>
+                      <Select
+                        value={entry.transport ?? "serial"}
+                        onValueChange={(value) => {
+                          if (value === "serial" || value === "bluetooth") {
+                            updateDraftConnection(entry.id, {
+                              transport: value,
+                            });
+                          }
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="serial">
+                            Cable (Web Serial)
+                          </SelectItem>
+                          <SelectItem value="bluetooth">
+                            Bluetooth (Web Bluetooth)
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter>
+              <div className="flex w-full items-center justify-between gap-2">
+                <Button type="button" variant="outline" onClick={addConnection}>
+                  Agregar conexión
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setIsConnectionDialogOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={saveConnections}>
+                    Guardar
+                  </Button>
+                </div>
+              </div>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </BaseNode>

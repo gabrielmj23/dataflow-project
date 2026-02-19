@@ -11,7 +11,7 @@ import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 import type { NodeCompiler } from "./types";
 
 function isSubflowLikeType(type: string): boolean {
-  return type === NODE_TYPES.SUBFLOW || type === NODE_TYPES.REPLICATE_FLOW;
+  return type === NODE_TYPES.SUBFLOW;
 }
 
 function resolveTemplateForRemote(

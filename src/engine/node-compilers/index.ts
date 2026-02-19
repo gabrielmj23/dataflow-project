@@ -9,6 +9,7 @@ import { compileOutputNodes } from "./output";
 import { compileLogicNodes } from "./logic";
 import { compileListNodes } from "./list";
 import { compileSubflowNodes } from "./subflow";
+import { compileReplicateFlowNodes } from "./replicate-flow";
 
 const compilers = [
   compileInputNodes,
@@ -16,6 +17,7 @@ const compilers = [
   compileLogicNodes,
   compileListNodes,
   compileOutputNodes,
+  compileReplicateFlowNodes,
   compileSubflowNodes,
 ] as const;
 
