@@ -41,7 +41,12 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { NodePaletteCategory, NodePaletteItem } from "@/flow/node-palette";
+import {
+  getNodeAbstractionLevel,
+  type AbstractionLevel,
+  type NodePaletteCategory,
+  type NodePaletteItem,
+} from "@/flow/node-palette";
 import { NODE_TYPES } from "@/common/constants";
 
 type AppSidebarProps = {
@@ -58,6 +63,8 @@ export function AppSidebar({
   className,
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
+  const [abstractionLevel, setAbstractionLevel] =
+    React.useState<AbstractionLevel>(3);
   const viewMode = "nodes";
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -98,13 +105,17 @@ export function AppSidebar({
   const normalizedSearch = search.trim().toLowerCase();
 
   const filteredCategories = React.useMemo(() => {
-    if (!normalizedSearch) {
-      return categories;
-    }
-
     return categories
       .map((category) => {
         const items = category.items.filter((item) => {
+          if (getNodeAbstractionLevel(item.type) > abstractionLevel) {
+            return false;
+          }
+
+          if (!normalizedSearch) {
+            return true;
+          }
+
           const label = item.label.toLowerCase();
           const type = item.type.toLowerCase();
           const description = item.description?.toLowerCase() ?? "";
@@ -117,7 +128,7 @@ export function AppSidebar({
         return { ...category, items };
       })
       .filter((category) => category.items.length > 0);
-  }, [categories, normalizedSearch]);
+  }, [abstractionLevel, categories, normalizedSearch]);
 
   const handleScrollToCategory = (index: number) => {
     const target = sectionRefs[index]?.current;
@@ -164,6 +175,32 @@ export function AppSidebar({
               onChange={(event) => setSearch(event.currentTarget.value)}
               placeholder="Buscar nodo"
             />
+            <p className="mt-2 px-1 text-[11px] font-medium text-muted-foreground">
+              Nivel de abstracción
+            </p>
+            <div className="mx-auto mt-1 w-40 overflow-hidden rounded-full border border-border">
+              <div className="grid grid-cols-3">
+                {([1, 2, 3] as const).map((level, index) => {
+                  const active = level <= abstractionLevel;
+                  return (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setAbstractionLevel(level)}
+                      className={`h-7 text-xs font-semibold transition-colors ${
+                        index > 0 ? "border-l border-border" : ""
+                      } ${
+                        active
+                          ? "bg-accent text-accent-foreground"
+                          : "bg-background text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarHeader>
