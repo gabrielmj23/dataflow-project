@@ -413,6 +413,7 @@ export default function EditorPage() {
               categories={paletteCategories}
               onDragStart={onPaletteDragStart}
               onDeleteTemplate={subflow.requestDeleteTemplate}
+              showAbstractionFilter={!challenge.challengeAllowSet}
             />
 
             <SidebarInset>

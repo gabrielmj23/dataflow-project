@@ -53,6 +53,7 @@ type AppSidebarProps = {
   categories: NodePaletteCategory[];
   onDragStart: (event: DragEvent, item: NodePaletteItem) => void;
   onDeleteTemplate?: (templateId: string) => void;
+  showAbstractionFilter?: boolean;
   className?: string;
 };
 
@@ -60,6 +61,7 @@ export function AppSidebar({
   categories,
   onDragStart,
   onDeleteTemplate,
+  showAbstractionFilter = true,
   className,
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
@@ -175,32 +177,36 @@ export function AppSidebar({
               onChange={(event) => setSearch(event.currentTarget.value)}
               placeholder="Buscar nodo"
             />
-            <p className="mt-2 px-1 text-[11px] font-medium text-muted-foreground">
-              Nivel de abstracción
-            </p>
-            <div className="mx-auto mt-1 w-40 overflow-hidden rounded-full border border-border">
-              <div className="grid grid-cols-3">
-                {([1, 2, 3] as const).map((level, index) => {
-                  const active = level <= abstractionLevel;
-                  return (
-                    <button
-                      key={level}
-                      type="button"
-                      onClick={() => setAbstractionLevel(level)}
-                      className={`h-7 text-xs font-semibold transition-colors ${
-                        index > 0 ? "border-l border-border" : ""
-                      } ${
-                        active
-                          ? "bg-accent text-accent-foreground"
-                          : "bg-background text-muted-foreground hover:bg-muted"
-                      }`}
-                    >
-                      {level}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            {showAbstractionFilter && (
+              <>
+                <p className="mt-2 px-1 text-[11px] font-medium text-muted-foreground">
+                  Nivel de abstracción
+                </p>
+                <div className="mx-auto mt-1 w-40 overflow-hidden rounded-full border border-border">
+                  <div className="grid grid-cols-3">
+                    {([1, 2, 3] as const).map((level, index) => {
+                      const active = level <= abstractionLevel;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setAbstractionLevel(level)}
+                          className={`h-7 text-xs font-semibold transition-colors ${
+                            index > 0 ? "border-l border-border" : ""
+                          } ${
+                            active
+                              ? "bg-accent text-accent-foreground"
+                              : "bg-background text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarHeader>
