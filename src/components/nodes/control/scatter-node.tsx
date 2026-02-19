@@ -152,7 +152,7 @@ export const ScatterNode = memo(({ id, data }: NodeProps) => {
       }
     >
       <div
-        className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-none border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+        className="flex h-full w-full flex-col items-center justify-center gap-0.5 rounded-none border-yellow-600 bg-yellow-500 px-5 text-center text-white shadow-md"
         style={{
           clipPath: "polygon(0% 25%, 100% 0%, 100% 100%, 0% 75%)",
         }}
@@ -169,7 +169,7 @@ export const ScatterNode = memo(({ id, data }: NodeProps) => {
         id="in"
         dataType={inputType}
         typeMask={inputMask}
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-yellow-600"
       />
 
       {outputOffsets.map((offset, index) => {
@@ -190,7 +190,7 @@ export const ScatterNode = memo(({ id, data }: NodeProps) => {
             dataType={dt}
             typeMask={mask}
             className="absolute -right-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-orange-600"
+            indicatorClassName="border-yellow-600"
           />
         );
       })}
