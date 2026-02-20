@@ -20,6 +20,26 @@ type SubflowExecutionConfig = {
   controllerId: string;
 };
 
+function cloneValue<T>(value: T): T {
+  if (typeof structuredClone === "function") {
+    try {
+      return structuredClone(value);
+    } catch {
+      // fallback below
+    }
+  }
+
+  try {
+    return JSON.parse(JSON.stringify(value)) as T;
+  } catch {
+    return value;
+  }
+}
+
+function cloneArgsForReplica(args: unknown[]): unknown[] {
+  return args.map((arg) => cloneValue(arg));
+}
+
 function resolveExecutionConfigs(
   data: Record<string, unknown>,
 ): SubflowExecutionConfig[] {
@@ -356,6 +376,8 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
         const executor = ctx.remoteExecutor;
 
         for (const config of executionConfigs) {
+          const replicaArgs = cloneArgsForReplica(args);
+
           if (config.executionTarget === "controller") {
             if (!executor) throw new Error("Ejecución remota no configurada.");
             if (!config.controllerId) {
@@ -371,7 +393,7 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
               nodeId: String(flowNode.id),
               controllerId: config.controllerId,
               op: "subflow",
-              args,
+              args: replicaArgs,
               subflow: {
                 nodes: materializedForController.nodes,
                 edges: materializedForController.edges,
@@ -394,14 +416,14 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
               edges: subflowEdges as Edge[],
               selectedInputs: localPlan.selectedInputs,
               outputSources: localPlan.outputSources,
-              args,
+              args: replicaArgs,
               programId,
               signal: ctx.signal,
             });
             continue;
           }
 
-          lastResult = await executeLocal(...args);
+          lastResult = await executeLocal(...replicaArgs);
         }
 
         return lastResult;
