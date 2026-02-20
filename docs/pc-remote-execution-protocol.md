@@ -101,7 +101,7 @@ Operaciones de procesamiento:
 
 - `sum`, `subtract`, `multiply`, `divide`, `mod`, `power`
 - `floor`, `ceiling`, `round`
-- `concat`
+- `concat`, `replaceText`, `subtractText`, `sliceText`
 
 Operaciones de listas:
 

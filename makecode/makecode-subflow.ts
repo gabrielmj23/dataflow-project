@@ -445,6 +445,51 @@ function executeVm(runId: string, args: DfpVal[]) {
           stack.push(valStr((strA + strB).substr(0, DFP1_MAX_STR_LEN)));
           break;
 
+        case 0x21: // REPLACE_TEXT
+          const repl = valToString(stack.pop() || valNull());
+          const needle = valToString(stack.pop() || valNull());
+          const source = valToString(stack.pop() || valNull());
+          if (needle.length == 0) {
+            stack.push(valStr(source.substr(0, DFP1_MAX_STR_LEN)));
+          } else {
+            stack.push(
+              valStr(source.split(needle).join(repl).substr(0, DFP1_MAX_STR_LEN)),
+            );
+          }
+          break;
+
+        case 0x22: // SUBTRACT_TEXT
+          const subNeedle = valToString(stack.pop() || valNull());
+          const subSource = valToString(stack.pop() || valNull());
+          if (subNeedle.length == 0) {
+            stack.push(valStr(subSource.substr(0, DFP1_MAX_STR_LEN)));
+          } else {
+            stack.push(
+              valStr(
+                subSource.split(subNeedle).join("").substr(0, DFP1_MAX_STR_LEN),
+              ),
+            );
+          }
+          break;
+
+        case 0x23: // SLICE_TEXT
+          const rawEnd = valToNumber(stack.pop() || valNull());
+          const rawStart = valToNumber(stack.pop() || valNull());
+          const sliceSource = valToString(stack.pop() || valNull());
+          const sourceLen = sliceSource.length;
+
+          let s = Math.floor(rawStart);
+          if (s < 0) s = 0;
+          if (s > sourceLen) s = sourceLen;
+
+          let e = Math.floor(rawEnd) + 1;
+          if (e < 0) e = 0;
+          if (e > sourceLen) e = sourceLen;
+          if (e < s) e = s;
+
+          stack.push(valStr(sliceSource.substr(s, e - s).substr(0, DFP1_MAX_STR_LEN)));
+          break;
+
         case 0x60: // CMP_EQ
         case 0x61: // CMP_NEQ
         case 0x62: // CMP_LT

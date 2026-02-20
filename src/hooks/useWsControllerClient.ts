@@ -124,6 +124,34 @@ function computeOperation(op: string, args: unknown[]): unknown {
       const b = args[1] ?? "";
       return String(a) + String(b);
     }
+    case "replaceText": {
+      const source = String(args[0] ?? "");
+      const needle = String(args[1] ?? "");
+      if (needle.length === 0) return source;
+      const replacement = String(args[2] ?? "");
+      return source.split(needle).join(replacement);
+    }
+    case "subtractText": {
+      const source = String(args[0] ?? "");
+      const needle = String(args[1] ?? "");
+      if (needle.length === 0) return source;
+      return source.split(needle).join("");
+    }
+    case "sliceText": {
+      const source = String(args[0] ?? "");
+      const len = source.length;
+      const rawStart = Number(args[1]);
+      const rawEnd = Number(args[2]);
+
+      const start = Number.isFinite(rawStart) ? Math.max(0, Math.floor(rawStart)) : 0;
+      const end = Number.isFinite(rawEnd)
+        ? Math.min(len, Math.floor(rawEnd) + 1)
+        : len;
+
+      const from = Math.min(len, Math.max(0, start));
+      const to = Math.min(len, Math.max(from, end));
+      return source.slice(from, to);
+    }
     case "generateSequence": {
       return computeSequenceValues(args);
     }

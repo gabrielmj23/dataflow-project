@@ -41,6 +41,9 @@ const OPCODES = {
   CEIL: 0x17,
   ROUND: 0x18,
   CONCAT: 0x20,
+  REPLACE_TEXT: 0x21,
+  SUBTRACT_TEXT: 0x22,
+  SLICE_TEXT: 0x23,
   DISPLAY_TEXT: 0x30,
   DISPLAY_NUMBER: 0x31,
   PLAY_TONE: 0x32,
@@ -373,6 +376,26 @@ export function compileSubflowToDfbc1(
         compileInputForNode(nodeId, "in-1");
         compileInputForNode(nodeId, "in-2");
         emit(OPCODES.CONCAT);
+        break;
+      }
+      case NODE_TYPES.REPLACE_TEXT_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        compileInputForNode(nodeId, "in-3");
+        emit(OPCODES.REPLACE_TEXT);
+        break;
+      }
+      case NODE_TYPES.SUBTRACT_TEXT_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        emit(OPCODES.SUBTRACT_TEXT);
+        break;
+      }
+      case NODE_TYPES.SLICE_TEXT_NODE: {
+        compileInputForNode(nodeId, "in-1");
+        compileInputForNode(nodeId, "in-2");
+        compileInputForNode(nodeId, "in-3");
+        emit(OPCODES.SLICE_TEXT);
         break;
       }
       case NODE_TYPES.ZIP_NODE: {
