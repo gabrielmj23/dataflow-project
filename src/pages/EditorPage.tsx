@@ -403,6 +403,7 @@ export default function EditorPage() {
               onDownloadClick={onDownloadClick}
               onLoadClick={onLoadClick}
               onConnectClick={() => setIsRemoteDialogOpen(true)}
+              isConnected={runnerBridge.wsState.connected}
               edgeFeedbackMode={edgeFeedbackMode}
               onToggleEdgeFeedbackMode={toggleEdgeFeedbackMode}
             />

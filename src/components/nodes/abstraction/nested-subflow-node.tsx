@@ -487,212 +487,218 @@ export const NestedSubflowNode = memo(
 
               <DialogFooter>
                 <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    const instance = editorInstanceRef.current as
-                      | (ReactFlowInstance<EditorFlowNode, Edge> & {
-                          project?: (pos: { x: number; y: number }) => {
-                            x: number;
-                            y: number;
-                          };
-                          screenToFlowPosition?: (pos: {
-                            x: number;
-                            y: number;
-                          }) => { x: number; y: number };
-                        })
-                      | null;
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      const instance = editorInstanceRef.current as
+                        | (ReactFlowInstance<EditorFlowNode, Edge> & {
+                            project?: (pos: { x: number; y: number }) => {
+                              x: number;
+                              y: number;
+                            };
+                            screenToFlowPosition?: (pos: {
+                              x: number;
+                              y: number;
+                            }) => { x: number; y: number };
+                          })
+                        | null;
 
-                    let position = { x: 120, y: 120 };
-                    try {
-                      const el = document.getElementById(editorFlowId);
-                      if (el) {
-                        const rect = el.getBoundingClientRect();
-                        const centerScreen = {
-                          x: rect.left + rect.width / 2,
-                          y: rect.top + rect.height / 2,
-                        };
-                        position =
-                          instance?.screenToFlowPosition?.(centerScreen) ??
-                          instance?.project?.(centerScreen) ??
-                          position;
-                      } else {
+                      let position = { x: 120, y: 120 };
+                      try {
+                        const el = document.getElementById(editorFlowId);
+                        if (el) {
+                          const rect = el.getBoundingClientRect();
+                          const centerScreen = {
+                            x: rect.left + rect.width / 2,
+                            y: rect.top + rect.height / 2,
+                          };
+                          position =
+                            instance?.screenToFlowPosition?.(centerScreen) ??
+                            instance?.project?.(centerScreen) ??
+                            position;
+                        } else {
+                          position =
+                            instance?.project?.({ x: 120, y: 120 }) ?? position;
+                        }
+                      } catch {
                         position =
                           instance?.project?.({ x: 120, y: 120 }) ?? position;
                       }
-                    } catch {
-                      position =
-                        instance?.project?.({ x: 120, y: 120 }) ?? position;
-                    }
 
-                    const inputId = createInnerNodeId();
-                    const existingCount = draftNodes.filter(
-                      (n) => String(n.type) === "subflowInput",
-                    ).length;
-                    const labelText = `Entrada ${existingCount + 1}`;
-                    const inputNode: Node = {
-                      id: inputId,
-                      type: "subflowInput",
-                      position,
-                      data: { label: labelText },
-                    };
-                    setDraftNodes((prev) => [...prev, inputNode]);
-                  }}
-                >
-                  <span className="mr-1">+</span>
-                  Añadir entrada
-                </Button>
+                      const inputId = createInnerNodeId();
+                      const existingCount = draftNodes.filter(
+                        (n) => String(n.type) === "subflowInput",
+                      ).length;
+                      const labelText = `Entrada ${existingCount + 1}`;
+                      const inputNode: Node = {
+                        id: inputId,
+                        type: "subflowInput",
+                        position,
+                        data: { label: labelText },
+                      };
+                      setDraftNodes((prev) => [...prev, inputNode]);
+                    }}
+                  >
+                    <span className="mr-1">+</span>
+                    Añadir entrada
+                  </Button>
 
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    const instance = editorInstanceRef.current as
-                      | (ReactFlowInstance<EditorFlowNode, Edge> & {
-                          project?: (pos: { x: number; y: number }) => {
-                            x: number;
-                            y: number;
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      const instance = editorInstanceRef.current as
+                        | (ReactFlowInstance<EditorFlowNode, Edge> & {
+                            project?: (pos: { x: number; y: number }) => {
+                              x: number;
+                              y: number;
+                            };
+                            screenToFlowPosition?: (pos: {
+                              x: number;
+                              y: number;
+                            }) => { x: number; y: number };
+                          })
+                        | null;
+
+                      let position = { x: 200, y: 120 };
+                      try {
+                        const el = document.getElementById(editorFlowId);
+                        if (el) {
+                          const rect = el.getBoundingClientRect();
+                          const centerScreen = {
+                            x: rect.left + rect.width / 2,
+                            y: rect.top + rect.height / 2,
                           };
-                          screenToFlowPosition?: (pos: {
-                            x: number;
-                            y: number;
-                          }) => { x: number; y: number };
-                        })
-                      | null;
-
-                    let position = { x: 200, y: 120 };
-                    try {
-                      const el = document.getElementById(editorFlowId);
-                      if (el) {
-                        const rect = el.getBoundingClientRect();
-                        const centerScreen = {
-                          x: rect.left + rect.width / 2,
-                          y: rect.top + rect.height / 2,
-                        };
-                        position =
-                          instance?.screenToFlowPosition?.(centerScreen) ??
-                          instance?.project?.(centerScreen) ??
-                          position;
-                      } else {
+                          position =
+                            instance?.screenToFlowPosition?.(centerScreen) ??
+                            instance?.project?.(centerScreen) ??
+                            position;
+                        } else {
+                          position =
+                            instance?.project?.({ x: 200, y: 120 }) ?? position;
+                        }
+                      } catch {
                         position =
                           instance?.project?.({ x: 200, y: 120 }) ?? position;
                       }
-                    } catch {
-                      position =
-                        instance?.project?.({ x: 200, y: 120 }) ?? position;
-                    }
 
-                    const outputId = createInnerNodeId();
-                    const outputNode: Node = {
-                      id: outputId,
-                      type: "subflowOutput",
-                      position,
-                      data: { label: "Salida" },
-                    };
-                    setDraftNodes((prev) => [...prev, outputNode]);
-                  }}
-                >
-                  <Split className="mr-1 h-4 w-4" />
-                  Añadir salida
-                </Button>
+                      const outputId = createInnerNodeId();
+                      const outputNode: Node = {
+                        id: outputId,
+                        type: "subflowOutput",
+                        position,
+                        data: { label: "Salida" },
+                      };
+                      setDraftNodes((prev) => [...prev, outputNode]);
+                    }}
+                  >
+                    <Split className="mr-1 h-4 w-4" />
+                    Añadir salida
+                  </Button>
 
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => setIsEditorOpen(false)}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    const lookup = editorLookupRef.current;
-                    // Compute inCount from explicit `subflowInput` nodes added by the user.
-                    const explicitInputs = draftNodes.filter(
-                      (n) => String(n.type) === "subflowInput",
-                    ).length;
-                    const nextInCount = Number.isFinite(Number(explicitInputs))
-                      ? explicitInputs
-                      : Number.isFinite(rawInCount)
-                        ? (rawInCount as number)
-                        : inCount;
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setIsEditorOpen(false)}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      const lookup = editorLookupRef.current;
+                      // Compute inCount from explicit `subflowInput` nodes added by the user.
+                      const explicitInputs = draftNodes.filter(
+                        (n) => String(n.type) === "subflowInput",
+                      ).length;
+                      const nextInCount = Number.isFinite(
+                        Number(explicitInputs),
+                      )
+                        ? explicitInputs
+                        : Number.isFinite(rawInCount)
+                          ? (rawInCount as number)
+                          : inCount;
 
-                    // If there are explicit subflowOutput nodes, expose exactly one salida.
-                    const explicitOutputs = draftNodes.filter(
-                      (n) => String(n.type) === "subflowOutput",
-                    ).length;
+                      // If there are explicit subflowOutput nodes, expose exactly one salida.
+                      const explicitOutputs = draftNodes.filter(
+                        (n) => String(n.type) === "subflowOutput",
+                      ).length;
 
-                    // For outputs keep the previous behavior (try to compute open ports)
-                    // when no explicit subflowOutput nodes exist.
-                    let nextOutCount =
-                      explicitOutputs > 0
-                        ? 1
-                        : Number.isFinite(rawOutCount)
-                          ? (rawOutCount as number)
-                          : outCount;
-                    try {
-                      const computed = computeOpenPortsFromLookup(
-                        draftNodes,
-                        draftEdges,
-                        lookup,
-                      );
-                      if (computed && computed.ready && explicitOutputs === 0) {
-                        nextOutCount = computed.outCount;
-                      }
-                    } catch {
-                      // ignore
-                    }
-
-                    const finalLabel = (draftLabel || label).trim() || label;
-
-                    // Prevent saving if any subflow input labels are empty
-                    const hasEmptyInputs = draftNodes.some(
-                      (n) =>
-                        String(n.type) === "subflowInput" &&
-                        !String((n.data ?? {}).label ?? "").trim(),
-                    );
-                    if (hasEmptyInputs) {
-                      setNameError(
-                        "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
-                      );
-                      return;
-                    }
-
-                    // Prevent saving if there are more than one open outputs
-                    if (Number(nextOutCount) > 1) {
-                      setNameError(
-                        "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
-                      );
-                      return;
-                    }
-
-                    setNodes((prev) =>
-                      prev.map((n) => {
-                        if (n.id !== id) {
-                          return n;
+                      // For outputs keep the previous behavior (try to compute open ports)
+                      // when no explicit subflowOutput nodes exist.
+                      let nextOutCount =
+                        explicitOutputs > 0
+                          ? 1
+                          : Number.isFinite(rawOutCount)
+                            ? (rawOutCount as number)
+                            : outCount;
+                      try {
+                        const computed = computeOpenPortsFromLookup(
+                          draftNodes,
+                          draftEdges,
+                          lookup,
+                        );
+                        if (
+                          computed &&
+                          computed.ready &&
+                          explicitOutputs === 0
+                        ) {
+                          nextOutCount = computed.outCount;
                         }
+                      } catch {
+                        // ignore
+                      }
 
-                        return {
-                          ...n,
-                          data: {
-                            ...(n.data as object),
-                            label: finalLabel,
-                            subflowNodes: draftNodes,
-                            subflowEdges: draftEdges,
-                            inCount: nextInCount,
-                            outCount: nextOutCount,
-                          },
-                        };
-                      }),
-                    );
+                      const finalLabel = (draftLabel || label).trim() || label;
 
-                    setIsEditorOpen(false);
-                  }}
-                >
-                  Guardar
-                </Button>
+                      // Prevent saving if any subflow input labels are empty
+                      const hasEmptyInputs = draftNodes.some(
+                        (n) =>
+                          String(n.type) === "subflowInput" &&
+                          !String((n.data ?? {}).label ?? "").trim(),
+                      );
+                      if (hasEmptyInputs) {
+                        setNameError(
+                          "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
+                        );
+                        return;
+                      }
+
+                      // Prevent saving if there are more than one open outputs
+                      if (Number(nextOutCount) > 1) {
+                        setNameError(
+                          "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
+                        );
+                        return;
+                      }
+
+                      setNodes((prev) =>
+                        prev.map((n) => {
+                          if (n.id !== id) {
+                            return n;
+                          }
+
+                          return {
+                            ...n,
+                            data: {
+                              ...(n.data as object),
+                              label: finalLabel,
+                              subflowNodes: draftNodes,
+                              subflowEdges: draftEdges,
+                              inCount: nextInCount,
+                              outCount: nextOutCount,
+                            },
+                          };
+                        }),
+                      );
+
+                      setIsEditorOpen(false);
+                    }}
+                  >
+                    Guardar
+                  </Button>
                 </div>
               </DialogFooter>
             </div>

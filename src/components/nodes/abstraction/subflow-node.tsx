@@ -589,518 +589,522 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         }
         onConnectClick={!isSelfCall ? config.onConfigClick : undefined}
       >
-      {(() => {
-        const hasInputs = explicitInputNodes.length > 0 || inCount > 0;
-        return (
-          <div
-            className={`flex flex-col gap-0.5 items-center ${hasInputs ? "ml-15" : ""}`}
-          >
-            <div className="text-xl font-bold leading-none">
-              <PictureInPicture2 />
-            </div>
-            <div className="text-sm leading-tight">{label}</div>
-            {config.subtitle && (
-              <div className="text-xs leading-tight text-white/85">
-                {config.subtitle}
+        {(() => {
+          const hasInputs = explicitInputNodes.length > 0 || inCount > 0;
+          return (
+            <div
+              className={`flex flex-col gap-0.5 items-center ${hasInputs ? "ml-15" : ""}`}
+            >
+              <div className="text-xl font-bold leading-none">
+                <PictureInPicture2 />
               </div>
-            )}
-          </div>
-        );
-      })()}
+              <div className="text-sm leading-tight">{label}</div>
+              {config.subtitle && (
+                <div className="text-xs leading-tight text-white/85">
+                  {config.subtitle}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
-      {inOffsets.map((offset, index) => (
-        <CustomTypedHandle
-          key={`l-${offset}`}
-          type="target"
-          position={Position.Left}
-          style={{ top: offset }}
-          id={`in-${index + 1}`}
-          dataType="any"
-          className="h-2 w-2 -translate-y-1/2"
-          indicatorClassName="border-violet-700"
-        />
-      ))}
-
-      {/* Render input labels aligned with left handles (editable) */}
-      {inOffsets.map((offset, index) => {
-        const inputNode = explicitInputNodes[index];
-        const inputLabel = inputNode
-          ? (() => {
-              const data = (inputNode.data ?? {}) as Record<string, unknown>;
-              return typeof data.label === "string"
-                ? data.label
-                : `Entrada ${index + 1}`;
-            })()
-          : `Entrada ${index + 1}`;
-        const label = String(inputLabel);
-        const trimmed = String(label ?? "").trim();
-        const len = Math.max(0, trimmed.length);
-        const widthPx = len <= 1 ? 36 : Math.min(140, 12 + len * 8);
-
-        return (
-          <Input
-            key={`in-label-${index}`}
-            value={label}
-            readOnly
-            tabIndex={-1}
-            className="nodrag absolute h-6 -translate-y-1/2 border-0 bg-transparent px-2 text-left text-[10px] text-white placeholder:text-white/60 focus:outline-none pointer-events-none shadow-none"
-            style={{
-              top: `calc(${offset} + 9px)`,
-              left: "12px",
-              width: `${widthPx}px`,
-              transform: "translate(0, -50%)",
-            }}
+        {inOffsets.map((offset, index) => (
+          <CustomTypedHandle
+            key={`l-${offset}`}
+            type="target"
+            position={Position.Left}
+            style={{ top: offset }}
+            id={`in-${index + 1}`}
+            dataType="any"
+            className="h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-violet-700"
           />
-        );
-      })}
+        ))}
 
-      {outOffsets.map((offset, index) => (
-        <CustomTypedHandle
-          key={`r-${offset}`}
-          type="source"
-          position={Position.Right}
-          style={{ top: offset }}
-          id={`out-${index + 1}`}
-          dataType="any"
-          className="h-2 w-2 -translate-y-1/2"
-          indicatorClassName="border-violet-700"
-        />
-      ))}
+        {/* Render input labels aligned with left handles (editable) */}
+        {inOffsets.map((offset, index) => {
+          const inputNode = explicitInputNodes[index];
+          const inputLabel = inputNode
+            ? (() => {
+                const data = (inputNode.data ?? {}) as Record<string, unknown>;
+                return typeof data.label === "string"
+                  ? data.label
+                  : `Entrada ${index + 1}`;
+              })()
+            : `Entrada ${index + 1}`;
+          const label = String(inputLabel);
+          const trimmed = String(label ?? "").trim();
+          const len = Math.max(0, trimmed.length);
+          const widthPx = len <= 1 ? 36 : Math.min(140, 12 + len * 8);
 
-      <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen} modal={false}>
-        <DialogContent
-          className="sm:max-w-4xl"
-          onPointerDownOutside={(event) => {
-            event.preventDefault();
-          }}
-          onInteractOutside={(event) => {
-            event.preventDefault();
-          }}
+          return (
+            <Input
+              key={`in-label-${index}`}
+              value={label}
+              readOnly
+              tabIndex={-1}
+              className="nodrag absolute h-6 -translate-y-1/2 border-0 bg-transparent px-2 text-left text-[10px] text-white placeholder:text-white/60 focus:outline-none pointer-events-none shadow-none"
+              style={{
+                top: `calc(${offset} + 9px)`,
+                left: "12px",
+                width: `${widthPx}px`,
+                transform: "translate(0, -50%)",
+              }}
+            />
+          );
+        })}
+
+        {outOffsets.map((offset, index) => (
+          <CustomTypedHandle
+            key={`r-${offset}`}
+            type="source"
+            position={Position.Right}
+            style={{ top: offset }}
+            id={`out-${index + 1}`}
+            dataType="any"
+            className="h-2 w-2 -translate-y-1/2"
+            indicatorClassName="border-violet-700"
+          />
+        ))}
+
+        <Dialog
+          open={isEditorOpen}
+          onOpenChange={setIsEditorOpen}
+          modal={false}
         >
-          <DialogHeader>
-            <DialogTitle>Editar subflujo</DialogTitle>
-          </DialogHeader>
+          <DialogContent
+            className="sm:max-w-4xl"
+            onPointerDownOutside={(event) => {
+              event.preventDefault();
+            }}
+            onInteractOutside={(event) => {
+              event.preventDefault();
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Editar subflujo</DialogTitle>
+            </DialogHeader>
 
-          <div className="space-y-3 overflow-y-auto max-h-[80vh]">
-            <p className="text-sm text-muted-foreground">
-              Modifica los nodos y conexiones.
-            </p>
-            <div>
-              <label className="mb-1 block text-sm font-medium text-gray-900">
-                Nombre del subflujo:
-              </label>
-              <Input
-                value={draftLabel}
-                onChange={(e) => {
-                  setDraftLabel(e.currentTarget.value);
-                  setNameError(null);
-                }}
-                placeholder="Ej: Validar datos"
-              />
-            </div>
-
-            {nameError && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-                {nameError}
+            <div className="space-y-3 overflow-y-auto max-h-[80vh]">
+              <p className="text-sm text-muted-foreground">
+                Modifica los nodos y conexiones.
+              </p>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-900">
+                  Nombre del subflujo:
+                </label>
+                <Input
+                  value={draftLabel}
+                  onChange={(e) => {
+                    setDraftLabel(e.currentTarget.value);
+                    setNameError(null);
+                  }}
+                  placeholder="Ej: Validar datos"
+                />
               </div>
-            )}
-            <label className="mt-1 flex items-center gap-2 text-sm text-gray-900">
-              <input
-                type="checkbox"
-                className="h-3 w-3"
-                checked={addToPalette}
-                onChange={(e) => {
-                  setAddToPalette(e.currentTarget.checked);
-                  setNameError(null);
-                }}
-              />
-              <span>Añadir este subflujo a la paleta</span>
-            </label>
 
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={insertSelfInstance}
-              >
-                <RefreshCw className="mr-1 h-4 w-4" />
-                Insertar este subflujo
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const instance = editorInstanceRef.current as
-                    | (ReactFlowInstance & {
-                        project?: (pos: { x: number; y: number }) => {
-                          x: number;
-                          y: number;
+              {nameError && (
+                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                  {nameError}
+                </div>
+              )}
+              <label className="mt-1 flex items-center gap-2 text-sm text-gray-900">
+                <input
+                  type="checkbox"
+                  className="h-3 w-3"
+                  checked={addToPalette}
+                  onChange={(e) => {
+                    setAddToPalette(e.currentTarget.checked);
+                    setNameError(null);
+                  }}
+                />
+                <span>Añadir este subflujo a la paleta</span>
+              </label>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={insertSelfInstance}
+                >
+                  <RefreshCw className="mr-1 h-4 w-4" />
+                  Insertar este subflujo
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const instance = editorInstanceRef.current as
+                      | (ReactFlowInstance & {
+                          project?: (pos: { x: number; y: number }) => {
+                            x: number;
+                            y: number;
+                          };
+                          screenToFlowPosition?: (pos: {
+                            x: number;
+                            y: number;
+                          }) => { x: number; y: number };
+                        })
+                      | null;
+
+                    // Compute center of the editor container and project to flow coords.
+                    let position = { x: 120, y: 120 };
+                    try {
+                      const el = document.getElementById(editorFlowId);
+                      if (el) {
+                        const rect = el.getBoundingClientRect();
+                        const centerScreen = {
+                          x: rect.left + rect.width / 2,
+                          y: rect.top + rect.height / 2,
                         };
-                        screenToFlowPosition?: (pos: {
-                          x: number;
-                          y: number;
-                        }) => { x: number; y: number };
-                      })
-                    | null;
-
-                  // Compute center of the editor container and project to flow coords.
-                  let position = { x: 120, y: 120 };
-                  try {
-                    const el = document.getElementById(editorFlowId);
-                    if (el) {
-                      const rect = el.getBoundingClientRect();
-                      const centerScreen = {
-                        x: rect.left + rect.width / 2,
-                        y: rect.top + rect.height / 2,
-                      };
-                      position =
-                        instance?.screenToFlowPosition?.(centerScreen) ??
-                        instance?.project?.(centerScreen) ??
-                        position;
-                    } else {
+                        position =
+                          instance?.screenToFlowPosition?.(centerScreen) ??
+                          instance?.project?.(centerScreen) ??
+                          position;
+                      } else {
+                        position =
+                          instance?.project?.({ x: 120, y: 120 }) ?? position;
+                      }
+                    } catch {
                       position =
                         instance?.project?.({ x: 120, y: 120 }) ?? position;
                     }
-                  } catch {
-                    position =
-                      instance?.project?.({ x: 120, y: 120 }) ?? position;
-                  }
 
-                  const inputId = createInnerNodeId();
-                  const existingCount = draftNodes.filter(
-                    (n) => String(n.type) === "subflowInput",
-                  ).length;
-                  const labelText = `Entrada ${existingCount + 1}`;
-                  const inputNode: Node = {
-                    id: inputId,
-                    type: "subflowInput",
-                    position,
-                    data: { label: labelText },
-                  };
-                  setDraftNodes((prev) => [...prev, inputNode]);
-                }}
-              >
-                <span className="mr-1">+</span>
-                Añadir entrada
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const instance = editorInstanceRef.current as
-                    | (ReactFlowInstance & {
-                        project?: (pos: { x: number; y: number }) => {
-                          x: number;
-                          y: number;
+                    const inputId = createInnerNodeId();
+                    const existingCount = draftNodes.filter(
+                      (n) => String(n.type) === "subflowInput",
+                    ).length;
+                    const labelText = `Entrada ${existingCount + 1}`;
+                    const inputNode: Node = {
+                      id: inputId,
+                      type: "subflowInput",
+                      position,
+                      data: { label: labelText },
+                    };
+                    setDraftNodes((prev) => [...prev, inputNode]);
+                  }}
+                >
+                  <span className="mr-1">+</span>
+                  Añadir entrada
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const instance = editorInstanceRef.current as
+                      | (ReactFlowInstance & {
+                          project?: (pos: { x: number; y: number }) => {
+                            x: number;
+                            y: number;
+                          };
+                          screenToFlowPosition?: (pos: {
+                            x: number;
+                            y: number;
+                          }) => { x: number; y: number };
+                        })
+                      | null;
+
+                    let position = { x: 200, y: 120 };
+                    try {
+                      const el = document.getElementById(editorFlowId);
+                      if (el) {
+                        const rect = el.getBoundingClientRect();
+                        const centerScreen = {
+                          x: rect.left + rect.width / 2,
+                          y: rect.top + rect.height / 2,
                         };
-                        screenToFlowPosition?: (pos: {
-                          x: number;
-                          y: number;
-                        }) => { x: number; y: number };
-                      })
-                    | null;
-
-                  let position = { x: 200, y: 120 };
-                  try {
-                    const el = document.getElementById(editorFlowId);
-                    if (el) {
-                      const rect = el.getBoundingClientRect();
-                      const centerScreen = {
-                        x: rect.left + rect.width / 2,
-                        y: rect.top + rect.height / 2,
-                      };
-                      position =
-                        instance?.screenToFlowPosition?.(centerScreen) ??
-                        instance?.project?.(centerScreen) ??
-                        position;
-                    } else {
+                        position =
+                          instance?.screenToFlowPosition?.(centerScreen) ??
+                          instance?.project?.(centerScreen) ??
+                          position;
+                      } else {
+                        position =
+                          instance?.project?.({ x: 200, y: 120 }) ?? position;
+                      }
+                    } catch {
                       position =
                         instance?.project?.({ x: 200, y: 120 }) ?? position;
                     }
-                  } catch {
-                    position =
-                      instance?.project?.({ x: 200, y: 120 }) ?? position;
-                  }
 
-                  const outputId = createInnerNodeId();
-                  const labelText = "Salida";
-                  const outputNode: Node = {
-                    id: outputId,
-                    type: "subflowOutput",
-                    position,
-                    data: { label: labelText },
-                  };
-                  setDraftNodes((prev) => [...prev, outputNode]);
-                }}
-              >
-                <Split className="mr-1 h-4 w-4" />
-                Añadir salida
-              </Button>
-              {!templateId ? (
-                <span className="text-xs text-muted-foreground">
-                  Se insertará la definición actual (no guardada).
-                </span>
-              ) : null}
-            </div>
+                    const outputId = createInnerNodeId();
+                    const labelText = "Salida";
+                    const outputNode: Node = {
+                      id: outputId,
+                      type: "subflowOutput",
+                      position,
+                      data: { label: labelText },
+                    };
+                    setDraftNodes((prev) => [...prev, outputNode]);
+                  }}
+                >
+                  <Split className="mr-1 h-4 w-4" />
+                  Añadir salida
+                </Button>
+                {!templateId ? (
+                  <span className="text-xs text-muted-foreground">
+                    Se insertará la definición actual (no guardada).
+                  </span>
+                ) : null}
+              </div>
 
-            <div className="h-[60vh] w-full overflow-hidden rounded-md border">
-              <ReactFlowProvider>
-                <ConnectionHighlightProvider value={connectionHighlight}>
-                  <ReactFlow
-                    id={editorFlowId}
-                    nodes={syncedDraftNodes.map((n) => ({
-                      ...n,
-                      type: normalizeNodeType(n.type),
-                    }))}
-                    edges={effectiveDraftEdges}
-                    defaultEdgeOptions={{
-                      markerEnd: {
-                        type: MarkerType.ArrowClosed,
-                        width: 14,
-                        height: 14,
-                      },
-                    }}
-                    connectionLineComponent={ArrowConnectionLine}
-                    nodeTypes={{
-                      ...nodeTypesCore,
-                      subflow: NestedSubflowNode,
-                    }}
-                    edgeTypes={{
-                      default: LabeledEdge,
-                    }}
-                    onNodesChange={onEditorNodesChange}
-                    onEdgesChange={onEditorEdgesChange}
-                    onConnect={onEditorConnect}
-                    isValidConnection={connectionTooltip.isValidConnection}
-                    onConnectStart={onEditorConnectStart}
-                    onConnectEnd={onEditorConnectEnd}
-                    onInit={(instance) => {
-                      editorInstanceRef.current = instance;
-                    }}
-                    onDrop={onEditorDrop}
-                    onDragOver={onEditorDragOver}
-                    panOnDrag={editorCanvasMode === "pan"}
-                    selectionOnDrag={editorCanvasMode === "select"}
-                    selectionMode={SelectionMode.Partial}
-                    className={
-                      editorCanvasMode === "pan"
-                        ? "rf-mode-pan"
-                        : "rf-mode-select"
-                    }
-                    fitView
-                    proOptions={{ hideAttribution: true }}
-                  >
-                    <ConnectionErrorTooltip
-                      open={connectionTooltip.tooltip.open}
-                      message={connectionTooltip.tooltip.message}
-                      x={connectionTooltip.tooltip.x}
-                      y={connectionTooltip.tooltip.y}
-                      onClose={connectionTooltip.hide}
-                    />
-                    <EditorStoreBridge
-                      onNodeLookup={(lookup) => {
-                        editorLookupRef.current = lookup;
+              <div className="h-[60vh] w-full overflow-hidden rounded-md border">
+                <ReactFlowProvider>
+                  <ConnectionHighlightProvider value={connectionHighlight}>
+                    <ReactFlow
+                      id={editorFlowId}
+                      nodes={syncedDraftNodes.map((n) => ({
+                        ...n,
+                        type: normalizeNodeType(n.type),
+                      }))}
+                      edges={effectiveDraftEdges}
+                      defaultEdgeOptions={{
+                        markerEnd: {
+                          type: MarkerType.ArrowClosed,
+                          width: 14,
+                          height: 14,
+                        },
                       }}
-                    />
-                    <Background variant={BackgroundVariant.Dots} />
-                    <Controls>
-                      <ControlButton
-                        onClick={() => setEditorCanvasMode("pan")}
-                        aria-pressed={editorCanvasMode === "pan"}
-                        title="Modo arrastrar (mover canvas)"
-                        className="rf-mode-toggle"
-                      >
-                        <Hand className="rf-icon-hand" />
-                      </ControlButton>
-                      <ControlButton
-                        onClick={() => setEditorCanvasMode("select")}
-                        aria-pressed={editorCanvasMode === "select"}
-                        title="Modo selección (cuadro)"
-                        className="rf-mode-toggle"
-                      >
-                        <MousePointer2 />
-                      </ControlButton>
-                    </Controls>
-                  </ReactFlow>
-                </ConnectionHighlightProvider>
-              </ReactFlowProvider>
+                      connectionLineComponent={ArrowConnectionLine}
+                      nodeTypes={{
+                        ...nodeTypesCore,
+                        subflow: NestedSubflowNode,
+                      }}
+                      edgeTypes={{
+                        default: LabeledEdge,
+                      }}
+                      onNodesChange={onEditorNodesChange}
+                      onEdgesChange={onEditorEdgesChange}
+                      onConnect={onEditorConnect}
+                      isValidConnection={connectionTooltip.isValidConnection}
+                      onConnectStart={onEditorConnectStart}
+                      onConnectEnd={onEditorConnectEnd}
+                      onInit={(instance) => {
+                        editorInstanceRef.current = instance;
+                      }}
+                      onDrop={onEditorDrop}
+                      onDragOver={onEditorDragOver}
+                      panOnDrag={editorCanvasMode === "pan"}
+                      selectionOnDrag={editorCanvasMode === "select"}
+                      selectionMode={SelectionMode.Partial}
+                      className={
+                        editorCanvasMode === "pan"
+                          ? "rf-mode-pan"
+                          : "rf-mode-select"
+                      }
+                      fitView
+                      proOptions={{ hideAttribution: true }}
+                    >
+                      <ConnectionErrorTooltip
+                        open={connectionTooltip.tooltip.open}
+                        message={connectionTooltip.tooltip.message}
+                        x={connectionTooltip.tooltip.x}
+                        y={connectionTooltip.tooltip.y}
+                        onClose={connectionTooltip.hide}
+                      />
+                      <EditorStoreBridge
+                        onNodeLookup={(lookup) => {
+                          editorLookupRef.current = lookup;
+                        }}
+                      />
+                      <Background variant={BackgroundVariant.Dots} />
+                      <Controls>
+                        <ControlButton
+                          onClick={() => setEditorCanvasMode("pan")}
+                          aria-pressed={editorCanvasMode === "pan"}
+                          title="Modo arrastrar (mover canvas)"
+                          className="rf-mode-toggle"
+                        >
+                          <Hand className="rf-icon-hand" />
+                        </ControlButton>
+                        <ControlButton
+                          onClick={() => setEditorCanvasMode("select")}
+                          aria-pressed={editorCanvasMode === "select"}
+                          title="Modo selección (cuadro)"
+                          className="rf-mode-toggle"
+                        >
+                          <MousePointer2 />
+                        </ControlButton>
+                      </Controls>
+                    </ReactFlow>
+                  </ConnectionHighlightProvider>
+                </ReactFlowProvider>
+              </div>
             </div>
-          </div>
-          <DialogFooter>
-            <div className="flex items-center gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => {
-                  setIsEditorOpen(false);
-                  setNameError(null);
-                }}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={() => {
-                  // Compute inCount from explicit `subflowInput` nodes added by the user.
-                  const explicitInputs = syncedDraftNodes.filter(
-                    (n) => String(n.type) === "subflowInput",
-                  ).length;
-                  const nextInCount = Number.isFinite(Number(explicitInputs))
-                    ? explicitInputs
-                    : Number.isFinite(rawInCount)
-                      ? (rawInCount as number)
-                      : inCount;
+            <DialogFooter>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setIsEditorOpen(false);
+                    setNameError(null);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    // Compute inCount from explicit `subflowInput` nodes added by the user.
+                    const explicitInputs = syncedDraftNodes.filter(
+                      (n) => String(n.type) === "subflowInput",
+                    ).length;
+                    const nextInCount = Number.isFinite(Number(explicitInputs))
+                      ? explicitInputs
+                      : Number.isFinite(rawInCount)
+                        ? (rawInCount as number)
+                        : inCount;
 
-                  // If there are explicit subflowOutput nodes, expose exactly one salida.
-                  const explicitOutputs = syncedDraftNodes.filter(
-                    (n) => String(n.type) === "subflowOutput",
-                  ).length;
+                    // If there are explicit subflowOutput nodes, expose exactly one salida.
+                    const explicitOutputs = syncedDraftNodes.filter(
+                      (n) => String(n.type) === "subflowOutput",
+                    ).length;
 
-                  // For outputs keep the previous behavior (try to compute open ports)
-                  // when no explicit subflowOutput nodes exist.
-                  const lookup = editorLookupRef.current;
-                  let nextOutCount =
-                    explicitOutputs > 0
-                      ? 1
-                      : Number.isFinite(rawOutCount)
-                        ? (rawOutCount as number)
-                        : outCount;
-                  try {
-                    const computed = computeOpenPortsFromLookup(
-                      syncedDraftNodes,
-                      effectiveDraftEdges,
-                      lookup,
-                    );
-                    if (computed && computed.ready && explicitOutputs === 0) {
-                      nextOutCount = computed.outCount;
+                    // For outputs keep the previous behavior (try to compute open ports)
+                    // when no explicit subflowOutput nodes exist.
+                    const lookup = editorLookupRef.current;
+                    let nextOutCount =
+                      explicitOutputs > 0
+                        ? 1
+                        : Number.isFinite(rawOutCount)
+                          ? (rawOutCount as number)
+                          : outCount;
+                    try {
+                      const computed = computeOpenPortsFromLookup(
+                        syncedDraftNodes,
+                        effectiveDraftEdges,
+                        lookup,
+                      );
+                      if (computed && computed.ready && explicitOutputs === 0) {
+                        nextOutCount = computed.outCount;
+                      }
+                    } catch {
+                      // ignore
                     }
-                  } catch {
-                    // ignore
-                  }
 
-                  const finalLabel = (draftLabel || label).trim() || label;
-                  // Prevent saving if any subflow input labels are empty
-                  const hasEmptyInputs = syncedDraftNodes.some((n) => {
-                    if (String(n.type) !== "subflowInput") return false;
-                    const data = (n.data ?? {}) as Record<string, unknown>;
-                    const label =
-                      typeof data.label === "string" ? data.label : "";
-                    return !label.trim();
-                  });
-                  if (hasEmptyInputs) {
-                    setNameError(
-                      "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
-                    );
-                    return;
-                  }
-
-                  // Prevent saving if there are more than one exposed outputs
-                  if (Number(nextOutCount) > 1) {
-                    setNameError(
-                      "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
-                    );
-                    return;
-                  }
-
-                  if (addToPalette && templateContext) {
-                    if (templateContext.isNameTaken(finalLabel)) {
+                    const finalLabel = (draftLabel || label).trim() || label;
+                    // Prevent saving if any subflow input labels are empty
+                    const hasEmptyInputs = syncedDraftNodes.some((n) => {
+                      if (String(n.type) !== "subflowInput") return false;
+                      const data = (n.data ?? {}) as Record<string, unknown>;
+                      const label =
+                        typeof data.label === "string" ? data.label : "";
+                      return !label.trim();
+                    });
+                    if (hasEmptyInputs) {
                       setNameError(
-                        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
+                        "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
                       );
                       return;
                     }
 
-                    const baseId = templateId || `sf-node-${String(id)}`;
-                    const uniqueId = `${baseId}-${Date.now().toString(36)}`;
+                    // Prevent saving if there are more than one exposed outputs
+                    if (Number(nextOutCount) > 1) {
+                      setNameError(
+                        "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
+                      );
+                      return;
+                    }
 
-                    // When saving to the palette, rebind self-call nodes to the new template id
-                    // so dragging from the palette can resolve the template correctly.
-                    const paletteNodes = syncedDraftNodes.map((n) => {
-                      if (n.type !== "subflow") return n;
-                      const data = (n.data ?? {}) as SubflowNodeData;
-                      const nodeTemplateId =
-                        typeof data.templateId === "string" &&
-                        data.templateId.trim().length > 0
-                          ? data.templateId.trim()
-                          : null;
-                      const isSelf = data.isSelfCall === true;
-                      if (
-                        isSelf &&
-                        (!nodeTemplateId ||
-                          nodeTemplateId === selfTemplateId ||
-                          nodeTemplateId === templateId)
-                      ) {
+                    if (addToPalette && templateContext) {
+                      if (templateContext.isNameTaken(finalLabel)) {
+                        setNameError(
+                          "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
+                        );
+                        return;
+                      }
+
+                      const baseId = templateId || `sf-node-${String(id)}`;
+                      const uniqueId = `${baseId}-${Date.now().toString(36)}`;
+
+                      // When saving to the palette, rebind self-call nodes to the new template id
+                      // so dragging from the palette can resolve the template correctly.
+                      const paletteNodes = syncedDraftNodes.map((n) => {
+                        if (n.type !== "subflow") return n;
+                        const data = (n.data ?? {}) as SubflowNodeData;
+                        const nodeTemplateId =
+                          typeof data.templateId === "string" &&
+                          data.templateId.trim().length > 0
+                            ? data.templateId.trim()
+                            : null;
+                        const isSelf = data.isSelfCall === true;
+                        if (
+                          isSelf &&
+                          (!nodeTemplateId ||
+                            nodeTemplateId === selfTemplateId ||
+                            nodeTemplateId === templateId)
+                        ) {
+                          return {
+                            ...n,
+                            data: {
+                              ...data,
+                              templateId: uniqueId,
+                            },
+                          };
+                        }
+                        return n;
+                      });
+
+                      templateContext.addOrUpdateTemplate({
+                        id: uniqueId,
+                        name: finalLabel,
+                        inCount: nextInCount,
+                        outCount: nextOutCount,
+                        nodes: paletteNodes,
+                        edges: effectiveDraftEdges,
+                      });
+                    }
+
+                    setNodes((prev) =>
+                      prev.map((n) => {
+                        if (n.id !== id) {
+                          return n;
+                        }
+
                         return {
                           ...n,
                           data: {
-                            ...data,
-                            templateId: uniqueId,
+                            ...(n.data as object),
+                            label: finalLabel,
+                            subflowNodes: syncedDraftNodes,
+                            subflowEdges: effectiveDraftEdges,
+                            inCount: nextInCount,
+                            outCount: nextOutCount,
                           },
                         };
-                      }
-                      return n;
-                    });
-
-                    templateContext.addOrUpdateTemplate({
-                      id: uniqueId,
-                      name: finalLabel,
-                      inCount: nextInCount,
-                      outCount: nextOutCount,
-                      nodes: paletteNodes,
-                      edges: effectiveDraftEdges,
-                    });
-                  }
-
-                  setNodes((prev) =>
-                    prev.map((n) => {
-                      if (n.id !== id) {
-                        return n;
-                      }
-
-                      return {
-                        ...n,
-                        data: {
-                          ...(n.data as object),
-                          label: finalLabel,
-                          subflowNodes: syncedDraftNodes,
-                          subflowEdges: effectiveDraftEdges,
-                          inCount: nextInCount,
-                          outCount: nextOutCount,
-                        },
-                      };
-                    }),
-                  );
-
-                  // Only remove connected edges if the number of exposed
-                  // ports actually changed — otherwise preserve existing
-                  // connections so users don't have to rewire on every save.
-                  const countsChanged =
-                    Number(nextInCount) !== Number(inCount) ||
-                    Number(nextOutCount) !== Number(outCount);
-
-                  if (countsChanged) {
-                    setEdges((prev) =>
-                      prev.filter(
-                        (edge) =>
-                          String(edge.source) !== String(id) &&
-                          String(edge.target) !== String(id),
-                      ),
+                      }),
                     );
-                  }
 
-                  setIsEditorOpen(false);
-                  setNameError(null);
-                }}
-              >
-                Guardar
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                    // Only remove connected edges if the number of exposed
+                    // ports actually changed — otherwise preserve existing
+                    // connections so users don't have to rewire on every save.
+                    const countsChanged =
+                      Number(nextInCount) !== Number(inCount) ||
+                      Number(nextOutCount) !== Number(outCount);
+
+                    if (countsChanged) {
+                      setEdges((prev) =>
+                        prev.filter(
+                          (edge) =>
+                            String(edge.source) !== String(id) &&
+                            String(edge.target) !== String(id),
+                        ),
+                      );
+                    }
+
+                    setIsEditorOpen(false);
+                    setNameError(null);
+                  }}
+                >
+                  Guardar
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </BaseNode>
       {!isSelfCall && config.dialog}
     </>
