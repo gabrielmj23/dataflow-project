@@ -205,7 +205,6 @@ export default function EditorPage() {
     nodes,
     programName,
     isEngineRunning,
-    consoleOutputText,
     activeRuntimePrompt,
     onRunClick,
     onStopClick,

@@ -8,6 +8,48 @@ import {
 } from "@/flow/serialization";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
 
+const REMOTE_CONFIG_KEYS = new Set([
+  "executionTarget",
+  "controllerId",
+  "transport",
+  "connectionType",
+  "microbitSlot",
+]);
+
+function sanitizePortableNode(node: FlowNode): FlowNode {
+  const nextData = sanitizePortableValue(node.data);
+  return {
+    ...node,
+    data: nextData as FlowNode["data"],
+  };
+}
+
+function sanitizePortableValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizePortableValue(entry));
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  const record = value as Record<string, unknown>;
+  if (isFlowNodeLike(record)) {
+    return sanitizePortableNode(record as FlowNode);
+  }
+
+  const next: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(record)) {
+    if (REMOTE_CONFIG_KEYS.has(key)) continue;
+    next[key] = sanitizePortableValue(raw);
+  }
+  return next;
+}
+
+function isFlowNodeLike(value: Record<string, unknown>): boolean {
+  return typeof value.id === "string" && ("type" in value || "data" in value);
+}
+
 type UseProgramIOParams = {
   reactFlowInstance: ReactFlowInstance | null;
   programName: string;
@@ -27,7 +69,9 @@ export function useProgramIO({
 
   const onDownloadClick = useCallback(() => {
     if (!reactFlowInstance) return;
-    const nodes = reactFlowInstance.getNodes();
+    const nodes = reactFlowInstance
+      .getNodes()
+      .map((node) => sanitizePortableNode(node as FlowNode));
     const edges = reactFlowInstance.getEdges();
     const viewport = reactFlowInstance.getViewport();
     const serialized = serializeProgram(

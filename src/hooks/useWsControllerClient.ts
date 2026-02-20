@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   DataflowEngine,
-  type EngineLogLevel,
   type EngineNodeStatus,
 } from "@/engine/engine";
 import { Arc, DataToken, PortAddress } from "@/engine/program-elements";
@@ -33,6 +32,34 @@ function coerceNumber(value: unknown): number {
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) throw new Error("Número inválido.");
   return n;
+}
+
+function computeSequenceValues(args: unknown[]): number[] {
+  const startArg = args[0];
+  const endArg = args[1];
+  const stepArg = args[2];
+
+  const start = typeof startArg === "number" ? startArg : 1;
+  const end = typeof endArg === "number" ? endArg : 10;
+  const stepRaw = typeof stepArg === "number" ? stepArg : 1;
+  const step = Number.isFinite(stepRaw) && stepRaw !== 0 ? stepRaw : 1;
+
+  if (start > end && step > 0) {
+    throw new Error(
+      "El valor de inicio no puede ser mayor que el valor de fin cuando el paso es positivo.",
+    );
+  }
+  if (start < end && step < 0) {
+    throw new Error(
+      "El valor de inicio no puede ser menor que el valor de fin cuando el paso es negativo.",
+    );
+  }
+
+  const sequence: number[] = [];
+  for (let i = start; i <= end; i += step) {
+    sequence.push(i);
+  }
+  return sequence;
 }
 
 function computeOperation(op: string, args: unknown[]): unknown {
@@ -96,6 +123,107 @@ function computeOperation(op: string, args: unknown[]): unknown {
       const a = args[0] ?? "";
       const b = args[1] ?? "";
       return String(a) + String(b);
+    }
+    case "generateSequence": {
+      return computeSequenceValues(args);
+    }
+    case "pulseSequence": {
+      return computeSequenceValues(args);
+    }
+    case "zip": {
+      const listA = Array.isArray(args[0]) ? args[0] : [];
+      const listB = Array.isArray(args[1]) ? args[1] : [];
+      const length = Math.min(listA.length, listB.length);
+      const zipped: unknown[] = [];
+      for (let i = 0; i < length; i += 1) {
+        zipped.push([listA[i], listB[i]]);
+      }
+      return zipped;
+    }
+    case "unzip": {
+      const tuples = Array.isArray(args[0]) ? args[0] : [];
+      const listA: unknown[] = [];
+      const listB: unknown[] = [];
+      for (const tuple of tuples) {
+        if (Array.isArray(tuple) && tuple.length >= 2) {
+          listA.push(tuple[0]);
+          listB.push(tuple[1]);
+        }
+      }
+      return { listA, listB };
+    }
+    case "filterTruthy": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return inputList.filter((item) => Boolean(item));
+    }
+    case "mapIdentity": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return [...inputList];
+    }
+    case "reduceSum": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return inputList.reduce((acc, curr) => (acc as number) + (curr as number), 0);
+    }
+    case "count": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return inputList.length;
+    }
+    case "scatter": {
+      const values = Array.isArray(args[0]) ? args[0] : [];
+      const rawCount = typeof args[1] === "number" ? args[1] : Number(args[1]);
+      const outputCount = Number.isFinite(rawCount)
+        ? Math.max(0, Math.floor(rawCount))
+        : 0;
+
+      if (outputCount === 0) return [];
+
+      const len = values.length;
+      const buckets: unknown[][] = Array.from({ length: outputCount }, () => []);
+      for (let i = 0; i < outputCount; i += 1) {
+        const start = Math.floor((i * len) / outputCount);
+        const end = Math.floor(((i + 1) * len) / outputCount);
+        buckets[i] = values.slice(start, end);
+      }
+      return buckets;
+    }
+    case "gather": {
+      const result: unknown[] = [];
+      for (const value of args) {
+        if (Array.isArray(value)) {
+          result.push(...value);
+        } else if (value !== undefined) {
+          result.push(value);
+        }
+      }
+      return result;
+    }
+    case "sortListAsc":
+    case "sortListDesc": {
+      const inputList = Array.isArray(args[0]) ? [...args[0]] : [];
+      const order = op === "sortListDesc" ? "desc" : "asc";
+      const isNumeric = inputList.every(
+        (item) => typeof item === "number" && Number.isFinite(item),
+      );
+
+      if (isNumeric) {
+        const numericList = inputList as number[];
+        return [...numericList].sort((a, b) =>
+          order === "asc" ? a - b : b - a,
+        );
+      }
+
+      const decorated = inputList.map((value) => ({
+        value,
+        key: value == null ? "" : String(value),
+      }));
+
+      decorated.sort((a, b) =>
+        order === "asc"
+          ? a.key.localeCompare(b.key)
+          : b.key.localeCompare(a.key),
+      );
+
+      return decorated.map((item) => item.value);
     }
     default:
       throw new Error(`Operación no soportada: ${op}`);
@@ -171,6 +299,7 @@ export function useWsControllerClient(config: RemoteConfig): {
   const [lastError, setLastError] = useState<string | undefined>(undefined);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const controllerIdRef = useRef<string>("");
   const requestIdRef = useRef(0);
 
   const nextRequestId = () => {
@@ -230,6 +359,7 @@ export function useWsControllerClient(config: RemoteConfig): {
 
         ws.onopen = () => {
           setLastError(undefined);
+          controllerIdRef.current = "";
           setState((prev) => ({ ...prev, connected: true }));
           send({
             type: "hello",
@@ -265,6 +395,13 @@ export function useWsControllerClient(config: RemoteConfig): {
           const type = msg.type;
           if (typeof type !== "string") return;
 
+          if (type === "welcome") {
+            const clientId =
+              typeof msg.clientId === "string" ? msg.clientId.trim() : "";
+            controllerIdRef.current = clientId;
+            return;
+          }
+
           if (type === "runner_status") {
             setState((prev) => ({
               ...prev,
@@ -274,24 +411,40 @@ export function useWsControllerClient(config: RemoteConfig): {
           }
 
           if (type === "snapshot") {
+            const targetControllerId =
+              typeof msg.controllerId === "string"
+                ? msg.controllerId.trim()
+                : "";
+            const ownControllerId = controllerIdRef.current;
+            if (targetControllerId && ownControllerId && targetControllerId !== ownControllerId) {
+              return;
+            }
+
             const nodeStatuses =
               typeof msg.nodeStatuses === "object" && msg.nodeStatuses != null
                 ? (msg.nodeStatuses as Record<string, EngineNodeStatus>)
                 : {};
-            const consoleText =
+            const incomingConsoleText =
               typeof msg.consoleText === "string" ? msg.consoleText : "";
             const isEngineRunning = msg.isEngineRunning === true;
             setState((prev) => ({
               ...prev,
               nodeStatuses,
-              consoleText,
+              consoleText:
+                incomingConsoleText.trim().length > 0
+                  ? incomingConsoleText
+                  : prev.consoleText,
               isEngineRunning,
             }));
             return;
           }
 
           if (type === "run_start") {
-            setState((prev) => ({ ...prev, isEngineRunning: true }));
+            setState((prev) => ({
+              ...prev,
+              isEngineRunning: true,
+              consoleText: "",
+            }));
             return;
           }
 
@@ -311,17 +464,21 @@ export function useWsControllerClient(config: RemoteConfig): {
             return;
           }
 
-          if (type === "engine_log") {
-            const level = (msg.level as EngineLogLevel) ?? "info";
-            const text = typeof msg.text === "string" ? msg.text : "";
-            if (!text) return;
+          if (type === "node_execution") {
+            const targetControllerId =
+              typeof msg.controllerId === "string"
+                ? msg.controllerId.trim()
+                : "";
+            const ownControllerId = controllerIdRef.current;
+            if (targetControllerId && ownControllerId && targetControllerId !== ownControllerId) {
+              return;
+            }
+
+            const line = typeof msg.line === "string" ? msg.line : "";
+            if (!line) return;
 
             setState((prev) => {
-              const line = level === "error" ? `Error: ${text}` : text;
-              const next = prev.consoleText
-                ? `${prev.consoleText}\n${line}`
-                : line;
-              // Keep it bounded.
+              const next = prev.consoleText ? `${prev.consoleText}\n${line}` : line;
               const lines = next.split("\n");
               const MAX = 200;
               const trimmed =

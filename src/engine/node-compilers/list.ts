@@ -24,6 +24,10 @@ import {
 } from "../program-elements";
 
 import { asRecord, isNonEmptyArray } from "../deserialize/utils";
+import type {
+  RemoteExecutionOp,
+  RemoteSubflowPayload,
+} from "../deserialize/shared-types";
 import type { NodeCompiler } from "./types";
 
 function parseTransport(data: Record<string, unknown>): "serial" | "bluetooth" {
@@ -102,6 +106,36 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
   const nodeType = String(flowNode.type);
   const data = asRecord(flowNode.data);
   const executionTarget = data.executionTarget;
+  const controllerId =
+    typeof data.controllerId === "string" ? data.controllerId : "";
+
+  const ensureRemote = (
+    op: RemoteExecutionOp,
+    ports: string[],
+    firePatterns: FirePatterns[],
+    stickyInputPorts?: string[],
+    mapArgs?: (args: unknown[]) => unknown[],
+    subflowFactory?: () => RemoteSubflowPayload | undefined,
+  ) => {
+    const executor = ctx.remoteExecutor;
+    if (!executor) throw new Error("Ejecución remota no configurada.");
+    if (!controllerId) throw new Error("No hay controller seleccionado.");
+
+    return new NodeDefinition(
+      async (...args: unknown[]) => {
+        return executor({
+          nodeId: String(flowNode.id),
+          controllerId,
+          op,
+          args: mapArgs ? mapArgs(args) : args,
+          ...(subflowFactory ? { subflow: subflowFactory() } : null),
+        });
+      },
+      firePatterns,
+      ports,
+      stickyInputPorts ? { stickyInputPorts } : undefined,
+    );
+  };
 
   switch (nodeType) {
     case NODE_TYPES.GENERATE_SEQUENCE_NODE: {
@@ -118,6 +152,15 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
         incoming.end ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
         incoming.step ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
       ];
+
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "generateSequence",
+          ["start", "end", "step", "output"],
+          firePatterns,
+          ["start", "end", "step"],
+        );
+      }
 
       return new EngineGenerateSequenceNode({
         defaultStart: 1,
@@ -142,6 +185,15 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
         incoming.step ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
       ];
 
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "pulseSequence",
+          ["start", "end", "step", "output"],
+          firePatterns,
+          ["start", "end", "step"],
+        );
+      }
+
       return new EnginePulseSequenceNode({
         defaultStart: 1,
         defaultEnd: 10,
@@ -151,6 +203,15 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
     }
 
     case NODE_TYPES.ZIP_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "zip",
+          ["listA", "listB", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["listA", "listB"],
+        );
+      }
+
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
         const graph = buildMicrobitListGraph({
@@ -187,6 +248,15 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
     }
 
     case NODE_TYPES.UNZIP_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "unzip",
+          ["inputList", "listA", "listB"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
         const graphA = buildMicrobitListGraph({
@@ -247,6 +317,64 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
     case NODE_TYPES.FILTER_NODE: {
       const filterNodes = data.filterNodes;
       const filterEdges = data.filterEdges;
+
+      if (executionTarget === "controller") {
+        if (isNonEmptyArray<Node>(filterNodes) && Array.isArray(filterEdges)) {
+          const plan = ctx.helpers.computeSubflowExecutionPlan({
+            subflowNodes: filterNodes as Node[],
+            subflowEdges: filterEdges as Edge[],
+            inCount: 1,
+            outCount: 1,
+            onLog: ctx.onLog,
+            onPrompt: ctx.onPrompt,
+            signal: ctx.signal,
+            remoteExecutor: ctx.remoteExecutor,
+            runtimeCtx: ctx.subflowRuntimeContext,
+          });
+
+          const payload: RemoteSubflowPayload = {
+            nodes: filterNodes as Node[],
+            edges: filterEdges as Edge[],
+            selectedInputs: plan.selectedInputs,
+            outputSources: plan.outputSources,
+            hasAnyOutput: plan.hasAnyOutput,
+          };
+
+          return new NodeDefinition(
+            async (inputList: unknown[]) => {
+              const executor = ctx.remoteExecutor;
+              if (!executor) throw new Error("Ejecución remota no configurada.");
+              if (!controllerId) throw new Error("No hay controller seleccionado.");
+
+              const items = Array.isArray(inputList) ? inputList : [];
+              const output: unknown[] = [];
+
+              for (let i = 0; i < items.length; i += 1) {
+                const predicate = await executor({
+                  nodeId: String(flowNode.id),
+                  controllerId,
+                  op: "subflow",
+                  args: [items[i]],
+                  subflow: payload,
+                });
+                if (predicate) output.push(items[i]);
+              }
+
+              return output;
+            },
+            [FirePatterns.EXISTS],
+            ["inputList", "outputList"],
+            { stickyInputPorts: ["inputList"], skipStepDelay: true },
+          );
+        }
+
+        return ensureRemote(
+          "filterTruthy",
+          ["inputList", "outputList"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
 
       if (
         executionTarget === "microbit" &&
@@ -333,6 +461,64 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       const mapNodes = data.mapNodes;
       const mapEdges = data.mapEdges;
 
+      if (executionTarget === "controller") {
+        if (isNonEmptyArray<Node>(mapNodes) && Array.isArray(mapEdges)) {
+          const plan = ctx.helpers.computeSubflowExecutionPlan({
+            subflowNodes: mapNodes as Node[],
+            subflowEdges: mapEdges as Edge[],
+            inCount: 1,
+            outCount: 1,
+            onLog: ctx.onLog,
+            onPrompt: ctx.onPrompt,
+            signal: ctx.signal,
+            remoteExecutor: ctx.remoteExecutor,
+            runtimeCtx: ctx.subflowRuntimeContext,
+          });
+
+          const payload: RemoteSubflowPayload = {
+            nodes: mapNodes as Node[],
+            edges: mapEdges as Edge[],
+            selectedInputs: plan.selectedInputs,
+            outputSources: plan.outputSources,
+            hasAnyOutput: plan.hasAnyOutput,
+          };
+
+          return new NodeDefinition(
+            async (inputList: unknown[]) => {
+              const executor = ctx.remoteExecutor;
+              if (!executor) throw new Error("Ejecución remota no configurada.");
+              if (!controllerId) throw new Error("No hay controller seleccionado.");
+
+              const items = Array.isArray(inputList) ? inputList : [];
+              const output: unknown[] = [];
+
+              for (let i = 0; i < items.length; i += 1) {
+                const mapped = await executor({
+                  nodeId: String(flowNode.id),
+                  controllerId,
+                  op: "subflow",
+                  args: [items[i]],
+                  subflow: payload,
+                });
+                output.push(mapped);
+              }
+
+              return output;
+            },
+            [FirePatterns.EXISTS],
+            ["inputList", "outputList"],
+            { stickyInputPorts: ["inputList"], skipStepDelay: true },
+          );
+        }
+
+        return ensureRemote(
+          "mapIdentity",
+          ["inputList", "outputList"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
       if (
         executionTarget === "microbit" &&
         isNonEmptyArray<Node>(mapNodes) &&
@@ -413,6 +599,15 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
     }
 
     case NODE_TYPES.REDUCE_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "reduceSum",
+          ["inputList", "output"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
         const graph = buildMicrobitListGraph({
@@ -449,6 +644,15 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
     }
 
     case NODE_TYPES.COUNT_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "count",
+          ["inputList", "output"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
         const graph = buildMicrobitListGraph({
@@ -490,6 +694,21 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       const inferredCount =
         ctx.scatterOutputCountByNodeId?.get(String(flowNode.id)) ?? 0;
       const outputCount = Math.max(rawCount, inferredCount, 0);
+
+      if (executionTarget === "controller") {
+        const outputPorts = Array.from(
+          { length: outputCount },
+          (_v, index) => `output${index + 1}`,
+        );
+        return ensureRemote(
+          "scatter",
+          ["inputList", ...outputPorts],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+          (args) => [args[0], outputCount],
+        );
+      }
+
       return new EngineScatterNode({ outputCount });
     }
 
@@ -508,12 +727,34 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
           : FirePatterns.DONT_CARE;
       });
 
+      if (executionTarget === "controller") {
+        const inputPorts = Array.from(
+          { length: inputCount },
+          (_v, index) => `input${index + 1}`,
+        );
+        return ensureRemote(
+          "gather",
+          [...inputPorts, "outputList"],
+          firePatterns,
+          inputPorts,
+        );
+      }
+
       return new EngineGatherNode({ inputCount, firePatterns });
     }
 
     case NODE_TYPES.SORT_LIST_NODE: {
       const order = data.order;
       const normalized = order === "desc" ? "desc" : "asc";
+
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          normalized === "desc" ? "sortListDesc" : "sortListAsc",
+          ["inputList", "outputList"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
 
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);

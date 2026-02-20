@@ -55,6 +55,18 @@ export type RemoteExecutionOp =
   | "ceiling"
   | "round"
   | "concat"
+  | "generateSequence"
+  | "pulseSequence"
+  | "zip"
+  | "unzip"
+  | "filterTruthy"
+  | "mapIdentity"
+  | "reduceSum"
+  | "count"
+  | "scatter"
+  | "gather"
+  | "sortListAsc"
+  | "sortListDesc"
   | "subflow";
 
 export type RemoteSubflowPayload = {
