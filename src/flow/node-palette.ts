@@ -16,6 +16,69 @@ export type NodePaletteCategory = {
   items: NodePaletteItem[];
 };
 
+export type AbstractionLevel = 1 | 2 | 3;
+
+const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
+  runtimeInput: 1,
+  constantNumber: 1,
+  constantBoolean: 1,
+  constantText: 1,
+  constantList: 3,
+  timerInput: 2,
+  randomInput: 2,
+  choiceInput: 2,
+  microbitReadButton: 3,
+
+  sum: 1,
+  subtract: 1,
+  multiply: 1,
+  divide: 1,
+  mod: 1,
+  power: 1,
+  floor: 1,
+  ceiling: 1,
+  round: 1,
+  formulaEditor: 3,
+
+  concat: 1,
+  replaceText: 1,
+  subtractText: 1,
+  sliceText: 1,
+
+  comparison: 1,
+  and: 1,
+  nand: 1,
+  or: 1,
+  nor: 1,
+  xor: 1,
+  not: 1,
+  switch: 2,
+  selector: 2,
+  conditional: 3,
+  conditionalPair: 3,
+  scatter: 2,
+  gather: 2,
+
+  sequence: 3,
+  pulseSequence: 2,
+  zip: 3,
+  unzip: 3,
+  filter: 3,
+  map: 3,
+  sortList: 3,
+  accumulate: 3,
+  count: 3,
+
+  subflow: 3,
+  write: 1,
+  microbitWrite: 3,
+  microbitSound: 3,
+};
+
+export function getNodeAbstractionLevel(type: string): AbstractionLevel {
+  return nodeAbstractionLevelMap[type] ?? 3;
+}
+
 export const nodePalette: NodePaletteCategory[] = [
   {
     id: "inputs",
