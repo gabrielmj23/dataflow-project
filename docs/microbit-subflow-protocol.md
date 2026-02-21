@@ -189,7 +189,7 @@ DFP1|STOP|21|I=<run_id>
 `CAPS` recomendado:
 
 - `ALU` (operaciones numéricas)
-- `STR` (strings)
+- `STR` (strings; concat, replace, subtract, slice)
 - `DISPLAY` (matriz LED / showString/showNumber)
 - `SOUND`
 - `PINS`
@@ -241,6 +241,7 @@ Opcodes iniciales (MVP):
 - `0x10 ADD` / `0x11 SUB` / `0x12 MUL` / `0x13 DIV` / `0x14 MOD` / `0x15 POW`
 - `0x16 FLOOR` / `0x17 CEIL` / `0x18 ROUND`
 - `0x20 CONCAT`
+- `0x21 REPLACE_TEXT` / `0x22 SUBTRACT_TEXT` / `0x23 SLICE_TEXT`
 - `0x30 DISPLAY_TEXT` (pop string)
 - `0x31 DISPLAY_NUMBER` (pop number)
 - `0x32 PLAY_TONE` (pop ms, pop freq)

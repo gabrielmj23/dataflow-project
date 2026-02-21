@@ -40,6 +40,13 @@ export type EngineRunnerEvent =
       type: "edge_value";
       edgeId: string;
       value: unknown;
+    }
+  | {
+      type: "node_execution";
+      nodeId: string;
+      operation?: string;
+      inputs: unknown[];
+      result: unknown;
     };
 
 type UseEngineRunnerParams = {
@@ -315,6 +322,15 @@ export function useEngineRunner({
         onEdgeValue: ({ edgeId, value }) => {
           publishEdgeValue({ edgeId, value });
           onEngineEvent?.({ type: "edge_value", edgeId, value });
+        },
+        onNodeExecution: ({ nodeId, operation, inputs, result }) => {
+          onEngineEvent?.({
+            type: "node_execution",
+            nodeId,
+            operation,
+            inputs,
+            result,
+          });
         },
       });
 

@@ -1,4 +1,4 @@
-import { Download, Upload, Unplug, Lock, Unlock } from "lucide-react";
+import { Download, Upload, Unplug, Plug, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { EdgeFeedbackMode } from "@/flow/edge-feedback-mode";
 
@@ -6,6 +6,7 @@ interface EditorHeaderActionsProps {
   onDownloadClick: () => void;
   onLoadClick: () => void;
   onConnectClick: () => void;
+  isConnected: boolean;
   edgeFeedbackMode: EdgeFeedbackMode;
   onToggleEdgeFeedbackMode: () => void;
 }
@@ -14,6 +15,7 @@ export function EditorHeaderActions({
   onDownloadClick,
   onLoadClick,
   onConnectClick,
+  isConnected,
   edgeFeedbackMode,
   onToggleEdgeFeedbackMode,
 }: EditorHeaderActionsProps) {
@@ -43,8 +45,16 @@ export function EditorHeaderActions({
         type="button"
         onClick={onConnectClick}
       >
+        <span
+          className={`inline-block h-2 w-2 rounded-full ${isConnected ? "bg-green-300" : "bg-white/40"}`}
+          aria-hidden="true"
+        />
         Conectar
-        <Unplug className="text-white" />
+        {isConnected ? (
+          <Plug className="text-white" />
+        ) : (
+          <Unplug className="text-white" />
+        )}
       </Button>
       <Button
         variant="secondary"

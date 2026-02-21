@@ -111,7 +111,7 @@ register([NODE_TYPES.FILTER_INPUT_VALUE, NODE_TYPES.MAP_INPUT_VALUE], (p) => {
 });
 
 // Subflow node (indexed in/out handles)
-register([NODE_TYPES.SUBFLOW], (p) => {
+register([NODE_TYPES.SUBFLOW, NODE_TYPES.REPLICATE_FLOW], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   const idx = parseIndexHandle(handleId);
   if (direction === "target") {
@@ -391,20 +391,19 @@ register([NODE_TYPES.UNZIP_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register([
-  NODE_TYPES.FILTER_NODE,
-  NODE_TYPES.MAP_NODE,
-  NODE_TYPES.SORT_LIST_NODE,
-], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [NODE_TYPES.FILTER_NODE, NODE_TYPES.MAP_NODE, NODE_TYPES.SORT_LIST_NODE],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "outputList";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "outputList";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 register([NODE_TYPES.COUNT_NODE, NODE_TYPES.REDUCE_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;

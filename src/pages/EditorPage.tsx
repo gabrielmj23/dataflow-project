@@ -205,7 +205,6 @@ export default function EditorPage() {
     nodes,
     programName,
     isEngineRunning,
-    consoleOutputText,
     activeRuntimePrompt,
     onRunClick,
     onStopClick,
@@ -403,6 +402,7 @@ export default function EditorPage() {
               onDownloadClick={onDownloadClick}
               onLoadClick={onLoadClick}
               onConnectClick={() => setIsRemoteDialogOpen(true)}
+              isConnected={runnerBridge.wsState.connected}
               edgeFeedbackMode={edgeFeedbackMode}
               onToggleEdgeFeedbackMode={toggleEdgeFeedbackMode}
             />
