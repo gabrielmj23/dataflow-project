@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type {
   ChallengeDefinition,
@@ -41,11 +41,25 @@ const STATUS_STYLE: Record<
   },
 };
 
+// Carga dinámica de imágenes de retos: los archivos deben llamarse como el id
+// del desafío (p. ej. `1.png`, `challenge-2.svg`). Se usa `import.meta.glob` para
+// que Vite procese/optimice los assets y nos devuelva URLs.
+const _rawChallengeImages = import.meta.glob(
+  "../../assets/challenges/*.{png,jpg,svg}",
+  { eager: true, as: "url" },
+) as Record<string, string>;
+
+const challengeImages: Record<string, string> = {};
+Object.entries(_rawChallengeImages).forEach(([p, url]) => {
+  const name = p.split("/").pop()?.replace(/\.(png|jpg|svg)$/i, "") || "";
+  if (name) challengeImages[name] = url;
+});
 export type ChallengeMapProps = {
   backgroundHref: string;
   viewBox: { width: number; height: number };
   challenges: ChallengeDefinition[];
   statuses: Record<ChallengeId, ChallengeStatus>;
+  initialSelectedId?: ChallengeId | null;
   className?: string;
 };
 
@@ -54,6 +68,7 @@ export function ChallengeMap({
   viewBox,
   challenges,
   statuses,
+  initialSelectedId = null,
   className,
 }: ChallengeMapProps) {
   const sorted = useMemo(
@@ -66,6 +81,28 @@ export function ChallengeMap({
   const outerR = innerR * 1.2;
 
   const [selectedId, setSelectedId] = useState<ChallengeId | null>(null);
+  const lastInitialIdRef = useRef<ChallengeId | null>(null);
+
+  useEffect(() => {
+    if (!initialSelectedId) return;
+    const hasSelection =
+      selectedId && challenges.some((challenge) => challenge.id === selectedId);
+    if (lastInitialIdRef.current !== initialSelectedId && !hasSelection) {
+      lastInitialIdRef.current = initialSelectedId;
+      // Try to simulate a user click on the corresponding button so the
+      // Popover opens exactly as when the user clicks it (matching position
+      // and animation). Fallback to setting state if the button is not found.
+      const selector = `button[data-challenge-id="${initialSelectedId}"]`;
+      const btn = document.querySelector(selector) as HTMLButtonElement | null;
+      if (btn) {
+        // Small timeout to allow layout/portal to stabilize before clicking.
+        setTimeout(() => btn.click(), 50);
+        setSelectedId(initialSelectedId);
+      } else {
+        setSelectedId(initialSelectedId);
+      }
+    }
+  }, [challenges, initialSelectedId, selectedId]);
 
   const resolvePoint = (point: { x: number; y: number }) => {
     const isNormalized = point.x <= 1 && point.y <= 1;
@@ -169,62 +206,85 @@ export function ChallengeMap({
                 animationDelay: delay,
               }}
             >
-              {status === "locked" ? (
-                <Button
-                  aria-label={`${challenge.title} — ${style.label}`}
-                  className={cn(
-                    "flex h-10 w-10 items-center justify-center rounded-full border-2",
-                    {
-                      "bg-slate-400 border-slate-600 hover:bg-slate-400 hover:cursor-default":
-                        status === "locked",
-                    },
-                  )}
-                />
-              ) : (
-                <Popover>
-                  <PopoverTrigger>
-                    <Button
-                      aria-label={`${challenge.title} — ${style.label}`}
-                      className={cn(
-                        "flex h-10 w-10 items-center justify-center rounded-full border-2",
-                        {
-                          "bg-amber-500 border-amber-600 hover:bg-amber-600 hover:border-amber-700":
-                            status === "available",
-                          "bg-emerald-500 border-emerald-600 hover:bg-emerald-600 hover:border-emerald-700":
-                            status === "completed",
-                        },
-                      )}
-                      onClick={() => setSelectedId(challenge.id)}
-                    />
-                  </PopoverTrigger>
+              <div className="relative">
+                <div
+                  className="relative"
+                  style={{ width: `${innerR * 2}px`, height: `${innerR * 2}px` }}
+                >
+                  <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+                    {status === "locked" ? (
+                      <Button
+                        aria-label={`${challenge.title} — ${style.label}`}
+                        className={cn(
+                          "flex h-10 w-10 items-center justify-center rounded-full border-2",
+                          {
+                            "bg-slate-400 border-slate-600 hover:bg-slate-400 hover:cursor-default":
+                              status === "locked",
+                          },
+                        )}
+                      />
+                    ) : (
+                      <Popover>
+                        <PopoverTrigger>
+                          <Button
+                            aria-label={`${challenge.title} — ${style.label}`}
+                            data-challenge-id={challenge.id}
+                            className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-full border-2",
+                              {
+                                "bg-amber-500 border-amber-600 hover:bg-amber-600 hover:border-amber-700":
+                                  status === "available",
+                                "bg-emerald-500 border-emerald-600 hover:bg-emerald-600 hover:border-emerald-700":
+                                  status === "completed",
+                              },
+                            )}
+                            onClick={() => setSelectedId(challenge.id)}
+                          />
+                        </PopoverTrigger>
 
-                  <PopoverContent sideOffset={8} className="w-64">
-                    <PopoverHeader>
-                      <PopoverTitle>{challenge.title}</PopoverTitle>
-                    </PopoverHeader>
-                    <PopoverDescription>
-                      <div className="text-sm mb-2">
-                        {challenge.description}
-                      </div>
-                      <div className="flex items-center gap-3 text-xs">
-                        <span>Grupo: {challenge.group}</span>
-                        <span>Nivel: {challenge.level}</span>
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <Button className="ml-auto inline-flex items-center gap-2 rounded-lg bg-green-600/90 hover:bg-green-600 px-3 py-2 text-sm  text-white">
-                          <Link
-                            to={`/editor/${challenge.id}`}
-                            className="font-normal"
-                          >
-                            Iniciar reto{" "}
-                            <Play fill="white" className="inline" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </PopoverDescription>
-                  </PopoverContent>
-                </Popover>
-              )}
+                        <PopoverContent sideOffset={16} className="w-64">
+                          <PopoverHeader>
+                            <PopoverTitle>{challenge.title}</PopoverTitle>
+                          </PopoverHeader>
+                          <PopoverDescription>
+                            <div className="text-sm mb-2">{challenge.description}</div>
+                            <div className="flex items-center gap-3 text-xs">
+                              <span>Grupo: {challenge.group}</span>
+                              <span>Nivel: {challenge.level}</span>
+                            </div>
+                            <div className="mt-3 flex gap-2">
+                              <Button className="ml-auto inline-flex items-center gap-2 rounded-lg bg-green-600/90 hover:bg-green-600 px-3 py-2 text-sm  text-white">
+                                <Link to={`/editor/${challenge.id}`} className="font-normal">
+                                  Iniciar reto{" "}
+                                  <Play fill="white" className="inline" />
+                                </Link>
+                              </Button>
+                            </div>
+                          </PopoverDescription>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+
+                  {challengeImages[challenge.id] ? (
+                    <img
+                      src={challengeImages[challenge.id]}
+                      alt={challenge.title}
+                      style={{
+                        position: "absolute",
+                        left: `${innerR -100 }px`,
+                        top: "50%",
+                        transform: "translateY(-50%)",
+                        width: `${innerR * 10}px`,
+                        height: `${innerR * 10}px`,
+                        maxWidth: "none",
+                        maxHeight: "none",
+                      }}
+                      className="object-contain pointer-events-none rounded"
+                    />
+                  ) : null}
+                </div>
+              </div>
             </div>
           );
         })}

@@ -55,6 +55,21 @@ export type RemoteExecutionOp =
   | "ceiling"
   | "round"
   | "concat"
+  | "replaceText"
+  | "subtractText"
+  | "sliceText"
+  | "generateSequence"
+  | "pulseSequence"
+  | "zip"
+  | "unzip"
+  | "filterTruthy"
+  | "mapIdentity"
+  | "reduceSum"
+  | "count"
+  | "scatter"
+  | "gather"
+  | "sortListAsc"
+  | "sortListDesc"
   | "subflow";
 
 export type RemoteSubflowPayload = {
@@ -284,7 +299,8 @@ export function buildEngineStoresFromFlowGraph(params: {
     try {
       const dt = asRecord(n.data);
       if (
-        n.type === NODE_TYPES.SUBFLOW &&
+        (n.type === NODE_TYPES.SUBFLOW ||
+          n.type === NODE_TYPES.REPLICATE_FLOW) &&
         Array.isArray(dt.subflowNodes) &&
         Array.isArray(dt.subflowEdges)
       ) {
@@ -534,14 +550,14 @@ function compileSingleInputGraph(params: {
       }
 
       const OUT_PORT = "result";
-        const augmentedArcs = [
-          ...engineArcs,
-          new Arc(
-            new PortAddress(chosen.nodeId, chosen.portId),
-            new PortAddress("", OUT_PORT),
-            `${chosen.nodeId}:${chosen.portId}->${OUT_PORT}`,
-          ),
-        ];
+      const augmentedArcs = [
+        ...engineArcs,
+        new Arc(
+          new PortAddress(chosen.nodeId, chosen.portId),
+          new PortAddress("", OUT_PORT),
+          `${chosen.nodeId}:${chosen.portId}->${OUT_PORT}`,
+        ),
+      ];
 
       engine.loadProgram({ nodes: engineNodes, arcs: augmentedArcs });
       const emitted = await engine.run({

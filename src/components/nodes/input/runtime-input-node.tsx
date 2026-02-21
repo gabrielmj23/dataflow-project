@@ -25,7 +25,7 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
 
   const resolvedValueType = valueType === "text" ? "text" : "number";
 
-  const promptText = typeof prompt === "string" ? prompt : "Ingrese un número";
+  const promptText = typeof prompt === "string" ? prompt : "Ingrese su entrada";
   const numericDefault = typeof defaultValue === "number" ? defaultValue : 0;
   const textDefault = typeof defaultValue === "string" ? defaultValue : "";
   const identifierValue = typeof identifier === "string" ? identifier : "";

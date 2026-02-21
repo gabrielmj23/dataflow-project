@@ -46,6 +46,12 @@ export type EngineObserver = {
     targetNodeId: string;
     targetPortId: string;
   }) => void;
+  onNodeExecution?: (event: {
+    nodeId: string;
+    operation?: string;
+    inputs: unknown[];
+    result: unknown;
+  }) => void;
 };
 
 function coerceTextInput(value: unknown): string {
@@ -873,6 +879,13 @@ export class DataflowEngine {
     }
 
     throwIfAborted(signal);
+
+    this.observer?.onNodeExecution?.({
+      nodeId: node.id,
+      operation: nodeDefinition.meta.kind,
+      inputs: argValues,
+      result: rawResult,
+    });
 
     // Normalize outputs to local tokens
     const inferredInputCount = (() => {

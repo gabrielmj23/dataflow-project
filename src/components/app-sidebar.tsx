@@ -23,6 +23,7 @@ import {
   MessageSquareText,
   Volume2,
   PictureInPicture2,
+  Copy,
   GitFork,
   Replace as ReplaceIcon,
   Eraser,
@@ -41,13 +42,19 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import type { NodePaletteCategory, NodePaletteItem } from "@/flow/node-palette";
+import {
+  getNodeAbstractionLevel,
+  type AbstractionLevel,
+  type NodePaletteCategory,
+  type NodePaletteItem,
+} from "@/flow/node-palette";
 import { NODE_TYPES } from "@/common/constants";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
   onDragStart: (event: DragEvent, item: NodePaletteItem) => void;
   onDeleteTemplate?: (templateId: string) => void;
+  showAbstractionFilter?: boolean;
   className?: string;
 };
 
@@ -55,9 +62,12 @@ export function AppSidebar({
   categories,
   onDragStart,
   onDeleteTemplate,
+  showAbstractionFilter = true,
   className,
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
+  const [abstractionLevel, setAbstractionLevel] =
+    React.useState<AbstractionLevel>(3);
   const viewMode = "nodes";
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -67,6 +77,7 @@ export function AppSidebar({
       inputs: "bg-emerald-500",
       math: "bg-sky-500",
       control: "bg-orange-500",
+      distribution: "bg-yellow-500",
       text: "bg-fuchsia-600",
       iteration: "bg-teal-600",
       abstraction: "bg-violet-500",
@@ -81,6 +92,7 @@ export function AppSidebar({
       inputs: "border-emerald-600",
       math: "border-sky-700",
       control: "border-orange-600",
+      distribution: "border-yellow-600",
       text: "border-fuchsia-700",
       iteration: "border-teal-800",
       abstraction: "border-violet-700",
@@ -98,13 +110,17 @@ export function AppSidebar({
   const normalizedSearch = search.trim().toLowerCase();
 
   const filteredCategories = React.useMemo(() => {
-    if (!normalizedSearch) {
-      return categories;
-    }
-
     return categories
       .map((category) => {
         const items = category.items.filter((item) => {
+          if (getNodeAbstractionLevel(item.type) > abstractionLevel) {
+            return false;
+          }
+
+          if (!normalizedSearch) {
+            return true;
+          }
+
           const label = item.label.toLowerCase();
           const type = item.type.toLowerCase();
           const description = item.description?.toLowerCase() ?? "";
@@ -117,7 +133,7 @@ export function AppSidebar({
         return { ...category, items };
       })
       .filter((category) => category.items.length > 0);
-  }, [categories, normalizedSearch]);
+  }, [abstractionLevel, categories, normalizedSearch]);
 
   const handleScrollToCategory = (index: number) => {
     const target = sectionRefs[index]?.current;
@@ -164,6 +180,36 @@ export function AppSidebar({
               onChange={(event) => setSearch(event.currentTarget.value)}
               placeholder="Buscar nodo"
             />
+            {showAbstractionFilter && (
+              <>
+                <p className="mt-2 px-1 text-[11px] font-medium text-muted-foreground">
+                  Nivel de abstracción
+                </p>
+                <div className="mx-auto mt-1 w-40 overflow-hidden rounded-full border border-border">
+                  <div className="grid grid-cols-3">
+                    {([1, 2, 3] as const).map((level, index) => {
+                      const active = level <= abstractionLevel;
+                      return (
+                        <button
+                          key={level}
+                          type="button"
+                          onClick={() => setAbstractionLevel(level)}
+                          className={`h-7 text-xs font-semibold transition-colors ${
+                            index > 0 ? "border-l border-border" : ""
+                          } ${
+                            active
+                              ? "bg-accent text-accent-foreground"
+                              : "bg-background text-muted-foreground hover:bg-muted"
+                          }`}
+                        >
+                          {level}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarHeader>
@@ -422,9 +468,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "xor":
       case "not":
       case "switch":
-      case "conditionalPair":
-      case NODE_TYPES.SCATTER_NODE:
-      case NODE_TYPES.GATHER_NODE: {
+      case "conditionalPair": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           and: "and",
@@ -435,43 +479,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           not: "not",
           switch: "switch",
           conditionalPair: "conditionalPair",
-          [NODE_TYPES.SCATTER_NODE]: NODE_TYPES.SCATTER_NODE,
-          [NODE_TYPES.GATHER_NODE]: NODE_TYPES.GATHER_NODE,
         };
-
-        if (type === NODE_TYPES.SCATTER_NODE) {
-          return (
-            <div
-              data-drag-preview
-              className="node-preview relative flex h-24 w-16 flex-col items-center justify-center rounded-none border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
-              style={{
-                clipPath: "polygon(0% 25%, 100% 0%, 100% 100%, 0% 75%)",
-              }}
-            >
-              <span className="mb-1 flex items-center justify-center">
-                <GitFork className="h-5 w-5 rotate-90" />
-              </span>
-              <span className="text-[0.65rem] leading-tight">{label}</span>
-            </div>
-          );
-        }
-
-        if (type === NODE_TYPES.GATHER_NODE) {
-          return (
-            <div
-              data-drag-preview
-              className="node-preview relative flex h-24 w-16 flex-col items-center justify-center rounded-none border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
-              style={{
-                clipPath: "polygon(0% 0%, 100% 25%, 100% 75%, 0% 100%)",
-              }}
-            >
-              <span className="mb-1 flex items-center justify-center">
-                <GitFork className="h-5 w-5 -rotate-90" />
-              </span>
-              <span className="text-[0.65rem] leading-tight">{label}</span>
-            </div>
-          );
-        }
 
         return (
           <div
@@ -507,11 +515,55 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
                   <Shuffle className="h-4 w-4" />
                 </span>
               )}
-              {symbolMap[type] === NODE_TYPES.SCATTER_NODE && (
-                <span>
-                  <GitFork className="h-4 w-4 rotate-90" />
-                </span>
-              )}
+            </span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case NODE_TYPES.REPLICATE_FLOW:
+      case NODE_TYPES.SCATTER_NODE:
+      case NODE_TYPES.GATHER_NODE: {
+        if (type === NODE_TYPES.SCATTER_NODE) {
+          return (
+            <div
+              data-drag-preview
+              className="node-preview relative flex h-24 w-16 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-5 text-center text-white shadow-md"
+              style={{
+                clipPath: "polygon(0% 25%, 100% 0%, 100% 100%, 0% 75%)",
+              }}
+            >
+              <span className="mb-1 flex items-center justify-center">
+                <GitFork className="h-5 w-5 rotate-90" />
+              </span>
+              <span className="text-[0.65rem] leading-tight">{label}</span>
+            </div>
+          );
+        }
+
+        if (type === NODE_TYPES.GATHER_NODE) {
+          return (
+            <div
+              data-drag-preview
+              className="node-preview relative flex h-24 w-16 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-5 text-center text-white shadow-md"
+              style={{
+                clipPath: "polygon(0% 0%, 100% 25%, 100% 75%, 0% 100%)",
+              }}
+            >
+              <span className="mb-1 flex items-center justify-center">
+                <GitFork className="h-5 w-5 -rotate-90" />
+              </span>
+              <span className="text-[0.65rem] leading-tight">{label}</span>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-yellow-600 bg-yellow-500 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-xl font-bold leading-none">
+              <Copy className="h-5 w-5 rotate-90" />
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>
@@ -543,7 +595,11 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
           >
             <span className="text-xl font-bold leading-none">
-              {symbolMap[type] === "sort" ? <ArrowUpDown className="h-5 w-5" /> : symbolMap[type] ?? ""}
+              {symbolMap[type] === "sort" ? (
+                <ArrowUpDown className="h-5 w-5" />
+              ) : (
+                (symbolMap[type] ?? "")
+              )}
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>

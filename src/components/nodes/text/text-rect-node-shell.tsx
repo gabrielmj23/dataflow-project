@@ -13,16 +13,20 @@ export type TextRectNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
   label: string;
+  subtitle?: string;
   runtimeError?: string | null;
   inputCount?: 1 | 2 | 3;
+  onConnectClick?: () => void;
 };
 
 export function TextRectNodeShell({
   nodeType,
   icon,
   label,
+  subtitle,
   runtimeError,
   inputCount = 2,
+  onConnectClick,
 }: TextRectNodeShellProps) {
   const inputLabels = (() => {
     if (nodeType === "replaceText") return ["Texto", "Buscar", "Nuevo"];
@@ -50,11 +54,15 @@ export function TextRectNodeShell({
   return (
     <BaseNode
       runtimeError={runtimeError}
+      onConnectClick={onConnectClick}
       className="relative flex h-18 w-36 flex-col justify-center rounded-2xl border-fuchsia-700 bg-fuchsia-600 px-6 text-white shadow-md"
     >
       <div className={`flex flex-col gap-0.5 items-center ${inputLabels.length > 0 ? "ml-10" : ""}`}>
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
+        {subtitle && (
+          <div className="text-xs leading-tight text-white/85">{subtitle}</div>
+        )}
       </div>
 
       <CustomTypedHandle

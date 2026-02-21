@@ -16,6 +16,69 @@ export type NodePaletteCategory = {
   items: NodePaletteItem[];
 };
 
+export type AbstractionLevel = 1 | 2 | 3;
+
+const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
+  runtimeInput: 1,
+  constantNumber: 1,
+  constantBoolean: 1,
+  constantText: 1,
+  constantList: 3,
+  timerInput: 2,
+  randomInput: 2,
+  choiceInput: 2,
+  microbitReadButton: 3,
+
+  sum: 1,
+  subtract: 1,
+  multiply: 1,
+  divide: 1,
+  mod: 1,
+  power: 1,
+  floor: 1,
+  ceiling: 1,
+  round: 1,
+  formulaEditor: 3,
+
+  concat: 1,
+  replaceText: 1,
+  subtractText: 1,
+  sliceText: 1,
+
+  comparison: 1,
+  and: 1,
+  nand: 1,
+  or: 1,
+  nor: 1,
+  xor: 1,
+  not: 1,
+  switch: 2,
+  selector: 2,
+  conditional: 3,
+  conditionalPair: 3,
+  scatter: 2,
+  gather: 2,
+
+  sequence: 3,
+  pulseSequence: 2,
+  zip: 3,
+  unzip: 3,
+  filter: 3,
+  map: 3,
+  sortList: 3,
+  accumulate: 3,
+  count: 3,
+
+  subflow: 3,
+  write: 1,
+  microbitWrite: 3,
+  microbitSound: 3,
+};
+
+export function getNodeAbstractionLevel(type: string): AbstractionLevel {
+  return nodeAbstractionLevelMap[type] ?? 3;
+}
+
 export const nodePalette: NodePaletteCategory[] = [
   {
     id: "inputs",
@@ -75,26 +138,80 @@ export const nodePalette: NodePaletteCategory[] = [
     id: "math",
     title: "Matemática",
     items: [
-      { type: "sum", label: "Sumar", description: "Suma dos valores numéricos." },
-      { type: "subtract", label: "Restar", description: "Resta el segundo valor del primero." },
-      { type: "multiply", label: "Multiplicar", description: "Multiplica dos valores numéricos." },
-      { type: "divide", label: "Dividir", description: "Divide el primer valor entre el segundo." },
-      { type: "mod", label: "Módulo", description: "Calcula el resto de la división entre dos valores." },
-      { type: "power", label: "Potencia", description: "Eleva una base a un exponente." },
+      {
+        type: "sum",
+        label: "Sumar",
+        description: "Suma dos valores numéricos.",
+      },
+      {
+        type: "subtract",
+        label: "Restar",
+        description: "Resta el segundo valor del primero.",
+      },
+      {
+        type: "multiply",
+        label: "Multiplicar",
+        description: "Multiplica dos valores numéricos.",
+      },
+      {
+        type: "divide",
+        label: "Dividir",
+        description: "Divide el primer valor entre el segundo.",
+      },
+      {
+        type: "mod",
+        label: "Módulo",
+        description: "Calcula el resto de la división entre dos valores.",
+      },
+      {
+        type: "power",
+        label: "Potencia",
+        description: "Eleva una base a un exponente.",
+      },
       { type: "floor", label: "Piso", description: "Redondea hacia abajo." },
-      { type: "ceiling", label: "Techo", description: "Redondea hacia arriba." },
-      { type: "round", label: "Redondear", description: "Redondea al entero más cercano." },
-      { type: "formulaEditor", label: "Editor de fórmulas", description: "Calcula una expresión con variables numéricas." },
+      {
+        type: "ceiling",
+        label: "Techo",
+        description: "Redondea hacia arriba.",
+      },
+      {
+        type: "round",
+        label: "Redondear",
+        description: "Redondea al entero más cercano.",
+      },
+      {
+        type: "formulaEditor",
+        label: "Editor de fórmulas",
+        description: "Calcula una expresión con variables numéricas.",
+      },
     ],
   },
   {
     id: "text",
     title: "Texto",
     items: [
-      { type: "concat", label: "Concatenar", description: "Une dos cadenas o listas en una sola." },
-      { type: "replaceText", label: "Reemplazar", description: "Sustituye coincidencias de un texto por otro." },
-      { type: "subtractText", label: "Sustraer", description: "Elimina todas las ocurrencias de un fragmento en un texto." },
-      { type: "sliceText", label: "Recortar", description: "Devuelve un segmento del texto entre posición inicio y fin." },
+      {
+        type: "concat",
+        label: "Concatenar",
+        description: "Une dos cadenas o listas en una sola.",
+      },
+      {
+        type: "replaceText",
+        label: "Reemplazar",
+        description: "Sustituye coincidencias de un texto por otro.",
+      },
+      {
+        type: "subtractText",
+        label: "Sustraer",
+        description:
+          "Elimina todas las ocurrencias de un fragmento en un texto.",
+      },
+      {
+        type: "sliceText",
+        label: "Recortar",
+        description:
+          "Devuelve un segmento del texto entre posición inicio y fin.",
+      },
     ],
   },
   {
@@ -146,6 +263,18 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Condicional",
         description:
           "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
+      },
+    ],
+  },
+  {
+    id: "distribution",
+    title: "Distribución",
+    items: [
+      {
+        type: "replicateFlow",
+        label: "Replicar flujo",
+        description:
+          "Configura y almacena un flujo interno reutilizable dentro del nodo.",
       },
       {
         type: "scatter",

@@ -389,6 +389,7 @@ export function attachWebSocketHub(
         if (
           type === "snapshot" ||
           type === "engine_log" ||
+          type === "node_execution" ||
           type === "node_status" ||
           type === "run_start" ||
           type === "run_end" ||
