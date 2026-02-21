@@ -1,4 +1,7 @@
+import type { Edge, Node } from "@xyflow/react";
 import { NODE_TYPES } from "@/common/constants";
+import { ensureMicrobitConnected } from "@/microbit/connection-manager";
+import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import {
   EngineCeilingNode,
@@ -70,6 +73,58 @@ function createRemoteExecutionNode(params: {
       ? { stickyInputPorts: params.stickyInputPorts }
       : undefined,
   );
+}
+
+function buildMicrobitTextGraph(params: {
+  nodeId: string;
+  nodeType: string;
+  nodeData: Record<string, unknown>;
+  inputHandles: string[];
+  outputPortId: string;
+}): {
+  nodes: Node[];
+  edges: Edge[];
+  selectedInputs: Array<{ nodeId: string; portId: string }>;
+  outputSources: Array<{ nodeId: string; portId: string }>;
+  programId: string;
+} {
+  const inputNodes = params.inputHandles.map((_entry, index) => ({
+    id: `mb-${params.nodeId}-in-${index + 1}`,
+    type: NODE_TYPES.SUBFLOW_INPUT,
+    position: { x: 0, y: index * 120 },
+    data: { label: `Input ${index + 1}` },
+  }));
+
+  const opNodeId = `mb-${params.nodeId}-op`;
+  const opNode: Node = {
+    id: opNodeId,
+    type: params.nodeType,
+    position: { x: 180, y: 0 },
+    data: params.nodeData,
+  };
+
+  const edges: Edge[] = params.inputHandles.map((handleId, index) => ({
+    id: `mb-${params.nodeId}-e-${index + 1}`,
+    source: inputNodes[index].id,
+    target: opNodeId,
+    sourceHandle: "value",
+    targetHandle: handleId,
+  }));
+
+  const selectedInputs = inputNodes.map((node) => ({
+    nodeId: String(node.id),
+    portId: "input",
+  }));
+
+  return {
+    nodes: [...inputNodes, opNode],
+    edges,
+    selectedInputs,
+    outputSources: [{ nodeId: opNodeId, portId: params.outputPortId }],
+    programId: `${params.nodeId}-${params.outputPortId}`
+      .replace(/[^a-zA-Z0-9._-]/g, "_")
+      .slice(0, 32),
+  };
 }
 
 export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
@@ -303,12 +358,123 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
       return new EngineConcatNode();
     }
     case NODE_TYPES.REPLACE_TEXT_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "replaceText",
+          ["text", "search", "replacement", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["text", "search", "replacement"],
+        );
+      }
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitTextGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in-1", "in-2", "in-3"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (text: unknown, search: unknown, replacement: unknown) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [text, search, replacement],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS, FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["text", "search", "replacement", "output"],
+          { stickyInputPorts: ["text", "search", "replacement"] },
+        );
+      }
       return new EngineReplaceTextNode();
     }
     case NODE_TYPES.SUBTRACT_TEXT_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "subtractText",
+          ["text", "search", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["text", "search"],
+        );
+      }
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitTextGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in-1", "in-2"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (text: unknown, search: unknown) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [text, search],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["text", "search", "output"],
+          { stickyInputPorts: ["text", "search"] },
+        );
+      }
       return new EngineSubtractTextNode();
     }
     case NODE_TYPES.SLICE_TEXT_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "sliceText",
+          ["text", "start", "end", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["text", "start", "end"],
+        );
+      }
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitTextGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in-1", "in-2", "in-3"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (text: unknown, start: unknown, end: unknown) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [text, start, end],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS, FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["text", "start", "end", "output"],
+          { stickyInputPorts: ["text", "start", "end"] },
+        );
+      }
       return new EngineSliceTextNode();
     }
     case NODE_TYPES.FORMULA_EDITOR_NODE: {

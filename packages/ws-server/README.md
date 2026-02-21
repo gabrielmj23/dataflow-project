@@ -45,3 +45,8 @@ Luego:
 - Runner → controllers: `snapshot`, `engine_log`, `node_status`, `run_start`, `run_end`, `prompt`, `control_ack`
 
 Este servidor **no ejecuta el engine**: solo enruta mensajes por `sessionKey` y expone endpoints HTTP de observabilidad.
+
+## Documentación relacionada
+
+- Protocolo remoto PC↔PC: [docs/pc-remote-execution-protocol.md](../../docs/pc-remote-execution-protocol.md)
+- Protocolo micro:bit subflow: [docs/microbit-subflow-protocol.md](../../docs/microbit-subflow-protocol.md)

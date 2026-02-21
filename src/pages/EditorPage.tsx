@@ -205,7 +205,6 @@ export default function EditorPage() {
     nodes,
     programName,
     isEngineRunning,
-    consoleOutputText,
     activeRuntimePrompt,
     onRunClick,
     onStopClick,
@@ -414,6 +413,7 @@ export default function EditorPage() {
               categories={paletteCategories}
               onDragStart={onPaletteDragStart}
               onDeleteTemplate={subflow.requestDeleteTemplate}
+              showAbstractionFilter={!challenge.challengeAllowSet}
             />
 
             <SidebarInset>

@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type { EngineNodeStatus } from "@/engine/engine";
+import { DataToken, PortAddress } from "@/engine/program-elements";
 import type { FlowNode } from "@/utils/flow";
 import type { RuntimePrompt } from "@/hooks/useRuntimeConsole";
 import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
@@ -15,12 +16,40 @@ type RunnerWsState = {
 
 type EngineEvent = EngineRunnerEvent;
 
+const OP_LABEL_BY_KEY: Record<string, string> = {
+  sum: "Sumar",
+  subtract: "Restar",
+  multiply: "Multiplicar",
+  divide: "Dividir",
+  mod: "Módulo",
+  power: "Potencia",
+  floor: "Piso",
+  ceiling: "Techo",
+  round: "Redondear",
+  concat: "Concatenar",
+  replacetext: "Reemplazar texto",
+  subtracttext: "Sustraer texto",
+  slicetext: "Recortar texto",
+  generatesequence: "Generar secuencia",
+  pulsesequence: "Pulso de secuencia",
+  zip: "Unir en pares",
+  unzip: "Separar pares",
+  filtertruthy: "Filtrar",
+  mapidentity: "Mapear",
+  reducesum: "Acumular",
+  count: "Contar",
+  scatter: "Distribuir",
+  gather: "Reunir",
+  sortlistasc: "Ordenar lista asc",
+  sortlistdesc: "Ordenar lista desc",
+  subflow: "Subflujo",
+};
+
 type UseWsRunnerBridgeParams = {
   remoteConfig: RemoteConfig;
   nodes: FlowNode[];
   programName: string;
   isEngineRunning: boolean;
-  consoleOutputText: string;
   activeRuntimePrompt: RuntimePrompt | null;
   onRunClick: () => void;
   onStopClick: () => void;
@@ -52,6 +81,97 @@ function stringifyError(error: unknown): string {
   }
 }
 
+function formatVerboseValue(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value === undefined) return "undefined";
+  if (value === null) return "null";
+  if (value instanceof Error) return value.message;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function trimTrailingUndefined(values: unknown[]): unknown[] {
+  const next = [...values];
+  while (next.length > 0 && next[next.length - 1] === undefined) {
+    next.pop();
+  }
+  return next;
+}
+
+function opToLabel(op: string): string {
+  const key = op.trim().toLowerCase();
+  const mapped = OP_LABEL_BY_KEY[key];
+  if (mapped) return mapped;
+  if (!key) return "Operación";
+  return `${key.charAt(0).toUpperCase()}${key.slice(1)}`;
+}
+
+function isTransientWsError(error: unknown): boolean {
+  const text = stringifyError(error).toLowerCase();
+  return (
+    text.includes("conexión ws cerrada") ||
+    text.includes("ws no conectado") ||
+    text.includes("ws no inicializado") ||
+    text.includes("timeout esperando respuesta del controller")
+  );
+}
+
+async function delayMs(ms: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+function decodeRemoteResultForEngine(req: RemoteExecutionRequest, raw: unknown): unknown {
+  const op = req.op.trim().toLowerCase();
+
+  if (op === "pulsesequence") {
+    const values = Array.isArray(raw) ? raw : [];
+    return values.map(
+      (value) => new DataToken(value, new PortAddress("", "output")),
+    );
+  }
+
+  if (op === "unzip") {
+    let listA: unknown[] = [];
+    let listB: unknown[] = [];
+
+    if (raw && typeof raw === "object") {
+      const obj = raw as Record<string, unknown>;
+      listA = Array.isArray(obj.listA) ? obj.listA : [];
+      listB = Array.isArray(obj.listB) ? obj.listB : [];
+    }
+
+    return [
+      new DataToken(listA, new PortAddress("", "listA")),
+      new DataToken(listB, new PortAddress("", "listB")),
+    ];
+  }
+
+  if (op === "scatter") {
+    const buckets = Array.isArray(raw) ? raw : [];
+    return buckets.map((bucket, index) =>
+      new DataToken(
+        Array.isArray(bucket) ? bucket : [],
+        new PortAddress("", `output${index + 1}`),
+      ),
+    );
+  }
+
+  return raw;
+}
+
+type RemoteConsoleState = {
+  counter: number;
+  lines: string[];
+};
+
 /**
  * Runner-side WS bridge.
  *
@@ -74,6 +194,9 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
 
   const onRunClickRef = useRef(params.onRunClick);
   const onStopClickRef = useRef(params.onStopClick);
+  const nodesRef = useRef(params.nodes);
+  const programNameRef = useRef(params.programName);
+  const isEngineRunningRef = useRef(params.isEngineRunning);
   const activePromptRef = useRef<RuntimePrompt | null>(
     params.activeRuntimePrompt,
   );
@@ -87,6 +210,18 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
   }, [params.onStopClick]);
 
   useEffect(() => {
+    nodesRef.current = params.nodes;
+  }, [params.nodes]);
+
+  useEffect(() => {
+    programNameRef.current = params.programName;
+  }, [params.programName]);
+
+  useEffect(() => {
+    isEngineRunningRef.current = params.isEngineRunning;
+  }, [params.isEngineRunning]);
+
+  useEffect(() => {
     activePromptRef.current = params.activeRuntimePrompt;
   }, [params.activeRuntimePrompt]);
 
@@ -94,6 +229,24 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
     connected: false,
   });
   const [controllers, setControllers] = useState<RemoteControllerInfo[]>([]);
+  const remoteConsoleByControllerRef = useRef<Map<string, RemoteConsoleState>>(
+    new Map(),
+  );
+
+  const nodeLabelById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const node of params.nodes) {
+      const data =
+        node.data && typeof node.data === "object"
+          ? (node.data as Record<string, unknown>)
+          : null;
+      const label = typeof data?.label === "string" ? data.label.trim() : "";
+      if (label) {
+        map.set(String(node.id), label);
+      }
+    }
+    return map;
+  }, [params.nodes]);
 
   const wsRef = useRef<WebSocket | null>(null);
   const seqRef = useRef(0);
@@ -101,6 +254,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
     new Map<
       string,
       {
+        request: RemoteExecutionRequest;
         resolve: (value: unknown) => void;
         reject: (reason?: unknown) => void;
         timeoutId: number;
@@ -123,7 +277,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
   };
 
   const executeRemote = useCallback(
-    (req: RemoteExecutionRequest) => {
+    async (req: RemoteExecutionRequest) => {
       if (!enabled) {
         return Promise.reject(new Error("Remote runner no está habilitado."));
       }
@@ -178,74 +332,92 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
           }, 120);
         });
 
-      const requestId = `exec_${nextSeq()}`;
+      const executeRemoteOnce = () => {
+        const requestId = `exec_${nextSeq()}`;
 
-      return new Promise<unknown>((resolve, reject) => {
-        waitForOpen()
-          .then(() => {
-            const timeoutId = window.setTimeout(() => {
-              execPendingRef.current.delete(requestId);
-              reject(new Error("Timeout esperando respuesta del controller."));
-            }, 15_000);
+        return new Promise<unknown>((resolve, reject) => {
+          waitForOpen()
+            .then(() => {
+              const timeoutId = window.setTimeout(() => {
+                execPendingRef.current.delete(requestId);
+                reject(new Error("Timeout esperando respuesta del controller."));
+              }, 15_000);
 
-            execPendingRef.current.set(requestId, {
-              resolve,
-              reject,
-              timeoutId,
-            });
+              execPendingRef.current.set(requestId, {
+                request: req,
+                resolve,
+                reject,
+                timeoutId,
+              });
 
-            send({
-              type: "exec_request",
-              requestId,
-              controllerId: req.controllerId,
-              nodeId: req.nodeId,
-              op: req.op,
-              args: req.args,
-              ...(req.subflow ? { subflow: req.subflow } : {}),
-            });
-          })
-          .catch(reject);
-      });
+              send({
+                type: "exec_request",
+                requestId,
+                controllerId: req.controllerId,
+                nodeId: req.nodeId,
+                op: req.op,
+                args: req.args,
+                ...(req.subflow ? { subflow: req.subflow } : {}),
+              });
+            })
+            .catch(reject);
+        });
+      };
+
+      const MAX_RETRIES = 1;
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
+        try {
+          return await executeRemoteOnce();
+        } catch (error) {
+          const hasRetry = attempt < MAX_RETRIES;
+          if (!hasRetry || !isTransientWsError(error)) {
+            throw error;
+          }
+          await delayMs(400);
+        }
+      }
+
+      throw new Error("Ejecución remota falló tras reintento.");
     },
     [enabled, send],
   );
 
   const sendSnapshot = useCallback(
-    (requestId?: unknown) => {
+    (requestId?: unknown, controllerId?: unknown) => {
       const nodeStatuses: Record<string, EngineNodeStatus> = {};
-      for (const n of params.nodes) {
+      for (const n of nodesRef.current) {
         const s = statusFromClassName(n.className);
         if (s) nodeStatuses[String(n.id)] = s;
       }
+
+      const controllerKey =
+        typeof controllerId === "string" ? controllerId.trim() : "";
+      const consoleState = controllerKey
+        ? remoteConsoleByControllerRef.current.get(controllerKey)
+        : undefined;
 
       send({
         type: "snapshot",
         requestId,
         seq: nextSeq(),
         ts: Date.now(),
-        programName: params.programName,
-        isEngineRunning: params.isEngineRunning,
+        programName: programNameRef.current,
+        isEngineRunning: isEngineRunningRef.current,
         nodeStatuses,
-        consoleText: params.consoleOutputText,
+        ...(controllerKey ? { controllerId: controllerKey } : null),
+        consoleText: consoleState?.lines.join("\n") ?? "",
         activePrompt:
-          params.activeRuntimePrompt != null
+          activePromptRef.current != null
             ? {
-                nodeId: params.activeRuntimePrompt.nodeId,
-                prompt: params.activeRuntimePrompt.prompt,
-                inputType: params.activeRuntimePrompt.type,
-                defaultValue: params.activeRuntimePrompt.defaultValue,
+                nodeId: activePromptRef.current.nodeId,
+                prompt: activePromptRef.current.prompt,
+                inputType: activePromptRef.current.type,
+                defaultValue: activePromptRef.current.defaultValue,
               }
             : null,
       });
     },
-    [
-      params.nodes,
-      params.programName,
-      params.isEngineRunning,
-      params.consoleOutputText,
-      params.activeRuntimePrompt,
-      send,
-    ],
+    [send, remoteConsoleByControllerRef],
   );
 
   const emitEngineEvent = useCallback(
@@ -255,6 +427,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
       const base = { seq: nextSeq(), ts: Date.now() };
 
       if (e.type === "run_start") {
+        remoteConsoleByControllerRef.current = new Map();
         send({ type: "run_start", ...base });
         return;
       }
@@ -278,13 +451,9 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
         return;
       }
       if (e.type === "log") {
-        send({
-          type: "engine_log",
-          ...base,
-          level: e.level,
-          nodeId: e.nodeId,
-          text: e.text,
-        });
+        return;
+      }
+      if (e.type === "node_execution") {
         return;
       }
       if (e.type === "prompt") {
@@ -298,7 +467,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
         });
       }
     },
-    [enabled, send],
+    [enabled, nodeLabelById, send],
   );
 
   useEffect(() => {
@@ -333,8 +502,6 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
             sessionKey: config.sessionKey,
             hubName: "hub",
           });
-          // Push an initial snapshot to help controllers that connect later.
-          sendSnapshot();
           send({ type: "get_controllers" });
         };
 
@@ -363,7 +530,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
           if (typeof type !== "string") return;
 
           if (type === "get_snapshot") {
-            sendSnapshot(msg.requestId);
+            sendSnapshot(msg.requestId, msg.controllerId);
             return;
           }
 
@@ -459,7 +626,43 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
 
             const ok = msg.ok === true;
             if (ok) {
-              pending.resolve(msg.result);
+              const req = pending.request;
+              const controllerId =
+                typeof msg.controllerId === "string" && msg.controllerId.trim()
+                  ? msg.controllerId.trim()
+                  : req.controllerId;
+              const existing =
+                remoteConsoleByControllerRef.current.get(controllerId) ?? {
+                  counter: 0,
+                  lines: [],
+                };
+              const nodeNumber = existing.counter + 1;
+              const nodeLabel =
+                nodeLabelById.get(req.nodeId) || opToLabel(req.op) || `Nodo ${nodeNumber}`;
+              const argsText = trimTrailingUndefined(req.args)
+                .map((value) => formatVerboseValue(value))
+                .join(", ");
+              const decodedResult = decodeRemoteResultForEngine(req, msg.result);
+              const resultText = formatVerboseValue(msg.result);
+              const line = `Nodo${nodeNumber}: ${nodeLabel}(${argsText}) -> ${resultText}`;
+              const MAX = 200;
+              const nextState: RemoteConsoleState = {
+                counter: nodeNumber,
+                lines: [...existing.lines, line].slice(-MAX),
+              };
+              remoteConsoleByControllerRef.current.set(controllerId, nextState);
+
+              send({
+                type: "node_execution",
+                seq: nextSeq(),
+                ts: Date.now(),
+                nodeId: req.nodeId,
+                index: nodeNumber,
+                controllerId,
+                line,
+              });
+
+              pending.resolve(decodedResult);
             } else {
               const errorText =
                 typeof msg.error === "string"
