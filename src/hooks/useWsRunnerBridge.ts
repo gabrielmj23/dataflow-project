@@ -8,6 +8,7 @@ import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
 import type { RemoteConfig } from "@/ws/remote-config";
 import type { RemoteControllerInfo } from "@/ws/remote-controllers-context";
 import type { RemoteSubflowPayload } from "@/engine/deserialize-program";
+import { NODE_TYPES } from "@/common/constants";
 
 type RunnerWsState = {
   connected: boolean;
@@ -128,7 +129,10 @@ async function delayMs(ms: number): Promise<void> {
   });
 }
 
-function decodeRemoteResultForEngine(req: RemoteExecutionRequest, raw: unknown): unknown {
+function decodeRemoteResultForEngine(
+  req: RemoteExecutionRequest,
+  raw: unknown,
+): unknown {
   const op = req.op.trim().toLowerCase();
 
   if (op === "pulsesequence") {
@@ -156,11 +160,12 @@ function decodeRemoteResultForEngine(req: RemoteExecutionRequest, raw: unknown):
 
   if (op === "scatter") {
     const buckets = Array.isArray(raw) ? raw : [];
-    return buckets.map((bucket, index) =>
-      new DataToken(
-        Array.isArray(bucket) ? bucket : [],
-        new PortAddress("", `output${index + 1}`),
-      ),
+    return buckets.map(
+      (bucket, index) =>
+        new DataToken(
+          Array.isArray(bucket) ? bucket : [],
+          new PortAddress("", `output${index + 1}`),
+        ),
     );
   }
 
@@ -244,6 +249,14 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
       if (label) {
         map.set(String(node.id), label);
       }
+    }
+    return map;
+  }, [params.nodes]);
+
+  const nodeTypeById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const node of params.nodes) {
+      map.set(String(node.id), String(node.type ?? ""));
     }
     return map;
   }, [params.nodes]);
@@ -340,7 +353,9 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
             .then(() => {
               const timeoutId = window.setTimeout(() => {
                 execPendingRef.current.delete(requestId);
-                reject(new Error("Timeout esperando respuesta del controller."));
+                reject(
+                  new Error("Timeout esperando respuesta del controller."),
+                );
               }, 15_000);
 
               execPendingRef.current.set(requestId, {
@@ -467,7 +482,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
         });
       }
     },
-    [enabled, nodeLabelById, send],
+    [enabled, send],
   );
 
   useEffect(() => {
@@ -478,6 +493,7 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
         // ignore
       }
       wsRef.current = null;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setWsState({ connected: false, lastError: undefined });
       setControllers([]);
       return;
@@ -631,18 +647,32 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
                 typeof msg.controllerId === "string" && msg.controllerId.trim()
                   ? msg.controllerId.trim()
                   : req.controllerId;
-              const existing =
-                remoteConsoleByControllerRef.current.get(controllerId) ?? {
-                  counter: 0,
-                  lines: [],
-                };
+              const existing = remoteConsoleByControllerRef.current.get(
+                controllerId,
+              ) ?? {
+                counter: 0,
+                lines: [],
+              };
               const nodeNumber = existing.counter + 1;
+              const nodeType = nodeTypeById.get(req.nodeId) ?? "";
+              const inferredLabel =
+                nodeType === NODE_TYPES.REPLICATE_FLOW
+                  ? "Replicar Flujo"
+                  : nodeType === NODE_TYPES.SUBFLOW
+                    ? "Subflujo"
+                    : null;
               const nodeLabel =
-                nodeLabelById.get(req.nodeId) || opToLabel(req.op) || `Nodo ${nodeNumber}`;
+                nodeLabelById.get(req.nodeId) ||
+                inferredLabel ||
+                opToLabel(req.op) ||
+                `Nodo ${nodeNumber}`;
               const argsText = trimTrailingUndefined(req.args)
                 .map((value) => formatVerboseValue(value))
                 .join(", ");
-              const decodedResult = decodeRemoteResultForEngine(req, msg.result);
+              const decodedResult = decodeRemoteResultForEngine(
+                req,
+                msg.result,
+              );
               const resultText = formatVerboseValue(msg.result);
               const line = `Nodo${nodeNumber}: ${nodeLabel}(${argsText}) -> ${resultText}`;
               const MAX = 200;
@@ -696,7 +726,15 @@ export function useWsRunnerBridge(params: UseWsRunnerBridgeParams): {
       }
       execPendingRef.current.clear();
     };
-  }, [enabled, config.url, config.sessionKey, send, sendSnapshot]);
+  }, [
+    enabled,
+    config.url,
+    config.sessionKey,
+    send,
+    sendSnapshot,
+    nodeTypeById,
+    nodeLabelById,
+  ]);
 
   return { wsState, emitEngineEvent, controllers, executeRemote };
 }

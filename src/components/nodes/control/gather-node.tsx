@@ -99,6 +99,7 @@ export const GatherNode = memo(({ id, data }: NodeProps) => {
   return (
     <BaseNode
       runtimeError={runtimeError}
+      disableRuntimeStyles
       className="relative flex h-40 w-18 items-center justify-center bg-transparent border-transparent shadow-none"
       hideDeleteButton={false}
       sideActionsClassName="-left-6"
