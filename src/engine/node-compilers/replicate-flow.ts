@@ -266,13 +266,19 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
       runtimeCtx: ctx.subflowRuntimeContext,
     });
 
-    const firePatterns = localPlan.selectedInputs.map(
+    const replicaCount = Math.max(1, executionConfigs.length);
+    const firePatterns = Array.from(
+      { length: replicaCount },
       () => FirePatterns.EXISTS,
     );
-    const inputPorts = localPlan.selectedInputs.map(
+    const inputPorts = Array.from(
+      { length: replicaCount },
       (_, idx) => `input${idx + 1}`,
     );
-    const outputPorts = localPlan.hasAnyOutput ? ["output1"] : [];
+    const outputPorts = Array.from(
+      { length: replicaCount },
+      (_, idx) => `output${idx + 1}`,
+    );
 
     const hasControllerTarget = executionConfigs.some(
       (entry) => entry.executionTarget === "controller",
@@ -372,11 +378,13 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
 
     return new NodeDefinition(
       async (...args: unknown[]) => {
-        let lastResult: unknown;
+        const replicaResults: unknown[] = [];
         const executor = ctx.remoteExecutor;
 
-        for (const config of executionConfigs) {
-          const replicaArgs = cloneArgsForReplica(args);
+        for (let index = 0; index < executionConfigs.length; index += 1) {
+          const config = executionConfigs[index];
+          const replicaInput = args[index];
+          const replicaArgs = cloneArgsForReplica([replicaInput]);
 
           if (config.executionTarget === "controller") {
             if (!executor) throw new Error("Ejecución remota no configurada.");
@@ -389,7 +397,7 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
               );
             }
 
-            lastResult = await executor({
+            const lastResult = await executor({
               nodeId: String(flowNode.id),
               controllerId: config.controllerId,
               op: "subflow",
@@ -402,6 +410,7 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
                 hasAnyOutput: controllerPlan.hasAnyOutput,
               } satisfies RemoteSubflowPayload,
             });
+            replicaResults.push(lastResult);
             continue;
           }
 
@@ -410,7 +419,7 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
               transport: config.transport,
             });
 
-            lastResult = await sendSubflowToMicrobit({
+            const lastResult = await sendSubflowToMicrobit({
               connection,
               nodes: subflowNodes as Node[],
               edges: subflowEdges as Edge[],
@@ -420,13 +429,19 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
               programId,
               signal: ctx.signal,
             });
+            replicaResults.push(lastResult);
             continue;
           }
 
-          lastResult = await executeLocal(...replicaArgs);
+          const lastResult = await executeLocal(...replicaArgs);
+          replicaResults.push(lastResult);
         }
 
-        return lastResult;
+        while (replicaResults.length < outputPorts.length) {
+          replicaResults.push(undefined);
+        }
+
+        return replicaResults;
       },
       firePatterns,
       [...inputPorts, ...outputPorts],
