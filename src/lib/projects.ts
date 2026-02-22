@@ -6,6 +6,22 @@ type ApiErrorResponse = {
   error?: string;
 };
 
+export type PublicProjectSummary = {
+  id: string;
+  name: string;
+  authorId: string;
+  authorName: string;
+  thumbnail: string | null;
+};
+
+export type PublishedProject = PublicProjectSummary & {
+  remixedFromId: string | null;
+  remixedFromName: string | null;
+  program: SerializedProgramV1;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function getApiBaseUrl(): string {
   return import.meta.env.VITE_AUTH_API_URL?.trim() || "/api";
 }
@@ -67,4 +83,31 @@ export async function captureProjectThumbnail(
     canvasHeight: Math.min(height, 720),
     backgroundColor: "#f8fafc",
   });
+}
+
+export async function fetchLatestPublishedProjects(limit: number = 12) {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects?page=1&pageSize=${Math.max(1, limit)}`,
+  );
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  const projects = (await response.json()) as PublicProjectSummary[];
+  if (!Array.isArray(projects)) {
+    return [];
+  }
+
+  return projects;
+}
+
+export async function fetchPublishedProjectById(projectId: string) {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`);
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return (await response.json()) as PublishedProject;
 }

@@ -69,8 +69,12 @@ import { useWindowSize } from "react-use";
 import Confetti from "react-confetti";
 import { getStoredAuthToken, getStoredAuthUser } from "@/lib/auth";
 import { PublishProjectDialog } from "@/components/projects/PublishProjectDialog";
-import { captureProjectThumbnail, publishProject } from "@/lib/projects";
-import { serializeProgram } from "@/flow/serialization";
+import {
+  captureProjectThumbnail,
+  fetchPublishedProjectById,
+  publishProject,
+} from "@/lib/projects";
+import { deserializeProgram, serializeProgram } from "@/flow/serialization";
 import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -254,6 +258,50 @@ export default function EditorPage() {
     setIsConsoleOpen,
     consoleOutputText,
   });
+
+  useEffect(() => {
+    if (!challengeId) return;
+    if (challenge.isChallengeLoading) return;
+    if (challenge.challengeDefinition) return;
+
+    let cancelled = false;
+
+    fetchPublishedProjectById(challengeId)
+      .then((project) => {
+        if (cancelled) return;
+
+        const deserialized = deserializeProgram(project.program);
+        setNodes(deserialized.nodes as FlowNode[]);
+        setEdges(deserialized.edges as FlowEdge[]);
+        setProgramName(
+          project.name || project.program.programName || "Sin título",
+        );
+        resetHistory({
+          nodes: deserialized.nodes as FlowNode[],
+          edges: deserialized.edges as FlowEdge[],
+        });
+
+        if (deserialized.viewport && reactFlowInstance) {
+          reactFlowInstance.setViewport(deserialized.viewport, { duration: 0 });
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    challengeId,
+    challenge.isChallengeLoading,
+    challenge.challengeDefinition,
+    setNodes,
+    setEdges,
+    setProgramName,
+    resetHistory,
+    reactFlowInstance,
+  ]);
 
   const {
     paletteCategories: basePaletteCategories,
