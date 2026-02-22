@@ -88,6 +88,11 @@ export function clearStoredAuthSession() {
   localStorage.removeItem(AUTH_TOKEN_KEY);
 }
 
+export function getStoredAuthToken(): string | null {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  return token && token.trim() ? token : null;
+}
+
 export function persistAuthSession(auth: AuthResponse) {
   localStorage.setItem(AUTH_CURRENT_KEY, JSON.stringify(auth.user));
   localStorage.setItem(AUTH_TOKEN_KEY, auth.token);

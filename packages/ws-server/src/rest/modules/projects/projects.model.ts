@@ -17,6 +17,7 @@ export const projectsTable = pgTable(
       .notNull()
       .references(() => usersTable.id),
     remixedFrom: uuid("remixed_from"),
+    thumbnail: text("thumbnail"),
     program: json("program").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")

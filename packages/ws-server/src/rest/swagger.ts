@@ -103,6 +103,7 @@ const openApiDefinition = {
           authorName: { type: "string" },
           remixedFromId: { type: ["string", "null"] },
           remixedFromName: { type: ["string", "null"] },
+          thumbnail: { type: ["string", "null"] },
           createdAt: { type: "string", format: "date-time" },
           updatedAt: { type: "string", format: "date-time" },
         },
@@ -114,6 +115,7 @@ const openApiDefinition = {
           "authorName",
           "remixedFromId",
           "remixedFromName",
+          "thumbnail",
           "createdAt",
           "updatedAt",
         ],
@@ -123,6 +125,7 @@ const openApiDefinition = {
         properties: {
           name: { type: "string" },
           remixedFrom: { type: "string" },
+          thumbnail: { type: "string" },
           program: { type: "object" },
         },
         required: ["name", "program"],
@@ -131,6 +134,7 @@ const openApiDefinition = {
         type: "object",
         properties: {
           name: { type: "string" },
+          thumbnail: { type: "string" },
           program: { type: "object" },
         },
       },

@@ -67,6 +67,13 @@ import { getLayoutedElements } from "@/utils/layout";
 import { CreateSubflowOverlay } from "@/components/CreateSubflowOverlay";
 import { useWindowSize } from "react-use";
 import Confetti from "react-confetti";
+import { getStoredAuthToken, getStoredAuthUser } from "@/lib/auth";
+import { PublishProjectDialog } from "@/components/projects/PublishProjectDialog";
+import { captureProjectThumbnail, publishProject } from "@/lib/projects";
+import { serializeProgram } from "@/flow/serialization";
+import { UploadCloud } from "lucide-react";
+import type { AuthSessionUser } from "@/types";
+import { Button } from "@/components/ui/button";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
@@ -80,6 +87,17 @@ export default function EditorPage() {
     resetConfig,
   } = useRemoteConfigState();
   const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
+  const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+  const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [isGeneratingThumbnailPreview, setIsGeneratingThumbnailPreview] =
+    useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [isPublishingProject, setIsPublishingProject] = useState(false);
+  const [authUser] = useState<AuthSessionUser | null>(() =>
+    getStoredAuthUser(),
+  );
+  const [authToken] = useState<string | null>(() => getStoredAuthToken());
+  const isAuthenticated = Boolean(authUser && authToken);
 
   const [edgeFeedbackMode, setEdgeFeedbackMode] =
     useState<EdgeFeedbackMode>("transient");
@@ -376,6 +394,94 @@ export default function EditorPage() {
 
   const { width: windowWidth, height: windowHeight } = useWindowSize();
 
+  const generateThumbnailPreview = useCallback(async () => {
+    const flowElement =
+      editorContainerRef.current?.querySelector(".react-flow");
+
+    if (!(flowElement instanceof HTMLElement)) {
+      setThumbnailPreview(null);
+      return null;
+    }
+
+    const thumbnail = await captureProjectThumbnail(flowElement);
+    setThumbnailPreview(thumbnail);
+    return thumbnail;
+  }, [editorContainerRef]);
+
+  useEffect(() => {
+    if (!isPublishDialogOpen) {
+      return;
+    }
+
+    setIsGeneratingThumbnailPreview(true);
+    generateThumbnailPreview()
+      .catch(() => {
+        setThumbnailPreview(null);
+      })
+      .finally(() => {
+        setIsGeneratingThumbnailPreview(false);
+      });
+  }, [generateThumbnailPreview, isPublishDialogOpen, nodes, edges]);
+
+  const handlePublishProject = useCallback(
+    async (projectName: string) => {
+      const normalizedName = projectName.trim();
+      if (!normalizedName) {
+        setPublishError("Ingresa un nombre para el proyecto.");
+        return;
+      }
+
+      if (!reactFlowInstance) {
+        setPublishError("El editor aún no está listo. Intenta de nuevo.");
+        return;
+      }
+
+      setPublishError(null);
+      setIsPublishingProject(true);
+
+      try {
+        const thumbnail =
+          thumbnailPreview ?? (await generateThumbnailPreview());
+        if (!thumbnail) {
+          throw new Error(
+            "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
+          );
+        }
+
+        const program = serializeProgram({
+          nodes,
+          edges,
+          viewport: reactFlowInstance.getViewport(),
+          programName: normalizedName,
+        });
+
+        await publishProject({
+          name: normalizedName,
+          thumbnail,
+          program,
+        });
+
+        setProgramName(normalizedName);
+        setIsPublishDialogOpen(false);
+      } catch (error: unknown) {
+        setPublishError(
+          error instanceof Error
+            ? error.message
+            : "No se pudo publicar el proyecto.",
+        );
+      } finally {
+        setIsPublishingProject(false);
+      }
+    },
+    [
+      edges,
+      generateThumbnailPreview,
+      nodes,
+      reactFlowInstance,
+      thumbnailPreview,
+    ],
+  );
+
   return (
     <RemoteControllersProvider controllers={runnerBridge.controllers}>
       {challenge.shouldCelebrate && (
@@ -398,6 +504,20 @@ export default function EditorPage() {
           }
         >
           <AppHeader centerTitle={challenge.challengeDefinition?.title}>
+            {isAuthenticated && (
+              <Button
+                variant="ghost"
+                className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
+                onClick={() => {
+                  setPublishError(null);
+                  setThumbnailPreview(null);
+                  setIsPublishDialogOpen(true);
+                }}
+              >
+                <UploadCloud size={16} />
+                Publicar proyecto
+              </Button>
+            )}
             <EditorHeaderActions
               onDownloadClick={onDownloadClick}
               onLoadClick={onLoadClick}
@@ -619,6 +739,23 @@ export default function EditorPage() {
             challenge.setIsLevelCompleteDialogOpen(false);
             challenge.navigate("/editor");
           }}
+        />
+
+        <PublishProjectDialog
+          open={isPublishDialogOpen}
+          defaultName={programName}
+          thumbnailPreview={thumbnailPreview}
+          isGeneratingPreview={isGeneratingThumbnailPreview}
+          isPublishing={isPublishingProject}
+          error={publishError}
+          onOpenChange={(open) => {
+            setIsPublishDialogOpen(open);
+            if (!open) {
+              setPublishError(null);
+              setThumbnailPreview(null);
+            }
+          }}
+          onConfirm={handlePublishProject}
         />
       </SidebarProvider>
     </RemoteControllersProvider>
