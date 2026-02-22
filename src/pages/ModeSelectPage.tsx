@@ -1,10 +1,29 @@
 import { Link } from "react-router-dom";
-import { Trophy, Zap } from "lucide-react";
+import { LogIn, LogOut, Trophy, UserRound, Zap } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AuthDialog } from "@/components/auth/AuthDialog";
+import { clearStoredAuthSession, getStoredAuthUser } from "@/lib/auth";
+import type { AuthMode, AuthSessionUser } from "@/types";
 
 export default function ModeSelectPage() {
   const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [currentUser, setCurrentUser] = useState<AuthSessionUser | null>(() =>
+    getStoredAuthUser(),
+  );
+
+  const handleAuthSuccess = (user: AuthSessionUser) => {
+    setCurrentUser(user);
+    setIsAuthDialogOpen(false);
+  };
+
+  const handleLogout = () => {
+    clearStoredAuthSession();
+    setCurrentUser(null);
+  };
 
   return (
     <div className="relative h-screen overflow-hidden bg-slate-50 text-slate-900">
@@ -13,7 +32,7 @@ export default function ModeSelectPage() {
       <div className="absolute -bottom-24 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-purple-400/20 blur-3xl" />
 
       <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-10">
-        <header className="flex items-center justify-start">
+        <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="rounded-2xl bg-blue-50/90 p-2.5 text-blue-600 shadow-sm border border-slate-200">
               <img
@@ -28,6 +47,39 @@ export default function ModeSelectPage() {
               </p>
               <img src="/logo-nodi.png" alt="Nodi" className="h-12" />
             </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {currentUser ? (
+              <>
+                <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm">
+                  <UserRound size={16} className="text-slate-500" />
+                  <span className="max-w-40 truncate">{currentUser.name}</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl border-slate-300 bg-white/80 backdrop-blur"
+                onClick={() => {
+                  setAuthMode("login");
+                  setIsAuthDialogOpen(true);
+                }}
+              >
+                <LogIn size={16} />
+                Iniciar sesión
+              </Button>
+            )}
           </div>
         </header>
 
@@ -71,6 +123,14 @@ export default function ModeSelectPage() {
           <AgeSelectionDialog
             visible={isChallengeDialogOpen}
             onClose={() => setIsChallengeDialogOpen(false)}
+          />
+
+          <AuthDialog
+            visible={isAuthDialogOpen}
+            mode={authMode}
+            onModeChange={setAuthMode}
+            onClose={() => setIsAuthDialogOpen(false)}
+            onAuthSuccess={handleAuthSuccess}
           />
         </main>
       </div>

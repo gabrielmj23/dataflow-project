@@ -17,19 +17,34 @@ async function generateToken(user: UserSelect) {
 }
 
 export async function signUp(data: UserInsert) {
-  const hashedPassword = await bcrypt.hash(data.password, 10);
-  const newUser = await createUser({
-    ...data,
-    password: hashedPassword,
-  });
-  const token = await generateToken(newUser);
-  return { user: newUser, token };
+  const normalizedEmail = data.email.trim().toLowerCase();
+  const existingUser = await findUserByEmail(normalizedEmail);
+  if (existingUser) {
+    throw new Error("Ya existe una cuenta con ese correo");
+  }
+
+  try {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const newUser = await createUser({
+      ...data,
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
+    const token = await generateToken(newUser);
+    return { user: newUser, token };
+  } catch {
+    throw new Error("No se pudo crear la cuenta");
+  }
 }
 
 export async function logIn(email: string, password: string) {
-  const hashedPassword = await bcrypt.hash(password, 10);
   const dbUser = await findUserByEmail(email);
-  if (dbUser.password !== hashedPassword) {
+  if (!dbUser) {
+    throw new Error("Credenciales inválidas");
+  }
+
+  const isPasswordValid = await bcrypt.compare(password, dbUser.password);
+  if (!isPasswordValid) {
     throw new Error("Credenciales inválidas");
   }
 
