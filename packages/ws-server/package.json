@@ -2,7 +2,7 @@
   "name": "@dataflow/ws-server",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
+  "type": "commonjs",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

@@ -6,7 +6,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { usersTable } from "../users/users.model.js";
+import { usersTable } from "../users/users.model";
 
 export const projectsTable = pgTable(
   "projects",

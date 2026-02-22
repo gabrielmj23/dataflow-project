@@ -5,8 +5,8 @@ import {
   findProjectById,
   findProjects,
   updateProject,
-} from "./projects.service.js";
-import { authGuard } from "../auth/auth.guard.js";
+} from "./projects.service";
+import { authGuard } from "../auth/auth.guard";
 
 const projectsRouter = Router();
 

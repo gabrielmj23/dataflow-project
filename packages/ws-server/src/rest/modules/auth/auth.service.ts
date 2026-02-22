@@ -1,8 +1,8 @@
-import { createUser, findUserByEmail } from "../users/users.service.js";
-import type { UserInsert, UserSelect } from "../users/users.types.js";
+import { createUser, findUserByEmail } from "../users/users.service";
+import type { UserInsert, UserSelect } from "../users/users.types";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import type { AuthTokenPayload } from "./auth.types.js";
+import type { AuthTokenPayload } from "./auth.types";
 
 async function generateToken(user: UserSelect) {
   const payload: AuthTokenPayload = {

@@ -1,15 +1,15 @@
 import { and, desc, eq, ilike } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import db from "../../db.js";
-import { usersTable } from "../users/users.model.js";
-import { projectsTable } from "./projects.model.js";
+import db from "../../db";
+import { usersTable } from "../users/users.model";
+import { projectsTable } from "./projects.model";
 import {
   ProjectCreate,
   ProjectGet,
   ProjectSearchParams,
   ProjectUpdate,
-} from "./projects.types.js";
-import { UserSelect } from "../users/users.types.js";
+} from "./projects.types";
+import { UserSelect } from "../users/users.types";
 
 const remixedProjectsTable = alias(projectsTable, "remixed_projects");
 

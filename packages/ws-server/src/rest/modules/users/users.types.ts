@@ -1,4 +1,4 @@
-import { usersTable } from "./users.model.js";
+import { usersTable } from "./users.model";
 
 export type User = typeof usersTable.$inferSelect;
 

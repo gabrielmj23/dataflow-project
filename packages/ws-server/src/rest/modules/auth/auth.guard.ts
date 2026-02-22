@@ -1,9 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import jwt from "jsonwebtoken";
-import {
-  isAuthTokenPayload,
-  toUserSelectFromTokenPayload,
-} from "./auth.types.js";
+import { isAuthTokenPayload, toUserSelectFromTokenPayload } from "./auth.types";
 
 export function authGuard(req: Request, res: Response, next: NextFunction) {
   try {

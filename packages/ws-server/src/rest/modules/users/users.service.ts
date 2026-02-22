@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
-import db from "../../db.js";
-import { usersTable } from "./users.model.js";
-import { User, UserInsert, UserSelect } from "./users.types.js";
+import db from "../../db";
+import { usersTable } from "./users.model";
+import { User, UserInsert, UserSelect } from "./users.types";
 
 export async function findUserById(id: string): Promise<UserSelect> {
   const user = await db

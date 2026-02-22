@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { findUserById } from "./users.service.js";
+import { findUserById } from "./users.service";
 
 const usersRouter = Router();
 

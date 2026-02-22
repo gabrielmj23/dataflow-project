@@ -1,4 +1,4 @@
-import type { UserSelect } from "../users/users.types.js";
+import type { UserSelect } from "../users/users.types";
 
 export type AuthTokenPayload = {
   sub: string;
