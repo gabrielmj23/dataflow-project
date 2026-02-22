@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ReactFlow,
@@ -591,12 +591,19 @@ export default function EditorPage() {
         >
           <AppHeader centerTitle={challenge.challengeDefinition?.title}>
             {openedProjectRemixInfo ? (
-              <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700">
-                Remix
-                {openedProjectRemixInfo.remixedFromName
-                  ? ` de ${openedProjectRemixInfo.remixedFromName}`
-                  : ""}
-              </span>
+              <Link
+                to={`/editor/${openedProjectRemixInfo.remixedFromId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block"
+              >
+                <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700">
+                  Remix
+                  {openedProjectRemixInfo.remixedFromName
+                    ? ` de ${openedProjectRemixInfo.remixedFromName}`
+                    : ""}
+                </span>
+              </Link>
             ) : null}
             {isAuthenticated && (
               <Button
