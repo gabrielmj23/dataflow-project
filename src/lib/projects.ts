@@ -115,3 +115,34 @@ export async function fetchPublishedProjectById(projectId: string) {
 
   return (await response.json()) as PublishedProject;
 }
+
+export async function updatePublishedProject(params: {
+  id: string;
+  name: string;
+  program: SerializedProgramV1;
+  thumbnail?: string;
+}) {
+  const token = getStoredAuthToken();
+  if (!token) {
+    throw new Error("Debes iniciar sesión para editar proyectos.");
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}/projects/${params.id}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      name: params.name,
+      thumbnail: params.thumbnail,
+      program: params.program,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  return (await response.json()) as { id: string; name?: string };
+}

@@ -69,11 +69,13 @@ import { CreateSubflowOverlay } from "@/components/CreateSubflowOverlay";
 import { useWindowSize } from "react-use";
 import Confetti from "react-confetti";
 import { getStoredAuthToken, getStoredAuthUser } from "@/lib/auth";
+import { toast } from "sonner";
 import { PublishProjectDialog } from "@/components/projects/PublishProjectDialog";
 import {
   captureProjectThumbnail,
   fetchPublishedProjectById,
   publishProject,
+  updatePublishedProject,
 } from "@/lib/projects";
 import { deserializeProgram, serializeProgram } from "@/flow/serialization";
 import { UploadCloud } from "lucide-react";
@@ -284,6 +286,100 @@ export default function EditorPage() {
     mutationFn: publishProject,
   });
 
+  const updatePublishedProjectMutation = useMutation({
+    mutationFn: updatePublishedProject,
+  });
+
+  const { editorContainerRef, sidebarTop } = useEditorViewport({
+    challengeDefinition: challenge.challengeDefinition,
+    reactFlowInstance,
+  });
+
+  const generateThumbnailPreview = useCallback(async () => {
+    const flowElement =
+      editorContainerRef.current?.querySelector(".react-flow");
+
+    if (!(flowElement instanceof HTMLElement)) {
+      setThumbnailPreview(null);
+      return null;
+    }
+
+    const thumbnail = await captureProjectThumbnail(flowElement);
+    setThumbnailPreview(thumbnail);
+    return thumbnail;
+  }, [editorContainerRef]);
+
+  const isEditingOwnProject = Boolean(
+    publishedProjectQuery.data &&
+    authUser &&
+    publishedProjectQuery.data.authorId === authUser.id,
+  );
+
+  const handleSaveChanges = useCallback(async () => {
+    if (!publishedProjectQuery.data) {
+      setPublishError("No hay un proyecto publicado cargado para guardar.");
+      return;
+    }
+
+    if (!reactFlowInstance) {
+      setPublishError("El editor aún no está listo. Intenta de nuevo.");
+      return;
+    }
+
+    setPublishError(null);
+
+    try {
+      const thumbnail = thumbnailPreview ?? (await generateThumbnailPreview());
+      if (!thumbnail) {
+        throw new Error(
+          "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
+        );
+      }
+
+      const program = serializeProgram({
+        nodes,
+        edges,
+        viewport: reactFlowInstance.getViewport(),
+        programName,
+      });
+
+      await updatePublishedProjectMutation.mutateAsync({
+        id: publishedProjectQuery.data.id,
+        name: programName,
+        thumbnail,
+        program,
+      });
+
+      setProgramName(programName);
+      // refresh published project data
+      try {
+        await publishedProjectQuery.refetch();
+      } catch {
+        // ignore
+      }
+
+      // keep thumbnail preview in UI
+      setThumbnailPreview(thumbnail);
+      toast.success("Proyecto guardado correctamente.");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar el proyecto.";
+      setPublishError(message);
+      toast.error(message);
+    }
+  }, [
+    edges,
+    generateThumbnailPreview,
+    nodes,
+    reactFlowInstance,
+    publishedProjectQuery,
+    programName,
+    thumbnailPreview,
+    updatePublishedProjectMutation,
+  ]);
+
   useEffect(() => {
     const project = publishedProjectQuery.data;
     if (!project) return;
@@ -463,26 +559,7 @@ export default function EditorPage() {
     setEdges([...layoutedEdges]);
   }, [nodes, edges, setNodes, setEdges]);
 
-  const { editorContainerRef, sidebarTop } = useEditorViewport({
-    challengeDefinition: challenge.challengeDefinition,
-    reactFlowInstance,
-  });
-
   const { width: windowWidth, height: windowHeight } = useWindowSize();
-
-  const generateThumbnailPreview = useCallback(async () => {
-    const flowElement =
-      editorContainerRef.current?.querySelector(".react-flow");
-
-    if (!(flowElement instanceof HTMLElement)) {
-      setThumbnailPreview(null);
-      return null;
-    }
-
-    const thumbnail = await captureProjectThumbnail(flowElement);
-    setThumbnailPreview(thumbnail);
-    return thumbnail;
-  }, [editorContainerRef]);
 
   useEffect(() => {
     if (!isPublishDialogOpen) {
@@ -549,11 +626,12 @@ export default function EditorPage() {
 
         setIsPublishDialogOpen(false);
       } catch (error: unknown) {
-        setPublishError(
+        const message =
           error instanceof Error
             ? error.message
-            : "No se pudo publicar el proyecto.",
-        );
+            : "No se pudo publicar el proyecto.";
+        setPublishError(message);
+        toast.error(message);
       }
     },
     [
@@ -605,20 +683,37 @@ export default function EditorPage() {
                 </span>
               </Link>
             ) : null}
-            {isAuthenticated && (
-              <Button
-                variant="ghost"
-                className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
-                onClick={() => {
-                  setPublishError(null);
-                  setThumbnailPreview(null);
-                  setIsPublishDialogOpen(true);
-                }}
-              >
-                <UploadCloud size={16} />
-                Publicar proyecto
-              </Button>
-            )}
+            {isAuthenticated &&
+              (isEditingOwnProject ? (
+                <Button
+                  variant="ghost"
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
+                  onClick={() => {
+                    setPublishError(null);
+                    handleSaveChanges();
+                  }}
+                  disabled={updatePublishedProjectMutation.isPending}
+                >
+                  <UploadCloud size={16} />
+                  {updatePublishedProjectMutation.isPending ? (
+                    <span className="inline-block h-4 w-4 animate-spin rounded-full border border-current border-r-transparent" />
+                  ) : null}
+                  Guardar cambios
+                </Button>
+              ) : (
+                <Button
+                  variant="ghost"
+                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
+                  onClick={() => {
+                    setPublishError(null);
+                    setThumbnailPreview(null);
+                    setIsPublishDialogOpen(true);
+                  }}
+                >
+                  <UploadCloud size={16} />
+                  Publicar proyecto
+                </Button>
+              ))}
             <EditorHeaderActions
               onDownloadClick={onDownloadClick}
               onLoadClick={onLoadClick}
