@@ -15,6 +15,7 @@ type PublishProjectDialogProps = {
   defaultName: string;
   thumbnailPreview: string | null;
   isGeneratingPreview: boolean;
+  remixSourceName?: string | null;
   isPublishing: boolean;
   error: string | null;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +27,7 @@ export function PublishProjectDialog({
   defaultName,
   thumbnailPreview,
   isGeneratingPreview,
+  remixSourceName,
   isPublishing,
   error,
   onOpenChange,
@@ -56,6 +58,12 @@ export function PublishProjectDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {remixSourceName ? (
+            <p className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-700">
+              Se publicará como remix de <span className="font-medium">{remixSourceName}</span>.
+            </p>
+          ) : null}
+
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
             {thumbnailPreview ? (
               <img

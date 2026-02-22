@@ -12,6 +12,8 @@ export type PublicProjectSummary = {
   authorId: string;
   authorName: string;
   thumbnail: string | null;
+  remixedFromId: string | null;
+  remixedFromName: string | null;
 };
 
 export type PublishedProject = PublicProjectSummary & {
@@ -43,6 +45,7 @@ export async function publishProject(params: {
   name: string;
   program: SerializedProgramV1;
   thumbnail: string;
+  remixedFrom?: string;
 }) {
   const token = getStoredAuthToken();
   if (!token) {
@@ -58,6 +61,7 @@ export async function publishProject(params: {
     body: JSON.stringify({
       name: params.name,
       thumbnail: params.thumbnail,
+      remixedFrom: params.remixedFrom,
       program: params.program,
     }),
   });
@@ -66,7 +70,7 @@ export async function publishProject(params: {
     throw new Error(await readApiError(response));
   }
 
-  return response.json();
+  return (await response.json()) as { id: string; name?: string };
 }
 
 export async function captureProjectThumbnail(

@@ -99,12 +99,23 @@ export function RecentPublishedProjectsSection() {
                 )}
 
                 <div className="p-3">
+                  {project.remixedFromId ? (
+                    <p className="mb-1 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                      Remix
+                    </p>
+                  ) : null}
+
                   <p className="truncate text-xl font-semibold text-violet-600">
                     {project.name}
                   </p>
                   <p className="truncate text-slate-600">
                     {project.authorName}
                   </p>
+                  {project.remixedFromName ? (
+                    <p className="truncate text-xs text-slate-500">
+                      Remix de {project.remixedFromName}
+                    </p>
+                  ) : null}
                 </div>
               </Link>
             ))}

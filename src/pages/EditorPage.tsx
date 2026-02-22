@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ReactFlow,
   MarkerType,
@@ -84,6 +84,7 @@ const initialEdges: FlowEdge[] = [];
 
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
+  const navigate = useNavigate();
 
   const {
     config: remoteConfig,
@@ -97,6 +98,14 @@ export default function EditorPage() {
     useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [isPublishingProject, setIsPublishingProject] = useState(false);
+  const [remixSourceProject, setRemixSourceProject] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [openedProjectRemixInfo, setOpenedProjectRemixInfo] = useState<{
+    remixedFromId: string;
+    remixedFromName: string | null;
+  } | null>(null);
   const [authUser] = useState<AuthSessionUser | null>(() =>
     getStoredAuthUser(),
   );
@@ -271,6 +280,15 @@ export default function EditorPage() {
         if (cancelled) return;
 
         const deserialized = deserializeProgram(project.program);
+        setRemixSourceProject({ id: project.id, name: project.name });
+        setOpenedProjectRemixInfo(
+          project.remixedFromId
+            ? {
+                remixedFromId: project.remixedFromId,
+                remixedFromName: project.remixedFromName,
+              }
+            : null,
+        );
         setNodes(deserialized.nodes as FlowNode[]);
         setEdges(deserialized.edges as FlowEdge[]);
         setProgramName(
@@ -287,6 +305,8 @@ export default function EditorPage() {
       })
       .catch(() => {
         if (cancelled) return;
+        setRemixSourceProject(null);
+        setOpenedProjectRemixInfo(null);
       });
 
     return () => {
@@ -302,6 +322,13 @@ export default function EditorPage() {
     resetHistory,
     reactFlowInstance,
   ]);
+
+  useEffect(() => {
+    if (!challengeId || challenge.challengeDefinition) {
+      setRemixSourceProject(null);
+      setOpenedProjectRemixInfo(null);
+    }
+  }, [challengeId, challenge.challengeDefinition]);
 
   const {
     paletteCategories: basePaletteCategories,
@@ -503,13 +530,23 @@ export default function EditorPage() {
           programName: normalizedName,
         });
 
-        await publishProject({
+        const createdProject = await publishProject({
           name: normalizedName,
           thumbnail,
+          remixedFrom: remixSourceProject?.id,
           program,
         });
 
         setProgramName(normalizedName);
+        const shouldNavigateToCreatedRemix =
+          Boolean(remixSourceProject) &&
+          typeof createdProject?.id === "string" &&
+          createdProject.id.length > 0;
+
+        if (shouldNavigateToCreatedRemix) {
+          navigate(`/editor/${createdProject.id}`);
+        }
+
         setIsPublishDialogOpen(false);
       } catch (error: unknown) {
         setPublishError(
@@ -526,7 +563,9 @@ export default function EditorPage() {
       generateThumbnailPreview,
       nodes,
       reactFlowInstance,
+      remixSourceProject,
       thumbnailPreview,
+      navigate,
     ],
   );
 
@@ -552,6 +591,14 @@ export default function EditorPage() {
           }
         >
           <AppHeader centerTitle={challenge.challengeDefinition?.title}>
+            {openedProjectRemixInfo ? (
+              <span className="rounded-full border border-violet-300 bg-violet-100 px-2 py-1 text-xs font-semibold text-violet-700">
+                Remix
+                {openedProjectRemixInfo.remixedFromName
+                  ? ` de ${openedProjectRemixInfo.remixedFromName}`
+                  : ""}
+              </span>
+            ) : null}
             {isAuthenticated && (
               <Button
                 variant="ghost"
@@ -794,6 +841,7 @@ export default function EditorPage() {
           defaultName={programName}
           thumbnailPreview={thumbnailPreview}
           isGeneratingPreview={isGeneratingThumbnailPreview}
+          remixSourceName={remixSourceProject?.name ?? null}
           isPublishing={isPublishingProject}
           error={publishError}
           onOpenChange={(open) => {
