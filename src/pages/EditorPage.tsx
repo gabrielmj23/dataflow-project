@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ReactFlow,
   MarkerType,
@@ -97,7 +98,6 @@ export default function EditorPage() {
   const [isGeneratingThumbnailPreview, setIsGeneratingThumbnailPreview] =
     useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
-  const [isPublishingProject, setIsPublishingProject] = useState(false);
   const [remixSourceProject, setRemixSourceProject] = useState<{
     id: string;
     name: string;
@@ -268,60 +268,61 @@ export default function EditorPage() {
     consoleOutputText,
   });
 
+  const shouldLoadPublishedProject = Boolean(
+    challengeId &&
+    !challenge.isChallengeLoading &&
+    !challenge.challengeDefinition,
+  );
+
+  const publishedProjectQuery = useQuery({
+    queryKey: ["projects", "detail", challengeId],
+    queryFn: () => fetchPublishedProjectById(challengeId as string),
+    enabled: shouldLoadPublishedProject,
+  });
+
+  const publishProjectMutation = useMutation({
+    mutationFn: publishProject,
+  });
+
   useEffect(() => {
-    if (!challengeId) return;
-    if (challenge.isChallengeLoading) return;
-    if (challenge.challengeDefinition) return;
+    const project = publishedProjectQuery.data;
+    if (!project) return;
 
-    let cancelled = false;
+    const deserialized = deserializeProgram(project.program);
+    setRemixSourceProject({ id: project.id, name: project.name });
+    setOpenedProjectRemixInfo(
+      project.remixedFromId
+        ? {
+            remixedFromId: project.remixedFromId,
+            remixedFromName: project.remixedFromName,
+          }
+        : null,
+    );
+    setNodes(deserialized.nodes as FlowNode[]);
+    setEdges(deserialized.edges as FlowEdge[]);
+    setProgramName(project.name || project.program.programName || "Sin título");
+    resetHistory({
+      nodes: deserialized.nodes as FlowNode[],
+      edges: deserialized.edges as FlowEdge[],
+    });
 
-    fetchPublishedProjectById(challengeId)
-      .then((project) => {
-        if (cancelled) return;
-
-        const deserialized = deserializeProgram(project.program);
-        setRemixSourceProject({ id: project.id, name: project.name });
-        setOpenedProjectRemixInfo(
-          project.remixedFromId
-            ? {
-                remixedFromId: project.remixedFromId,
-                remixedFromName: project.remixedFromName,
-              }
-            : null,
-        );
-        setNodes(deserialized.nodes as FlowNode[]);
-        setEdges(deserialized.edges as FlowEdge[]);
-        setProgramName(
-          project.name || project.program.programName || "Sin título",
-        );
-        resetHistory({
-          nodes: deserialized.nodes as FlowNode[],
-          edges: deserialized.edges as FlowEdge[],
-        });
-
-        if (deserialized.viewport && reactFlowInstance) {
-          reactFlowInstance.setViewport(deserialized.viewport, { duration: 0 });
-        }
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setRemixSourceProject(null);
-        setOpenedProjectRemixInfo(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    if (deserialized.viewport && reactFlowInstance) {
+      reactFlowInstance.setViewport(deserialized.viewport, { duration: 0 });
+    }
   }, [
-    challengeId,
-    challenge.isChallengeLoading,
-    challenge.challengeDefinition,
-    setNodes,
-    setEdges,
-    setProgramName,
-    resetHistory,
+    publishedProjectQuery.data,
     reactFlowInstance,
+    resetHistory,
+    setEdges,
+    setNodes,
+    setProgramName,
   ]);
+
+  useEffect(() => {
+    if (!publishedProjectQuery.isError) return;
+    setRemixSourceProject(null);
+    setOpenedProjectRemixInfo(null);
+  }, [publishedProjectQuery.isError]);
 
   useEffect(() => {
     if (!challengeId || challenge.challengeDefinition) {
@@ -512,7 +513,6 @@ export default function EditorPage() {
       }
 
       setPublishError(null);
-      setIsPublishingProject(true);
 
       try {
         const thumbnail =
@@ -530,7 +530,7 @@ export default function EditorPage() {
           programName: normalizedName,
         });
 
-        const createdProject = await publishProject({
+        const createdProject = await publishProjectMutation.mutateAsync({
           name: normalizedName,
           thumbnail,
           remixedFrom: remixSourceProject?.id,
@@ -554,13 +554,12 @@ export default function EditorPage() {
             ? error.message
             : "No se pudo publicar el proyecto.",
         );
-      } finally {
-        setIsPublishingProject(false);
       }
     },
     [
       edges,
       generateThumbnailPreview,
+      publishProjectMutation,
       nodes,
       reactFlowInstance,
       remixSourceProject,
@@ -842,7 +841,7 @@ export default function EditorPage() {
           thumbnailPreview={thumbnailPreview}
           isGeneratingPreview={isGeneratingThumbnailPreview}
           remixSourceName={remixSourceProject?.name ?? null}
-          isPublishing={isPublishingProject}
+          isPublishing={publishProjectMutation.isPending}
           error={publishError}
           onOpenChange={(open) => {
             setIsPublishDialogOpen(open);

@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -30,7 +31,16 @@ export function AuthDialog({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const logInMutation = useMutation({
+    mutationFn: logIn,
+  });
+
+  const signUpMutation = useMutation({
+    mutationFn: signUp,
+  });
+
+  const isSubmitting = logInMutation.isPending || signUpMutation.isPending;
 
   const resetForm = () => {
     setName("");
@@ -38,7 +48,8 @@ export function AuthDialog({
     setPassword("");
     setConfirmPassword("");
     setError(null);
-    setIsSubmitting(false);
+    logInMutation.reset();
+    signUpMutation.reset();
   };
 
   const handleModeChange = (nextMode: AuthMode) => {
@@ -88,16 +99,14 @@ export function AuthDialog({
       }
     }
 
-    setIsSubmitting(true);
-
     try {
       const authResult =
         mode === "login"
-          ? await logIn({
+          ? await logInMutation.mutateAsync({
               email: normalizedEmail,
               password,
             })
-          : await signUp({
+          : await signUpMutation.mutateAsync({
               name: name.trim(),
               email: normalizedEmail,
               password,
@@ -111,8 +120,6 @@ export function AuthDialog({
           ? submitError.message
           : "No se pudo completar la autenticación.",
       );
-    } finally {
-      setIsSubmitting(false);
     }
   };
 

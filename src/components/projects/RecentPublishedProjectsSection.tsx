@@ -1,42 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
-import {
-  fetchLatestPublishedProjects,
-  type PublicProjectSummary,
-} from "@/lib/projects";
+import { fetchLatestPublishedProjects } from "@/lib/projects";
 
 export function RecentPublishedProjectsSection() {
-  const [projects, setProjects] = useState<PublicProjectSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: projects = [],
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ["projects", "recent", 12],
+    queryFn: () => fetchLatestPublishedProjects(12),
+  });
+
   const railRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsLoading(true);
-    setError(null);
-
-    fetchLatestPublishedProjects(12)
-      .then((items) => {
-        if (!isMounted) return;
-        setProjects(items);
-      })
-      .catch(() => {
-        if (!isMounted) return;
-        setError("No se pudieron cargar los proyectos destacados.");
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        setIsLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
 
   const hasProjects = useMemo(() => projects.length > 0, [projects.length]);
 
@@ -59,7 +37,11 @@ export function RecentPublishedProjectsSection() {
         <p className="mt-4 text-slate-500">Cargando proyectos...</p>
       ) : null}
 
-      {error ? <p className="mt-4 text-red-600">{error}</p> : null}
+      {error ? (
+        <p className="mt-4 text-red-600">
+          No se pudieron cargar los proyectos destacados.
+        </p>
+      ) : null}
 
       {!isLoading && !error && !hasProjects ? (
         <p className="mt-4 text-slate-500">Aún no hay proyectos publicados.</p>
