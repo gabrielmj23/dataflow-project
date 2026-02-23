@@ -308,10 +308,102 @@ export default function EditorPage() {
       return null;
     }
 
-    const thumbnail = await captureProjectThumbnail(flowElement);
-    setThumbnailPreview(thumbnail);
-    return thumbnail;
-  }, [editorContainerRef]);
+    const waitForPaint = () =>
+      new Promise<void>((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => resolve());
+        });
+      });
+
+    const edgePaths = Array.from(
+      flowElement.querySelectorAll<SVGPathElement>(".react-flow__edge-path"),
+    );
+    const restoreEdgeStyles = edgePaths.map((path) => ({
+      path,
+      strokeAttr: path.getAttribute("stroke"),
+      strokeWidthAttr: path.getAttribute("stroke-width"),
+      stroke: path.style.stroke,
+      strokeWidth: path.style.strokeWidth,
+      strokeOpacity: path.style.strokeOpacity,
+    }));
+
+    const previousViewport = reactFlowInstance?.getViewport() ?? null;
+
+    try {
+      await waitForPaint();
+
+      if (reactFlowInstance && nodes.length > 0) {
+        await reactFlowInstance.fitView({
+          padding: 0.18,
+          duration: 0,
+          minZoom: 1.75,
+          maxZoom: 1.75,
+        });
+        await waitForPaint();
+      }
+
+      for (const item of restoreEdgeStyles) {
+        const computed = getComputedStyle(item.path);
+        const computedStroke = computed.stroke;
+        const computedStrokeWidth = computed.strokeWidth;
+        const stroke =
+          computedStroke &&
+          computedStroke !== "none" &&
+          computedStroke !== "transparent" &&
+          computedStroke !== "rgba(0, 0, 0, 0)"
+            ? computedStroke
+            : "#64748b";
+
+        item.path.setAttribute("stroke", stroke);
+        item.path.style.stroke = stroke;
+
+        if (
+          computedStrokeWidth &&
+          computedStrokeWidth !== "0px" &&
+          computedStrokeWidth !== "0"
+        ) {
+          item.path.setAttribute("stroke-width", computedStrokeWidth);
+          item.path.style.strokeWidth = computedStrokeWidth;
+        }
+      }
+
+      await waitForPaint();
+
+      const thumbnail = await captureProjectThumbnail(flowElement, {
+        filter: (node) => {
+          if (!(node instanceof HTMLElement)) {
+            return true;
+          }
+
+          return !node.closest('[data-thumbnail-hidden="true"]');
+        },
+      });
+      setThumbnailPreview(thumbnail);
+      return thumbnail;
+    } finally {
+      for (const item of restoreEdgeStyles) {
+        if (item.strokeAttr === null) {
+          item.path.removeAttribute("stroke");
+        } else {
+          item.path.setAttribute("stroke", item.strokeAttr);
+        }
+
+        if (item.strokeWidthAttr === null) {
+          item.path.removeAttribute("stroke-width");
+        } else {
+          item.path.setAttribute("stroke-width", item.strokeWidthAttr);
+        }
+
+        item.path.style.stroke = item.stroke;
+        item.path.style.strokeWidth = item.strokeWidth;
+        item.path.style.strokeOpacity = item.strokeOpacity;
+      }
+
+      if (reactFlowInstance && previousViewport) {
+        await reactFlowInstance.setViewport(previousViewport, { duration: 0 });
+      }
+    }
+  }, [editorContainerRef, reactFlowInstance, nodes.length]);
 
   const isEditingOwnProject = Boolean(
     publishedProjectQuery.data &&
@@ -833,72 +925,88 @@ export default function EditorPage() {
                               proOptions={{ hideAttribution: true }}
                             >
                               {challenge.challengeDefinition ? (
-                                <ChallengePanel
-                                  challengeDefinition={
-                                    challenge.challengeDefinition
-                                  }
-                                  isChallengeOpen={challenge.isChallengeOpen}
-                                  onToggle={() =>
-                                    challenge.setIsChallengeOpen((s) => !s)
-                                  }
-                                  validationResult={challenge.validationResult}
-                                  isValidating={challenge.isValidating}
-                                  onValidate={challenge.validateChallengeOutput}
-                                  nextChallenge={challenge.nextChallenge}
-                                  onNextChallengeClick={
-                                    challenge.onNextChallengeClick
-                                  }
-                                />
+                                <div data-thumbnail-hidden="true">
+                                  <ChallengePanel
+                                    challengeDefinition={
+                                      challenge.challengeDefinition
+                                    }
+                                    isChallengeOpen={challenge.isChallengeOpen}
+                                    onToggle={() =>
+                                      challenge.setIsChallengeOpen((s) => !s)
+                                    }
+                                    validationResult={
+                                      challenge.validationResult
+                                    }
+                                    isValidating={challenge.isValidating}
+                                    onValidate={
+                                      challenge.validateChallengeOutput
+                                    }
+                                    nextChallenge={challenge.nextChallenge}
+                                    onNextChallengeClick={
+                                      challenge.onNextChallengeClick
+                                    }
+                                  />
+                                </div>
                               ) : null}
 
-                              <ConnectionErrorTooltip
-                                open={connectionTooltip.tooltip.open}
-                                message={connectionTooltip.tooltip.message}
-                                x={connectionTooltip.tooltip.x}
-                                y={connectionTooltip.tooltip.y}
-                                onClose={connectionTooltip.hide}
-                              />
-                              <CreateSubflowOverlay
-                                selectedNodes={selectedNodes}
-                                edges={edges}
-                                onCreateClick={subflow.openCreateSubflow}
-                              />
+                              <div data-thumbnail-hidden="true">
+                                <ConnectionErrorTooltip
+                                  open={connectionTooltip.tooltip.open}
+                                  message={connectionTooltip.tooltip.message}
+                                  x={connectionTooltip.tooltip.x}
+                                  y={connectionTooltip.tooltip.y}
+                                  onClose={connectionTooltip.hide}
+                                />
+                              </div>
+                              <div data-thumbnail-hidden="true">
+                                <CreateSubflowOverlay
+                                  selectedNodes={selectedNodes}
+                                  edges={edges}
+                                  onCreateClick={subflow.openCreateSubflow}
+                                />
+                              </div>
                               <Background variant={BackgroundVariant.Dots} />
 
-                              <EditorCanvasControls
-                                canvasMode={canvasMode}
-                                onSetCanvasMode={setCanvasMode}
-                                soundsEnabled={soundsEnabled}
-                                onSoundsEnabledChange={setSoundsEnabledState}
-                                onLayout={onLayout}
-                              />
+                              <div data-thumbnail-hidden="true">
+                                <EditorCanvasControls
+                                  canvasMode={canvasMode}
+                                  onSetCanvasMode={setCanvasMode}
+                                  soundsEnabled={soundsEnabled}
+                                  onSoundsEnabledChange={setSoundsEnabledState}
+                                  onLayout={onLayout}
+                                />
+                              </div>
 
-                              <TopActionPanel
-                                nodesCount={nodes.length}
-                                isEngineRunning={isEngineRunning}
-                                onRunClick={handleRunClick}
-                                onStopClick={onStopClick}
-                                engineSpeedOptions={ENGINE_SPEED_OPTIONS}
-                                engineSpeedId={engineSpeedId}
-                                onEngineSpeedChange={setEngineSpeedId}
-                              />
+                              <div data-thumbnail-hidden="true">
+                                <TopActionPanel
+                                  nodesCount={nodes.length}
+                                  isEngineRunning={isEngineRunning}
+                                  onRunClick={handleRunClick}
+                                  onStopClick={onStopClick}
+                                  engineSpeedOptions={ENGINE_SPEED_OPTIONS}
+                                  engineSpeedId={engineSpeedId}
+                                  onEngineSpeedChange={setEngineSpeedId}
+                                />
+                              </div>
 
-                              <ConsolePanel
-                                consoleOutputText={consoleOutputText}
-                                activeRuntimePrompt={activeRuntimePrompt}
-                                getRuntimePromptText={getRuntimePromptText}
-                                runtimePromptInput={runtimePromptInput}
-                                setRuntimePromptInput={setRuntimePromptInput}
-                                onSubmitRuntimePrompt={onSubmitRuntimePrompt}
-                                onCancelRuntimePrompt={onCancelRuntimePrompt}
-                                onClearConsoleClick={onClearConsoleClick}
-                                consoleScrollRef={consoleScrollRef}
-                                consoleInputRef={consoleInputRef}
-                                isOpen={isConsoleOpen}
-                                onToggle={() =>
-                                  setIsConsoleOpen((prev) => !prev)
-                                }
-                              />
+                              <div data-thumbnail-hidden="true">
+                                <ConsolePanel
+                                  consoleOutputText={consoleOutputText}
+                                  activeRuntimePrompt={activeRuntimePrompt}
+                                  getRuntimePromptText={getRuntimePromptText}
+                                  runtimePromptInput={runtimePromptInput}
+                                  setRuntimePromptInput={setRuntimePromptInput}
+                                  onSubmitRuntimePrompt={onSubmitRuntimePrompt}
+                                  onCancelRuntimePrompt={onCancelRuntimePrompt}
+                                  onClearConsoleClick={onClearConsoleClick}
+                                  consoleScrollRef={consoleScrollRef}
+                                  consoleInputRef={consoleInputRef}
+                                  isOpen={isConsoleOpen}
+                                  onToggle={() =>
+                                    setIsConsoleOpen((prev) => !prev)
+                                  }
+                                />
+                              </div>
 
                               <input
                                 ref={fileInputRef}

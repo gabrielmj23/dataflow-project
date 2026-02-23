@@ -78,6 +78,9 @@ export async function publishProject(params: {
 
 export async function captureProjectThumbnail(
   node: HTMLElement,
+  options?: {
+    filter?: (node: HTMLElement) => boolean;
+  },
 ): Promise<string> {
   const width = Math.max(320, Math.floor(node.clientWidth));
   const height = Math.max(180, Math.floor(node.clientHeight));
@@ -89,6 +92,7 @@ export async function captureProjectThumbnail(
     canvasWidth: Math.min(width, 1280),
     canvasHeight: Math.min(height, 720),
     backgroundColor: "#f8fafc",
+    filter: options?.filter,
   });
 }
 
