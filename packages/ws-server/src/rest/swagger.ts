@@ -138,6 +138,46 @@ const openApiDefinition = {
           program: { type: "object" },
         },
       },
+      CustomNodeGet: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          code: { type: "string" },
+          authorId: { type: "string" },
+          authorName: { type: "string" },
+          createdAt: { type: "string", format: "date-time" },
+        },
+        required: [
+          "id",
+          "name",
+          "description",
+          "code",
+          "authorId",
+          "authorName",
+          "createdAt",
+        ],
+      },
+      CustomNodeCreate: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          description: { type: "string" },
+          code: { type: "string" },
+        },
+        required: ["name", "description", "code"],
+      },
+      CustomNodeCreateResponse: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string" },
+          description: { type: "string" },
+          code: { type: "string" },
+        },
+        required: ["id", "name", "description", "code"],
+      },
     },
   },
 } as const;
