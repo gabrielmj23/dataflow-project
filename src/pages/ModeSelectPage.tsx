@@ -27,11 +27,7 @@ export default function ModeSelectPage() {
   };
 
   return (
-    <div className="bg-slate-50 text-slate-900">
-      {/* <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-blue-400/20 blur-3xl" />
-      <div className="absolute top-1/2 -right-24 h-96 w-96 -translate-y-1/2 rounded-full bg-fuchsia-400/20 blur-3xl" />
-      <div className="absolute -bottom-24 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-purple-400/20 blur-3xl" /> */}
-
+    <div className="bg-linear-to-br from-cyan-50 to-green-50 text-slate-900">
       <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-10">
         <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
