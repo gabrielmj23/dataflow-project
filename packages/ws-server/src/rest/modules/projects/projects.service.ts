@@ -18,6 +18,7 @@ export async function findProjectById(id: string): Promise<ProjectGet> {
     .select({
       id: projectsTable.id,
       name: projectsTable.name,
+      description: projectsTable.description,
       authorId: usersTable.id,
       authorName: usersTable.name,
       remixedFromId: projectsTable.remixedFrom,
@@ -53,6 +54,7 @@ export async function findProjects(
     .select({
       id: projectsTable.id,
       name: projectsTable.name,
+      description: projectsTable.description,
       authorId: usersTable.id,
       authorName: usersTable.name,
       remixedFromId: projectsTable.remixedFrom,
@@ -87,6 +89,7 @@ export async function createProject(data: ProjectCreate) {
   const [project] = await db.insert(projectsTable).values(data).returning({
     id: projectsTable.id,
     name: projectsTable.name,
+    description: projectsTable.description,
     author: projectsTable.author,
     remixedFrom: projectsTable.remixedFrom,
     thumbnail: projectsTable.thumbnail,
@@ -105,6 +108,7 @@ export async function updateProject(id: string, data: ProjectUpdate) {
     .returning({
       id: projectsTable.id,
       name: projectsTable.name,
+      description: projectsTable.description,
       author: projectsTable.author,
       remixedFrom: projectsTable.remixedFrom,
       thumbnail: projectsTable.thumbnail,

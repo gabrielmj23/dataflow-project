@@ -1,8 +1,11 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Link } from "react-router-dom";
-import { fetchLatestPublishedProjects } from "@/lib/projects";
+import {
+  fetchLatestPublishedProjects,
+  fetchPublishedProjectById,
+} from "@/lib/projects";
+import { ProjectPreviewDialog } from "@/components/projects/ProjectPreviewDialog";
 
 export function RecentPublishedProjectsSection() {
   const {
@@ -15,6 +18,20 @@ export function RecentPublishedProjectsSection() {
   });
 
   const railRef = useRef<HTMLDivElement | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null,
+  );
+
+  const selectedProject = useMemo(
+    () => projects.find((project) => project.id === selectedProjectId) ?? null,
+    [projects, selectedProjectId],
+  );
+
+  const selectedProjectDetailQuery = useQuery({
+    queryKey: ["projects", "detail", selectedProjectId],
+    queryFn: () => fetchPublishedProjectById(selectedProjectId as string),
+    enabled: Boolean(selectedProjectId),
+  });
 
   const hasProjects = useMemo(() => projects.length > 0, [projects.length]);
 
@@ -60,13 +77,14 @@ export function RecentPublishedProjectsSection() {
 
           <div
             ref={railRef}
-            className="mx-9 flex gap-4 overflow-x-auto scroll-smooth py-1"
+            className="mx-9 flex gap-4 overflow-x-auto scroll-smooth pt-1 pb-2"
           >
             {projects.map((project) => (
-              <Link
+              <button
                 key={project.id}
-                to={`/editor/${project.id}`}
-                className="w-56 shrink-0 rounded-lg border border-slate-200 bg-white"
+                type="button"
+                className="w-56 shrink-0 rounded-lg border border-slate-200 bg-white text-left hover:cursor-pointer hover:scale-105 transition-all"
+                onClick={() => setSelectedProjectId(project.id)}
               >
                 {project.thumbnail ? (
                   <img
@@ -99,7 +117,7 @@ export function RecentPublishedProjectsSection() {
                     </p>
                   ) : null}
                 </div>
-              </Link>
+              </button>
             ))}
           </div>
 
@@ -113,6 +131,19 @@ export function RecentPublishedProjectsSection() {
           </button>
         </div>
       ) : null}
+
+      <ProjectPreviewDialog
+        open={Boolean(selectedProjectId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedProjectId(null);
+          }
+        }}
+        project={selectedProject}
+        projectDetail={selectedProjectDetailQuery.data}
+        isLoadingDetail={selectedProjectDetailQuery.isLoading}
+        isDetailError={selectedProjectDetailQuery.isError}
+      />
     </section>
   );
 }

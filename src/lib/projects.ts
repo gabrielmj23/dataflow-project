@@ -9,6 +9,7 @@ type ApiErrorResponse = {
 export type PublicProjectSummary = {
   id: string;
   name: string;
+  description: string;
   authorId: string;
   authorName: string;
   thumbnail: string | null;
@@ -43,6 +44,7 @@ async function readApiError(response: Response): Promise<string> {
 
 export async function publishProject(params: {
   name: string;
+  description?: string;
   program: SerializedProgramV1;
   thumbnail: string;
   remixedFrom?: string;
@@ -60,6 +62,7 @@ export async function publishProject(params: {
     },
     body: JSON.stringify({
       name: params.name,
+      description: params.description,
       thumbnail: params.thumbnail,
       remixedFrom: params.remixedFrom,
       program: params.program,
@@ -119,6 +122,7 @@ export async function fetchPublishedProjectById(projectId: string) {
 export async function updatePublishedProject(params: {
   id: string;
   name: string;
+  description?: string;
   program: SerializedProgramV1;
   thumbnail?: string;
 }) {
@@ -135,6 +139,7 @@ export async function updatePublishedProject(params: {
     },
     body: JSON.stringify({
       name: params.name,
+      description: params.description,
       thumbnail: params.thumbnail,
       program: params.program,
     }),

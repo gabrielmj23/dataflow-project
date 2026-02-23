@@ -13,6 +13,7 @@ export const projectsTable = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    description: text("description").notNull().default(""),
     author: uuid("author")
       .notNull()
       .references(() => usersTable.id),

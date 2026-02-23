@@ -12,19 +12,23 @@ import {
 
 type PublishProjectDialogProps = {
   open: boolean;
+  mode?: "publish" | "save";
   defaultName: string;
+  defaultDescription?: string;
   thumbnailPreview: string | null;
   isGeneratingPreview: boolean;
   remixSourceName?: string | null;
   isPublishing: boolean;
   error: string | null;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (projectName: string) => void;
+  onConfirm: (projectName: string, projectDescription: string) => void;
 };
 
 export function PublishProjectDialog({
   open,
+  mode = "publish",
   defaultName,
+  defaultDescription = "",
   thumbnailPreview,
   isGeneratingPreview,
   remixSourceName,
@@ -34,33 +38,43 @@ export function PublishProjectDialog({
   onConfirm,
 }: PublishProjectDialogProps) {
   const [projectName, setProjectName] = useState(defaultName);
+  const [projectDescription, setProjectDescription] =
+    useState(defaultDescription);
 
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setProjectName(defaultName);
+      setProjectDescription(defaultDescription);
     }
-  }, [open, defaultName]);
+  }, [open, defaultName, defaultDescription]);
+
+  const isSaveMode = mode === "save";
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onConfirm(projectName.trim());
+    onConfirm(projectName.trim(), projectDescription.trim());
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Publicar proyecto</DialogTitle>
+          <DialogTitle>
+            {isSaveMode ? "Guardar cambios" : "Publicar proyecto"}
+          </DialogTitle>
           <DialogDescription>
-            Confirma el nombre antes de publicar tu proyecto.
+            {isSaveMode
+              ? "Edita el título y la descripción para actualizar tu proyecto."
+              : "Confirma el nombre y la descripción antes de publicar tu proyecto."}
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {remixSourceName ? (
             <p className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-700">
-              Se publicará como remix de <span className="font-medium">{remixSourceName}</span>.
+              Se publicará como remix de{" "}
+              <span className="font-medium">{remixSourceName}</span>.
             </p>
           ) : null}
 
@@ -87,6 +101,15 @@ export function PublishProjectDialog({
             disabled={isPublishing}
           />
 
+          <textarea
+            value={projectDescription}
+            onChange={(event) => setProjectDescription(event.target.value)}
+            placeholder="Descripción del proyecto (opcional)"
+            disabled={isPublishing}
+            rows={4}
+            className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+          />
+
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
           <DialogFooter>
@@ -99,7 +122,13 @@ export function PublishProjectDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={isPublishing}>
-              {isPublishing ? "Publicando..." : "Publicar"}
+              {isPublishing
+                ? isSaveMode
+                  ? "Guardando..."
+                  : "Publicando..."
+                : isSaveMode
+                  ? "Guardar cambios"
+                  : "Publicar"}
             </Button>
           </DialogFooter>
         </form>

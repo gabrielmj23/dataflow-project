@@ -96,6 +96,9 @@ export default function EditorPage() {
   } = useRemoteConfigState();
   const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
+  const [publishDialogMode, setPublishDialogMode] = useState<
+    "publish" | "save"
+  >("publish");
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [isGeneratingThumbnailPreview, setIsGeneratingThumbnailPreview] =
     useState(false);
@@ -113,6 +116,7 @@ export default function EditorPage() {
   );
   const [authToken] = useState<string | null>(() => getStoredAuthToken());
   const isAuthenticated = Boolean(authUser && authToken);
+  const [projectDescription, setProjectDescription] = useState<string>("");
 
   const [edgeFeedbackMode, setEdgeFeedbackMode] =
     useState<EdgeFeedbackMode>("transient");
@@ -315,70 +319,82 @@ export default function EditorPage() {
     publishedProjectQuery.data.authorId === authUser.id,
   );
 
-  const handleSaveChanges = useCallback(async () => {
-    if (!publishedProjectQuery.data) {
-      setPublishError("No hay un proyecto publicado cargado para guardar.");
-      return;
-    }
-
-    if (!reactFlowInstance) {
-      setPublishError("El editor aún no está listo. Intenta de nuevo.");
-      return;
-    }
-
-    setPublishError(null);
-
-    try {
-      const thumbnail = thumbnailPreview ?? (await generateThumbnailPreview());
-      if (!thumbnail) {
-        throw new Error(
-          "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
-        );
+  const handleSaveChanges = useCallback(
+    async (projectName: string, description: string) => {
+      if (!publishedProjectQuery.data) {
+        setPublishError("No hay un proyecto publicado cargado para guardar.");
+        return;
       }
 
-      const program = serializeProgram({
-        nodes,
-        edges,
-        viewport: reactFlowInstance.getViewport(),
-        programName,
-      });
+      const normalizedName = projectName.trim();
+      if (!normalizedName) {
+        setPublishError("Ingresa un nombre para el proyecto.");
+        return;
+      }
 
-      await updatePublishedProjectMutation.mutateAsync({
-        id: publishedProjectQuery.data.id,
-        name: programName,
-        thumbnail,
-        program,
-      });
+      if (!reactFlowInstance) {
+        setPublishError("El editor aún no está listo. Intenta de nuevo.");
+        return;
+      }
 
-      setProgramName(programName);
-      // refresh published project data
+      setPublishError(null);
+
       try {
-        await publishedProjectQuery.refetch();
-      } catch {
-        // ignore
-      }
+        const thumbnail =
+          thumbnailPreview ?? (await generateThumbnailPreview());
+        if (!thumbnail) {
+          throw new Error(
+            "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
+          );
+        }
 
-      // keep thumbnail preview in UI
-      setThumbnailPreview(thumbnail);
-      toast.success("Proyecto guardado correctamente.");
-    } catch (error: unknown) {
-      const message =
-        error instanceof Error
-          ? error.message
-          : "No se pudo guardar el proyecto.";
-      setPublishError(message);
-      toast.error(message);
-    }
-  }, [
-    edges,
-    generateThumbnailPreview,
-    nodes,
-    reactFlowInstance,
-    publishedProjectQuery,
-    programName,
-    thumbnailPreview,
-    updatePublishedProjectMutation,
-  ]);
+        const program = serializeProgram({
+          nodes,
+          edges,
+          viewport: reactFlowInstance.getViewport(),
+          programName: normalizedName,
+        });
+
+        await updatePublishedProjectMutation.mutateAsync({
+          id: publishedProjectQuery.data.id,
+          name: normalizedName,
+          description,
+          thumbnail,
+          program,
+        });
+
+        setProgramName(normalizedName);
+        setProjectDescription(description);
+        // refresh published project data
+        try {
+          await publishedProjectQuery.refetch();
+        } catch {
+          // ignore
+        }
+
+        // keep thumbnail preview in UI
+        setThumbnailPreview(thumbnail);
+        setIsPublishDialogOpen(false);
+        toast.success("Proyecto guardado correctamente.");
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "No se pudo guardar el proyecto.";
+        setPublishError(message);
+        toast.error(message);
+      }
+    },
+    [
+      edges,
+      generateThumbnailPreview,
+      nodes,
+      reactFlowInstance,
+      publishedProjectQuery,
+      thumbnailPreview,
+      updatePublishedProjectMutation,
+    ],
+  );
 
   useEffect(() => {
     const project = publishedProjectQuery.data;
@@ -397,6 +413,7 @@ export default function EditorPage() {
     setNodes(deserialized.nodes as FlowNode[]);
     setEdges(deserialized.edges as FlowEdge[]);
     setProgramName(project.name || project.program.programName || "Sin título");
+    setProjectDescription(project.description ?? "");
     resetHistory({
       nodes: deserialized.nodes as FlowNode[],
       edges: deserialized.edges as FlowEdge[],
@@ -418,12 +435,14 @@ export default function EditorPage() {
     if (!publishedProjectQuery.isError) return;
     setRemixSourceProject(null);
     setOpenedProjectRemixInfo(null);
+    setProjectDescription("");
   }, [publishedProjectQuery.isError]);
 
   useEffect(() => {
     if (!challengeId || challenge.challengeDefinition) {
       setRemixSourceProject(null);
       setOpenedProjectRemixInfo(null);
+      setProjectDescription("");
     }
   }, [challengeId, challenge.challengeDefinition]);
 
@@ -577,7 +596,7 @@ export default function EditorPage() {
   }, [generateThumbnailPreview, isPublishDialogOpen, nodes, edges]);
 
   const handlePublishProject = useCallback(
-    async (projectName: string) => {
+    async (projectName: string, description: string) => {
       const normalizedName = projectName.trim();
       if (!normalizedName) {
         setPublishError("Ingresa un nombre para el proyecto.");
@@ -609,12 +628,14 @@ export default function EditorPage() {
 
         const createdProject = await publishProjectMutation.mutateAsync({
           name: normalizedName,
+          description,
           thumbnail,
           remixedFrom: remixSourceProject?.id,
           program,
         });
 
         setProgramName(normalizedName);
+        setProjectDescription(description);
         const shouldNavigateToCreatedRemix =
           Boolean(remixSourceProject) &&
           typeof createdProject?.id === "string" &&
@@ -625,6 +646,7 @@ export default function EditorPage() {
         }
 
         setIsPublishDialogOpen(false);
+        toast.success("Proyecto publicado correctamente.");
       } catch (error: unknown) {
         const message =
           error instanceof Error
@@ -690,14 +712,12 @@ export default function EditorPage() {
                   className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
                   onClick={() => {
                     setPublishError(null);
-                    handleSaveChanges();
+                    setPublishDialogMode("save");
+                    setThumbnailPreview(null);
+                    setIsPublishDialogOpen(true);
                   }}
-                  disabled={updatePublishedProjectMutation.isPending}
                 >
                   <UploadCloud size={16} />
-                  {updatePublishedProjectMutation.isPending ? (
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border border-current border-r-transparent" />
-                  ) : null}
                   Guardar cambios
                 </Button>
               ) : (
@@ -706,6 +726,7 @@ export default function EditorPage() {
                   className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
                   onClick={() => {
                     setPublishError(null);
+                    setPublishDialogMode("publish");
                     setThumbnailPreview(null);
                     setIsPublishDialogOpen(true);
                   }}
@@ -939,11 +960,21 @@ export default function EditorPage() {
 
         <PublishProjectDialog
           open={isPublishDialogOpen}
+          mode={publishDialogMode}
           defaultName={programName}
+          defaultDescription={projectDescription}
           thumbnailPreview={thumbnailPreview}
           isGeneratingPreview={isGeneratingThumbnailPreview}
-          remixSourceName={remixSourceProject?.name ?? null}
-          isPublishing={publishProjectMutation.isPending}
+          remixSourceName={
+            publishDialogMode === "publish"
+              ? (remixSourceProject?.name ?? null)
+              : null
+          }
+          isPublishing={
+            publishDialogMode === "save"
+              ? updatePublishedProjectMutation.isPending
+              : publishProjectMutation.isPending
+          }
           error={publishError}
           onOpenChange={(open) => {
             setIsPublishDialogOpen(open);
@@ -952,7 +983,13 @@ export default function EditorPage() {
               setThumbnailPreview(null);
             }
           }}
-          onConfirm={handlePublishProject}
+          onConfirm={(name, description) => {
+            if (publishDialogMode === "save") {
+              void handleSaveChanges(name, description);
+              return;
+            }
+            void handlePublishProject(name, description);
+          }}
         />
       </SidebarProvider>
     </RemoteControllersProvider>
