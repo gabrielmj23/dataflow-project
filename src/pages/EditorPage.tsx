@@ -81,9 +81,44 @@ import { deserializeProgram, serializeProgram } from "@/flow/serialization";
 import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
+import type { CustomNodeSummary } from "@/lib/custom-nodes";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
+const CUSTOM_NODE_REFERENCES_KEY = "nodi-custom-node-references-v1";
+
+type SavedCustomNodeReference = {
+  id: string;
+  name: string;
+  authorName?: string;
+  inCount: number;
+  outCount: number;
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+};
+
+function parseSavedCustomNodeReferences(): SavedCustomNodeReference[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_NODE_REFERENCES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed.filter((entry): entry is SavedCustomNodeReference => {
+      return (
+        !!entry &&
+        typeof entry.id === "string" &&
+        typeof entry.name === "string" &&
+        typeof entry.inCount === "number" &&
+        typeof entry.outCount === "number" &&
+        Array.isArray(entry.nodes) &&
+        Array.isArray(entry.edges)
+      );
+    });
+  } catch {
+    return [];
+  }
+}
 
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
@@ -157,8 +192,154 @@ export default function EditorPage() {
     addOrUpdateTemplate,
     isNameTaken,
     resolveTemplate,
+    resolveTemplateByName,
     deleteTemplate,
   } = useSubflowTemplates();
+
+  const existingSubflowTemplateIds = useMemo(
+    () => subflowTemplates.map((template) => template.id),
+    [subflowTemplates],
+  );
+
+  useEffect(() => {
+    const saved = parseSavedCustomNodeReferences();
+    if (!saved.length) return;
+
+    for (const template of saved) {
+      addOrUpdateTemplate({
+        id: template.id,
+        name: template.name,
+        authorName: template.authorName,
+        inCount: template.inCount,
+        outCount: template.outCount,
+        nodes: template.nodes,
+        edges: template.edges,
+      });
+    }
+  }, [addOrUpdateTemplate]);
+
+  const handleAddCustomNodeToPalette = useCallback(
+    (customNode: CustomNodeSummary) => {
+      try {
+        const parsed = JSON.parse(customNode.code) as {
+          label?: unknown;
+          inCount?: unknown;
+          outCount?: unknown;
+          templateId?: unknown;
+          subflowNodes?: unknown;
+          subflowEdges?: unknown;
+        };
+
+        const nodes = Array.isArray(parsed.subflowNodes)
+          ? (parsed.subflowNodes as FlowNode[])
+          : [];
+        const edges = Array.isArray(parsed.subflowEdges)
+          ? (parsed.subflowEdges as FlowEdge[])
+          : [];
+        const inCount =
+          typeof parsed.inCount === "number" && Number.isFinite(parsed.inCount)
+            ? Math.max(0, Math.floor(parsed.inCount))
+            : 0;
+        const outCount =
+          typeof parsed.outCount === "number" &&
+          Number.isFinite(parsed.outCount)
+            ? Math.max(0, Math.floor(parsed.outCount))
+            : 0;
+        const templateId =
+          typeof parsed.templateId === "string" && parsed.templateId.trim()
+            ? parsed.templateId
+            : customNode.id;
+
+        const existingTemplate = subflowTemplates.find(
+          (template) => template.id === templateId,
+        );
+        const alreadyExists = Boolean(existingTemplate);
+        if (alreadyExists) {
+          console.log("alreadyExists");
+          const hasAuthor =
+            typeof existingTemplate?.authorName === "string" &&
+            existingTemplate.authorName.trim().length > 0;
+          const incomingAuthor =
+            typeof customNode.authorName === "string"
+              ? customNode.authorName.trim()
+              : "";
+
+          if (!hasAuthor && incomingAuthor) {
+            addOrUpdateTemplate({
+              id: templateId,
+              name: existingTemplate?.name ?? customNode.name,
+              authorName: incomingAuthor,
+              inCount:
+                existingTemplate?.ports.inCount ??
+                (typeof parsed.inCount === "number" ? parsed.inCount : 0),
+              outCount:
+                existingTemplate?.ports.outCount ??
+                (typeof parsed.outCount === "number" ? parsed.outCount : 0),
+              nodes: existingTemplate?.snapshot.nodes ?? nodes,
+              edges: existingTemplate?.snapshot.edges ?? edges,
+            });
+
+            const current = parseSavedCustomNodeReferences();
+            const next = current.map((entry) =>
+              entry.id === templateId
+                ? { ...entry, authorName: incomingAuthor }
+                : entry,
+            );
+            localStorage.setItem(
+              CUSTOM_NODE_REFERENCES_KEY,
+              JSON.stringify(next),
+            );
+
+            toast.success("Autor del subflujo actualizado.");
+            return true;
+          }
+
+          toast.error("Este nodo ya está agregado en Subflujos.");
+          return false;
+        }
+
+        const name =
+          typeof parsed.label === "string" && parsed.label.trim()
+            ? parsed.label.trim()
+            : customNode.name;
+
+        addOrUpdateTemplate({
+          id: templateId,
+          name,
+          authorName: customNode.authorName,
+          inCount,
+          outCount,
+          nodes,
+          edges,
+        });
+
+        const current = parseSavedCustomNodeReferences();
+        const nextEntry: SavedCustomNodeReference = {
+          id: templateId,
+          name,
+          authorName: customNode.authorName,
+          inCount,
+          outCount,
+          nodes,
+          edges,
+        };
+
+        const index = current.findIndex((entry) => entry.id === templateId);
+        const next =
+          index >= 0
+            ? current.map((entry, i) => (i === index ? nextEntry : entry))
+            : [...current, nextEntry];
+
+        localStorage.setItem(CUSTOM_NODE_REFERENCES_KEY, JSON.stringify(next));
+        toast.success(`"${name}" agregado a Subflujos.`);
+        return true;
+      } catch {
+        toast.error("No se pudo agregar el nodo personalizado a Subflujos.");
+        return false;
+      }
+    },
+    [addOrUpdateTemplate, subflowTemplates],
+  );
 
   const [programName, setProgramName] = useState<string>("Sin título");
 
@@ -842,6 +1023,8 @@ export default function EditorPage() {
               categories={paletteCategories}
               onDragStart={onPaletteDragStart}
               onDeleteTemplate={subflow.requestDeleteTemplate}
+              onAddCustomNode={handleAddCustomNodeToPalette}
+              existingTemplateIds={existingSubflowTemplateIds}
               showAbstractionFilter={!challenge.challengeAllowSet}
             />
 
@@ -871,6 +1054,7 @@ export default function EditorPage() {
                         addOrUpdateTemplate,
                         isNameTaken,
                         resolveTemplate,
+                        resolveTemplateByName,
                       }}
                     >
                       <ConnectionHighlightProvider value={connectionHighlight}>

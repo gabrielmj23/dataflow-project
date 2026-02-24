@@ -41,6 +41,8 @@ type BaseNodeProps = ComponentProps<"div"> & {
   sideActions?: ReactNode;
   /** Optional class override for side actions container positioning. */
   sideActionsClassName?: string;
+  /** Optional extra actions shown on the top action bar before delete. */
+  topActions?: ReactNode;
 };
 
 export function BaseNode({
@@ -54,6 +56,7 @@ export function BaseNode({
   hideDeleteButton,
   sideActions,
   sideActionsClassName,
+  topActions,
   ...props
 }: BaseNodeProps) {
   const hasErrorTooltip = Boolean(runtimeError) && !disableRuntimeStyles;
@@ -153,6 +156,8 @@ export function BaseNode({
               className="pointer-events-auto"
             />
           )}
+
+          {topActions}
 
           {!hideDeleteButton && (
             <Tooltip>

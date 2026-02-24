@@ -12,6 +12,7 @@ import type { FlowEdge, FlowNode } from "@/utils/flow";
 type SubflowTemplate = {
   id: string;
   name: string;
+  authorName?: string;
   ports: { inCount: number; outCount: number };
   snapshot: { nodes: FlowNode[]; edges: FlowEdge[] };
 };
@@ -143,6 +144,7 @@ export function usePaletteDrag({
         if (template) {
           data = {
             label: template.name,
+            templateAuthorName: template.authorName,
             inCount: template.ports.inCount,
             outCount: template.ports.outCount,
             subflowNodes: template.snapshot.nodes,

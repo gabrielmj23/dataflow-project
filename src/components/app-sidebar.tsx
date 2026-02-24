@@ -49,11 +49,15 @@ import {
   type NodePaletteItem,
 } from "@/flow/node-palette";
 import { NODE_TYPES } from "@/common/constants";
+import { CustomNodeSearchDialog } from "@/components/custom-nodes/CustomNodeSearchDialog";
+import type { CustomNodeSummary } from "@/lib/custom-nodes";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
   onDragStart: (event: DragEvent, item: NodePaletteItem) => void;
   onDeleteTemplate?: (templateId: string) => void;
+  onAddCustomNode?: (node: CustomNodeSummary) => boolean;
+  existingTemplateIds?: string[];
   showAbstractionFilter?: boolean;
   className?: string;
 };
@@ -62,12 +66,15 @@ export function AppSidebar({
   categories,
   onDragStart,
   onDeleteTemplate,
+  onAddCustomNode,
+  existingTemplateIds = [],
   showAbstractionFilter = true,
   className,
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
   const [abstractionLevel, setAbstractionLevel] =
     React.useState<AbstractionLevel>(3);
+  const [customNodeDialogOpen, setCustomNodeDialogOpen] = React.useState(false);
   const viewMode = "nodes";
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -237,6 +244,18 @@ export function AppSidebar({
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => setCustomNodeDialogOpen(true)}
+              className="group flex w-full flex-col items-center gap-1 rounded-md px-1.5 py-1 text-[0.7rem] text-muted-foreground transition duration-300 ease-out hover:bg-muted cursor-pointer"
+            >
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border-2 border-neutral-400 text-neutral-400 shadow-sm">
+                <Plus className="h-4 w-4" />
+              </span>
+              <span className="text-[11px] leading-tight text-center line-clamp-2">
+                Extensiones
+              </span>
+            </button>
           </div>
 
           <div
@@ -323,6 +342,12 @@ export function AppSidebar({
           </div>
         </div>
       </SidebarContent>
+      <CustomNodeSearchDialog
+        open={customNodeDialogOpen}
+        onOpenChange={setCustomNodeDialogOpen}
+        onAddCustomNode={onAddCustomNode}
+        existingTemplateIds={existingTemplateIds}
+      />
     </Sidebar>
   );
 }

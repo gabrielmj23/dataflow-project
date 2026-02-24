@@ -4,6 +4,7 @@ import type { Edge, Node } from "@xyflow/react";
 export type SubflowTemplatePayload = {
   id: string;
   name: string;
+  authorName?: string;
   inCount: number;
   outCount: number;
   nodes: Node[];
@@ -16,6 +17,16 @@ export type SubflowTemplateContextValue = {
   resolveTemplate: (id: string) => {
     id: string;
     name: string;
+    authorName?: string;
+    inCount: number;
+    outCount: number;
+    nodes: Node[];
+    edges: Edge[];
+  } | null;
+  resolveTemplateByName: (name: string) => {
+    id: string;
+    name: string;
+    authorName?: string;
     inCount: number;
     outCount: number;
     nodes: Node[];
