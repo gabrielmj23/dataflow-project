@@ -586,7 +586,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "listAtPosition":
       case "listRemoveFirst":
       case "listPrepend":
-      case "listAppend": {
+      case "listAppend":
+      case "listIsEmpty": {
         const symbolMap: Record<string, string> = {
           sequence: "1..N",
           pulseSequence: "1..N",
@@ -620,6 +621,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
                   <Plus className="h-4 w-4" />
                   <ArrowRight className="h-4 w-4" />
                 </span>
+              ) : type === "listIsEmpty" ? (
+                <ListChecks className="h-5 w-5" />
               ) : symbolMap[type] === "sort" ? (
                 <ArrowUpDown className="h-5 w-5" />
               ) : (

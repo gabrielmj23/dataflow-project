@@ -45,6 +45,7 @@ const OP_LABEL_BY_KEY: Record<string, string> = {
   listremovefirst: "Quitar el primero",
   listprepend: "Añadir al inicio",
   listappend: "Añadir al final",
+  listisempty: "Lista vacía",
   scatter: "Distribuir",
   gather: "Reunir",
   sortlistasc: "Ordenar lista asc",

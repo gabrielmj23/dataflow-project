@@ -72,6 +72,7 @@ export type RemoteExecutionOp =
   | "listRemoveFirst"
   | "listPrepend"
   | "listAppend"
+  | "listIsEmpty"
   | "scatter"
   | "gather"
   | "sortListAsc"

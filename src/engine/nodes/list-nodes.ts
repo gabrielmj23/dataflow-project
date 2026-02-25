@@ -278,6 +278,19 @@ export class EngineListAppendNode extends NodeDefinition {
   }
 }
 
+export class EngineListIsEmptyNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        return list.length === 0;
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "output"]
+    );
+  }
+}
+
 export class EngineSortListNode extends NodeDefinition {
   constructor(order: "asc" | "desc" = "asc") {
     super(

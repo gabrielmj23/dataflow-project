@@ -74,6 +74,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   listRemoveFirst: 2,
   listPrepend: 2,
   listAppend: 2,
+  listIsEmpty: 2,
 
   subflow: 3,
   write: 1,
@@ -377,6 +378,11 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "listAppend",
         label: "Añadir al final",
         description: "Inserta un elemento al final de la lista.",
+      },
+      {
+        type: "listIsEmpty",
+        label: "Lista vacía",
+        description: "Devuelve verdadero si la lista no tiene elementos.",
       },
     ],
   },

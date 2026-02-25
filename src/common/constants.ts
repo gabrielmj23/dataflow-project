@@ -54,6 +54,7 @@ export const NODE_TYPES = {
   LIST_REMOVE_FIRST_NODE: "listRemoveFirst",
   LIST_PREPEND_NODE: "listPrepend",
   LIST_APPEND_NODE: "listAppend",
+  LIST_IS_EMPTY_NODE: "listIsEmpty",
   COUNT_NODE: "count",
   SORT_LIST_NODE: "sortList",
   REDUCE_NODE: "accumulate",

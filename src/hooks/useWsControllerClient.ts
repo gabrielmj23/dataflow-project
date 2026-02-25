@@ -240,6 +240,10 @@ function computeOperation(op: string, args: unknown[]): unknown {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
       return [...inputList, args[1]];
     }
+    case "listIsEmpty": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return inputList.length === 0;
+    }
     case "scatter": {
       const values = Array.isArray(args[0]) ? args[0] : [];
       const rawCount = typeof args[1] === "number" ? args[1] : Number(args[1]);

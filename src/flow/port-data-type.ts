@@ -285,6 +285,10 @@ export function inferPortDataType(params: {
     return "list";
   }
 
+  if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
+    return handleType === "target" ? "list" : "boolean";
+  }
+
   return "any";
 }
 
@@ -447,6 +451,10 @@ export function getPortTypeMask(params: {
     if (handleId === "in-1") return TYPE_LIST;
     if (handleId === "in-2") return TYPE_ANY;
     return TYPE_ANY;
+  }
+
+  if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
+    return isOutput ? TYPE_BOOLEAN : TYPE_LIST;
   }
 
   return TYPE_ANY;

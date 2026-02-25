@@ -462,6 +462,17 @@ register([NODE_TYPES.LIST_PREPEND_NODE, NODE_TYPES.LIST_APPEND_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
+register([NODE_TYPES.LIST_IS_EMPTY_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputList";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
 register(
   [NODE_TYPES.GENERATE_SEQUENCE_NODE, NODE_TYPES.PULSE_SEQUENCE_NODE],
   (p) => {

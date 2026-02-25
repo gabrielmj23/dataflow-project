@@ -59,6 +59,7 @@ import { ListAtPositionNode } from "@/components/nodes/iteration/list-at-positio
 import { ListRemoveFirstNode } from "@/components/nodes/iteration/list-remove-first-node";
 import { ListPrependNode } from "@/components/nodes/iteration/list-prepend-node";
 import { ListAppendNode } from "@/components/nodes/iteration/list-append-node";
+import { ListIsEmptyNode } from "@/components/nodes/iteration/list-is-empty-node";
 import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
 import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-node"; // New import for SubflowInputNode
@@ -125,5 +126,6 @@ export const nodeTypesCore: NodeTypes = {
   listRemoveFirst: ListRemoveFirstNode,
   listPrepend: ListPrependNode,
   listAppend: ListAppendNode,
+  listIsEmpty: ListIsEmptyNode,
   comment: CommentNode,
 };
