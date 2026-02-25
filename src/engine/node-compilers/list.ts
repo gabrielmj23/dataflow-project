@@ -8,6 +8,12 @@ import {
   EngineCountNode,
   EngineFilterNode,
   EngineGenerateSequenceNode,
+  EngineListAppendNode,
+  EngineListAtPositionNode,
+  EngineListFirstNode,
+  EngineListLastNode,
+  EngineListPrependNode,
+  EngineListRemoveFirstNode,
   EngineMapNode,
   EnginePulseSequenceNode,
   EngineReduceNode,
@@ -686,6 +692,276 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       }
 
       return new EngineCountNode();
+    }
+
+    case NODE_TYPES.LIST_FIRST_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listFirst",
+          ["inputList", "output"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[]) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS],
+          ["inputList", "output"],
+          {
+            stickyInputPorts: ["inputList"],
+          },
+        );
+      }
+
+      return new EngineListFirstNode();
+    }
+
+    case NODE_TYPES.LIST_LAST_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listLast",
+          ["inputList", "output"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[]) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS],
+          ["inputList", "output"],
+          {
+            stickyInputPorts: ["inputList"],
+          },
+        );
+      }
+
+      return new EngineListLastNode();
+    }
+
+    case NODE_TYPES.LIST_AT_POSITION_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listAtPosition",
+          ["inputList", "position", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "position"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in-1", "in-2"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[], position: unknown) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList, position],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "position", "output"],
+          {
+            stickyInputPorts: ["inputList", "position"],
+          },
+        );
+      }
+
+      return new EngineListAtPositionNode();
+    }
+
+    case NODE_TYPES.LIST_REMOVE_FIRST_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listRemoveFirst",
+          ["inputList", "outputList"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in"],
+          outputPortId: "outputList",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[]) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS],
+          ["inputList", "outputList"],
+          {
+            stickyInputPorts: ["inputList"],
+          },
+        );
+      }
+
+      return new EngineListRemoveFirstNode();
+    }
+
+    case NODE_TYPES.LIST_PREPEND_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listPrepend",
+          ["inputList", "item", "outputList"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "item"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in-1", "in-2"],
+          outputPortId: "outputList",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[], item: unknown) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList, item],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "item", "outputList"],
+          {
+            stickyInputPorts: ["inputList", "item"],
+          },
+        );
+      }
+
+      return new EngineListPrependNode();
+    }
+
+    case NODE_TYPES.LIST_APPEND_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listAppend",
+          ["inputList", "item", "outputList"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "item"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in-1", "in-2"],
+          outputPortId: "outputList",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[], item: unknown) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList, item],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "item", "outputList"],
+          {
+            stickyInputPorts: ["inputList", "item"],
+          },
+        );
+      }
+
+      return new EngineListAppendNode();
     }
 
     case NODE_TYPES.SCATTER_NODE: {

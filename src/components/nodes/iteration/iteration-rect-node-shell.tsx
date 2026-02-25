@@ -39,6 +39,11 @@ export function IterationRectNodeShell({
     variant === "tripleInSingleOut" &&
     (nodeType === "sequence" || nodeType === "pulseSequence")
       ? ["Inicio", "Fin", "Paso"]
+      : variant === "doubleInSingleOut" && nodeType === "listAtPosition"
+        ? ["Lista", "Posición"]
+        : variant === "doubleInSingleOut" &&
+            (nodeType === "listPrepend" || nodeType === "listAppend")
+          ? ["Lista", "Elemento"]
       : [];
 
   const maskFor = (params: {
@@ -271,12 +276,29 @@ export function IterationRectNodeShell({
         </>
       )}
 
-      {inputLabels.length > 0 && (
+      {inputLabels.length === 3 && (
         <>
           {[
             { top: "25%", label: inputLabels[0] },
             { top: "50%", label: inputLabels[1] },
             { top: "75%", label: inputLabels[2] },
+          ].map(({ top, label }) => (
+            <div
+              key={`iter-input-${label}-${top}`}
+              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90"
+              style={{ top }}
+            >
+              {label}
+            </div>
+          ))}
+        </>
+      )}
+
+      {inputLabels.length === 2 && (
+        <>
+          {[
+            { top: "35%", label: inputLabels[0] },
+            { top: "65%", label: inputLabels[1] },
           ].map(({ top, label }) => (
             <div
               key={`iter-input-${label}-${top}`}

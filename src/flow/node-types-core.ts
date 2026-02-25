@@ -53,6 +53,12 @@ import { MapNode } from "@/components/nodes/iteration/map-node";
 import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
 import { CountNode } from "@/components/nodes/iteration/count-node";
 import { SortListNode } from "@/components/nodes/iteration/sort-list-node";
+import { ListFirstNode } from "@/components/nodes/iteration/list-first-node";
+import { ListLastNode } from "@/components/nodes/iteration/list-last-node";
+import { ListAtPositionNode } from "@/components/nodes/iteration/list-at-position-node";
+import { ListRemoveFirstNode } from "@/components/nodes/iteration/list-remove-first-node";
+import { ListPrependNode } from "@/components/nodes/iteration/list-prepend-node";
+import { ListAppendNode } from "@/components/nodes/iteration/list-append-node";
 import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
 import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-node"; // New import for SubflowInputNode
@@ -113,5 +119,11 @@ export const nodeTypesCore: NodeTypes = {
   accumulate: AccumulateNode,
   count: CountNode,
   sortList: SortListNode,
+  listFirst: ListFirstNode,
+  listLast: ListLastNode,
+  listAtPosition: ListAtPositionNode,
+  listRemoveFirst: ListRemoveFirstNode,
+  listPrepend: ListPrependNode,
+  listAppend: ListAppendNode,
   comment: CommentNode,
 };

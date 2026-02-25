@@ -196,6 +196,50 @@ function computeOperation(op: string, args: unknown[]): unknown {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
       return inputList.length;
     }
+    case "listFirst": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      if (inputList.length === 0) throw new Error("La lista está vacía.");
+      return inputList[0];
+    }
+    case "listLast": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      if (inputList.length === 0) throw new Error("La lista está vacía.");
+      return inputList[inputList.length - 1];
+    }
+    case "listAtPosition": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      if (inputList.length === 0) throw new Error("La lista está vacía.");
+
+      const rawPosition =
+        typeof args[1] === "number" ? args[1] : Number(args[1]);
+      if (!Number.isFinite(rawPosition)) {
+        throw new Error("La posición debe ser un número entero.");
+      }
+
+      const position = Math.floor(rawPosition);
+      if (position !== rawPosition || position < 1) {
+        throw new Error("La posición debe ser un entero mayor o igual a 1.");
+      }
+
+      const index = position - 1;
+      if (index >= inputList.length) {
+        throw new Error("La posición está fuera del rango de la lista.");
+      }
+
+      return inputList[index];
+    }
+    case "listRemoveFirst": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return inputList.slice(1);
+    }
+    case "listPrepend": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return [args[1], ...inputList];
+    }
+    case "listAppend": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return [...inputList, args[1]];
+    }
     case "scatter": {
       const values = Array.isArray(args[0]) ? args[0] : [];
       const rawCount = typeof args[1] === "number" ? args[1] : Number(args[1]);
