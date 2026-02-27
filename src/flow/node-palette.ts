@@ -142,6 +142,17 @@ export const nodePalette: NodePaletteCategory[] = [
     ],
   },
   {
+    id: "io",
+    title: "Salidas",
+    items: [
+      {
+        type: "write",
+        label: "Escribir",
+        description: "Muestra valores para inspeccionarlos o imprimirlos.",
+      },
+    ],
+  },
+  {
     id: "math",
     title: "Matemática",
     items: [
@@ -395,17 +406,6 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Subflujo",
         description:
           "Encapsula parte del diagrama como un bloque reutilizable.",
-      },
-    ],
-  },
-  {
-    id: "io",
-    title: "Salidas",
-    items: [
-      {
-        type: "write",
-        label: "Escribir",
-        description: "Muestra valores para inspeccionarlos o imprimirlos.",
       },
     ],
   },
