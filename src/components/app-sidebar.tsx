@@ -14,6 +14,8 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
+  ArrowLeft,
+  ArrowRight,
   Circle,
   Link2,
   Ampersand,
@@ -27,6 +29,7 @@ import {
   GitFork,
   Replace as ReplaceIcon,
   Eraser,
+  Search,
   Scissors,
 } from "lucide-react";
 
@@ -577,7 +580,14 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "map":
       case "sortList":
       case "accumulate":
-      case "count": {
+      case "count":
+      case "listFirst":
+      case "listLast":
+      case "listAtPosition":
+      case "listRemoveFirst":
+      case "listPrepend":
+      case "listAppend":
+      case "listIsEmpty": {
         const symbolMap: Record<string, string> = {
           sequence: "1..N",
           pulseSequence: "1..N",
@@ -588,6 +598,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           sortList: "sort",
           accumulate: "Σ",
           count: "#",
+          listFirst: "1°",
+          listLast: "N°",
         };
         return (
           <div
@@ -595,7 +607,23 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
           >
             <span className="text-xl font-bold leading-none">
-              {symbolMap[type] === "sort" ? (
+              {type === "listAtPosition" ? (
+                <Search className="h-5 w-5" />
+              ) : type === "listRemoveFirst" ? (
+                <Scissors className="h-5 w-5" />
+              ) : type === "listPrepend" ? (
+                <span className="inline-flex items-center gap-0.5">
+                  <Plus className="h-4 w-4" />
+                  <ArrowLeft className="h-4 w-4" />
+                </span>
+              ) : type === "listAppend" ? (
+                <span className="inline-flex items-center gap-0.5">
+                  <Plus className="h-4 w-4" />
+                  <ArrowRight className="h-4 w-4" />
+                </span>
+              ) : type === "listIsEmpty" ? (
+                <ListChecks className="h-5 w-5" />
+              ) : symbolMap[type] === "sort" ? (
                 <ArrowUpDown className="h-5 w-5" />
               ) : (
                 (symbolMap[type] ?? "")

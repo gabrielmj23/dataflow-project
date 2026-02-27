@@ -262,6 +262,33 @@ export function inferPortDataType(params: {
     return "any";
   }
 
+  if (
+    nodeType === NODE_TYPES.LIST_FIRST_NODE ||
+    nodeType === NODE_TYPES.LIST_LAST_NODE ||
+    nodeType === NODE_TYPES.LIST_AT_POSITION_NODE
+  ) {
+    if (handleType === "target" && nodeType === NODE_TYPES.LIST_AT_POSITION_NODE) {
+      return params.handleId === "in-2" ? "number" : "list";
+    }
+    return handleType === "target" ? "list" : "any";
+  }
+
+  if (
+    nodeType === NODE_TYPES.LIST_REMOVE_FIRST_NODE ||
+    nodeType === NODE_TYPES.LIST_PREPEND_NODE ||
+    nodeType === NODE_TYPES.LIST_APPEND_NODE
+  ) {
+    if (handleType === "target") {
+      if (params.handleId === "in-1" || params.handleId === "in") return "list";
+      if (params.handleId === "in-2") return "any";
+    }
+    return "list";
+  }
+
+  if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
+    return handleType === "target" ? "list" : "boolean";
+  }
+
   return "any";
 }
 
@@ -402,6 +429,32 @@ export function getPortTypeMask(params: {
   if (nodeType === "pulseSequence") {
     // Inputs (Inicio/Fin/Paso) are numbers; output are numeric pulses.
     return isOutput ? TYPE_NUMBER : TYPE_NUMBER;
+  }
+
+  if (nodeType === NODE_TYPES.LIST_FIRST_NODE || nodeType === NODE_TYPES.LIST_LAST_NODE) {
+    return isOutput ? TYPE_ANY : TYPE_LIST;
+  }
+
+  if (nodeType === NODE_TYPES.LIST_AT_POSITION_NODE) {
+    if (isOutput) return TYPE_ANY;
+    if (handleId === "in-1") return TYPE_LIST;
+    if (handleId === "in-2") return TYPE_NUMBER;
+    return TYPE_ANY;
+  }
+
+  if (nodeType === NODE_TYPES.LIST_REMOVE_FIRST_NODE) {
+    return TYPE_LIST;
+  }
+
+  if (nodeType === NODE_TYPES.LIST_PREPEND_NODE || nodeType === NODE_TYPES.LIST_APPEND_NODE) {
+    if (isOutput) return TYPE_LIST;
+    if (handleId === "in-1") return TYPE_LIST;
+    if (handleId === "in-2") return TYPE_ANY;
+    return TYPE_ANY;
+  }
+
+  if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
+    return isOutput ? TYPE_BOOLEAN : TYPE_LIST;
   }
 
   return TYPE_ANY;
