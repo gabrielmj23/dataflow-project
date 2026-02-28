@@ -979,6 +979,7 @@ export default function EditorPage() {
               </Link>
             ) : null}
             {isAuthenticated &&
+              !challenge.challengeDefinition &&
               (isEditingOwnProject ? (
                 <Button
                   variant="ghost"
