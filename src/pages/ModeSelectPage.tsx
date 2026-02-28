@@ -93,7 +93,7 @@ export default function ModeSelectPage() {
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-slate-500 md:text-xl leading-relaxed">
               Conecta bloques inteligentes, entiende el flujo de datos y
-              descubre cómo pensar como un ingeniero creativo. Nodi es el camino
+              descubre cómo pensar como un ingeniero creativo. NodeLand es el camino
               más divertido para dominar la lógica.
             </p>
 

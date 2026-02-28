@@ -133,7 +133,7 @@ export function AuthDialog({
           <DialogDescription>
             {mode === "login"
               ? "Accede para compartir tus proyectos."
-              : "Regístrate para comenzar a guardar tus proyectos en Nodi."}
+              : "Regístrate para comenzar a guardar tus proyectos en NodeLand."}
           </DialogDescription>
         </div>
 

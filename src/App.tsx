@@ -13,7 +13,7 @@ function NotFoundPage() {
         href="/"
         className="rounded-full bg-white/90 px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white"
       >
-        Regresar a Nodi
+        Regresar a NodeLand
       </a>
     </div>
   );
