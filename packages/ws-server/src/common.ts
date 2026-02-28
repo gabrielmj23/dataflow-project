@@ -1,5 +1,5 @@
 import process from "node:process";
-import type { ServerConfig } from "./types.ts";
+import type { ServerConfig } from "./types";
 
 const DEFAULT_HOST = "0.0.0.0";
 const DEFAULT_PORT = 8787;

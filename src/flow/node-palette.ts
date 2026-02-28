@@ -398,18 +398,6 @@ export const nodePalette: NodePaletteCategory[] = [
     ],
   },
   {
-    id: "abstraction",
-    title: "Subflujos",
-    items: [
-      {
-        type: "subflow",
-        label: "Subflujo",
-        description:
-          "Encapsula parte del diagrama como un bloque reutilizable.",
-      },
-    ],
-  },
-  {
     id: "microbit",
     title: "Micro:bit",
     items: [
@@ -424,6 +412,18 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "micro:bit · Sonido",
         description:
           "Activa un sonido en el micro:bit (configurable Bluetooth/Serial).",
+      },
+    ],
+  },
+  {
+    id: "abstraction",
+    title: "Subflujos",
+    items: [
+      {
+        type: "subflow",
+        label: "Subflujo",
+        description:
+          "Encapsula parte del diagrama como un bloque reutilizable.",
       },
     ],
   },

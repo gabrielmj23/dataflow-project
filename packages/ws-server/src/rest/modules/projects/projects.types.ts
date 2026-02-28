@@ -1,4 +1,4 @@
-import { projectsTable } from "./projects.model.js";
+import { projectsTable } from "./projects.model";
 
 export type ProjectSearchParams = {
   name?: string;

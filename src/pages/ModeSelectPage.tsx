@@ -1,19 +1,35 @@
 import { Link } from "react-router-dom";
-import { Trophy, Zap } from "lucide-react";
+import { LogIn, LogOut, Trophy, UserRound, Zap } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AuthDialog } from "@/components/auth/AuthDialog";
+import { clearStoredAuthSession, getStoredAuthUser } from "@/lib/auth";
+import type { AuthMode, AuthSessionUser } from "@/types";
+import { RecentPublishedProjectsSection } from "@/components/projects/RecentPublishedProjectsSection";
 
 export default function ModeSelectPage() {
   const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
+  const [currentUser, setCurrentUser] = useState<AuthSessionUser | null>(() =>
+    getStoredAuthUser(),
+  );
+
+  const handleAuthSuccess = (user: AuthSessionUser) => {
+    setCurrentUser(user);
+    setIsAuthDialogOpen(false);
+  };
+
+  const handleLogout = () => {
+    clearStoredAuthSession();
+    setCurrentUser(null);
+  };
 
   return (
-    <div className="relative h-screen overflow-hidden bg-slate-50 text-slate-900">
-      <div className="absolute -top-24 -left-24 h-96 w-96 rounded-full bg-blue-400/20 blur-3xl" />
-      <div className="absolute top-1/2 -right-24 h-96 w-96 -translate-y-1/2 rounded-full bg-fuchsia-400/20 blur-3xl" />
-      <div className="absolute -bottom-24 left-1/2 h-96 w-96 -translate-x-1/2 rounded-full bg-purple-400/20 blur-3xl" />
-
+    <div className="bg-linear-to-br from-cyan-50 to-green-50 text-slate-900">
       <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-6 py-10">
-        <header className="flex items-center justify-start">
+        <header className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="rounded-2xl bg-blue-50/90 p-2.5 text-blue-600 shadow-sm border border-slate-200">
               <img
@@ -31,10 +47,43 @@ export default function ModeSelectPage() {
               </span>
             </div>
           </div>
+
+          <div className="flex items-center gap-2">
+            {currentUser ? (
+              <>
+                <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 shadow-sm">
+                  <UserRound size={16} className="text-slate-500" />
+                  <span className="max-w-40 truncate">{currentUser.name}</span>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="rounded-xl"
+                  onClick={handleLogout}
+                >
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl border-slate-300 bg-white/80 backdrop-blur"
+                onClick={() => {
+                  setAuthMode("login");
+                  setIsAuthDialogOpen(true);
+                }}
+              >
+                <LogIn size={16} />
+                Iniciar sesión
+              </Button>
+            )}
+          </div>
         </header>
 
-        <main className="flex flex-col gap-12 items-center justify-center min-h-[65vh]">
-          <div className="flex flex-col gap-8 text-center max-w-4xl">
+        <main className="flex flex-col gap-12 items-center pb-8">
+          <div className="flex min-h-[65vh] flex-col items-center justify-center gap-8 text-center max-w-4xl">
             <h1 className="text-5xl font-black leading-[1.1] text-slate-900 md:text-7xl tracking-tight">
               Programa con{" "}
               <span className="text-transparent bg-clip-text bg-linear-to-r from-blue-600 to-fuchsia-600">
@@ -70,9 +119,19 @@ export default function ModeSelectPage() {
             </div>
           </div>
 
+          <RecentPublishedProjectsSection />
+
           <AgeSelectionDialog
             visible={isChallengeDialogOpen}
             onClose={() => setIsChallengeDialogOpen(false)}
+          />
+
+          <AuthDialog
+            visible={isAuthDialogOpen}
+            mode={authMode}
+            onModeChange={setAuthMode}
+            onClose={() => setIsAuthDialogOpen(false)}
+            onAuthSuccess={handleAuthSuccess}
           />
         </main>
       </div>

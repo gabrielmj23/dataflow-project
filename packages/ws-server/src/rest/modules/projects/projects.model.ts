@@ -6,17 +6,19 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
-import { usersTable } from "../users/users.model.js";
+import { usersTable } from "../users/users.model";
 
 export const projectsTable = pgTable(
   "projects",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
+    description: text("description").notNull().default(""),
     author: uuid("author")
       .notNull()
       .references(() => usersTable.id),
     remixedFrom: uuid("remixed_from"),
+    thumbnail: text("thumbnail"),
     program: json("program").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at")

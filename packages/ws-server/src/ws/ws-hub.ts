@@ -2,8 +2,8 @@ import type http from "node:http";
 import type { IncomingMessage } from "node:http";
 import { randomUUID } from "node:crypto";
 
-import { WebSocketServer, WebSocket } from "ws";
-import type { ControllerSnapshot, SessionSnapshot } from "../types.ts";
+import { WebSocketServer, WebSocket, type RawData } from "ws";
+import type { ControllerSnapshot, SessionSnapshot } from "../types";
 import type {
   AnyMessage,
   Client,
@@ -11,7 +11,7 @@ import type {
   Role,
   Session,
   WebSocketHubOptions,
-} from "./ws.types.ts";
+} from "./ws.types";
 
 const PROTOCOL_VERSION = 1;
 const HEARTBEAT_MS = 15_000;
@@ -196,7 +196,7 @@ export function attachWebSocketHub(
       touch();
     });
 
-    socket.on("message", (data: WebSocket.RawData, isBinary: boolean) => {
+    socket.on("message", (data: RawData, isBinary: boolean) => {
       if (isBinary) {
         sendErrorAndClose("binary not supported");
         return;

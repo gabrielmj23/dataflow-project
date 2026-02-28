@@ -51,7 +51,7 @@ jobs:
           rm -rf backend-dist backend.zip
           pnpm --filter @dataflow/ws-server deploy --prod backend-dist
           cd backend-dist
-          zip -r ../backend.zip .
+          zip -rq ../backend.zip .
 
       - name: Desplegar a Azure Web App
         uses: azure/webapps-deploy@v2

@@ -33,6 +33,7 @@ import {
   MousePointer2,
   PictureInPicture2,
   RefreshCw,
+  Share2,
   Split,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -67,9 +68,19 @@ import {
 } from "@/utils/conditional-pair";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 import { type MicrobitTransport } from "@/microbit/connection-manager";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { getStoredAuthToken, getStoredAuthUser } from "@/lib/auth";
+import { ShareSubflowDialog } from "@/components/custom-nodes/ShareSubflowDialog";
+import { createCustomNode } from "@/lib/custom-nodes";
+import { toast } from "sonner";
 
 export type SubflowNodeData = {
   label?: string;
+  templateAuthorName?: string;
   inCount?: number;
   outCount?: number;
   subflowNodes?: Node[];
@@ -122,6 +133,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const {
     label = "Subflujo",
+    templateAuthorName: rawTemplateAuthorName,
     inCount: rawInCount,
     outCount: rawOutCount,
     subflowNodes,
@@ -153,6 +165,19 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     typeof rawControllerId === "string" ? rawControllerId : "";
   const controllerName =
     typeof rawControllerName === "string" ? rawControllerName : "";
+  const resolvedTemplate =
+    templateContext && templateId
+      ? templateContext.resolveTemplate(templateId)
+      : templateContext
+        ? templateContext.resolveTemplateByName(label)
+        : null;
+  const templateAuthorName =
+    typeof rawTemplateAuthorName === "string" && rawTemplateAuthorName.trim()
+      ? rawTemplateAuthorName.trim()
+      : typeof resolvedTemplate?.authorName === "string" &&
+          resolvedTemplate.authorName.trim()
+        ? resolvedTemplate.authorName.trim()
+        : "";
 
   // Extract explicit `subflowInput` nodes (created in the editor) and
   // order them top-to-bottom so they map to the left handles deterministically.
@@ -192,6 +217,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   })();
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isShareSubmitting, setIsShareSubmitting] = useState(false);
+  const [shareSubmitError, setShareSubmitError] = useState<string | null>(null);
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
     "pan",
   );
@@ -279,6 +307,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const connectionTooltip = useConnectionValidationTooltip(syncedDraftNodes);
   const [connectionHighlight, setConnectionHighlight] =
     useState<ConnectionHighlightState>(null);
+  const isAuthenticated = Boolean(getStoredAuthUser() && getStoredAuthToken());
 
   // Delete selected nodes/edges with Backspace/Delete when editor is open
   useEffect(() => {
@@ -537,6 +566,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       if (resolved) {
         data = {
           label: resolved.name,
+          templateAuthorName: resolved.authorName,
           inCount: resolved.inCount,
           outCount: resolved.outCount,
           subflowNodes: resolved.nodes,
@@ -588,6 +618,30 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             : undefined
         }
         onConnectClick={!isSelfCall ? config.onConfigClick : undefined}
+        topActions={
+          !isSelfCall && isAuthenticated ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon-node"
+                  variant="node"
+                  aria-label="Compartir"
+                  className="pointer-events-auto opacity-100 bg-transparent shadow-none p-1 text-(--node-action-color)"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsShareDialogOpen(true);
+                  }}
+                >
+                  <Share2 className="size-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" sideOffset={6}>
+                Compartir
+              </TooltipContent>
+            </Tooltip>
+          ) : null
+        }
       >
         {(() => {
           const hasInputs = explicitInputNodes.length > 0 || inCount > 0;
@@ -682,13 +736,17 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             }}
           >
             <DialogHeader>
-              <DialogTitle>Editar subflujo</DialogTitle>
+              <DialogTitle>
+                Editar subflujo{" "}
+                {templateAuthorName ? (
+                  <span className="bg-violet-100 text-violet-600 rounded-xl px-2 py-0.5 w-fit text-sm font-medium ms-1">
+                    Autor: {templateAuthorName}
+                  </span>
+                ) : null}
+              </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-3 overflow-y-auto max-h-[80vh]">
-              <p className="text-sm text-muted-foreground">
-                Modifica los nodos y conexiones.
-              </p>
               <div>
                 <label className="mb-1 block text-sm font-medium text-gray-900">
                   Nombre del subflujo:
@@ -1106,6 +1164,54 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           </DialogContent>
         </Dialog>
       </BaseNode>
+      <ShareSubflowDialog
+        key={`${id}-${label}`}
+        open={isShareDialogOpen}
+        onOpenChange={(open) => {
+          setIsShareDialogOpen(open);
+          if (!open) {
+            setShareSubmitError(null);
+            setIsShareSubmitting(false);
+          }
+        }}
+        subflowName={label}
+        inCount={inCount}
+        outCount={outCount}
+        isSubmitting={isShareSubmitting}
+        submitError={shareSubmitError}
+        onConfirm={async ({ name, description }) => {
+          try {
+            setShareSubmitError(null);
+            setIsShareSubmitting(true);
+
+            const payload = {
+              label: name,
+              inCount,
+              outCount,
+              templateId: selfTemplateId,
+              subflowNodes: subflowNodes ?? [],
+              subflowEdges: subflowEdges ?? [],
+            };
+
+            await createCustomNode({
+              name,
+              description: description || `Subflujo compartido: ${name}`,
+              code: JSON.stringify(payload),
+            });
+            toast.success("Felicidades, tu nodo es público ahora 🎉");
+
+            setIsShareDialogOpen(false);
+          } catch (error) {
+            setShareSubmitError(
+              error instanceof Error
+                ? error.message
+                : "No se pudo compartir el subflujo.",
+            );
+          } finally {
+            setIsShareSubmitting(false);
+          }
+        }}
+      />
       {!isSelfCall && config.dialog}
     </>
   );

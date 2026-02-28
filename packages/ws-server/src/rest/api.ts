@@ -1,10 +1,11 @@
 import express from "express";
-import type { RestApiOptions } from "../types.ts";
-import { usersRouter } from "./modules/users/users.controller.js";
-import { authRouter } from "./modules/auth/auth.controller.js";
-import { authGuard } from "./modules/auth/auth.guard.js";
-import { setupSwagger } from "./swagger.js";
-import { projectsRouter } from "./modules/projects/projects.controller.js";
+import type { RestApiOptions } from "../types";
+import { usersRouter } from "./modules/users/users.controller";
+import { authRouter } from "./modules/auth/auth.controller";
+import { authGuard } from "./modules/auth/auth.guard";
+import { setupSwagger } from "./swagger";
+import { projectsRouter } from "./modules/projects/projects.controller";
+import { customNodesRouter } from "./modules/custom-nodes/custom-nodes.controller";
 
 export function createRestApp(options: RestApiOptions): express.Express {
   const app = express();
@@ -113,6 +114,8 @@ export function createRestApp(options: RestApiOptions): express.Express {
   app.use("/users", authGuard, usersRouter);
 
   app.use("/projects", projectsRouter);
+
+  app.use("/nodes", customNodesRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "not found" });

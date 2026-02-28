@@ -158,7 +158,7 @@ export function useChallengeManager(params: UseChallengeManagerParams) {
 
   const [challengeDefinition, setChallengeDefinition] =
     useState<ChallengeDefinition | null>(null);
-  const [, setIsChallengeLoading] = useState(false);
+  const [isChallengeLoading, setIsChallengeLoading] = useState(false);
   const [, setChallengeError] = useState<string | null>(null);
 
   const [validationResult, setValidationResult] = useState<ValidationResult>({
@@ -526,6 +526,7 @@ export function useChallengeManager(params: UseChallengeManagerParams) {
 
   return {
     challengeDefinition,
+    isChallengeLoading,
     validationResult,
     shouldCelebrate,
     isValidating,
