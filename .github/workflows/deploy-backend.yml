@@ -50,11 +50,12 @@ jobs:
         run: |
           rm -rf backend-dist backend.zip
 
-          pnpm --filter @dataflow/ws-server deploy --prod backend-dist
-          
+          mkdir -p backend-dist
+          cp packages/ws-server/package.json backend-dist/
           cp -r packages/ws-server/dist backend-dist/
-          
+
           cd backend-dist
+          npm install --omit=dev --no-audit --no-fund
           zip -rq ../backend.zip .
 
       - name: Desplegar a Azure Web App
