@@ -32,6 +32,27 @@ function normalizeUrl(value: string): string {
   return trimmed;
 }
 
+function defaultWsUrlFromLocation(): string {
+  const scheme = window.location.protocol === "https:" ? "wss" : "ws";
+  const host = window.location.hostname || "localhost";
+  return `${scheme}://${host}:8787`;
+}
+
+function resolveDefaultDialogUrl(currentUrl: string): string {
+  const envUrl = normalizeUrl(import.meta.env.VITE_WS_URL ?? "");
+  const normalizedCurrent = normalizeUrl(currentUrl);
+
+  if (!envUrl) {
+    return normalizedCurrent;
+  }
+
+  if (!normalizedCurrent || normalizedCurrent === defaultWsUrlFromLocation()) {
+    return envUrl;
+  }
+
+  return normalizedCurrent;
+}
+
 export function RemoteSettingsDialog({
   config,
   onChange,
@@ -40,7 +61,7 @@ export function RemoteSettingsDialog({
   setOpen,
 }: Props) {
   const [draftRole, setDraftRole] = useState<RemoteRole>(config.role);
-  const [draftUrl, setDraftUrl] = useState(config.url);
+  const [draftUrl, setDraftUrl] = useState(resolveDefaultDialogUrl(config.url));
   const [draftSessionKey, setDraftSessionKey] = useState(config.sessionKey);
   const [draftClientName, setDraftClientName] = useState(
     config.clientName ?? "",
@@ -48,11 +69,12 @@ export function RemoteSettingsDialog({
 
   useEffect(() => {
     if (!open) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDraftRole(config.role);
-    setDraftUrl(config.url);
+    setDraftUrl(resolveDefaultDialogUrl(config.url));
     setDraftSessionKey(config.sessionKey);
     setDraftClientName(config.clientName ?? "");
-  }, [open, config.role, config.url, config.sessionKey]);
+  }, [open, config.role, config.url, config.sessionKey, config.clientName]);
 
   const canSave = useMemo(() => {
     if (draftRole === "disabled") return true;
