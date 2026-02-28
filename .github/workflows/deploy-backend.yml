@@ -49,7 +49,11 @@ jobs:
       - name: Preparar paquete de despliegue
         run: |
           rm -rf backend-dist backend.zip
+
           pnpm --filter @dataflow/ws-server deploy --prod backend-dist
+          
+          cp -r packages/ws-server/dist backend-dist/
+          
           cd backend-dist
           zip -rq ../backend.zip .
 
