@@ -1,0 +1,61 @@
+name: Deploy Backend to Azure
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/ws-server/**"
+      - "pnpm-workspace.yaml"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/deploy-backend.yml"
+
+env:
+  AZURE_WEBAPP_NAME: "nodeland-api"
+  NODE_VERSION: "22.x"
+
+jobs:
+  build-and-deploy-backend:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v4
+
+      - name: Configurar pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Instalar dependencias
+        run: pnpm install --frozen-lockfile
+
+      - name: Sincronizar esquema de base de datos (Drizzle)
+        run: pnpm --filter @dataflow/ws-server exec drizzle-kit push --config drizzle.config.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Construir el backend
+        run: pnpm --filter @dataflow/ws-server build
+
+      - name: Preparar paquete de despliegue
+        run: |
+          rm -rf backend-dist backend.zip
+          pnpm --filter @dataflow/ws-server deploy --prod backend-dist
+          cd backend-dist
+          zip -r ../backend.zip .
+
+      - name: Desplegar a Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend.zip

@@ -549,8 +549,8 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                     defaultEdgeOptions={{
                       markerEnd: {
                         type: MarkerType.ArrowClosed,
-                        width: 14,
-                        height: 14,
+                        width: 10,
+                        height: 10,
                       },
                     }}
                     connectionLineComponent={ArrowConnectionLine}

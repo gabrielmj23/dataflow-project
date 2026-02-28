@@ -68,6 +68,13 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   sortList: 3,
   accumulate: 3,
   count: 3,
+  listFirst: 2,
+  listLast: 2,
+  listAtPosition: 2,
+  listRemoveFirst: 2,
+  listPrepend: 2,
+  listAppend: 2,
+  listIsEmpty: 2,
 
   subflow: 3,
   write: 1,
@@ -131,6 +138,17 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "micro:bit · Leer botón",
         description:
           "Espera una pulsación de botón enviada por la micro:bit y la emite.",
+      },
+    ],
+  },
+  {
+    id: "io",
+    title: "Salidas",
+    items: [
+      {
+        type: "write",
+        label: "Escribir",
+        description: "Muestra valores para inspeccionarlos o imprimirlos.",
       },
     ],
   },
@@ -341,16 +359,41 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Contar",
         description: "Cuenta cuántos elementos hay en una lista.",
       },
-    ],
-  },
-  {
-    id: "io",
-    title: "Salidas",
-    items: [
       {
-        type: "write",
-        label: "Escribir",
-        description: "Muestra valores para inspeccionarlos o imprimirlos.",
+        type: "listFirst",
+        label: "Primer elemento",
+        description: "Extrae el primer elemento de una lista.",
+      },
+      {
+        type: "listLast",
+        label: "Último elemento",
+        description: "Extrae el último elemento de una lista.",
+      },
+      {
+        type: "listAtPosition",
+        label: "Elemento en posición",
+        description:
+          "Obtiene el elemento en una posición indicada (empezando en 1).",
+      },
+      {
+        type: "listRemoveFirst",
+        label: "Quitar el primero",
+        description: "Devuelve la lista sin su primer elemento.",
+      },
+      {
+        type: "listPrepend",
+        label: "Añadir al inicio",
+        description: "Inserta un elemento al inicio de la lista.",
+      },
+      {
+        type: "listAppend",
+        label: "Añadir al final",
+        description: "Inserta un elemento al final de la lista.",
+      },
+      {
+        type: "listIsEmpty",
+        label: "Lista vacía",
+        description: "Devuelve verdadero si la lista no tiene elementos.",
       },
     ],
   },

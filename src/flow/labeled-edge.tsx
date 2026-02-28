@@ -282,8 +282,15 @@ export function LabeledEdge(props: EdgeProps) {
     })
   );
 
+  const strokeWidth =
+    typeof style?.strokeWidth === "number" ||
+    typeof style?.strokeWidth === "string"
+      ? style.strokeWidth
+      : 2.4;
+
   const mergedStyle = {
     ...(style ?? {}),
+    strokeWidth,
     // Force all edges to be solid.
     strokeDasharray: "none",
     strokeDashoffset: 0,

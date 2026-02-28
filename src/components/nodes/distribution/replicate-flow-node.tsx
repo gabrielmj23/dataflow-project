@@ -698,8 +698,8 @@ export const ReplicateFlowNode = memo(
                     defaultEdgeOptions={{
                       markerEnd: {
                         type: MarkerType.ArrowClosed,
-                        width: 14,
-                        height: 14,
+                        width: 10,
+                        height: 10,
                       },
                     }}
                     connectionLineComponent={ArrowConnectionLine}

@@ -165,6 +165,132 @@ export class EngineCountNode extends NodeDefinition {
   }
 }
 
+export class EngineListFirstNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        if (list.length === 0) {
+          throw new Error("La lista está vacía.");
+        }
+        return list[0];
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "output"]
+    );
+  }
+}
+
+export class EngineListLastNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        if (list.length === 0) {
+          throw new Error("La lista está vacía.");
+        }
+        return list[list.length - 1];
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "output"]
+    );
+  }
+}
+
+export class EngineListAtPositionNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[], positionInput: unknown) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        if (list.length === 0) {
+          throw new Error("La lista está vacía.");
+        }
+
+        const raw =
+          typeof positionInput === "number"
+            ? positionInput
+            : Number(positionInput);
+
+        if (!Number.isFinite(raw)) {
+          throw new Error("La posición debe ser un número entero.");
+        }
+
+        const position = Math.floor(raw);
+        if (position !== raw || position < 1) {
+          throw new Error("La posición debe ser un entero mayor o igual a 1.");
+        }
+
+        const index = position - 1;
+        if (index >= list.length) {
+          throw new Error("La posición está fuera del rango de la lista.");
+        }
+
+        return list[index];
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["inputList", "position", "output"],
+      { stickyInputPorts: ["inputList", "position"] }
+    );
+  }
+}
+
+export class EngineListRemoveFirstNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        if (list.length === 0) {
+          return [];
+        }
+        return list.slice(1);
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "outputList"]
+    );
+  }
+}
+
+export class EngineListPrependNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[], item: unknown) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        return [item, ...list];
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["inputList", "item", "outputList"],
+      { stickyInputPorts: ["inputList", "item"] }
+    );
+  }
+}
+
+export class EngineListAppendNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[], item: unknown) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        return [...list, item];
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["inputList", "item", "outputList"],
+      { stickyInputPorts: ["inputList", "item"] }
+    );
+  }
+}
+
+export class EngineListIsEmptyNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        return list.length === 0;
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "output"]
+    );
+  }
+}
+
 export class EngineSortListNode extends NodeDefinition {
   constructor(order: "asc" | "desc" = "asc") {
     super(

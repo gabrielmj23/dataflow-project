@@ -33,16 +33,18 @@ export default function ModeSelectPage() {
           <div className="flex items-center gap-2">
             <div className="rounded-2xl bg-blue-50/90 p-2.5 text-blue-600 shadow-sm border border-slate-200">
               <img
-                src="/nodi-robot-head-nobg.png"
-                alt="Nodi"
-                className="h-8 w-8"
+                src="/nodeland-dark.png"
+                alt="NodeLand"
+                className="h-10 w-10"
               />
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 leading-none ps-1">
                 Bienvenido a
               </p>
-              <img src="/logo-nodi.png" alt="Nodi" className="h-12" />
+              <span className="text-4xl font-semibold text-slate-900">
+                NodeLand
+              </span>
             </div>
           </div>
 
