@@ -54,6 +54,7 @@ import {
 import { NODE_TYPES } from "@/common/constants";
 import { CustomNodeSearchDialog } from "@/components/custom-nodes/CustomNodeSearchDialog";
 import type { CustomNodeSummary } from "@/lib/custom-nodes";
+import { cn } from "@/lib/utils";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
@@ -204,13 +205,13 @@ export function AppSidebar({
                           key={level}
                           type="button"
                           onClick={() => setAbstractionLevel(level)}
-                          className={`h-7 text-xs font-semibold transition-colors ${
-                            index > 0 ? "border-l border-border" : ""
-                          } ${
+                          className={cn(
+                            "h-7 text-xs font-semibold transition-colors hover:cursor-pointer",
+                            index > 0 ? "border-l border-border" : "",
                             active
-                              ? "bg-accent text-accent-foreground"
-                              : "bg-background text-muted-foreground hover:bg-muted"
-                          }`}
+                              ? "bg-(--nodi-blue) text-white"
+                              : "bg-background text-muted-foreground hover:bg-muted",
+                          )}
                         >
                           {level}
                         </button>
