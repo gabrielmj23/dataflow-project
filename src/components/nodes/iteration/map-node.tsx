@@ -212,6 +212,72 @@ export type MapNodeData = {
 };
 
 const MAP_INPUT_NODE_ID = "map-input-value";
+const MAP_OUTPUT_NODE_ID = "map-output-value";
+
+function ensureMapBoundaryNodes(nodes: Node[]): Node[] {
+  const list = Array.isArray(nodes) ? nodes : [];
+
+  const inputNode =
+    list.find((n) => String(n.id) === MAP_INPUT_NODE_ID) ??
+    list.find((n) => String(n.type) === "mapInputValue");
+
+  const mandatoryInput: Node = inputNode
+    ? {
+        ...inputNode,
+        id: MAP_INPUT_NODE_ID,
+        type: "mapInputValue",
+      }
+    : {
+        id: MAP_INPUT_NODE_ID,
+        type: "mapInputValue",
+        position: { x: 0, y: 0 },
+        data: { label: "Valor de entrada" },
+        selected: false,
+      };
+
+  const outputNode = list.find((n) => String(n.id) === MAP_OUTPUT_NODE_ID);
+  const mandatoryOutput: Node = outputNode
+    ? {
+        ...outputNode,
+        id: MAP_OUTPUT_NODE_ID,
+        type: "subflowOutput",
+      }
+    : {
+        id: MAP_OUTPUT_NODE_ID,
+        type: "subflowOutput",
+        position: { x: 260, y: 0 },
+        data: { label: "Valor de salida" },
+        selected: false,
+      };
+
+  const rest = list.filter(
+    (n) =>
+      String(n.id) !== MAP_INPUT_NODE_ID && String(n.id) !== MAP_OUTPUT_NODE_ID,
+  );
+
+  return [mandatoryInput, mandatoryOutput, ...rest];
+}
+
+function filterEdgesByNodeIds(edges: Edge[], nodes: Node[]): Edge[] {
+  const nodeIds = new Set(nodes.map((node) => String(node.id)));
+  return edges.filter(
+    (edge) =>
+      nodeIds.has(String(edge.source)) && nodeIds.has(String(edge.target)),
+  );
+}
+
+function stripMapVisualOutput(params: { nodes: Node[]; edges: Edge[] }): {
+  nodes: Node[];
+  edges: Edge[];
+} {
+  const nodes = params.nodes.filter((n) => String(n.id) !== MAP_OUTPUT_NODE_ID);
+  const edges = params.edges.filter(
+    (e) =>
+      String(e.source) !== MAP_OUTPUT_NODE_ID &&
+      String(e.target) !== MAP_OUTPUT_NODE_ID,
+  );
+  return { nodes, edges };
+}
 
 export const MapNode = memo(({ id, data }: NodeProps) => {
   const { setNodes } = useReactFlow();
@@ -240,8 +306,15 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
     "pan",
   );
-  const [draftNodes, setDraftNodes] = useState<Node[]>(() => mapNodes ?? []);
-  const [draftEdges, setDraftEdges] = useState<Edge[]>(() => mapEdges ?? []);
+  const [draftNodes, setDraftNodes] = useState<Node[]>(() =>
+    ensureMapBoundaryNodes(mapNodes ?? []),
+  );
+  const [draftEdges, setDraftEdges] = useState<Edge[]>(() =>
+    filterEdgesByNodeIds(
+      mapEdges ?? [],
+      ensureMapBoundaryNodes(mapNodes ?? []),
+    ),
+  );
 
   // Keep Write nodes' input handles + variable list in sync with connections
   // inside the embedded editor (same behavior as the main canvas).
@@ -263,22 +336,22 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
         "id" in change &&
         change.id === MAP_INPUT_NODE_ID,
     );
+    const removingMandatoryOutput = changes.some(
+      (change) =>
+        change.type === "remove" &&
+        "id" in change &&
+        change.id === MAP_OUTPUT_NODE_ID,
+    );
 
     setDraftNodes((snapshot) => {
       const next = applyNodeChanges(changes, snapshot);
-      if (removingMandatoryInput) {
-        return next.some((n) => n.id === MAP_INPUT_NODE_ID)
-          ? next
-          : [
-              {
-                id: MAP_INPUT_NODE_ID,
-                type: "mapInputValue",
-                position: { x: 0, y: 0 },
-                data: { label: "Valor de entrada" },
-                selected: false,
-              } satisfies Node,
-              ...next,
-            ];
+      if (removingMandatoryInput || removingMandatoryOutput) {
+        return ensureMapBoundaryNodes(next).map((node) =>
+          String(node.id) === MAP_INPUT_NODE_ID ||
+          String(node.id) === MAP_OUTPUT_NODE_ID
+            ? { ...node, selected: false }
+            : node,
+        );
       }
       return next;
     });
@@ -460,9 +533,23 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
 
       setDraftNodes((prev) => {
         const removedIds = new Set(
-          prev.filter((n) => n.selected).map((n) => n.id),
+          prev
+            .filter(
+              (n) =>
+                n.selected &&
+                String(n.id) !== MAP_INPUT_NODE_ID &&
+                String(n.id) !== MAP_OUTPUT_NODE_ID,
+            )
+            .map((n) => n.id),
         );
-        const nextNodes = prev.filter((n) => !n.selected);
+        const nextNodes = ensureMapBoundaryNodes(
+          prev.filter(
+            (n) =>
+              !n.selected ||
+              String(n.id) === MAP_INPUT_NODE_ID ||
+              String(n.id) === MAP_OUTPUT_NODE_ID,
+          ),
+        );
 
         setDraftEdges((prevEdges) =>
           prevEdges.filter((edge) => {
@@ -493,27 +580,10 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
         variant="singleInSingleOut"
         onConnectClick={config.onConfigClick}
         onConfigClick={() => {
-          const baseNodes = mapNodes ?? [];
-          const hasInput = baseNodes.some((n) => n.id === MAP_INPUT_NODE_ID);
-          const ensuredNodes = hasInput
-            ? baseNodes.map((n) =>
-                n.id === MAP_INPUT_NODE_ID
-                  ? { ...n, type: "mapInputValue" }
-                  : n,
-              )
-            : [
-                {
-                  id: MAP_INPUT_NODE_ID,
-                  type: "mapInputValue",
-                  position: { x: 0, y: 0 },
-                  data: { label: "Valor de entrada" },
-                  selected: false,
-                } satisfies Node,
-                ...baseNodes,
-              ];
+          const ensuredNodes = ensureMapBoundaryNodes(mapNodes ?? []);
 
           setDraftNodes(ensuredNodes);
-          setDraftEdges(mapEdges ?? []);
+          setDraftEdges(filterEdgesByNodeIds(mapEdges ?? [], ensuredNodes));
           setIsEditorOpen(true);
         }}
       />
@@ -619,20 +689,15 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
               <Button
                 type="button"
                 onClick={() => {
-                  const ensured = draftNodes.some(
-                    (n) => n.id === MAP_INPUT_NODE_ID,
-                  )
-                    ? draftNodes
-                    : [
-                        {
-                          id: MAP_INPUT_NODE_ID,
-                          type: "mapInputValue",
-                          position: { x: 0, y: 0 },
-                          data: { label: "Valor de entrada" },
-                          selected: false,
-                        } satisfies Node,
-                        ...draftNodes,
-                      ];
+                  const ensured = ensureMapBoundaryNodes(draftNodes);
+                  const normalizedEdges = filterEdgesByNodeIds(
+                    draftEdges,
+                    ensured,
+                  );
+                  const stripped = stripMapVisualOutput({
+                    nodes: ensured,
+                    edges: normalizedEdges,
+                  });
 
                   setNodes((prev) =>
                     prev.map((n) => {
@@ -645,8 +710,8 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                         data: {
                           ...(n.data as object),
                           label,
-                          mapNodes: ensured,
-                          mapEdges: draftEdges,
+                          mapNodes: stripped.nodes,
+                          mapEdges: stripped.edges,
                         },
                       };
                     }),

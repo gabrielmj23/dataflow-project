@@ -212,6 +212,75 @@ export type FilterNodeData = {
 };
 
 const FILTER_INPUT_NODE_ID = "filter-input-value";
+const FILTER_OUTPUT_NODE_ID = "filter-output-value";
+
+function ensureFilterBoundaryNodes(nodes: Node[]): Node[] {
+  const list = Array.isArray(nodes) ? nodes : [];
+
+  const inputNode =
+    list.find((n) => String(n.id) === FILTER_INPUT_NODE_ID) ??
+    list.find((n) => String(n.type) === "filterInputValue");
+
+  const mandatoryInput: Node = inputNode
+    ? {
+        ...inputNode,
+        id: FILTER_INPUT_NODE_ID,
+        type: "filterInputValue",
+      }
+    : {
+        id: FILTER_INPUT_NODE_ID,
+        type: "filterInputValue",
+        position: { x: 0, y: 0 },
+        data: { label: "Valor de entrada" },
+        selected: false,
+      };
+
+  const outputNode = list.find((n) => String(n.id) === FILTER_OUTPUT_NODE_ID);
+  const mandatoryOutput: Node = outputNode
+    ? {
+        ...outputNode,
+        id: FILTER_OUTPUT_NODE_ID,
+        type: "subflowOutput",
+      }
+    : {
+        id: FILTER_OUTPUT_NODE_ID,
+        type: "subflowOutput",
+        position: { x: 260, y: 0 },
+        data: { label: "Valor de salida" },
+        selected: false,
+      };
+
+  const rest = list.filter(
+    (n) =>
+      String(n.id) !== FILTER_INPUT_NODE_ID &&
+      String(n.id) !== FILTER_OUTPUT_NODE_ID,
+  );
+
+  return [mandatoryInput, mandatoryOutput, ...rest];
+}
+
+function filterEdgesByNodeIds(edges: Edge[], nodes: Node[]): Edge[] {
+  const nodeIds = new Set(nodes.map((node) => String(node.id)));
+  return edges.filter(
+    (edge) =>
+      nodeIds.has(String(edge.source)) && nodeIds.has(String(edge.target)),
+  );
+}
+
+function stripFilterVisualOutput(params: { nodes: Node[]; edges: Edge[] }): {
+  nodes: Node[];
+  edges: Edge[];
+} {
+  const nodes = params.nodes.filter(
+    (n) => String(n.id) !== FILTER_OUTPUT_NODE_ID,
+  );
+  const edges = params.edges.filter(
+    (e) =>
+      String(e.source) !== FILTER_OUTPUT_NODE_ID &&
+      String(e.target) !== FILTER_OUTPUT_NODE_ID,
+  );
+  return { nodes, edges };
+}
 
 export const FilterNode = memo(({ id, data }: NodeProps) => {
   const { setNodes } = useReactFlow();
@@ -240,8 +309,15 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
     "pan",
   );
-  const [draftNodes, setDraftNodes] = useState<Node[]>(() => filterNodes ?? []);
-  const [draftEdges, setDraftEdges] = useState<Edge[]>(() => filterEdges ?? []);
+  const [draftNodes, setDraftNodes] = useState<Node[]>(() =>
+    ensureFilterBoundaryNodes(filterNodes ?? []),
+  );
+  const [draftEdges, setDraftEdges] = useState<Edge[]>(() =>
+    filterEdgesByNodeIds(
+      filterEdges ?? [],
+      ensureFilterBoundaryNodes(filterNodes ?? []),
+    ),
+  );
 
   // Keep Write nodes' input handles + variable list in sync with connections
   // inside the embedded editor (same behavior as the main canvas).
@@ -263,22 +339,22 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
         "id" in change &&
         change.id === FILTER_INPUT_NODE_ID,
     );
+    const removingMandatoryOutput = changes.some(
+      (change) =>
+        change.type === "remove" &&
+        "id" in change &&
+        change.id === FILTER_OUTPUT_NODE_ID,
+    );
 
     setDraftNodes((snapshot) => {
       const next = applyNodeChanges(changes, snapshot);
-      if (removingMandatoryInput) {
-        return next.some((n) => n.id === FILTER_INPUT_NODE_ID)
-          ? next
-          : [
-              {
-                id: FILTER_INPUT_NODE_ID,
-                type: "filterInputValue",
-                position: { x: 0, y: 0 },
-                data: { label: "Valor de entrada" },
-                selected: false,
-              } satisfies Node,
-              ...next,
-            ];
+      if (removingMandatoryInput || removingMandatoryOutput) {
+        return ensureFilterBoundaryNodes(next).map((node) =>
+          String(node.id) === FILTER_INPUT_NODE_ID ||
+          String(node.id) === FILTER_OUTPUT_NODE_ID
+            ? { ...node, selected: false }
+            : node,
+        );
       }
       return next;
     });
@@ -459,9 +535,23 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
 
       setDraftNodes((prev) => {
         const removedIds = new Set(
-          prev.filter((n) => n.selected).map((n) => n.id),
+          prev
+            .filter(
+              (n) =>
+                n.selected &&
+                String(n.id) !== FILTER_INPUT_NODE_ID &&
+                String(n.id) !== FILTER_OUTPUT_NODE_ID,
+            )
+            .map((n) => n.id),
         );
-        const nextNodes = prev.filter((n) => !n.selected);
+        const nextNodes = ensureFilterBoundaryNodes(
+          prev.filter(
+            (n) =>
+              !n.selected ||
+              String(n.id) === FILTER_INPUT_NODE_ID ||
+              String(n.id) === FILTER_OUTPUT_NODE_ID,
+          ),
+        );
 
         setDraftEdges((prevEdges) =>
           prevEdges.filter((edge) => {
@@ -492,27 +582,10 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
         variant="singleInSingleOut"
         onConnectClick={config.onConfigClick}
         onConfigClick={() => {
-          const baseNodes = filterNodes ?? [];
-          const hasInput = baseNodes.some((n) => n.id === FILTER_INPUT_NODE_ID);
-          const ensuredNodes = hasInput
-            ? baseNodes.map((n) =>
-                n.id === FILTER_INPUT_NODE_ID
-                  ? { ...n, type: "filterInputValue" }
-                  : n,
-              )
-            : [
-                {
-                  id: FILTER_INPUT_NODE_ID,
-                  type: "filterInputValue",
-                  position: { x: 0, y: 0 },
-                  data: { label: "Valor de entrada" },
-                  selected: false,
-                } satisfies Node,
-                ...baseNodes,
-              ];
+          const ensuredNodes = ensureFilterBoundaryNodes(filterNodes ?? []);
 
           setDraftNodes(ensuredNodes);
-          setDraftEdges(filterEdges ?? []);
+          setDraftEdges(filterEdgesByNodeIds(filterEdges ?? [], ensuredNodes));
           setIsEditorOpen(true);
         }}
       />
@@ -618,20 +691,15 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
               <Button
                 type="button"
                 onClick={() => {
-                  const ensured = draftNodes.some(
-                    (n) => n.id === FILTER_INPUT_NODE_ID,
-                  )
-                    ? draftNodes
-                    : [
-                        {
-                          id: FILTER_INPUT_NODE_ID,
-                          type: "filterInputValue",
-                          position: { x: 0, y: 0 },
-                          data: { label: "Valor de entrada" },
-                          selected: false,
-                        } satisfies Node,
-                        ...draftNodes,
-                      ];
+                  const ensured = ensureFilterBoundaryNodes(draftNodes);
+                  const normalizedEdges = filterEdgesByNodeIds(
+                    draftEdges,
+                    ensured,
+                  );
+                  const stripped = stripFilterVisualOutput({
+                    nodes: ensured,
+                    edges: normalizedEdges,
+                  });
 
                   setNodes((prev) =>
                     prev.map((n) => {
@@ -644,8 +712,8 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
                         data: {
                           ...(n.data as object),
                           label,
-                          filterNodes: ensured,
-                          filterEdges: draftEdges,
+                          filterNodes: stripped.nodes,
+                          filterEdges: stripped.edges,
                         },
                       };
                     }),
