@@ -689,7 +689,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           const label = String(inputLabel);
           const trimmed = String(label ?? "").trim();
           const len = Math.max(0, trimmed.length);
-          const widthPx = len <= 1 ? 36 : Math.min(140, 12 + len * 8);
+          const widthPx = len <= 1 ? 44 : Math.min(160, 24 + len * 9);
 
           return (
             <Input
@@ -697,7 +697,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               value={label}
               readOnly
               tabIndex={-1}
-              className="nodrag absolute h-6 -translate-y-1/2 border-0 bg-transparent px-2 text-left text-[10px] text-white placeholder:text-white/60 focus:outline-none pointer-events-none shadow-none"
+              className="nodrag absolute h-6 -translate-y-1/2 border-0 bg-transparent px-1.5 text-left text-[10px] text-white placeholder:text-white/60 focus:outline-none pointer-events-none shadow-none"
               style={{
                 top: `calc(${offset} + 9px)`,
                 left: "12px",

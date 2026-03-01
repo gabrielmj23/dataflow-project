@@ -32,6 +32,54 @@ export function clampWriteTemplateToMaxVar(
   });
 }
 
+function normalizeWriteInputLabels(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+
+  const next: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    const m = /^in-(\d+)$/.exec(String(key ?? ""));
+    if (!m) continue;
+    const idx = Number(m[1]);
+    if (!Number.isFinite(idx) || idx <= 0) continue;
+    if (typeof raw !== "string") continue;
+    next[`in-${idx}`] = raw;
+  }
+  return next;
+}
+
+function remapWriteInputLabels(params: {
+  labels: Record<string, string>;
+  indexMap: Map<number, number>;
+  maxVarAllowed: number;
+}): Record<string, string> {
+  const { labels, indexMap, maxVarAllowed } = params;
+  const remapped: Record<string, string> = {};
+
+  for (const [handleId, label] of Object.entries(labels)) {
+    const oldIdx = parseWriteTargetHandleIndex(handleId);
+    if (oldIdx <= 0) continue;
+    const newIdx = indexMap.get(oldIdx);
+    if (!newIdx) continue;
+    if (newIdx < 1 || newIdx > maxVarAllowed) continue;
+    remapped[`in-${newIdx}`] = label;
+  }
+
+  return remapped;
+}
+
+function labelsEqual(
+  left: Record<string, string>,
+  right: Record<string, string>
+): boolean {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) return false;
+  for (const key of leftKeys) {
+    if (left[key] !== right[key]) return false;
+  }
+  return true;
+}
+
 export function reconcileWriteGraph(
   nodes: FlowNode[],
   edges: FlowEdge[]
@@ -117,6 +165,7 @@ export function reconcileWriteGraph(
       : 1;
 
     const template = data.template;
+    const inputLabels = normalizeWriteInputLabels(data.inputLabels);
     const remappedTemplate =
       typeof template !== "string"
         ? undefined
@@ -137,15 +186,24 @@ export function reconcileWriteGraph(
       info.maxVarAllowed
     );
 
+    const remappedInputLabels = remapWriteInputLabels({
+      labels: inputLabels,
+      indexMap: info.map,
+      maxVarAllowed: info.maxVarAllowed,
+    });
+
     const needsInputCountUpdate = current !== info.desiredInputCount;
     const needsTemplateUpdate =
       typeof template === "string" && typeof clampedTemplate === "string"
         ? template !== clampedTemplate
         : false;
+    const needsInputLabelsUpdate = !labelsEqual(inputLabels, remappedInputLabels);
 
-    if (!needsInputCountUpdate && !needsTemplateUpdate) return n;
+    if (!needsInputCountUpdate && !needsTemplateUpdate && !needsInputLabelsUpdate)
+      return n;
 
     changedNodes = true;
+    const hasInputLabels = Object.keys(remappedInputLabels).length > 0;
     return {
       ...n,
       data: {
@@ -154,6 +212,11 @@ export function reconcileWriteGraph(
           ? { inputCount: info.desiredInputCount }
           : null),
         ...(needsTemplateUpdate ? { template: clampedTemplate } : null),
+        ...(needsInputLabelsUpdate
+          ? hasInputLabels
+            ? { inputLabels: remappedInputLabels }
+            : { inputLabels: undefined }
+          : null),
       },
     } as FlowNode;
   });
