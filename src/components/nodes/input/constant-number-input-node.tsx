@@ -45,11 +45,11 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
                   value: nextValue,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   const startInlineEdit = (event: React.MouseEvent) => {
@@ -137,6 +137,11 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
                 onChange={(e) => {
                   const next = e.currentTarget.valueAsNumber;
                   setValue(Number.isFinite(next) ? next : 0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setIsDialogOpen(false);
+                  }
                 }}
                 className="rounded-none"
                 step={0.01}

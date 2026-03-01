@@ -28,6 +28,7 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
 
   useEffect(() => {
     if (isInlineEditing) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInlineValue(textValue);
   }, [isInlineEditing, textValue]);
 
@@ -42,8 +43,8 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
                 value: nextValue,
               },
             }
-          : node
-      )
+          : node,
+      ),
     );
   };
 
@@ -91,7 +92,7 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
             <button
               type="button"
               onClick={startInlineEdit}
-              className="nodrag nopan max-w-[3rem] truncate text-sm font-normal outline-none"
+              className="nodrag nopan max-w-12 truncate text-sm font-normal outline-none"
               title="Editar valor"
             >
               {textValue || ""}
@@ -118,6 +119,11 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
               id={inputId}
               value={textValue}
               onChange={(e) => setValue(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setIsDialogOpen(false);
+                }
+              }}
               placeholder="Escribe un texto"
               className="mt-1"
             />
