@@ -453,7 +453,9 @@ function executeVm(runId: string, args: DfpVal[]) {
             stack.push(valStr(source.substr(0, DFP1_MAX_STR_LEN)));
           } else {
             stack.push(
-              valStr(source.split(needle).join(repl).substr(0, DFP1_MAX_STR_LEN)),
+              valStr(
+                source.split(needle).join(repl).substr(0, DFP1_MAX_STR_LEN),
+              ),
             );
           }
           break;
@@ -487,7 +489,9 @@ function executeVm(runId: string, args: DfpVal[]) {
           if (e > sourceLen) e = sourceLen;
           if (e < s) e = s;
 
-          stack.push(valStr(sliceSource.substr(s, e - s).substr(0, DFP1_MAX_STR_LEN)));
+          stack.push(
+            valStr(sliceSource.substr(s, e - s).substr(0, DFP1_MAX_STR_LEN)),
+          );
           break;
 
         case 0x60: // CMP_EQ
@@ -634,6 +638,10 @@ function executeVm(runId: string, args: DfpVal[]) {
           basic.pause(waitT);
           break;
 
+        case 0x34: // READ_TEMP
+          stack.push(valNum(input.temperature()));
+          break;
+
         case 0x40: // RETURN
           const retVal = stack.pop() || valNull();
           dfpSendLine(
@@ -667,7 +675,7 @@ function handleDfp1(line: string): boolean {
   const payload = parts.slice(2).join("|");
 
   if (type == "HELLO_REQ") {
-    const caps = "ALU,STR,DISPLAY,SOUND,UART";
+    const caps = "ALU,STR,DISPLAY,SOUND,UART,TEMP";
     dfpSendLine(
       `${DFP1_PREFIX}HELLO_RES|${seq}|DEV=MICROBIT_V2;FW=1.0;CAPS=${caps};MAX_PROG=${DFP1_MAX_PROG_BYTES};MAX_CHUNK=64`,
     );
@@ -880,18 +888,10 @@ function processInput(msg: string) {
   // Intentar protocolo DFP1
   if (handleDfp1(cleanMsg)) return;
 
-  // Comandos Legacy
   if (cleanMsg.indexOf("TXT:") == 0) {
     basic.showString(cleanMsg.substr(4));
-  } else if (cleanMsg.indexOf("ICON:") == 0) {
-    const iconId = parseInt(cleanMsg.substr(5));
-    if (iconId == 1) basic.showIcon(IconNames.Heart);
-    else basic.showIcon(IconNames.Yes);
-  } else if (cleanMsg.indexOf("SUM:") == 0) {
-    const parts = cleanMsg.substr(4).split(",");
-    const val = parseFloat(parts[0]) + parseFloat(parts[1]);
-    basic.showNumber(val);
-    const out = "SUM:" + val;
+  } else if (cleanMsg == "TEMP?") {
+    const out = "TEMP:" + input.temperature();
     serial.writeLine(out);
     bluetooth.uartWriteLine(out);
   }

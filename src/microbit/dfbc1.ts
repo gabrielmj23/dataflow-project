@@ -47,6 +47,7 @@ const OPCODES = {
   DISPLAY_TEXT: 0x30,
   DISPLAY_NUMBER: 0x31,
   PLAY_TONE: 0x32,
+  READ_TEMP: 0x34,
   LIST_COUNT: 0x50,
   LIST_SORT_ASC: 0x51,
   LIST_SORT_DESC: 0x52,
@@ -497,6 +498,10 @@ export function compileSubflowToDfbc1(
         }
         emit(OPCODES.PLAY_TONE);
         pushConst({ tag: 3 });
+        break;
+      }
+      case NODE_TYPES.MICROBIT_READ_TEMPERATURE_INPUT: {
+        emit(OPCODES.READ_TEMP);
         break;
       }
       default:

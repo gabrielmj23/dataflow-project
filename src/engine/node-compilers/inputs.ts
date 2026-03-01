@@ -7,7 +7,10 @@ import {
   EngineConstantNode,
   EngineRandomNode,
 } from "../nodes/input-nodes";
-import { EngineMicrobitReadButtonNode } from "../nodes/microbit-nodes";
+import {
+  EngineMicrobitReadButtonNode,
+  EngineMicrobitReadTemperatureNode,
+} from "../nodes/microbit-nodes";
 import { FirePatterns, NodeDefinition } from "../program-elements";
 
 import { asRecord } from "../deserialize/utils";
@@ -113,6 +116,19 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
           ? transportRaw
           : "serial";
       return new EngineMicrobitReadButtonNode({
+        nodeId: String(flowNode.id),
+        transport,
+        onLog: ctx.onLog,
+        signal: ctx.signal,
+      });
+    }
+    case NODE_TYPES.MICROBIT_READ_TEMPERATURE_INPUT: {
+      const transportRaw = data.transport;
+      const transport =
+        transportRaw === "bluetooth" || transportRaw === "serial"
+          ? transportRaw
+          : "serial";
+      return new EngineMicrobitReadTemperatureNode({
         nodeId: String(flowNode.id),
         transport,
         onLog: ctx.onLog,

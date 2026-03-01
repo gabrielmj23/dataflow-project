@@ -12,6 +12,7 @@ import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
 import { RuntimeInputNode } from "@/components/nodes/input/runtime-input-node";
 
 import { MicrobitReadButtonInputNode } from "@/components/nodes/microbit/microbit-read-button-input-node";
+import { MicrobitReadTemperatureInputNode } from "@/components/nodes/microbit/microbit-read-temperature-input-node";
 
 import { SumNode } from "@/components/nodes/processing/sum-node";
 import { SubtractNode } from "@/components/nodes/processing/subtract-node";
@@ -80,6 +81,7 @@ export const nodeTypesCore: NodeTypes = {
   choiceInput: ChoiceInputNode,
   timerInput: TimerInputNode,
   microbitReadButton: MicrobitReadButtonInputNode,
+  microbitReadTemperature: MicrobitReadTemperatureInputNode,
   sum: SumNode,
   subtract: SubtractNode,
   multiply: MultiplyNode,

@@ -24,6 +24,7 @@ import {
   PenSquare,
   MessageSquareText,
   Volume2,
+  Thermometer,
   PictureInPicture2,
   Copy,
   GitFork,
@@ -406,6 +407,19 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           >
             <span className="mb-1 flex items-center justify-center">
               <Cpu className="h-6 w-6" />
+            </span>
+            <span className="px-1 text-xs leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "microbitReadTemperature": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-20 w-20 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 px-2 text-center text-white shadow-md"
+          >
+            <span className="mb-1 flex items-center justify-center">
+              <Thermometer className="h-6 w-6" />
             </span>
             <span className="px-1 text-xs leading-tight">{label}</span>
           </div>

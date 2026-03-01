@@ -28,6 +28,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   randomInput: 2,
   choiceInput: 2,
   microbitReadButton: 3,
+  microbitReadTemperature: 3,
 
   sum: 1,
   subtract: 1,
@@ -132,12 +133,6 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Selección aleatoria",
         description:
           "Elige un elemento aleatorio de una lista de opciones configurables.",
-      },
-      {
-        type: "microbitReadButton",
-        label: "micro:bit · Leer botón",
-        description:
-          "Espera una pulsación de botón enviada por la micro:bit y la emite.",
       },
     ],
   },
@@ -401,6 +396,18 @@ export const nodePalette: NodePaletteCategory[] = [
     id: "microbit",
     title: "Micro:bit",
     items: [
+      {
+        type: "microbitReadButton",
+        label: "Leer botón",
+        description:
+          "Espera una pulsación de botón enviada por la micro:bit y la emite.",
+      },
+      {
+        type: "microbitReadTemperature",
+        label: "Temperatura",
+        description:
+          "Lee la temperatura actual de la micro:bit y la emite como número (°C).",
+      },
       {
         type: "microbitWrite",
         label: "micro:bit · Escribir",

@@ -161,6 +161,7 @@ register(
     NODE_TYPES.RANDOM_INPUT,
     NODE_TYPES.CHOICE_INPUT,
     NODE_TYPES.MICROBIT_READ_BUTTON_INPUT,
+    NODE_TYPES.MICROBIT_READ_TEMPERATURE_INPUT,
   ],
   (p) => {
     const { nodeId, nodeType, direction } = p;
