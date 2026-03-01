@@ -35,18 +35,18 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
                 value: nextValue,
               },
             }
-          : node
-      )
+          : node,
+      ),
     );
   };
 
   return (
     <>
       <InputCircleNodeShell
-            nodeType="constantText"
+        nodeType="constantText"
         icon={
-          <span className="text-sm font-normal truncate max-w-[3rem]">
-              {textValue || ""}
+          <span className="text-sm font-normal truncate max-w-12">
+            {textValue || ""}
           </span>
         }
         label=""
@@ -69,6 +69,11 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
               id={inputId}
               value={textValue}
               onChange={(e) => setValue(e.currentTarget.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  setIsDialogOpen(false);
+                }
+              }}
               placeholder="Escribe un texto"
               className="mt-1"
             />

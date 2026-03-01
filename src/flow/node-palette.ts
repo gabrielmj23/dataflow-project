@@ -99,28 +99,28 @@ export const nodePalette: NodePaletteCategory[] = [
       },
       {
         type: "constantNumber",
-        label: "Constante numérica",
+        label: "Número",
         description: "Emite siempre el mismo número configurado.",
       },
       {
         type: "constantBoolean",
-        label: "Constante lógica",
+        label: "Valor Lógico",
         description: "Emite siempre el mismo valor verdadero/falso.",
       },
       {
         type: "constantText",
-        label: "Constante de texto",
+        label: "Texto",
         description: "Emite siempre el mismo texto configurado.",
       },
       {
         type: "constantList",
-        label: "Lista constante",
+        label: "Lista fija",
         description: "Crea una lista fija de números o textos.",
       },
       {
         type: "timerInput",
-        label: "Timer",
-        description: "Dispara valores periódicamente cada cierto intervalo.",
+        label: "Temporizador",
+        description: "Detiene la ejecución por un tiempo definido.",
       },
       {
         type: "randomInput",
@@ -178,7 +178,7 @@ export const nodePalette: NodePaletteCategory[] = [
       },
       {
         type: "mod",
-        label: "Módulo",
+        label: "Resto",
         description: "Calcula el resto de la división entre dos valores.",
       },
       {
@@ -285,28 +285,6 @@ export const nodePalette: NodePaletteCategory[] = [
     ],
   },
   {
-    id: "distribution",
-    title: "Distribución",
-    items: [
-      {
-        type: "replicateFlow",
-        label: "Replicar flujo",
-        description:
-          "Configura y almacena un flujo interno reutilizable dentro del nodo.",
-      },
-      {
-        type: "scatter",
-        label: "Distribuir",
-        description: "Distribuye una lista a varios nodos",
-      },
-      {
-        type: "gather",
-        label: "Reunir",
-        description: "Reúne valores de varios nodos en una lista",
-      },
-    ],
-  },
-  {
     id: "iteration",
     title: "Listas",
     items: [
@@ -323,12 +301,12 @@ export const nodePalette: NodePaletteCategory[] = [
       },
       {
         type: "zip",
-        label: "Zip",
+        label: "Unir listas",
         description: "Combina listas elemento a elemento.",
       },
       {
         type: "unzip",
-        label: "Unzip",
+        label: "Separar lista",
         description:
           "Separa una lista de pares en dos listas (inverso de Zip).",
       },
@@ -339,7 +317,7 @@ export const nodePalette: NodePaletteCategory[] = [
       },
       {
         type: "map",
-        label: "Map",
+        label: "Mapear",
         description:
           "Transforma cada elemento de una lista aplicando una función.",
       },
@@ -352,7 +330,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "accumulate",
         label: "Acumular",
-        description: "Reduce una lista acumulando un valor (fold).",
+        description: "Suma los elementos de una lista.",
       },
       {
         type: "count",
@@ -394,6 +372,28 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "listIsEmpty",
         label: "Lista vacía",
         description: "Devuelve verdadero si la lista no tiene elementos.",
+      },
+    ],
+  },
+  {
+    id: "distribution",
+    title: "Distribución",
+    items: [
+      {
+        type: "replicateFlow",
+        label: "Replicar flujo",
+        description:
+          "Configura y almacena un flujo interno reutilizable dentro del nodo.",
+      },
+      {
+        type: "scatter",
+        label: "Distribuir",
+        description: "Distribuye una lista a varios nodos",
+      },
+      {
+        type: "gather",
+        label: "Reunir",
+        description: "Reúne valores de varios nodos en una lista",
       },
     ],
   },
