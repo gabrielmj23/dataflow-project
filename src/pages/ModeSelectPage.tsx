@@ -1,5 +1,13 @@
 import { Link } from "react-router-dom";
-import { LogIn, LogOut, Trophy, UserRound, Zap } from "lucide-react";
+import {
+  Cpu,
+  Download,
+  LogIn,
+  LogOut,
+  Trophy,
+  UserRound,
+  Zap,
+} from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -7,6 +15,7 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { clearStoredAuthSession, getStoredAuthUser } from "@/lib/auth";
 import type { AuthMode, AuthSessionUser } from "@/types";
 import { RecentPublishedProjectsSection } from "@/components/projects/RecentPublishedProjectsSection";
+import makecodeSubflowSource from "../../makecode/makecode-subflow.ts?raw";
 
 export default function ModeSelectPage() {
   const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
@@ -24,6 +33,20 @@ export default function ModeSelectPage() {
   const handleLogout = () => {
     clearStoredAuthSession();
     setCurrentUser(null);
+  };
+
+  const handleDownloadMicrobitFirmware = () => {
+    const blob = new Blob([makecodeSubflowSource], {
+      type: "text/plain;charset=utf-8",
+    });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "makecode-subflow.ts";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -93,28 +116,45 @@ export default function ModeSelectPage() {
             </h1>
             <p className="mx-auto max-w-2xl text-lg text-slate-500 md:text-xl leading-relaxed">
               Conecta bloques inteligentes, entiende el flujo de datos y
-              descubre cómo pensar como un ingeniero creativo. NodeLand es el camino
-              más divertido para dominar la lógica.
+              descubre cómo pensar como un ingeniero creativo. NodeLand es el
+              camino más divertido para dominar la lógica.
             </p>
 
-            <div className="flex flex-wrap justify-center gap-6 mt-4">
-              <Link
-                to="/editor"
-                className="group relative inline-flex items-center gap-3 rounded-2xl bg-slate-900 px-8 py-4 text-lg font-semibold text-white shadow-2xl transition hover:bg-slate-800 hover:scale-105 active:scale-95"
-              >
-                <Zap size={20} className="text-yellow-400 fill-yellow-400" />
-                Ir al editor
-              </Link>
+            <div className="mt-4 flex flex-col items-center gap-6">
+              <div className="flex flex-wrap justify-center gap-6">
+                <Link
+                  to="/editor"
+                  className="group relative inline-flex items-center gap-3 rounded-2xl bg-slate-900 px-8 py-4 text-lg font-semibold text-white shadow-2xl transition hover:bg-slate-800 hover:scale-105 active:scale-95"
+                >
+                  <Zap size={20} className="text-yellow-400 fill-yellow-400" />
+                  Ir al editor
+                </Link>
+
+                <button
+                  className="group inline-flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-8 py-4 text-lg font-semibold text-slate-900 shadow-xl transition hover:border-fuchsia-500 hover:text-fuchsia-600 hover:scale-105 active:scale-95 hover:cursor-pointer"
+                  onClick={() => setIsChallengeDialogOpen(true)}
+                >
+                  <Trophy
+                    size={20}
+                    className="transition-colors group-hover:text-fuchsia-500"
+                  />
+                  Desafíos
+                </button>
+              </div>
 
               <button
-                className="group inline-flex items-center gap-3 rounded-2xl border-2 border-slate-200 bg-white px-8 py-4 text-lg font-semibold text-slate-900 shadow-xl transition hover:border-fuchsia-500 hover:text-fuchsia-600 hover:scale-105 active:scale-95 hover:cursor-pointer"
-                onClick={() => setIsChallengeDialogOpen(true)}
+                className="group inline-flex items-center gap-3 rounded-2xl border-2 border-sky-200 bg-white px-8 py-4 text-lg font-semibold text-slate-900 shadow-xl transition hover:border-sky-500 hover:text-sky-700 hover:scale-105 active:scale-95 hover:cursor-pointer"
+                onClick={handleDownloadMicrobitFirmware}
               >
-                <Trophy
+                <Cpu
                   size={20}
-                  className="transition-colors group-hover:text-fuchsia-500"
+                  className="transition-colors group-hover:text-sky-600"
                 />
-                Desafíos
+                Descargar firmware micro:bit
+                <Download
+                  size={18}
+                  className="transition-colors group-hover:text-sky-600"
+                />
               </button>
             </div>
           </div>
