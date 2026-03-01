@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  useStore,
   useReactFlow,
   useUpdateNodeInternals,
   type NodeProps,
@@ -19,6 +20,8 @@ export type WriteNodeData = {
   label?: string;
   /** Number of input handles to render. We keep one extra empty input. */
   inputCount?: number;
+  /** Optional custom labels by write input handle id (`in-1`, `in-2`, ...). */
+  inputLabels?: Record<string, string>;
   /** Text template to print. Use placeholders like {1}, {2}, ... */
   template?: string;
   runtimeError?: string | null;
@@ -33,21 +36,34 @@ function isHTMLElement(node: unknown): node is HTMLElement {
 }
 
 function buildVarChip(params: { index: number }): HTMLSpanElement {
+  const { index } = params;
   const span = document.createElement("span");
-  span.setAttribute("data-write-var", String(params.index));
+  span.setAttribute("data-write-var", String(index));
   span.setAttribute("contenteditable", "false");
   // Match the same visual style as the draggable variable pills in the dialog.
   span.className =
     "inline-flex h-fit items-center whitespace-nowrap select-none rounded-md border px-2 py-1 text-xs text-white bg-teal-500";
-  span.textContent = `Entrada ${params.index}`;
+  span.textContent = `Entrada ${index}`;
+  return span;
+}
+
+function buildVarChipWithLabel(params: {
+  index: number;
+  label: string;
+}): HTMLSpanElement {
+  const { index, label } = params;
+  const span = buildVarChip({ index });
+  const normalized = String(label ?? "").trim();
+  span.textContent = normalized || `Entrada ${index}`;
   return span;
 }
 
 function setEditorFromTemplate(params: {
   editor: HTMLElement;
   template: string;
+  resolveLabel: (index: number) => string;
 }): void {
-  const { editor, template } = params;
+  const { editor, template, resolveLabel } = params;
   editor.innerHTML = "";
 
   const frag = document.createDocumentFragment();
@@ -65,7 +81,9 @@ function setEditorFromTemplate(params: {
     }
 
     if (Number.isFinite(idx) && idx > 0) {
-      frag.appendChild(buildVarChip({ index: idx }));
+      frag.appendChild(
+        buildVarChipWithLabel({ index: idx, label: resolveLabel(idx) }),
+      );
       frag.appendChild(document.createTextNode(ZWSP));
     } else {
       frag.appendChild(document.createTextNode(match[0]));
@@ -187,10 +205,79 @@ function insertVarAtSelection(params: { editor: HTMLElement; index: number }) {
   sel?.addRange(nextRange);
 }
 
+function insertVarAtSelectionWithLabel(params: {
+  editor: HTMLElement;
+  index: number;
+  label: string;
+}) {
+  const { editor, index, label } = params;
+  try {
+    console.log(`[WriteNode] insertVarAtSelectionWithLabel index=${index}`);
+  } catch {
+    /* ignore */
+  }
+  const selection = window.getSelection();
+  const chip = buildVarChipWithLabel({ index, label });
+  const spacer = document.createTextNode(ZWSP);
+
+  if (selection && selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+
+    if (!editor.contains(range.startContainer)) {
+      editor.appendChild(chip);
+      editor.appendChild(spacer);
+    } else {
+      range.deleteContents();
+      range.insertNode(spacer);
+      range.insertNode(chip);
+    }
+  } else {
+    editor.appendChild(chip);
+    editor.appendChild(spacer);
+  }
+
+  editor.focus();
+  const nextRange = document.createRange();
+  nextRange.setStartAfter(spacer);
+  nextRange.collapse(true);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(nextRange);
+}
+
 function sanitizeInputCount(value: unknown): number {
   const n = typeof value === "number" ? value : 1;
   if (!Number.isFinite(n)) return 1;
   return Math.max(1, Math.floor(n));
+}
+
+function parseWriteInputHandleIndex(handleId: unknown): number {
+  const match = /^in-(\d+)$/.exec(String(handleId ?? ""));
+  const idx = match ? Number(match[1]) : NaN;
+  return Number.isFinite(idx) && idx > 0 ? idx : 0;
+}
+
+function normalizeWriteInputLabels(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object") return {};
+
+  const entries = Object.entries(value as Record<string, unknown>);
+  const next: Record<string, string> = {};
+
+  for (const [key, raw] of entries) {
+    const match = /^in-(\d+)$/.exec(String(key ?? ""));
+    if (!match) continue;
+    const idx = Number(match[1]);
+    if (!Number.isFinite(idx) || idx <= 0) continue;
+
+    if (typeof raw !== "string") continue;
+    next[`in-${idx}`] = raw;
+  }
+
+  return next;
+}
+
+function isEntradaLikeLabel(value: string): boolean {
+  return /^entrada(?:\s+\d+)?$/i.test(value.trim());
 }
 
 export const WriteNode = memo(({ id, data }: NodeProps) => {
@@ -198,8 +285,14 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
     label = "Escribir",
     runtimeError,
     inputCount: rawInputCount,
+    inputLabels: rawInputLabels,
     template: rawTemplate,
   } = (data ?? {}) as WriteNodeData;
+
+  const inputLabels = useMemo(
+    () => normalizeWriteInputLabels(rawInputLabels),
+    [rawInputLabels],
+  );
 
   const inputCount = useMemo(
     () => sanitizeInputCount(rawInputCount),
@@ -209,6 +302,141 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
   const targetHandleIds = useMemo(
     () => Array.from({ length: inputCount }, (_, i) => `in-${i + 1}`),
     [inputCount]
+  );
+
+  const edges = useStore(
+    (state) => (state as unknown as { edges: unknown[] }).edges,
+  );
+
+  const connectedTargetHandleIds = useMemo(() => {
+    const edgeList = Array.isArray(edges) ? edges : [];
+    const set = new Set<string>();
+    for (const rawEdge of edgeList) {
+      if (!rawEdge || typeof rawEdge !== "object") continue;
+      const edge = rawEdge as { target?: unknown; targetHandle?: unknown };
+      if (String(edge.target ?? "") !== String(id)) continue;
+      const idx = parseWriteInputHandleIndex(edge.targetHandle);
+      if (idx <= 0) continue;
+      set.add(`in-${idx}`);
+    }
+    return set;
+  }, [edges, id]);
+
+  const targetHandleLabels = useMemo(() => {
+    const baseEntries = targetHandleIds.map((handleId) => {
+      if (!connectedTargetHandleIds.has(handleId)) {
+        return { label: null as string | null, custom: false };
+      }
+
+      const handleIndex = parseWriteInputHandleIndex(handleId);
+
+      if (Object.prototype.hasOwnProperty.call(inputLabels, handleId)) {
+        return {
+          label: inputLabels[handleId] ?? "",
+          custom: true,
+        };
+      }
+
+      return {
+        label: `Entrada ${handleIndex}`,
+        custom: false,
+      };
+    });
+
+    const counts = new Map<string, number>();
+    for (const entry of baseEntries) {
+      if (entry.custom || typeof entry.label !== "string") continue;
+      const key = String(entry.label ?? "").trim().toLowerCase();
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    return baseEntries.map((entry, index) => {
+      if (typeof entry.label !== "string") return null;
+      if (entry.custom) return entry.label;
+
+      const normalized = String(entry.label ?? "").trim();
+      const handleId = targetHandleIds[index] ?? "";
+      const handleIndex = parseWriteInputHandleIndex(handleId);
+
+      if (isEntradaLikeLabel(normalized)) {
+        return `Entrada ${handleIndex}`;
+      }
+
+      const key = normalized.toLowerCase();
+      const repeated = (counts.get(key) ?? 0) > 1;
+      if (!repeated) return normalized;
+
+      return `${normalized} ${handleIndex}`;
+    });
+  }, [
+    connectedTargetHandleIds,
+    inputLabels,
+    targetHandleIds,
+  ]);
+
+  const targetHandlePlaceholders = useMemo(
+    () =>
+      targetHandleIds.map((handleId) => {
+        if (!connectedTargetHandleIds.has(handleId)) return null;
+        const idx = parseWriteInputHandleIndex(handleId);
+        return `Entrada ${idx}`;
+      }),
+    [connectedTargetHandleIds, targetHandleIds],
+  );
+
+  const invalidTargetHandleIds = useMemo(() => {
+    const counts = new Map<string, number>();
+    const resolvedNames: string[] = [];
+
+    for (let index = 0; index < targetHandleIds.length; index++) {
+      const handleId = targetHandleIds[index] ?? "";
+      if (!connectedTargetHandleIds.has(handleId)) {
+        resolvedNames.push("");
+        continue;
+      }
+
+      const label = targetHandleLabels[index];
+      const placeholder = targetHandlePlaceholders[index];
+      const normalized =
+        typeof label === "string" && label.trim().length > 0
+          ? label.trim()
+          : typeof placeholder === "string"
+            ? placeholder.trim()
+            : "";
+
+      resolvedNames.push(normalized);
+      if (!normalized) continue;
+      const key = normalized.toLowerCase();
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+
+    const invalid: string[] = [];
+    for (let index = 0; index < targetHandleIds.length; index++) {
+      const name = resolvedNames[index] ?? "";
+      if (!name) continue;
+      if ((counts.get(name.toLowerCase()) ?? 0) > 1) {
+        invalid.push(targetHandleIds[index] ?? "");
+      }
+    }
+
+    return invalid;
+  }, [
+    connectedTargetHandleIds,
+    targetHandleIds,
+    targetHandleLabels,
+    targetHandlePlaceholders,
+  ]);
+
+  const variableDisplayLabels = useMemo(
+    () =>
+      Array.from({ length: Math.max(0, inputCount - 1) }, (_, index) => {
+        const label = targetHandleLabels[index];
+        if (typeof label === "string" && label.trim().length > 0) {
+          return label.trim();
+        }
+        return targetHandlePlaceholders[index] ?? `Entrada ${index + 1}`;
+      }),
+    [inputCount, targetHandleLabels, targetHandlePlaceholders],
   );
 
   const updateNodeInternals = useUpdateNodeInternals();
@@ -226,6 +454,9 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
   const [editorEl, setEditorEl] = useState<HTMLDivElement | null>(null);
   const didInitEditorForOpenRef = useRef(false);
   const lastDraggedVarIndexRef = useRef<number | null>(null);
+  const [inlineInvalidHandleIds, setInlineInvalidHandleIds] = useState<string[]>(
+    [],
+  );
 
   const setEditorRef = useCallback((el: HTMLDivElement | null) => {
     editorRef.current = el;
@@ -273,10 +504,15 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
     if (didInitEditorForOpenRef.current) return;
     didInitEditorForOpenRef.current = true;
 
-    setEditorFromTemplate({ editor, template: draftTemplate });
+    setEditorFromTemplate({
+      editor,
+      template: draftTemplate,
+      resolveLabel: (index) =>
+        variableDisplayLabels[index - 1] ?? `Entrada ${index}`,
+    });
 
     editor.focus();
-  }, [draftTemplate, editorEl, isDialogOpen]);
+  }, [draftTemplate, editorEl, isDialogOpen, variableDisplayLabels]);
 
   const onEditorInput = useCallback(() => {
     const editor = editorRef.current;
@@ -409,10 +645,14 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
         window.getSelection()
       );
 
-      insertVarAtSelection({ editor, index: idx });
+      insertVarAtSelectionWithLabel({
+        editor,
+        index: idx,
+        label: variableDisplayLabels[idx - 1] ?? `Entrada ${idx}`,
+      });
       onEditorInput();
     },
-    [onEditorInput]
+    [onEditorInput, variableDisplayLabels]
   );
 
   return (
@@ -423,6 +663,76 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
         label={label}
         variant="sink"
         targetHandleIds={targetHandleIds}
+        targetHandleLabels={targetHandleLabels}
+        targetHandlePlaceholders={targetHandlePlaceholders}
+        invalidTargetHandleIds={[
+          ...new Set([...invalidTargetHandleIds, ...inlineInvalidHandleIds]),
+        ]}
+        onTargetHandleLabelChange={({ handleId, label: nextLabel }) => {
+          const normalizedHandle = String(handleId ?? "");
+          const handleIndex = parseWriteInputHandleIndex(normalizedHandle);
+          if (handleIndex <= 0) return;
+
+          const currentIndex = targetHandleIds.findIndex(
+            (value) => value === normalizedHandle,
+          );
+          const trimmedCandidate = String(nextLabel ?? "").trim();
+          const candidateComparable =
+            trimmedCandidate ||
+            String(targetHandlePlaceholders[currentIndex] ?? "").trim();
+
+          if (candidateComparable) {
+            for (let index = 0; index < targetHandleIds.length; index++) {
+              const otherHandle = targetHandleIds[index] ?? "";
+              if (otherHandle === normalizedHandle) continue;
+              if (!connectedTargetHandleIds.has(otherHandle)) continue;
+
+              const otherLabel = targetHandleLabels[index];
+              const otherPlaceholder = targetHandlePlaceholders[index];
+              const otherComparable =
+                typeof otherLabel === "string" && otherLabel.trim().length > 0
+                  ? otherLabel.trim()
+                  : String(otherPlaceholder ?? "").trim();
+
+              if (!otherComparable) continue;
+              if (
+                otherComparable.toLowerCase() ===
+                candidateComparable.toLowerCase()
+              ) {
+                setInlineInvalidHandleIds([normalizedHandle, otherHandle]);
+                return;
+              }
+            }
+          }
+
+          setInlineInvalidHandleIds([]);
+
+          setNodes((prev) =>
+            prev.map((node) => {
+              if (String(node.id) !== String(id)) return node;
+              const currentData =
+                node.data && typeof node.data === "object"
+                  ? (node.data as Record<string, unknown>)
+                  : {};
+
+              const currentLabels = normalizeWriteInputLabels(
+                currentData.inputLabels,
+              );
+              currentLabels[normalizedHandle] = String(nextLabel ?? "");
+
+              const hasCustomLabels = Object.keys(currentLabels).length > 0;
+              return {
+                ...node,
+                data: {
+                  ...currentData,
+                  ...(hasCustomLabels
+                    ? { inputLabels: currentLabels }
+                    : { inputLabels: undefined }),
+                },
+              };
+            }),
+          );
+        }}
         onConfigClick={openDialog}
         runtimeError={runtimeError}
       />
@@ -504,7 +814,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                       }}
                       className="cursor-grab select-none rounded-md border px-2 py-1 text-sm text-white bg-teal-500 w-fit"
                     >
-                      Entrada {idx}
+                      {variableDisplayLabels[idx - 1] ?? `Entrada ${idx}`}
                     </div>
                   )
                 )}

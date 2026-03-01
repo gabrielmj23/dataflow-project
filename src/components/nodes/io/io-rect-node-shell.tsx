@@ -1,9 +1,11 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
+import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
@@ -16,6 +18,17 @@ type IoRectNodeShellProps = {
   variant?: "default" | "sink";
   /** Optional explicit target handle ids for `sink` nodes (dynamic inputs). */
   targetHandleIds?: string[];
+  /** Optional labels aligned with `targetHandleIds` (sink only). */
+  targetHandleLabels?: Array<string | null | undefined>;
+  /** Optional placeholders aligned with `targetHandleIds` (sink only). */
+  targetHandlePlaceholders?: Array<string | null | undefined>;
+  /** Optional list of invalid handle ids (sink only). */
+  invalidTargetHandleIds?: string[];
+  /** Optional callback to edit labels inline (sink only). */
+  onTargetHandleLabelChange?: (params: {
+    handleId: string;
+    label: string;
+  }) => void;
   onConfigClick?: () => void;
   runtimeError?: string | null;
 };
@@ -37,6 +50,10 @@ export function IoRectNodeShell({
   label,
   variant = "default",
   targetHandleIds,
+  targetHandleLabels,
+  targetHandlePlaceholders,
+  invalidTargetHandleIds,
+  onTargetHandleLabelChange,
   onConfigClick,
   runtimeError,
 }: IoRectNodeShellProps) {
@@ -55,16 +72,32 @@ export function IoRectNodeShell({
     handleId: string | null | undefined;
   }) => maskToVisualPortDataType(maskFor(params));
 
+  const sinkHandleCount = (targetHandleIds ?? ["in-1"]).length;
+  const sinkMinHeight = 72 + Math.max(0, sinkHandleCount - 1) * 18;
+
   const targetOffsets =
     variant === "sink" ? offsets(targetHandleIds?.length ?? 1) : [];
+  const hasTargetLabels =
+    variant === "sink" &&
+    (targetHandleLabels ?? []).some(
+      (text) => typeof text === "string" && text.trim().length > 0,
+    );
+  const [focusedHandleId, setFocusedHandleId] = useState<string | null>(null);
 
   return (
     <BaseNode
       runtimeError={runtimeError}
       onConfigClick={onConfigClick}
-      className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md"
+      className={`relative flex ${variant === "sink" ? "h-auto" : "h-18"} ${hasTargetLabels ? "w-52" : "w-25"} flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md`}
+      style={
+        variant === "sink"
+          ? { minHeight: `${sinkMinHeight}px` }
+          : undefined
+      }
     >
-      <div className="flex flex-col items-center gap-0.5">
+      <div
+        className={`flex flex-col items-center gap-0.5 ${hasTargetLabels ? "ml-14" : ""}`}
+      >
         <div className="text-lg font-bold leading-none">{icon}</div>
         <div className="text-xs leading-tight">{label}</div>
       </div>
@@ -107,6 +140,69 @@ export function IoRectNodeShell({
                 className="absolute -left-1 h-2 w-2 -translate-y-1/2"
                 indicatorClassName="border-rose-700"
               />
+            );
+          })}
+
+          {(targetHandleIds ?? ["in-1"]).map((handleId, index) => {
+            const rawLabel = targetHandleLabels?.[index];
+            if (rawLabel === null || rawLabel === undefined) return null;
+            const resolved = typeof rawLabel === "string" ? rawLabel : "";
+            const widthPx = Math.min(150, Math.max(56, 20 + resolved.length * 8));
+
+            if (onTargetHandleLabelChange) {
+              const placeholderRaw = targetHandlePlaceholders?.[index];
+              const placeholder =
+                typeof placeholderRaw === "string" ? placeholderRaw : "";
+              const isInvalid = (invalidTargetHandleIds ?? []).includes(handleId);
+              const isEditing = focusedHandleId === handleId;
+              const borderClass = isEditing
+                ? isInvalid
+                  ? "border border-red-300 focus-visible:border-red-200"
+                  : "border border-white/55 focus-visible:border-white/70"
+                : "border border-transparent";
+              return (
+                <Tooltip key={`sink-label-edit-${handleId}`} open={isInvalid && isEditing ? true : undefined}>
+                  <TooltipTrigger asChild>
+                    <Input
+                      value={resolved}
+                      placeholder={placeholder}
+                      aria-invalid={isInvalid || undefined}
+                      onFocus={() => setFocusedHandleId(handleId)}
+                      onBlur={() => setFocusedHandleId((prev) => (prev === handleId ? null : prev))}
+                      onChange={(event) =>
+                        onTargetHandleLabelChange({
+                          handleId,
+                          label: event.currentTarget.value,
+                        })
+                      }
+                      className={`nodrag absolute left-3 h-6 -translate-y-1/2 bg-transparent px-1 text-left text-[11px] font-normal leading-tight text-white placeholder:text-white/70 shadow-none focus:outline-none focus:ring-0 focus-visible:ring-0 ${borderClass}`}
+                      style={{
+                        top: targetOffsets[index] ?? "50%",
+                        width: `${widthPx}px`,
+                      }}
+                    />
+                  </TooltipTrigger>
+                  {isInvalid ? (
+                    <TooltipContent side="top" sideOffset={6} className="border-red-300/50 bg-red-500/10 text-red-100">
+                      Nombre repetido
+                    </TooltipContent>
+                  ) : null}
+                </Tooltip>
+              );
+            }
+
+            const normalized = resolved.trim();
+            if (!normalized) return null;
+
+            return (
+              <span
+                key={`sink-label-${handleId}`}
+                className="pointer-events-none absolute left-3 max-w-36 -translate-y-1/2 truncate text-left text-[11px] font-normal leading-tight text-white"
+                style={{ top: targetOffsets[index] ?? "50%" }}
+                title={normalized}
+              >
+                {normalized}
+              </span>
             );
           })}
         </>

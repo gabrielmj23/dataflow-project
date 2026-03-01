@@ -1,4 +1,4 @@
-import { memo, useId, useState } from "react";
+import { memo, useEffect, useId, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
@@ -22,7 +22,14 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
 
   const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [inlineValue, setInlineValue] = useState(textValue);
   const inputId = useId();
+
+  useEffect(() => {
+    if (isInlineEditing) return;
+    setInlineValue(textValue);
+  }, [isInlineEditing, textValue]);
 
   const setValue = (nextValue: string) => {
     setNodes((prev) =>
@@ -40,14 +47,56 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
     );
   };
 
+  const startInlineEdit = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setInlineValue(textValue);
+    setIsInlineEditing(true);
+  };
+
+  const commitInlineEdit = () => {
+    setValue(inlineValue);
+    setIsInlineEditing(false);
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineValue(textValue);
+    setIsInlineEditing(false);
+  };
+
   return (
     <>
       <InputCircleNodeShell
-            nodeType="constantText"
+        nodeType="constantText"
         icon={
-          <span className="text-sm font-normal truncate max-w-[3rem]">
+          isInlineEditing ? (
+            <Input
+              autoFocus
+              value={inlineValue}
+              onChange={(e) => setInlineValue(e.currentTarget.value)}
+              onBlur={commitInlineEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitInlineEdit();
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelInlineEdit();
+                }
+              }}
+              className="nodrag nopan h-6 w-12 border-white/60 bg-white/10 px-1 text-center text-xs text-white placeholder:text-white/60"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startInlineEdit}
+              className="nodrag nopan max-w-[3rem] truncate text-sm font-normal outline-none"
+              title="Editar valor"
+            >
               {textValue || ""}
-          </span>
+            </button>
+          )
         }
         label=""
         onConfigClick={() => setIsDialogOpen(true)}

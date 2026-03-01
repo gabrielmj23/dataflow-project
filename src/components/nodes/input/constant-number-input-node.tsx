@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useState } from "react";
+import { memo, useCallback, useEffect, useId, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
@@ -24,7 +24,14 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
 
   const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [inlineValue, setInlineValue] = useState(String(numericValue));
   const inputId = useId();
+
+  useEffect(() => {
+    if (isInlineEditing) return;
+    setInlineValue(String(numericValue));
+  }, [isInlineEditing, numericValue]);
 
   const setValue = useCallback(
     (nextValue: number) => {
@@ -45,11 +52,62 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
     [id, setNodes]
   );
 
+  const startInlineEdit = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setInlineValue(String(numericValue));
+    setIsInlineEditing(true);
+  };
+
+  const commitInlineEdit = () => {
+    const parsed = Number(inlineValue);
+    if (Number.isFinite(parsed)) {
+      setValue(parsed);
+    }
+    setIsInlineEditing(false);
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineValue(String(numericValue));
+    setIsInlineEditing(false);
+  };
+
   return (
     <>
       <InputCircleNodeShell
         nodeType="constantNumber"
-        icon={<span className="text-sm font-normal">{numericValue}</span>}
+        icon={
+          isInlineEditing ? (
+            <Input
+              autoFocus
+              type="number"
+              step={0.01}
+              value={inlineValue}
+              onChange={(e) => setInlineValue(e.currentTarget.value)}
+              onBlur={commitInlineEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitInlineEdit();
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelInlineEdit();
+                }
+              }}
+              className="nodrag nopan h-6 w-12 border-white/60 bg-white/10 px-1 text-center text-xs text-white [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startInlineEdit}
+              className="nodrag nopan max-w-[3rem] truncate text-sm font-normal outline-none"
+              title="Editar valor"
+            >
+              {numericValue}
+            </button>
+          )
+        }
         label=""
         onConfigClick={() => setIsDialogOpen(true)}
       />
