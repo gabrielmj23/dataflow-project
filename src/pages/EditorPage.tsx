@@ -1014,6 +1014,7 @@ export default function EditorPage() {
               onLoadClick={onLoadClick}
               onConnectClick={() => setIsRemoteDialogOpen(true)}
               isConnected={runnerBridge.wsState.connected}
+              connectedDevices={runnerBridge.controllers}
               edgeFeedbackMode={edgeFeedbackMode}
               onToggleEdgeFeedbackMode={toggleEdgeFeedbackMode}
             />
