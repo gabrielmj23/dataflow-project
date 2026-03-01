@@ -153,58 +153,6 @@ function caretRangeFromPoint(x: number, y: number): Range | null {
   return null;
 }
 
-function insertVarAtSelection(params: { editor: HTMLElement; index: number }) {
-  const { editor, index } = params;
-  try {
-    console.log(`[WriteNode] insertVarAtSelection index=${index}`);
-  } catch {
-    /* ignore */
-  }
-  const selection = window.getSelection();
-  const chip = buildVarChip({ index });
-  const spacer = document.createTextNode(ZWSP);
-
-  if (selection && selection.rangeCount > 0) {
-    const range = selection.getRangeAt(0);
-    try {
-      console.log(
-        `[WriteNode] insertVarAtSelection has selection; startContainer=`,
-        range.startContainer,
-        `offset=${range.startOffset}`
-      );
-    } catch {
-      /* ignore */
-    }
-
-    if (!editor.contains(range.startContainer)) {
-      console.debug(
-        "[WriteNode] insertVarAtSelection: selection outside editor — appending at end"
-      );
-      editor.appendChild(chip);
-      editor.appendChild(spacer);
-    } else {
-      range.deleteContents();
-      range.insertNode(spacer);
-      range.insertNode(chip);
-      console.debug("[WriteNode] insertVarAtSelection: inserted at selection");
-    }
-  } else {
-    console.debug(
-      "[WriteNode] insertVarAtSelection: no selection — appending at end"
-    );
-    editor.appendChild(chip);
-    editor.appendChild(spacer);
-  }
-
-  editor.focus();
-  const nextRange = document.createRange();
-  nextRange.setStartAfter(spacer);
-  nextRange.collapse(true);
-  const sel = window.getSelection();
-  sel?.removeAllRanges();
-  sel?.addRange(nextRange);
-}
-
 function insertVarAtSelectionWithLabel(params: {
   editor: HTMLElement;
   index: number;
