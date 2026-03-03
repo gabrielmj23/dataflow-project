@@ -5,6 +5,21 @@ serial.redirectToUSB();
 serial.setBaudRate(BaudRate.BaudRate115200);
 bluetooth.startUartService();
 
+input.onButtonPressed(Button.A, function () {
+  serial.writeLine("BTN:A");
+  bluetooth.uartWriteLine("BTN:A");
+});
+
+input.onButtonPressed(Button.B, function () {
+  serial.writeLine("BTN:B");
+  bluetooth.uartWriteLine("BTN:B");
+});
+
+input.onButtonPressed(Button.AB, function () {
+  serial.writeLine("BTN:AB");
+  bluetooth.uartWriteLine("BTN:AB");
+});
+
 // ==========================================
 // CONSTANTES Y CONFIGURACIÓN
 // ==========================================
