@@ -19,18 +19,6 @@ import {
   EngineSubstractNode,
   EngineSumNode,
 } from "../nodes/algorithm-nodes";
-import {
-  EngineMicrobitCeilingNode,
-  EngineMicrobitConcatNode,
-  EngineMicrobitDivideNode,
-  EngineMicrobitFloorNode,
-  EngineMicrobitModNode,
-  EngineMicrobitMultiplyNode,
-  EngineMicrobitPowerNode,
-  EngineMicrobitRoundNode,
-  EngineMicrobitSubtractNode,
-  EngineMicrobitSumNode,
-} from "../nodes/microbit-nodes";
 import { FirePatterns, NodeDefinition } from "../program-elements";
 
 import { asRecord } from "../deserialize/utils";
@@ -75,7 +63,7 @@ function createRemoteExecutionNode(params: {
   );
 }
 
-function buildMicrobitTextGraph(params: {
+function buildMicrobitRemoteGraph(params: {
   nodeId: string;
   nodeType: string;
   nodeData: Record<string, unknown>;
@@ -156,6 +144,44 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
     });
   };
 
+  const ensureMicrobitSubflow = (params: {
+    inputHandles: string[];
+    ports: string[];
+    firePatterns: FirePatterns[];
+    stickyInputPorts?: string[];
+    outputPortId?: string;
+  }) => {
+    const transport = parseTransport(data);
+    const graph = buildMicrobitRemoteGraph({
+      nodeId: String(flowNode.id),
+      nodeType,
+      nodeData: data,
+      inputHandles: params.inputHandles,
+      outputPortId: params.outputPortId ?? "output",
+    });
+
+    return new NodeDefinition(
+      async (...args: unknown[]) => {
+        const connection = await ensureMicrobitConnected({ transport });
+        return await sendSubflowToMicrobit({
+          connection,
+          nodes: graph.nodes,
+          edges: graph.edges,
+          selectedInputs: graph.selectedInputs,
+          outputSources: graph.outputSources,
+          args,
+          programId: graph.programId,
+          signal: ctx.signal,
+        });
+      },
+      params.firePatterns,
+      params.ports,
+      params.stickyInputPorts
+        ? { stickyInputPorts: params.stickyInputPorts }
+        : undefined,
+    );
+  };
+
   switch (nodeType) {
     case NODE_TYPES.SUM_NODE: {
       if (executionTarget === "controller") {
@@ -167,12 +193,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitSumNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
         });
       }
       return new EngineSumNode();
@@ -187,12 +212,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitSubtractNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
         });
       }
       return new EngineSubstractNode();
@@ -207,12 +231,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitMultiplyNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
         });
       }
       return new EngineMultiplyNode();
@@ -227,12 +250,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitDivideNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
         });
       }
       return new EngineDivideNode();
@@ -247,12 +269,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitModNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
         });
       }
       return new EngineModNode();
@@ -267,12 +288,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitPowerNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
         });
       }
       return new EnginePowerNode();
@@ -287,12 +307,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitFloorNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1"],
+          ports: ["input1", "output"],
+          firePatterns: [FirePatterns.EXISTS],
+          stickyInputPorts: ["input1"],
         });
       }
       return new EngineFloorNode();
@@ -307,12 +326,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitCeilingNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1"],
+          ports: ["input1", "output"],
+          firePatterns: [FirePatterns.EXISTS],
+          stickyInputPorts: ["input1"],
         });
       }
       return new EngineCeilingNode();
@@ -327,12 +345,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitRoundNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1"],
+          ports: ["input1", "output"],
+          firePatterns: [FirePatterns.EXISTS],
+          stickyInputPorts: ["input1"],
         });
       }
       return new EngineRoundNode();
@@ -347,12 +364,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         );
       }
       if (executionTarget === "microbit") {
-        const transport = parseTransport(data);
-        return new EngineMicrobitConcatNode({
-          nodeId: String(flowNode.id),
-          transport,
-          onLog: ctx.onLog,
-          signal: ctx.signal,
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
         });
       }
       return new EngineConcatNode();
@@ -368,7 +384,7 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
       }
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
-        const graph = buildMicrobitTextGraph({
+        const graph = buildMicrobitRemoteGraph({
           nodeId: String(flowNode.id),
           nodeType,
           nodeData: data,
@@ -408,7 +424,7 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
       }
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
-        const graph = buildMicrobitTextGraph({
+        const graph = buildMicrobitRemoteGraph({
           nodeId: String(flowNode.id),
           nodeType,
           nodeData: data,
@@ -448,7 +464,7 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
       }
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
-        const graph = buildMicrobitTextGraph({
+        const graph = buildMicrobitRemoteGraph({
           nodeId: String(flowNode.id),
           nodeType,
           nodeData: data,
