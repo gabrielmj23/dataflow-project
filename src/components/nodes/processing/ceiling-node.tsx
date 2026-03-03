@@ -8,6 +8,7 @@ export const CeilingNode = memo((props: NodeProps) => (
   <ProcessingExecutionNode
     {...props}
     nodeType="ceiling"
+    inputCount={1}
     icon={<ArrowUp className="h-6 w-6" />}
     defaultLabel="Techo"
     configTitle="Configurar · Techo"

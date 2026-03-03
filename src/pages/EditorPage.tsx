@@ -82,6 +82,7 @@ import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
 import type { CustomNodeSummary } from "@/lib/custom-nodes";
+import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
@@ -427,6 +428,26 @@ export default function EditorPage() {
     onRunClick,
     onStopClick,
   });
+
+  const connectedMicrobitDevices = useConnectedMicrobitDevices();
+
+  const connectedDevices = useMemo(() => {
+    const wsDevices = runnerBridge.controllers.map((controller) => ({
+      id: controller.id,
+      name: controller.name,
+      kind: "pc" as const,
+    }));
+
+    const microbitDevices = connectedMicrobitDevices.map((device) => ({
+      id: `microbit-slot-${device.slot}`,
+      name: device.deviceLabel
+        ? `${device.deviceLabel} (slot ${device.slot})`
+        : `micro:bit (slot ${device.slot})`,
+      kind: "microbit" as const,
+    }));
+
+    return [...microbitDevices, ...wsDevices];
+  }, [connectedMicrobitDevices, runnerBridge.controllers]);
 
   useEffect(() => {
     engineEventSinkRef.current = runnerBridge.emitEngineEvent;
@@ -1014,7 +1035,7 @@ export default function EditorPage() {
               onLoadClick={onLoadClick}
               onConnectClick={() => setIsRemoteDialogOpen(true)}
               isConnected={runnerBridge.wsState.connected}
-              connectedDevices={runnerBridge.controllers}
+              connectedDevices={connectedDevices}
               edgeFeedbackMode={edgeFeedbackMode}
               onToggleEdgeFeedbackMode={toggleEdgeFeedbackMode}
             />

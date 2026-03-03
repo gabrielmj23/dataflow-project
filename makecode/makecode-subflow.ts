@@ -439,6 +439,18 @@ function executeVm(runId: string, args: DfpVal[]) {
           stack.push(valNum(res));
           break;
 
+        case 0x16: // FLOOR
+        case 0x17: // CEIL
+        case 0x18: // ROUND
+          const roundIn = stack.pop() || valNull();
+          const roundNum = valToNumber(roundIn);
+          let roundOut = roundNum;
+          if (op == 0x16) roundOut = Math.floor(roundNum);
+          if (op == 0x17) roundOut = Math.ceil(roundNum);
+          if (op == 0x18) roundOut = Math.round(roundNum);
+          stack.push(valNum(roundOut));
+          break;
+
         case 0x20: // CONCAT
           const strB = valToString(stack.pop() || valNull());
           const strA = valToString(stack.pop() || valNull());

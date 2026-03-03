@@ -8,6 +8,7 @@ export const RoundNode = memo((props: NodeProps) => (
   <ProcessingExecutionNode
     {...props}
     nodeType="round"
+    inputCount={1}
     icon={<Circle className="h-6 w-6" />}
     defaultLabel="Redondear"
     configTitle="Configurar · Redondear"

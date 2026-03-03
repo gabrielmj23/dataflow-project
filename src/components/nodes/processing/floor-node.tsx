@@ -8,6 +8,7 @@ export const FloorNode = memo((props: NodeProps) => (
   <ProcessingExecutionNode
     {...props}
     nodeType="floor"
+    inputCount={1}
     icon={<ArrowDown className="h-6 w-6" />}
     defaultLabel="Piso"
     configTitle="Configurar · Piso"

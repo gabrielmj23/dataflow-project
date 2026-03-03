@@ -1,10 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 
 import type { MicrobitConnection } from "@/microbit/types";
-import {
-  getMicrobitTransport,
-  onMicrobitMessage,
-} from "@/microbit/connection-manager";
 import type { DfpFrame } from "@/microbit/protocol";
 import { encodeDfpLine, parseDfpLine } from "@/microbit/protocol";
 import {
@@ -35,15 +31,16 @@ function sleepMs(ms: number): Promise<void> {
 }
 
 function createFrameRouter(params: {
+  connection: MicrobitConnection;
   signal?: AbortSignal;
   maxQueue?: number;
 }) {
-  const { signal, maxQueue = 256 } = params;
+  const { connection, signal, maxQueue = 256 } = params;
 
   const queue: DfpFrame[] = [];
   const waiters: FrameWaiter[] = [];
 
-  const off = onMicrobitMessage((msg) => {
+  connection.onMessage((msg) => {
     const parsed = parseDfpLine(msg);
     if (!parsed.ok) return;
     const frame = parsed.frame as DfpFrame;
@@ -78,7 +75,6 @@ function createFrameRouter(params: {
   }
 
   const dispose = () => {
-    off();
     if (signal) signal.removeEventListener("abort", onAbort);
     while (waiters.length) {
       const w = waiters.pop();
@@ -266,14 +262,12 @@ export async function sendSubflowToMicrobit(params: {
     signal,
   } = params;
 
-  const router = createFrameRouter({ signal });
+  const router = createFrameRouter({ connection, signal });
 
   try {
-    const transport = getMicrobitTransport();
     // Some micro:bit UART stacks truncate host->device frames near ~20 chars.
-    // Use ultra-compact deploy frames on both serial and BLE.
-    const useCompactDeploy =
-      transport === "bluetooth" || transport === "serial";
+    // Use ultra-compact deploy frames for micro:bit links.
+    const useCompactDeploy = true;
 
     const compiled = compileSubflowToDfbc1({
       nodes,

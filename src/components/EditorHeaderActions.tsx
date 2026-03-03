@@ -20,11 +20,13 @@ import type { EdgeFeedbackMode } from "@/flow/edge-feedback-mode";
 type ConnectedDevice = {
   id: string;
   name?: string;
+  kind?: DeviceKind;
 };
 
 type DeviceKind = "microbit" | "pc";
 
 function detectDeviceKind(device: ConnectedDevice): DeviceKind {
+  if (device.kind) return device.kind;
   const normalized = `${device.name ?? ""} ${device.id}`.toLowerCase();
   if (
     normalized.includes("micro:bit") ||
@@ -118,7 +120,9 @@ export function EditorHeaderActions({
             <p className="mt-2 text-xs text-muted-foreground">
               No hay conexión activa.
             </p>
-          ) : connectedDevices.length === 0 ? (
+          ) : null}
+
+          {connectedDevices.length === 0 ? (
             <p className="mt-2 text-xs text-muted-foreground">
               No hay dispositivos conectados.
             </p>

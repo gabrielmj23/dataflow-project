@@ -10,7 +10,15 @@ export function useMicrobitSlot(slot: number): MicrobitSlotState {
   return useSyncExternalStore(
     (listener) => microbitSlotManager.subscribe(listener),
     () => microbitSlotManager.getSnapshot(slot),
-    () => microbitSlotManager.getSnapshot(slot)
+    () => microbitSlotManager.getSnapshot(slot),
+  );
+}
+
+export function useConnectedMicrobitDevices(): MicrobitSlotState[] {
+  return useSyncExternalStore(
+    (listener) => microbitSlotManager.subscribe(listener),
+    () => microbitSlotManager.getConnectedSnapshots(),
+    () => microbitSlotManager.getConnectedSnapshots(),
   );
 }
 
