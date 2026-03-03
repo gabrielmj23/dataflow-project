@@ -61,6 +61,14 @@ function refreshSnapshot(state: InternalSlotState): void {
 class MicrobitSlotManager {
   private listeners = new Set<() => void>();
   private slots = new Map<number, InternalSlotState>();
+  private connectedSnapshots: MicrobitSlotState[] = [];
+
+  private refreshConnectedSnapshots(): void {
+    this.connectedSnapshots = Array.from(this.slots.values())
+      .filter((slot) => slot.status === "connected")
+      .sort((a, b) => a.slot - b.slot)
+      .map((slot) => slot.snapshot);
+  }
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
@@ -70,6 +78,7 @@ class MicrobitSlotManager {
   }
 
   private emit(): void {
+    this.refreshConnectedSnapshots();
     for (const listener of this.listeners) listener();
   }
 
@@ -99,6 +108,17 @@ class MicrobitSlotManager {
     return s.snapshot;
   }
 
+  getConnectedSnapshots(): MicrobitSlotState[] {
+    return this.connectedSnapshots;
+  }
+
+  getConnection(slot: number): MicrobitConnection | null {
+    const safeSlot = sanitizeSlot(slot);
+    const s = this.ensure(safeSlot);
+    if (s.status !== "connected" || !s.connection) return null;
+    return s.connection;
+  }
+
   async connect(params: {
     slot: number;
     connectionType: MicrobitConnectionType;
@@ -112,7 +132,11 @@ class MicrobitSlotManager {
     }
 
     // If already connected with the same type, no-op.
-    if (s.status === "connected" && s.connection && s.connectionType === params.connectionType) {
+    if (
+      s.status === "connected" &&
+      s.connection &&
+      s.connectionType === params.connectionType
+    ) {
       return;
     }
 
@@ -145,10 +169,15 @@ class MicrobitSlotManager {
       latest.lastError = undefined;
       // Best-effort: ask the connection for a human-readable label
       try {
-        const label = (connection as any).getDeviceLabel ? (connection as any).getDeviceLabel() : undefined;
-        latest.deviceLabel = label ?? (params.connectionType === "bluetooth" ? "Bluetooth" : "Serial");
+        const label = connection.getDeviceLabel
+          ? connection.getDeviceLabel()
+          : undefined;
+        latest.deviceLabel =
+          label ??
+          (params.connectionType === "bluetooth" ? "Bluetooth" : "Serial");
       } catch {
-        latest.deviceLabel = params.connectionType === "bluetooth" ? "Bluetooth" : "Serial";
+        latest.deviceLabel =
+          params.connectionType === "bluetooth" ? "Bluetooth" : "Serial";
       }
       refreshSnapshot(latest);
       this.emit();
@@ -201,7 +230,7 @@ class MicrobitSlotManager {
     const s = this.ensure(safeSlot);
     if (!s.connection || s.status !== "connected") {
       throw new Error(
-        `Slot ${safeSlot} no está conectado (estado=${s.status}).`
+        `Slot ${safeSlot} no está conectado (estado=${s.status}).`,
       );
     }
     await s.connection.send(params.data);

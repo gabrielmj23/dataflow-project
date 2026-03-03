@@ -189,6 +189,9 @@ export function inferPortDataType(params: {
   if (nodeType === "microbitReadButton") {
     return "text";
   }
+  if (nodeType === "microbitReadTemperature") {
+    return "number";
+  }
   if (nodeType === "constantText") {
     return "text";
   }
@@ -220,7 +223,11 @@ export function inferPortDataType(params: {
   if (nodeType === "concat") {
     return "text";
   }
-  if (nodeType === "sliceText" || nodeType === "replaceText" || nodeType === "subtractText") {
+  if (
+    nodeType === "sliceText" ||
+    nodeType === "replaceText" ||
+    nodeType === "subtractText"
+  ) {
     return "text";
   }
   if (nodeType === "replaceText" || nodeType === "subtractText") {
@@ -267,7 +274,10 @@ export function inferPortDataType(params: {
     nodeType === NODE_TYPES.LIST_LAST_NODE ||
     nodeType === NODE_TYPES.LIST_AT_POSITION_NODE
   ) {
-    if (handleType === "target" && nodeType === NODE_TYPES.LIST_AT_POSITION_NODE) {
+    if (
+      handleType === "target" &&
+      nodeType === NODE_TYPES.LIST_AT_POSITION_NODE
+    ) {
       return params.handleId === "in-2" ? "number" : "list";
     }
     return handleType === "target" ? "list" : "any";
@@ -318,6 +328,9 @@ export function getPortTypeMask(params: {
   }
   if (nodeType === "microbitReadButton") {
     return isOutput ? TYPE_TEXT : TYPE_ANY;
+  }
+  if (nodeType === "microbitReadTemperature") {
+    return isOutput ? TYPE_NUMBER : TYPE_ANY;
   }
   if (nodeType === "timerInput") {
     // Timer can optionally pass-through any incoming value after a delay.
@@ -431,7 +444,10 @@ export function getPortTypeMask(params: {
     return isOutput ? TYPE_NUMBER : TYPE_NUMBER;
   }
 
-  if (nodeType === NODE_TYPES.LIST_FIRST_NODE || nodeType === NODE_TYPES.LIST_LAST_NODE) {
+  if (
+    nodeType === NODE_TYPES.LIST_FIRST_NODE ||
+    nodeType === NODE_TYPES.LIST_LAST_NODE
+  ) {
     return isOutput ? TYPE_ANY : TYPE_LIST;
   }
 
@@ -446,7 +462,10 @@ export function getPortTypeMask(params: {
     return TYPE_LIST;
   }
 
-  if (nodeType === NODE_TYPES.LIST_PREPEND_NODE || nodeType === NODE_TYPES.LIST_APPEND_NODE) {
+  if (
+    nodeType === NODE_TYPES.LIST_PREPEND_NODE ||
+    nodeType === NODE_TYPES.LIST_APPEND_NODE
+  ) {
     if (isOutput) return TYPE_LIST;
     if (handleId === "in-1") return TYPE_LIST;
     if (handleId === "in-2") return TYPE_ANY;

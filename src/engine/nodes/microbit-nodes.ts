@@ -916,3 +916,51 @@ export class EngineMicrobitReadButtonNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineMicrobitReadTemperatureNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport: MicrobitTransport;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    super(
+      async () => {
+        const connection = await ensureMicrobitConnected({
+          transport: params.transport,
+        });
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            params.transport === "bluetooth"
+              ? "Leyendo temperatura (Bluetooth)…"
+              : "Leyendo temperatura (Serial)…",
+        });
+
+        await withTimeout({
+          promise: connection.send("TEMP?"),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
+
+        const result = await waitForPrefixedNumber({
+          prefix: "TEMP",
+          signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
+        });
+
+        return result;
+      },
+      [FirePatterns.ALWAYS],
+      ["output"],
+      {
+        kind: "microbitReadTemperature",
+        skipStepDelay: true,
+      },
+    );
+  }
+}

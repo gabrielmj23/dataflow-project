@@ -5,7 +5,7 @@ import { NODE_TYPES } from "@/common/constants";
 import { FirePatterns, NodeDefinition } from "../program-elements";
 import { asRecord } from "../deserialize/utils";
 import type { RemoteSubflowPayload } from "../deserialize/shared-types";
-import { ensureMicrobitConnected } from "@/microbit/connection-manager";
+import { microbitSlotManager } from "@/microbit/slot-manager";
 import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import type { NodeCompiler } from "./types";
@@ -18,7 +18,14 @@ type SubflowExecutionConfig = {
   executionTarget: "local" | "controller" | "microbit";
   transport: "serial" | "bluetooth";
   controllerId: string;
+  slot: number;
 };
+
+function sanitizeSlot(value: unknown): number {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.min(8, Math.floor(n)));
+}
 
 function cloneValue<T>(value: T): T {
   if (typeof structuredClone === "function") {
@@ -46,7 +53,7 @@ function resolveExecutionConfigs(
   const connectionsRaw = data.remoteConnections;
   const connections = Array.isArray(connectionsRaw)
     ? connectionsRaw
-        .map((entry): SubflowExecutionConfig | null => {
+        .map((entry, index): SubflowExecutionConfig | null => {
           if (!entry || typeof entry !== "object") return null;
           const value = asRecord(entry);
           const executionTarget =
@@ -58,10 +65,12 @@ function resolveExecutionConfigs(
             value.transport === "bluetooth" ? "bluetooth" : "serial";
           const controllerId =
             typeof value.controllerId === "string" ? value.controllerId : "";
+          const slot = sanitizeSlot(index + 1);
           return {
             executionTarget,
             transport,
             controllerId,
+            slot,
           };
         })
         .filter((value): value is SubflowExecutionConfig => Boolean(value))
@@ -76,6 +85,7 @@ function resolveExecutionConfigs(
       executionTarget: "local",
       transport: "serial",
       controllerId: "",
+      slot: 1,
     },
   ];
 }
@@ -266,15 +276,15 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
       runtimeCtx: ctx.subflowRuntimeContext,
     });
 
+    const requiresReplicaInput = localPlan.selectedInputs.length > 0;
+
     const replicaCount = Math.max(1, executionConfigs.length);
-    const firePatterns = Array.from(
-      { length: replicaCount },
-      () => FirePatterns.EXISTS,
-    );
-    const inputPorts = Array.from(
-      { length: replicaCount },
-      (_, idx) => `input${idx + 1}`,
-    );
+    const firePatterns = requiresReplicaInput
+      ? Array.from({ length: replicaCount }, () => FirePatterns.EXISTS)
+      : [];
+    const inputPorts = requiresReplicaInput
+      ? Array.from({ length: replicaCount }, (_, idx) => `input${idx + 1}`)
+      : [];
     const outputPorts = Array.from(
       { length: replicaCount },
       (_, idx) => `output${idx + 1}`,
@@ -383,8 +393,9 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
 
         for (let index = 0; index < executionConfigs.length; index += 1) {
           const config = executionConfigs[index];
-          const replicaInput = args[index];
-          const replicaArgs = cloneArgsForReplica([replicaInput]);
+          const replicaArgs = requiresReplicaInput
+            ? cloneArgsForReplica([args[index]])
+            : [];
 
           if (config.executionTarget === "controller") {
             if (!executor) throw new Error("Ejecución remota no configurada.");
@@ -415,9 +426,12 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
           }
 
           if (config.executionTarget === "microbit") {
-            const connection = await ensureMicrobitConnected({
-              transport: config.transport,
-            });
+            const connection = microbitSlotManager.getConnection(config.slot);
+            if (!connection) {
+              throw new Error(
+                `La conexión micro:bit en slot ${config.slot} no está conectada. Abre "Configurar conexiones remotas" y presiona Conectar en esa conexión.`,
+              );
+            }
 
             const lastResult = await sendSubflowToMicrobit({
               connection,
