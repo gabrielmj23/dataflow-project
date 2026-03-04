@@ -7,17 +7,14 @@ Objetivo: que el host pueda **deployar** un subflujo, **ejecutarlo** con argumen
 ## 1) Transporte
 
 - **Medio**: USB Serial (Web Serial) o BLE UART (microbit-web-bluetooth).
-- **Codificación**: UTF-8.
+- **Codificación**: UTF-8 / ASCII.
 - **Framing**: **1 mensaje = 1 línea** terminada en `\n`.
   - El receptor debe aceptar `\r\n` y recortar `\r`.
-- **Longitud recomendada**: mantener líneas **≤ 180 caracteres**; para payloads grandes usar chunking (sección 3).
 
 Nota BLE:
 
 - En algunos entornos, el enlace BLE/UART puede truncar lecturas/escrituras cerca de **20 caracteres**.
-- Para ese caso existe un modo **ultra-compacto** (tipos `B/C/M` para deploy y `A/R` para ejecución) descrito en este documento.
-
-Esto es compatible con el firmware actual (que ya procesa por delimitador `NewLine`).
+- En Bluetooth, el host envía cada línea en chunks de **18 caracteres** para evitar saturación del buffer.
 
 ## 2) Formato de frame (línea)
 
@@ -28,16 +25,22 @@ DFP1|<TYPE>|<SEQ>|<PAYLOAD>
 ```
 
 - `TYPE`: string en mayúsculas (sin `|`).
-- `SEQ`: entero decimal `0..65535` (para ACK / correlación). El host incrementa por envío.
+- `SEQ`: entero decimal `0..65535` (para ACK / correlación).
 - `PAYLOAD`: lista de campos `k=v` separados por `;`.
   - `k`: `[A-Z0-9_]+`
-  - `v`: por defecto ASCII simple (sin `;`), y para binario usar **HEX** (base16) o texto UTF-8 en **HEX UTF-8**.
+  - `v`: por defecto ASCII simple (sin `;`), y para binario usar **HEX** (base16).
 
 Convenciones:
 
 - Binario: `HEX=<hex>` (bytes en hexadecimal, mayúsculas o minúsculas, longitud par).
 - Texto arbitrario: `TXT_HEX=<hex_utf8>`.
 - IDs: `ID=<token>` (token sin espacios; sugerido `[-._a-zA-Z0-9]+`).
+
+Notas de parsing:
+
+- El payload no debe contener `|`.
+- El parser no hace escaping automático.
+- Si un valor requiere `;` o `=`, debe enviarse en HEX.
 
 Ejemplo:
 
@@ -57,83 +60,54 @@ Para mensajes críticos (BEGIN/CHUNK/COMMIT, RUN, STOP) el receptor responde:
 - Error:
   `DFP1|ACK|<SEQ>|OK=0;ERR=<CODE>;MSG_HEX=<hex_utf8>`
 
+Correlación de ACK aceptada por host:
+
+1. `ACK.seq == SEQ del frame enviado`
+2. `ACK.payload` incluye `ACK`, `SEQ` o `REF` con el `SEQ` enviado
+3. Si no hay campo de referencia, se acepta el siguiente `ACK` recibido
+
 `CODE` recomendado: `BAD_FORMAT`, `UNSUPPORTED`, `CRC_FAIL`, `OUT_OF_MEMORY`, `UNKNOWN_PROGRAM`, `BUSY`.
 
 ### Chunking (envío de bytecode)
 
 Flujo recomendado:
 
-1. `BEGIN` (metadatos)
-2. `CHUNK` repetido
-3. `COMMIT` (verificación final)
+1. `B` (BEGIN, metadatos)
+2. `C` (CHUNK, repetido)
+3. `M` (COMMIT, verificación final)
 
 Compatibilidad:
 
-- El firmware/host puede aceptar también los aliases largos `DEPLOY_BEGIN`, `DEPLOY_CHUNK`, `DEPLOY_COMMIT`.
-- El host debería **emitir** los nombres cortos para reducir el tamaño de línea en BLE.
-
-Modo ultra-compacto (BLE muy limitado):
+- También pueden aceptarse `BEGIN/CHUNK/COMMIT` y aliases `DEPLOY_BEGIN/DEPLOY_CHUNK/DEPLOY_COMMIT`.
 
 - `B` (BEGIN): `DFP1|B|0|L=<len_base36>;C=<chunk_bytes>`
-- `C` (CHUNK): `DFP1|C|0|X=O<off_base36>H<hex>` (donde `hex` suele ser 2 bytes => 4 chars)
+- `C` (CHUNK): `DFP1|C|0|X=O<off_base36>H<hex>`
 - `M` (COMMIT): `DFP1|M|0|R=<crc32_base36>`
-- `A` (ARGS chunk): `DFP1|A|0|I=<run_id>;X=<hex>` (chunk de argumentos; típicamente 1 byte => 2 chars)
+- `A` (ARGS chunk): `DFP1|A|0|I=<run_id>;X=<hex>`
 - `R` (RUN): `DFP1|R|<SEQ>|I=<run_id>`
 
 Notas:
 
 - En `C`, el firmware puede inferir `LEN` como el máximo `OFF+bytes` recibido.
-- El host puede omitir `PROG` para minimizar tamaño (se asume 1 programa activo).
-- En modo ultra-compacto, el host puede usar `SEQ=0` para `B/C/M/A` (y recibir `ACK` con `SEQ=0`).
+- En modo compacto, `PROG` puede omitirse (se asume programa activo).
+- En modo compacto, `SEQ=0` para `B/C/M/A`.
 
-Mensajes:
+Parámetros de envío recomendados:
 
-- `BEGIN`
+- Deploy chunk: `1 byte` por frame (`C`).
+- Args chunk: `1 byte` por frame (`A`, es decir `X` de 2 chars hex).
 
-  ```
-  DFP1|BEGIN|10|PROG=<id>;LEN=<bytes>;CHUNK=<bytes>
-  ```
+Timeouts/reintentos sugeridos:
 
-  Notas:
-  - `LEN` puede omitirse o venir truncado en enlaces BLE. El host debe reenviar `LEN` en `COMMIT`.
-  - `CRC32` se envía en `COMMIT`.
-
-- `CHUNK`
-
-  ```
-  DFP1|CHUNK|11|PROG=<id>;OFF=<bytes>;HEX=<hex>
-  ```
-
-  Nota:
-  - Para reducir aún más la línea, `PROG` puede omitirse si ya hubo `BEGIN` (se asume el último programa activo).
-
-- `COMMIT`
-  ```
-  DFP1|COMMIT|12|PROG=<id>;LEN=<bytes>;CRC32=<u32_dec>
-  ```
-
-Notas:
-
-- `OFF` es el offset absoluto dentro del bytecode.
-- `HEX` debe contener **≤ CHUNK bytes** (en hex será `2*bytes` chars).
-- Si falta un chunk o llega corrupto, el micro:bit debe responder `ACK OK=0`.
+- `B/C/A`: timeout 3000ms, retries 1
+- `M`: timeout 5000ms, retries 1
+- `R`: timeout 90000ms
 
 ## 4) Control de ejecución
 
 ### RUN
 
-Ejecuta un programa previamente deployado.
-
-```
-DFP1|RUN|20|PROG=<id>;RUN=<run_id>;ARGS_HEX=<hex>
-```
-
-- `RUN` es un ID de corrida (`u16` o string token) para correlacionar resultado.
-- `ARGS_HEX` es un payload binario (ver formato en sección 6).
-
-#### RUN ultra-compacto (recomendado para enlaces con truncación ~20 chars)
-
-Para evitar truncación, en lugar de enviar `ARGS_HEX` inline en `RUN`, el host envía los argumentos por chunks y luego dispara la ejecución:
+Ejecución en modo compacto:
 
 1. Uno o más `A`:
 
@@ -141,17 +115,20 @@ Para evitar truncación, en lugar de enviar `ARGS_HEX` inline en `RUN`, el host 
 DFP1|A|0|I=<run_id>;X=<hex>
 ```
 
-- `I` es el `run_id` (token corto recomendado, p.ej. base36).
-- `X` es un fragmento de `ARGS_HEX` (hex). Recomendado: **2 chars** por frame (1 byte) para mantener la línea muy corta.
-
 2. Luego `R` para ejecutar:
 
 ```
 DFP1|R|<SEQ>|I=<run_id>
 ```
 
+- `I` es el `run_id`.
 - El firmware reconstruye `ARGS_HEX` concatenando los `X` recibidos para ese `run_id`.
-- `PROG` se omite (se asume el último programa comprometido).
+
+Compatibilidad RUN largo:
+
+```
+DFP1|RUN|20|PROG=<id>;RUN=<run_id>;ARGS_HEX=<hex>
+```
 
 ### STOP
 
@@ -159,7 +136,7 @@ DFP1|R|<SEQ>|I=<run_id>
 DFP1|STOP|21|RUN=<run_id>
 ```
 
-Compatibilidad/compacto:
+Compatibilidad:
 
 ```
 DFP1|STOP|21|I=<run_id>
@@ -170,6 +147,10 @@ DFP1|STOP|21|I=<run_id>
 - Resultado:
   ```
   DFP1|RESULT|0|RUN=<run_id>;VAL_HEX=<hex>
+  ```
+  Compatibilidad:
+  ```
+  DFP1|RESULT|0|I=<run_id>;VAL_HEX=<hex>
   ```
 - Logs (opcional):
   ```
@@ -195,12 +176,14 @@ DFP1|STOP|21|I=<run_id>
 - `PINS`
 - `BUTTONS`
 - `SENSORS`
+- `LIST`
+- `LOGIC`
 
-El host debe compilar/validar el subflujo según `CAPS`.
+El host puede compilar/validar el subflujo según `CAPS`.
 
 ## 6) Formato binario (bytecode) — “DFBC1”
 
-El subflujo se envía como **bytecode** (ver `BEGIN/CHUNK/COMMIT`).
+El subflujo se envía como **bytecode** (ver `B/C/M` o `BEGIN/CHUNK/COMMIT`).
 
 ### 6.1 Header
 
@@ -217,24 +200,26 @@ Little-endian.
 |     10 |          var | Const pool            |
 |     .. | 4\*instCount | Instrucciones         |
 
-### 6.2 Const pool
+### 6.2 Const pool y valores
 
 Cada entrada:
 
-- `tag` (u8): `0=number_f32`, `1=string_utf8`, `2=bool`, `3=null`
-- payload:
-  - number: `float32` (4 bytes)
-  - bool: `u8` (0/1)
-  - null: sin payload
-  - string: `u16 len` + `len` bytes UTF-8
+- `tag` (u8):
+  - `0=number_f32`
+  - `1=string` (`u16 len` + bytes)
+  - `2=bool`
+  - `3=null`
+  - `4=list` (`u8 len` + valores anidados)
+
+Codificación de string: bytes simples (Latin-1).
 
 ### 6.3 Instrucciones (formato fijo 4 bytes)
 
 Cada instrucción: `[op:u8][a:u8][b:u8][c:u8]`.
 
-Stack machine (LIFO). El intérprete opera sobre una pila de valores (number/string/bool/null).
+Stack machine (LIFO).
 
-Opcodes iniciales (MVP):
+Opcodes:
 
 - `0x01 PUSH_CONST a=constIndex`
 - `0x02 LOAD_ARG a=argIndex`
@@ -245,17 +230,12 @@ Opcodes iniciales (MVP):
 - `0x30 DISPLAY_TEXT` (pop string)
 - `0x31 DISPLAY_NUMBER` (pop number)
 - `0x32 PLAY_TONE` (pop ms, pop freq)
+- `0x34 READ_TEMP`
+- `0x50 LIST_COUNT` / `0x51 LIST_SORT_ASC` / `0x52 LIST_SORT_DESC`
+- `0x53 LIST_ACCUMULATE` / `0x54 LIST_ZIP` / `0x55 LIST_UNZIP_A` / `0x56 LIST_UNZIP_B`
+- `0x60 CMP_EQ` / `0x61 CMP_NEQ` / `0x62 CMP_LT` / `0x63 CMP_LTE` / `0x64 CMP_GT` / `0x65 CMP_GTE`
+- `0x70 LOGIC_AND` / `0x71 LOGIC_NAND` / `0x72 LOGIC_OR` / `0x73 LOGIC_NOR` / `0x74 LOGIC_XOR` / `0x75 LOGIC_NOT`
 - `0x40 RETURN` (pop value)
-
-Reglas:
-
-- La mayoría de opcodes consumen sus operandos de la pila.
-- `RETURN` termina la ejecución y envía `RESULT`.
-
-Limitaciones MVP (por simplicidad):
-
-- **Sin branching/loops** al inicio (subflujos deben ser DAG sin ciclos y sin condicionales).
-- Tamaño máximo de programa `MAX_PROG` y chunk `MAX_CHUNK` se negocian en handshake.
 
 ## 7) Argumentos y valores (VAL_HEX / ARGS_HEX)
 
@@ -263,20 +243,13 @@ Para `ARGS_HEX` y `VAL_HEX` se usa una codificación binaria simple:
 
 - `tag:u8` + payload
   - `0=number_f32` + 4 bytes
-  - `1=string_utf8` + `u16 len` + bytes
+  - `1=string` + `u16 len` + bytes
   - `2=bool` + `u8`
   - `3=null`
+  - `4=list` + `u8 len` + valores anidados
 
 `ARGS_HEX` contiene:
 
 - `argc:u8` seguido de `argc` valores.
 
 `VAL_HEX` contiene un solo valor.
-
-## 8) Compatibilidad con comandos actuales
-
-El firmware actual entiende comandos tipo `SUM:`, `TXT:` etc.
-Este protocolo **no rompe eso**: el firmware puede mantener ambos parsers:
-
-- Si la línea empieza con `DFP1|` → parser DFP1
-- Si no → parser legacy
