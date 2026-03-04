@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { FoldVertical } from "lucide-react";
 import type { NodeProps } from "@xyflow/react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
@@ -34,7 +35,7 @@ export const ZipNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="zip"
-        icon={<span className="text-sm font-bold">⇆</span>}
+        icon={<FoldVertical className="h-5 w-5" />}
         label={label}
         subtitle={config.subtitle}
         variant="doubleInSingleOut"

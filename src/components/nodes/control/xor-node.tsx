@@ -36,7 +36,7 @@ export const XorNode = memo(({ id, data }: NodeProps) => {
     <>
       <ControlRectNodeShell
         nodeType="xor"
-        icon={<span className="text-base font-bold">⊕</span>}
+        icon={<span className="text-xl font-medium leading-none">⊕</span>}
         label={label}
         subtitle={config.subtitle}
         runtimeError={runtimeError}

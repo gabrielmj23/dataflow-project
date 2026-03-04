@@ -36,7 +36,7 @@ export const OrNode = memo(({ id, data }: NodeProps) => {
     <>
       <ControlRectNodeShell
         nodeType="or"
-        icon={<span className="text-sm font-bold">∨</span>}
+        icon={<span className="text-xl font-medium leading-none">∨</span>}
         label={label}
         subtitle={config.subtitle}
         runtimeError={runtimeError}

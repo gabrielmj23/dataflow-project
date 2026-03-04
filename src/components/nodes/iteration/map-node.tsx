@@ -25,7 +25,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 
-import { Hand, MousePointer2 } from "lucide-react";
+import { Hand, MousePointer2, SquareFunction } from "lucide-react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
@@ -574,7 +574,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="map"
-        icon={<span className="text-sm font-bold">↦</span>}
+        icon={<SquareFunction className="h-5 w-5" />}
         label={label}
         subtitle={config.subtitle}
         variant="singleInSingleOut"

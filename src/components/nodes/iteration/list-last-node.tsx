@@ -34,7 +34,7 @@ export const ListLastNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="listLast"
-        icon={<span className="text-sm font-bold">N°</span>}
+        icon={<span className="text-xl font-medium leading-none">N°</span>}
         label={label}
         subtitle={config.subtitle}
         variant="singleInSingleOut"
