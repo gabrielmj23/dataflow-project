@@ -57,10 +57,16 @@ import { SortListNode } from "@/components/nodes/iteration/sort-list-node";
 import { ListFirstNode } from "@/components/nodes/iteration/list-first-node";
 import { ListLastNode } from "@/components/nodes/iteration/list-last-node";
 import { ListAtPositionNode } from "@/components/nodes/iteration/list-at-position-node";
+import { ListFindElementNode } from "@/components/nodes/iteration/list-find-element-node";
 import { ListRemoveFirstNode } from "@/components/nodes/iteration/list-remove-first-node";
+import { ListRemoveLastNode } from "@/components/nodes/iteration/list-remove-last-node";
 import { ListPrependNode } from "@/components/nodes/iteration/list-prepend-node";
 import { ListAppendNode } from "@/components/nodes/iteration/list-append-node";
 import { ListIsEmptyNode } from "@/components/nodes/iteration/list-is-empty-node";
+import { ListReverseNode } from "@/components/nodes/iteration/list-reverse-node";
+import { SplitListNode } from "@/components/nodes/iteration/split-list-node";
+import { ListEvenPositionsNode } from "@/components/nodes/iteration/list-even-positions-node";
+import { ListOddPositionsNode } from "@/components/nodes/iteration/list-odd-positions-node";
 import { CommentNode } from "@/components/nodes/annotation/comment-node";
 
 import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-node"; // New import for SubflowInputNode
@@ -125,9 +131,16 @@ export const nodeTypesCore: NodeTypes = {
   listFirst: ListFirstNode,
   listLast: ListLastNode,
   listAtPosition: ListAtPositionNode,
+  listFindElement: ListFindElementNode,
   listRemoveFirst: ListRemoveFirstNode,
+  listRemoveLast: ListRemoveLastNode,
   listPrepend: ListPrependNode,
   listAppend: ListAppendNode,
   listIsEmpty: ListIsEmptyNode,
+  listReverse: ListReverseNode,
+  splitList: SplitListNode,
+  listEvenPositions: ListEvenPositionsNode,
+  listOddPositions: ListOddPositionsNode,
+  listParityPositions: ListEvenPositionsNode,
   comment: CommentNode,
 };

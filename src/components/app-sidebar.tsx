@@ -631,10 +631,16 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "listFirst":
       case "listLast":
       case "listAtPosition":
+      case "listFindElement":
       case "listRemoveFirst":
+      case "listRemoveLast":
       case "listPrepend":
       case "listAppend":
-      case "listIsEmpty": {
+      case "listIsEmpty":
+      case "listReverse":
+      case "splitList":
+      case "listEvenPositions":
+      case "listOddPositions": {
         const symbolMap: Record<string, string> = {
           sequence: "1..N",
           pulseSequence: "1..N",
@@ -647,6 +653,11 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           count: "#",
           listFirst: "1°",
           listLast: "N°",
+          listRemoveLast: "N°−",
+          listReverse: "⇄",
+          splitList: "A→[]",
+          listEvenPositions: "2n",
+          listOddPositions: "2n+1",
         };
         return (
           <div
@@ -655,6 +666,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           >
             <span className="text-xl font-bold leading-none">
               {type === "listAtPosition" ? (
+                <Search className="h-5 w-5" />
+              ) : type === "listFindElement" ? (
                 <Search className="h-5 w-5" />
               ) : type === "listRemoveFirst" ? (
                 <Scissors className="h-5 w-5" />
@@ -682,6 +695,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
                 <SquareFunction className="h-5 w-5" />
               ) : symbolMap[type] === "1..N" ? (
                 <span className="font-semibold">1..N</span>
+              ) : type === "splitList" || type === "listEvenPositions" || type === "listOddPositions" ? (
+                <span className="text-lg font-medium leading-none">{symbolMap[type]}</span>
               ) : symbolMap[type] === "#" || symbolMap[type] === "1°" || symbolMap[type] === "N°" ? (
                 <span className="text-xl font-medium leading-none">{symbolMap[type]}</span>
               ) : (

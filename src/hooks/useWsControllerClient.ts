@@ -228,9 +228,20 @@ function computeOperation(op: string, args: unknown[]): unknown {
 
       return inputList[index];
     }
+    case "listFindElement": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      const item = args[1];
+      const index = inputList.findIndex((entry) => entry === item);
+      return index < 0 ? 0 : index + 1;
+    }
     case "listRemoveFirst": {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
       return inputList.slice(1);
+    }
+    case "listRemoveLast": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      if (inputList.length === 0) return [];
+      return inputList.slice(0, -1);
     }
     case "listPrepend": {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
@@ -243,6 +254,10 @@ function computeOperation(op: string, args: unknown[]): unknown {
     case "listIsEmpty": {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
       return inputList.length === 0;
+    }
+    case "listReverse": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return [...inputList].reverse();
     }
     case "scatter": {
       const values = Array.isArray(args[0]) ? args[0] : [];
