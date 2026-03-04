@@ -614,7 +614,11 @@ export default function EditorPage() {
   );
 
   const handleSaveChanges = useCallback(
-    async (projectName: string, description: string) => {
+    async (
+      projectName: string,
+      description: string,
+      thumbnailOverride: string | null,
+    ) => {
       if (!publishedProjectQuery.data) {
         setPublishError("No hay un proyecto publicado cargado para guardar.");
         return;
@@ -635,7 +639,9 @@ export default function EditorPage() {
 
       try {
         const thumbnail =
-          thumbnailPreview ?? (await generateThumbnailPreview());
+          thumbnailOverride ??
+          thumbnailPreview ??
+          (await generateThumbnailPreview());
         if (!thumbnail) {
           throw new Error(
             "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
@@ -890,7 +896,11 @@ export default function EditorPage() {
   }, [generateThumbnailPreview, isPublishDialogOpen, nodes, edges]);
 
   const handlePublishProject = useCallback(
-    async (projectName: string, description: string) => {
+    async (
+      projectName: string,
+      description: string,
+      thumbnailOverride: string | null,
+    ) => {
       const normalizedName = projectName.trim();
       if (!normalizedName) {
         setPublishError("Ingresa un nombre para el proyecto.");
@@ -906,7 +916,9 @@ export default function EditorPage() {
 
       try {
         const thumbnail =
-          thumbnailPreview ?? (await generateThumbnailPreview());
+          thumbnailOverride ??
+          thumbnailPreview ??
+          (await generateThumbnailPreview());
         if (!thumbnail) {
           throw new Error(
             "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
@@ -1298,12 +1310,12 @@ export default function EditorPage() {
               setThumbnailPreview(null);
             }
           }}
-          onConfirm={(name, description) => {
+          onConfirm={(name, description, thumbnailOverride) => {
             if (publishDialogMode === "save") {
-              void handleSaveChanges(name, description);
+              void handleSaveChanges(name, description, thumbnailOverride);
               return;
             }
-            void handlePublishProject(name, description);
+            void handlePublishProject(name, description, thumbnailOverride);
           }}
         />
       </SidebarProvider>

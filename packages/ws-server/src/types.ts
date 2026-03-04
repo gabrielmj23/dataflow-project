@@ -12,10 +12,12 @@ export type SessionSnapshot = {
 export type RestApiOptions = {
   getSessionsSnapshot: () => SessionSnapshot[];
   getSessionSnapshot: (sessionKey: string) => SessionSnapshot | undefined;
+  maxJsonBodyBytes: number;
 };
 
 export type ServerConfig = {
   host: string;
   port: number;
   maxMessageBytes: number;
+  maxJsonBodyBytes: number;
 };

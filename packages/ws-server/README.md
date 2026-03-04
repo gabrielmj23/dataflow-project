@@ -17,6 +17,7 @@ Variables de entorno (opcionales):
 - `WS_HOST` (default: `0.0.0.0`)
 - `WS_PORT` (default: `8787`)
 - `WS_MAX_MESSAGE_BYTES` (default: `1000000`)
+- `WS_MAX_JSON_BODY_BYTES` (default: `8000000`)
 
 ## Endpoints HTTP (Express)
 

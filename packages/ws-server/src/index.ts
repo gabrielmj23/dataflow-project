@@ -13,6 +13,7 @@ const config = getServerConfig();
 const app = createRestApp({
   getSessionsSnapshot,
   getSessionSnapshot,
+  maxJsonBodyBytes: config.maxJsonBodyBytes,
 });
 
 const server = http.createServer(app);

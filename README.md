@@ -57,6 +57,12 @@ Variables (opcionales):
 - `WS_PORT` (default `8787`)
 - `WS_MAX_MESSAGE_BYTES` (default `1000000`)
 
+## Reutilización de editores internos
+
+La lógica común de drag/drop para decidir qué nodo dibujar en canvas (principal e internos) está centralizada en `src/flow/editor-node-factory.ts`.
+
+Guía de uso y extensión: `docs/editor-node-factory.md`
+
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
 ```js
