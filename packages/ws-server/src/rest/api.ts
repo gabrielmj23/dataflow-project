@@ -29,7 +29,7 @@ export function createRestApp(options: RestApiOptions): express.Express {
 
     next();
   });
-  app.use(express.json({ limit: "1mb" }));
+  app.use(express.json({ limit: options.maxJsonBodyBytes }));
 
   setupSwagger(app);
 

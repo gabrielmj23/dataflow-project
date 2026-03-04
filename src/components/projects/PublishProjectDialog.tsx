@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,7 +21,11 @@ type PublishProjectDialogProps = {
   isPublishing: boolean;
   error: string | null;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (projectName: string, projectDescription: string) => void;
+  onConfirm: (
+    projectName: string,
+    projectDescription: string,
+    thumbnailOverride: string | null,
+  ) => void;
 };
 
 export function PublishProjectDialog({
@@ -40,20 +44,86 @@ export function PublishProjectDialog({
   const [projectName, setProjectName] = useState(defaultName);
   const [projectDescription, setProjectDescription] =
     useState(defaultDescription);
+  const [thumbnailOverride, setThumbnailOverride] = useState<string | null>(
+    null,
+  );
+  const [thumbnailOverrideError, setThumbnailOverrideError] = useState<
+    string | null
+  >(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const MAX_THUMBNAIL_BYTES = 3 * 1024 * 1024;
 
   useEffect(() => {
     if (open) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setProjectName(defaultName);
       setProjectDescription(defaultDescription);
+      setThumbnailOverride(null);
+      setThumbnailOverrideError(null);
     }
   }, [open, defaultName, defaultDescription]);
 
   const isSaveMode = mode === "save";
+  const effectiveThumbnailPreview = thumbnailOverride ?? thumbnailPreview;
+
+  const handleUploadClick = () => {
+    if (isPublishing) {
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleCustomThumbnailChange = (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const [file] = Array.from(event.target.files ?? []);
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setThumbnailOverrideError("Selecciona un archivo de imagen válido.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_THUMBNAIL_BYTES) {
+      setThumbnailOverrideError("La imagen no puede superar los 3 MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result !== "string") {
+        setThumbnailOverrideError(
+          "No se pudo cargar la imagen seleccionada. Intenta de nuevo.",
+        );
+        return;
+      }
+
+      setThumbnailOverride(result);
+      setThumbnailOverrideError(null);
+    };
+    reader.onerror = () => {
+      setThumbnailOverrideError(
+        "No se pudo cargar la imagen seleccionada. Intenta de nuevo.",
+      );
+    };
+
+    reader.readAsDataURL(file);
+    event.target.value = "";
+  };
+
+  const handleRemoveCustomThumbnail = () => {
+    setThumbnailOverride(null);
+    setThumbnailOverrideError(null);
+  };
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onConfirm(projectName.trim(), projectDescription.trim());
+    onConfirm(projectName.trim(), projectDescription.trim(), thumbnailOverride);
   };
 
   return (
@@ -79,9 +149,9 @@ export function PublishProjectDialog({
           ) : null}
 
           <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
-            {thumbnailPreview ? (
+            {effectiveThumbnailPreview ? (
               <img
-                src={thumbnailPreview}
+                src={effectiveThumbnailPreview}
                 alt="Vista previa del proyecto"
                 className="h-40 w-full object-cover"
               />
@@ -93,6 +163,41 @@ export function PublishProjectDialog({
               </div>
             )}
           </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleUploadClick}
+              disabled={isPublishing}
+            >
+              {thumbnailOverride ? "Cambiar imagen" : "Subir imagen"}
+            </Button>
+
+            {thumbnailOverride ? (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleRemoveCustomThumbnail}
+                disabled={isPublishing}
+              >
+                Quitar imagen
+              </Button>
+            ) : null}
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleCustomThumbnailChange}
+              disabled={isPublishing}
+            />
+          </div>
+
+          {thumbnailOverrideError ? (
+            <p className="text-sm text-red-600">{thumbnailOverrideError}</p>
+          ) : null}
 
           <Input
             value={projectName}
