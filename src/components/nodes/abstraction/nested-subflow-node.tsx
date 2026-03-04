@@ -32,9 +32,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { nodePalette } from "@/flow/node-palette";
+import {
+  buildDroppedNodeData,
+  editorPaletteLabelByType,
+  normalizeNodeTypeForEditor,
+  projectClientToFlowPosition,
+} from "@/flow/editor-node-factory";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
+import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { Input } from "@/components/ui/input";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { validateConnection } from "@/flow/connection-validation";
@@ -90,6 +96,7 @@ function offsets(count: number): string[] {
 export const NestedSubflowNode = memo(
   ({ id, data }: NodeProps<NestedSubflowRfNode>) => {
     const { setNodes } = useReactFlow();
+    const templateContext = useSubflowTemplateContext();
 
     const {
       label = "Subflujo",
@@ -222,15 +229,7 @@ export const NestedSubflowNode = memo(
 
     const editorFlowId = useMemo(() => `nested-subflow-editor-${id}`, [id]);
 
-    const paletteLabelByType = useMemo(() => {
-      const map = new Map<string, string>();
-      for (const category of nodePalette) {
-        for (const item of category.items) {
-          map.set(item.type, item.label);
-        }
-      }
-      return map;
-    }, []);
+    const paletteLabelByType = editorPaletteLabelByType;
 
     type EditorFlowNode = Node & { type: string | undefined };
     const editorInstanceRef = useRef<ReactFlowInstance<
@@ -268,24 +267,16 @@ export const NestedSubflowNode = memo(
           return;
         }
 
-        const instance = editorInstanceRef.current as
-          | (ReactFlowInstance<EditorFlowNode, Edge> & {
-              screenToFlowPosition?: (pos: { x: number; y: number }) => {
-                x: number;
-                y: number;
-              };
-              project?: (pos: { x: number; y: number }) => {
-                x: number;
-                y: number;
-              };
-            })
-          | null;
+        const templateIdRaw = event.dataTransfer.getData(
+          "application/subflow-template-id",
+        );
+        const templateId = templateIdRaw || null;
 
-        const screenPos = { x: event.clientX, y: event.clientY };
-        const position = instance?.screenToFlowPosition?.(screenPos) ??
-          instance?.project?.(screenPos) ?? { x: 0, y: 0 };
-
-        const nodeLabel = paletteLabelByType.get(type);
+        const position = projectClientToFlowPosition(
+          editorInstanceRef.current,
+          event.clientX,
+          event.clientY,
+        );
 
         if (type === "conditionalPair") {
           const { nodes: pairNodes, edge: pairEdge } = createConditionalPair({
@@ -302,12 +293,23 @@ export const NestedSubflowNode = memo(
           id: createInnerNodeId(),
           type,
           position,
-          data: nodeLabel ? { label: nodeLabel } : {},
+          data: buildDroppedNodeData({
+            type,
+            templateId,
+            paletteLabelByType,
+            resolveSubflowTemplate: templateContext?.resolveTemplate,
+          }),
         };
 
         setDraftNodes((prev) => [...prev, newNode]);
       },
-      [createInnerNodeId, paletteLabelByType, setDraftNodes, setDraftEdges],
+      [
+        createInnerNodeId,
+        paletteLabelByType,
+        setDraftNodes,
+        setDraftEdges,
+        templateContext,
+      ],
     );
 
     return (
@@ -404,15 +406,7 @@ export const NestedSubflowNode = memo(
                     id={editorFlowId}
                     nodes={draftNodes.map((n) => ({
                       ...n,
-                      type: (() => {
-                        const t = n.type;
-                        if (!t) return t;
-                        const s = String(t);
-                        if (nodeTypesCore[s]) return s;
-                        const lower = s.trim().toLowerCase();
-                        if (nodeTypesCore[lower]) return lower;
-                        return s;
-                      })(),
+                      type: normalizeNodeTypeForEditor(n.type, nodeTypesCore),
                     }))}
                     edges={draftEdges}
                     defaultEdgeOptions={{

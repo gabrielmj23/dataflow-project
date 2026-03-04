@@ -49,9 +49,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { nodePalette } from "@/flow/node-palette";
+import {
+  buildDroppedNodeData,
+  editorPaletteLabelByType,
+  normalizeNodeTypeForEditor,
+  projectClientToFlowPosition,
+} from "@/flow/editor-node-factory";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
+import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-node";
 import { useRemoteControllers } from "@/ws/remote-controllers-context";
@@ -232,6 +238,7 @@ export const ReplicateFlowNode = memo(
   ({ id, data }: NodeProps<ReplicateFlowRfNode>) => {
     const { setNodes } = useReactFlow();
     const updateNodeInternals = useUpdateNodeInternals();
+    const templateContext = useSubflowTemplateContext();
     const controllers = useRemoteControllers();
     const targetSelectId = useId();
 
@@ -427,15 +434,7 @@ export const ReplicateFlowNode = memo(
 
     const editorFlowId = useMemo(() => `nested-subflow-editor-${id}`, [id]);
 
-    const paletteLabelByType = useMemo(() => {
-      const map = new Map<string, string>();
-      for (const category of nodePalette) {
-        for (const item of category.items) {
-          map.set(item.type, item.label);
-        }
-      }
-      return map;
-    }, []);
+    const paletteLabelByType = editorPaletteLabelByType;
 
     type EditorFlowNode = Node & { type: string | undefined };
     const editorInstanceRef = useRef<ReactFlowInstance<
@@ -473,24 +472,23 @@ export const ReplicateFlowNode = memo(
           return;
         }
 
-        const instance = editorInstanceRef.current as
-          | (ReactFlowInstance<EditorFlowNode, Edge> & {
-              screenToFlowPosition?: (pos: { x: number; y: number }) => {
-                x: number;
-                y: number;
-              };
-              project?: (pos: { x: number; y: number }) => {
-                x: number;
-                y: number;
-              };
-            })
-          | null;
+        const templateIdRaw = event.dataTransfer.getData(
+          "application/subflow-template-id",
+        );
+        const templateId = templateIdRaw || null;
 
-        const screenPos = { x: event.clientX, y: event.clientY };
-        const position = instance?.screenToFlowPosition?.(screenPos) ??
-          instance?.project?.(screenPos) ?? { x: 0, y: 0 };
+        const position = projectClientToFlowPosition(
+          editorInstanceRef.current,
+          event.clientX,
+          event.clientY,
+        );
 
-        const nodeLabel = paletteLabelByType.get(type);
+        const data = buildDroppedNodeData({
+          type,
+          templateId,
+          paletteLabelByType,
+          resolveSubflowTemplate: templateContext?.resolveTemplate,
+        });
 
         if (type === "conditionalPair") {
           const { nodes: pairNodes, edge: pairEdge } = createConditionalPair({
@@ -507,12 +505,18 @@ export const ReplicateFlowNode = memo(
           id: createInnerNodeId(),
           type,
           position,
-          data: nodeLabel ? { label: nodeLabel } : {},
+          data,
         };
 
         setDraftNodes((prev) => [...prev, newNode]);
       },
-      [createInnerNodeId, paletteLabelByType, setDraftNodes, setDraftEdges],
+      [
+        createInnerNodeId,
+        paletteLabelByType,
+        setDraftNodes,
+        setDraftEdges,
+        templateContext,
+      ],
     );
 
     const updateDraftConnection = (
@@ -770,15 +774,7 @@ export const ReplicateFlowNode = memo(
                     id={editorFlowId}
                     nodes={draftNodes.map((n) => ({
                       ...n,
-                      type: (() => {
-                        const t = n.type;
-                        if (!t) return t;
-                        const s = String(t);
-                        if (nodeTypesCore[s]) return s;
-                        const lower = s.trim().toLowerCase();
-                        if (nodeTypesCore[lower]) return lower;
-                        return s;
-                      })(),
+                      type: normalizeNodeTypeForEditor(n.type, nodeTypesCore),
                     }))}
                     edges={draftEdges}
                     defaultEdgeOptions={{

@@ -5,6 +5,11 @@ import {
   type NodePaletteCategory,
   type NodePaletteItem,
 } from "@/flow/node-palette";
+import {
+  buildDroppedNodeData,
+  editorPaletteLabelByType,
+  projectClientToFlowPosition,
+} from "@/flow/editor-node-factory";
 import { createNodeId } from "@/utils/id";
 import { playPop } from "@/lib/sound";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
@@ -32,15 +37,7 @@ export function usePaletteDrag({
 }: UsePaletteDragParams) {
   const draggingTypeRef = useRef<string | null>(null);
 
-  const paletteLabelByType = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const category of nodePalette) {
-      for (const item of category.items) {
-        map.set(item.type, item.label);
-      }
-    }
-    return map;
-  }, []);
+  const paletteLabelByType = editorPaletteLabelByType;
 
   const paletteCategories: NodePaletteCategory[] = useMemo(() => {
     if (!subflowTemplates.length) {
@@ -119,46 +116,32 @@ export function usePaletteDrag({
       );
       const templateId = templateIdRaw || null;
 
-      const instance = reactFlowInstance as
-        | (ReactFlowInstance & {
-            screenToFlowPosition?: (pos: { x: number; y: number }) => {
-              x: number;
-              y: number;
-            };
-            project?: (pos: { x: number; y: number }) => {
-              x: number;
-              y: number;
-            };
-          })
-        | null;
+      const position = projectClientToFlowPosition(
+        reactFlowInstance,
+        event.clientX,
+        event.clientY,
+      );
 
-      const screenPos = { x: event.clientX, y: event.clientY };
-      const position = instance?.screenToFlowPosition?.(screenPos) ??
-        instance?.project?.(screenPos) ?? { x: 0, y: 0 };
-
-      const label = paletteLabelByType.get(type);
-      let data: Record<string, unknown> = {};
-
-      if (type === "subflow" && templateId) {
-        const template = subflowTemplates.find((tpl) => tpl.id === templateId);
-        if (template) {
-          data = {
-            label: template.name,
-            templateAuthorName: template.authorName,
+      let data = buildDroppedNodeData({
+        type,
+        templateId,
+        paletteLabelByType,
+        resolveSubflowTemplate: (id) => {
+          const template = subflowTemplates.find((tpl) => tpl.id === id);
+          if (!template) return null;
+          return {
+            id: template.id,
+            name: template.name,
+            authorName: template.authorName,
             inCount: template.ports.inCount,
             outCount: template.ports.outCount,
-            subflowNodes: template.snapshot.nodes,
-            subflowEdges: template.snapshot.edges,
-            templateId: template.id,
+            nodes: template.snapshot.nodes,
+            edges: template.snapshot.edges,
           };
-        } else if (label) {
-          data = { label };
-        }
-      } else {
-        if (label) {
-          data = { label };
-        }
+        },
+      });
 
+      if (!(type === "subflow" && templateId)) {
         if (type === "write") {
           data = {
             ...(data ?? {}),

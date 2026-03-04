@@ -46,7 +46,11 @@ import {
 } from "@/components/ui/dialog";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
-import { nodePalette } from "@/flow/node-palette";
+import {
+  buildDroppedNodeData,
+  editorPaletteLabelByType,
+  projectClientToFlowPosition,
+} from "@/flow/editor-node-factory";
 import { Input } from "@/components/ui/input";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
@@ -443,15 +447,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     return s;
   }, []);
 
-  const paletteLabelByType = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const category of nodePalette) {
-      for (const item of category.items) {
-        map.set(item.type, item.label);
-      }
-    }
-    return map;
-  }, []);
+  const paletteLabelByType = editorPaletteLabelByType;
 
   type EditorFlowNode = Node & { type: string | undefined };
   const editorInstanceRef = useRef<ReactFlowInstance<
@@ -540,45 +536,18 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     );
     const templateId = templateIdRaw || null;
 
-    const instance = editorInstanceRef.current as
-      | (ReactFlowInstance & {
-          screenToFlowPosition?: (pos: { x: number; y: number }) => {
-            x: number;
-            y: number;
-          };
-          project?: (pos: { x: number; y: number }) => {
-            x: number;
-            y: number;
-          };
-        })
-      | null;
+    const position = projectClientToFlowPosition(
+      editorInstanceRef.current,
+      event.clientX,
+      event.clientY,
+    );
 
-    const screenPos = { x: event.clientX, y: event.clientY };
-    const position = instance?.screenToFlowPosition?.(screenPos) ??
-      instance?.project?.(screenPos) ?? { x: 0, y: 0 };
-
-    const nodeLabel = paletteLabelByType.get(type);
-
-    let data: Record<string, unknown> = {};
-
-    if (type === "subflow" && templateId && templateContext) {
-      const resolved = templateContext.resolveTemplate(templateId);
-      if (resolved) {
-        data = {
-          label: resolved.name,
-          templateAuthorName: resolved.authorName,
-          inCount: resolved.inCount,
-          outCount: resolved.outCount,
-          subflowNodes: resolved.nodes,
-          subflowEdges: resolved.edges,
-          templateId: resolved.id,
-        };
-      } else if (nodeLabel) {
-        data = { label: nodeLabel };
-      }
-    } else if (nodeLabel) {
-      data = { label: nodeLabel };
-    }
+    const data = buildDroppedNodeData({
+      type,
+      templateId,
+      paletteLabelByType,
+      resolveSubflowTemplate: templateContext?.resolveTemplate,
+    });
 
     if (type === "conditionalPair") {
       const { nodes: pairNodes, edge: pairEdge } = createConditionalPair({
