@@ -41,6 +41,8 @@ export function IterationRectNodeShell({
       ? ["Inicio", "Fin", "Paso"]
       : variant === "doubleInSingleOut" && nodeType === "listAtPosition"
         ? ["Lista", "Posición"]
+        : variant === "doubleInSingleOut" && nodeType === "listFindElement"
+          ? ["Lista", "Elemento"]
         : variant === "doubleInSingleOut" &&
             (nodeType === "listPrepend" || nodeType === "listAppend")
           ? ["Lista", "Elemento"]

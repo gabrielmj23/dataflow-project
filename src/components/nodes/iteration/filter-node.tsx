@@ -25,7 +25,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 
-import { Hand, MousePointer2 } from "lucide-react";
+import { Hand, MousePointer2, Funnel } from "lucide-react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
@@ -576,7 +576,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="filter"
-        icon={<span className="text-lg font-bold">↓</span>}
+        icon={<Funnel className="h-5 w-5" />}
         label={label}
         subtitle={config.subtitle}
         variant="singleInSingleOut"

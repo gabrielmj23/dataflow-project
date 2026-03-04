@@ -34,7 +34,7 @@ export const CountNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="count"
-        icon={<span className="text-lg font-bold">#</span>}
+        icon={<span className="text-xl font-medium leading-none">#</span>}
         label={label}
         subtitle={config.subtitle}
         variant="singleInSingleOut"

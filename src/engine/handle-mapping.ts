@@ -440,7 +440,19 @@ register([NODE_TYPES.LIST_AT_POSITION_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register([NODE_TYPES.LIST_REMOVE_FIRST_NODE], (p) => {
+register([NODE_TYPES.LIST_FIND_ELEMENT_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in-1") return "inputList";
+    if (handleId === "in-2") return "item";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+register([NODE_TYPES.LIST_REMOVE_FIRST_NODE, NODE_TYPES.LIST_REMOVE_LAST_NODE, NODE_TYPES.LIST_REVERSE_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
     if (handleId === "in" || handleId == null) return "inputList";
@@ -471,6 +483,28 @@ register([NODE_TYPES.LIST_IS_EMPTY_NODE], (p) => {
   }
 
   if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+register([NODE_TYPES.SPLIT_LIST_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputValue";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "outputList";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+register([NODE_TYPES.LIST_EVEN_POSITIONS_NODE, NODE_TYPES.LIST_ODD_POSITIONS_NODE, "listParityPositions"], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputList";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "outputList";
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 

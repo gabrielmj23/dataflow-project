@@ -283,8 +283,15 @@ export function inferPortDataType(params: {
     return handleType === "target" ? "list" : "any";
   }
 
+  if (nodeType === NODE_TYPES.LIST_FIND_ELEMENT_NODE) {
+    if (handleType === "source") return "number";
+    return params.handleId === "in-1" ? "list" : "any";
+  }
+
   if (
     nodeType === NODE_TYPES.LIST_REMOVE_FIRST_NODE ||
+    nodeType === NODE_TYPES.LIST_REMOVE_LAST_NODE ||
+    nodeType === NODE_TYPES.LIST_REVERSE_NODE ||
     nodeType === NODE_TYPES.LIST_PREPEND_NODE ||
     nodeType === NODE_TYPES.LIST_APPEND_NODE
   ) {
@@ -297,6 +304,18 @@ export function inferPortDataType(params: {
 
   if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
     return handleType === "target" ? "list" : "boolean";
+  }
+
+  if (nodeType === NODE_TYPES.SPLIT_LIST_NODE) {
+    return handleType === "source" ? "list" : "any";
+  }
+
+  if (
+    nodeType === NODE_TYPES.LIST_EVEN_POSITIONS_NODE ||
+    nodeType === NODE_TYPES.LIST_ODD_POSITIONS_NODE ||
+    nodeType === "listParityPositions"
+  ) {
+    return "list";
   }
 
   return "any";
@@ -458,7 +477,18 @@ export function getPortTypeMask(params: {
     return TYPE_ANY;
   }
 
-  if (nodeType === NODE_TYPES.LIST_REMOVE_FIRST_NODE) {
+  if (nodeType === NODE_TYPES.LIST_FIND_ELEMENT_NODE) {
+    if (isOutput) return TYPE_NUMBER;
+    if (handleId === "in-1") return TYPE_LIST;
+    if (handleId === "in-2") return TYPE_ANY;
+    return TYPE_ANY;
+  }
+
+  if (
+    nodeType === NODE_TYPES.LIST_REMOVE_FIRST_NODE ||
+    nodeType === NODE_TYPES.LIST_REMOVE_LAST_NODE ||
+    nodeType === NODE_TYPES.LIST_REVERSE_NODE
+  ) {
     return TYPE_LIST;
   }
 
@@ -474,6 +504,18 @@ export function getPortTypeMask(params: {
 
   if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
     return isOutput ? TYPE_BOOLEAN : TYPE_LIST;
+  }
+
+  if (nodeType === NODE_TYPES.SPLIT_LIST_NODE) {
+    return isOutput ? TYPE_LIST : TYPE_NUMBER | TYPE_TEXT;
+  }
+
+  if (
+    nodeType === NODE_TYPES.LIST_EVEN_POSITIONS_NODE ||
+    nodeType === NODE_TYPES.LIST_ODD_POSITIONS_NODE ||
+    nodeType === "listParityPositions"
+  ) {
+    return TYPE_LIST;
   }
 
   return TYPE_ANY;

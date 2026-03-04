@@ -10,14 +10,20 @@ import {
   EngineGenerateSequenceNode,
   EngineListAppendNode,
   EngineListAtPositionNode,
+  EngineListEvenPositionsNode,
+  EngineListFindElementNode,
   EngineListFirstNode,
   EngineListIsEmptyNode,
   EngineListLastNode,
+  EngineListOddPositionsNode,
   EngineListPrependNode,
   EngineListRemoveFirstNode,
+  EngineListRemoveLastNode,
+  EngineListReverseNode,
   EngineMapNode,
   EnginePulseSequenceNode,
   EngineReduceNode,
+  EngineSplitListNode,
   EngineSortListNode,
   EngineZipNode,
   EngineUnzipNode,
@@ -830,6 +836,51 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       return new EngineListAtPositionNode();
     }
 
+    case NODE_TYPES.LIST_FIND_ELEMENT_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listFindElement",
+          ["inputList", "item", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "item"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in-1", "in-2"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[], item: unknown) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList, item],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["inputList", "item", "output"],
+          {
+            stickyInputPorts: ["inputList", "item"],
+          },
+        );
+      }
+
+      return new EngineListFindElementNode();
+    }
+
     case NODE_TYPES.LIST_REMOVE_FIRST_NODE: {
       if (executionTarget === "controller") {
         return ensureRemote(
@@ -873,6 +924,51 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       }
 
       return new EngineListRemoveFirstNode();
+    }
+
+    case NODE_TYPES.LIST_REMOVE_LAST_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listRemoveLast",
+          ["inputList", "outputList"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in"],
+          outputPortId: "outputList",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[]) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS],
+          ["inputList", "outputList"],
+          {
+            stickyInputPorts: ["inputList"],
+          },
+        );
+      }
+
+      return new EngineListRemoveLastNode();
     }
 
     case NODE_TYPES.LIST_PREPEND_NODE: {
@@ -1008,6 +1104,67 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       }
 
       return new EngineListIsEmptyNode();
+    }
+
+    case NODE_TYPES.LIST_REVERSE_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "listReverse",
+          ["inputList", "outputList"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const graph = buildMicrobitListGraph({
+          nodeId: String(flowNode.id),
+          nodeType,
+          nodeData: data,
+          inputHandles: ["in"],
+          outputPortId: "outputList",
+        });
+
+        return new NodeDefinition(
+          async (inputList: unknown[]) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args: [inputList],
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          [FirePatterns.EXISTS],
+          ["inputList", "outputList"],
+          {
+            stickyInputPorts: ["inputList"],
+          },
+        );
+      }
+
+      return new EngineListReverseNode();
+    }
+
+    case NODE_TYPES.SPLIT_LIST_NODE: {
+      return new EngineSplitListNode();
+    }
+
+    case NODE_TYPES.LIST_EVEN_POSITIONS_NODE: {
+      return new EngineListEvenPositionsNode();
+    }
+
+    case "listParityPositions": {
+      return new EngineListEvenPositionsNode();
+    }
+
+    case NODE_TYPES.LIST_ODD_POSITIONS_NODE: {
+      return new EngineListOddPositionsNode();
     }
 
     case NODE_TYPES.SCATTER_NODE: {

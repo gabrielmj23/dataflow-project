@@ -13,7 +13,7 @@ export const PulseSequenceNode = memo(({ data }: NodeProps) => {
   return (
     <IterationRectNodeShell
       nodeType="pulseSequence"
-      icon={<span className="text-sm font-bold">1..N</span>}
+      icon={<span className="text-sm font-semibold">1..N</span>}
       label={label}
       variant="tripleInSingleOut"
     />

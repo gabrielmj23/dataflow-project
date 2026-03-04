@@ -13,10 +13,15 @@ import {
   Percent,
   ArrowDown,
   ArrowUp,
-  ArrowUpDown,
+  ArrowUpAZ,
+  
   ArrowLeft,
   ArrowRight,
-  Circle,
+  EqualApproximately,
+  Funnel,
+  FoldVertical,
+  UnfoldVertical,
+  SquareFunction,
   Link2,
   Ampersand,
   ToggleRight,
@@ -459,11 +464,13 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               {symbolMap[type] === "divide" && <Divide className="h-5 w-5" />}
               {symbolMap[type] === "mod" && <Percent className="h-5 w-5" />}
               {symbolMap[type] === "power" && (
-                <span className="text-xs font-bold">x²</span>
+                <span className="text-base font-normal leading-none">x²</span>
               )}
               {symbolMap[type] === "floor" && <ArrowDown className="h-5 w-5" />}
               {symbolMap[type] === "ceiling" && <ArrowUp className="h-5 w-5" />}
-              {symbolMap[type] === "round" && <Circle className="h-5 w-5" />}
+              {symbolMap[type] === "round" && (
+                <EqualApproximately className="h-5 w-5" />
+              )}
               {symbolMap[type] === "formula" && (
                 <span className="text-xs font-bold">ƒx</span>
               )}
@@ -533,21 +540,21 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               {symbolMap[type] === "comparison" && (
                 <span className="-rotate-90 text-2xl font-bold">=</span>
               )}
-              {symbolMap[type] === "and" && <Ampersand className="h-5 w-5" />}
+              {symbolMap[type] === "and" && <Ampersand className="h-7 w-7" />}
               {symbolMap[type] === "nand" && (
-                <span className="text-xs font-bold">⊼</span>
+                <span className="text-xl font-medium leading-none">⊼</span>
               )}
               {symbolMap[type] === "or" && (
-                <span className="text-xs font-bold">∨</span>
+                <span className="text-xl font-medium leading-none">∨</span>
               )}
               {symbolMap[type] === "nor" && (
-                <span className="text-xs font-bold">⊽</span>
+                <span className="text-xl font-medium leading-none">⊽</span>
               )}
               {symbolMap[type] === "xor" && (
-                <span className="text-xs font-bold">⊕</span>
+                <span className="text-xl font-medium leading-none">⊕</span>
               )}
               {symbolMap[type] === "not" && (
-                <span className="text-xs font-bold">¬</span>
+                <span className="text-xl font-medium leading-none">¬</span>
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />
@@ -624,10 +631,16 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       case "listFirst":
       case "listLast":
       case "listAtPosition":
+      case "listFindElement":
       case "listRemoveFirst":
+      case "listRemoveLast":
       case "listPrepend":
       case "listAppend":
-      case "listIsEmpty": {
+      case "listIsEmpty":
+      case "listReverse":
+      case "splitList":
+      case "listEvenPositions":
+      case "listOddPositions": {
         const symbolMap: Record<string, string> = {
           sequence: "1..N",
           pulseSequence: "1..N",
@@ -640,6 +653,11 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           count: "#",
           listFirst: "1°",
           listLast: "N°",
+          listRemoveLast: "N°−",
+          listReverse: "⇄",
+          splitList: "A→[]",
+          listEvenPositions: "2n",
+          listOddPositions: "2n+1",
         };
         return (
           <div
@@ -648,6 +666,8 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
           >
             <span className="text-xl font-bold leading-none">
               {type === "listAtPosition" ? (
+                <Search className="h-5 w-5" />
+              ) : type === "listFindElement" ? (
                 <Search className="h-5 w-5" />
               ) : type === "listRemoveFirst" ? (
                 <Scissors className="h-5 w-5" />
@@ -664,7 +684,21 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               ) : type === "listIsEmpty" ? (
                 <ListChecks className="h-5 w-5" />
               ) : symbolMap[type] === "sort" ? (
-                <ArrowUpDown className="h-5 w-5" />
+                <ArrowUpAZ className="h-5 w-5" />
+              ) : type === "zip" ? (
+                <FoldVertical className="h-5 w-5" />
+              ) : type === "unzip" ? (
+                <UnfoldVertical className="h-5 w-5" />
+              ) : type === "filter" ? (
+                <Funnel className="h-5 w-5" />
+              ) : type === "map" ? (
+                <SquareFunction className="h-5 w-5" />
+              ) : symbolMap[type] === "1..N" ? (
+                <span className="font-semibold">1..N</span>
+              ) : type === "splitList" || type === "listEvenPositions" || type === "listOddPositions" ? (
+                <span className="text-lg font-medium leading-none">{symbolMap[type]}</span>
+              ) : symbolMap[type] === "#" || symbolMap[type] === "1°" || symbolMap[type] === "N°" ? (
+                <span className="text-xl font-medium leading-none">{symbolMap[type]}</span>
               ) : (
                 (symbolMap[type] ?? "")
               )}

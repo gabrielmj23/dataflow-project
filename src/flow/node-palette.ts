@@ -72,10 +72,16 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   listFirst: 2,
   listLast: 2,
   listAtPosition: 2,
+  listFindElement: 2,
   listRemoveFirst: 2,
+  listRemoveLast: 2,
   listPrepend: 2,
   listAppend: 2,
   listIsEmpty: 2,
+  listReverse: 2,
+  splitList: 2,
+  listEvenPositions: 2,
+  listOddPositions: 2,
 
   subflow: 3,
   write: 1,
@@ -349,9 +355,20 @@ export const nodePalette: NodePaletteCategory[] = [
           "Obtiene el elemento en una posición indicada (empezando en 1).",
       },
       {
+        type: "listFindElement",
+        label: "Buscar elemento",
+        description:
+          "Devuelve la primera posición (desde 1) donde aparece un elemento; 0 si no aparece.",
+      },
+      {
         type: "listRemoveFirst",
         label: "Quitar el primero",
         description: "Devuelve la lista sin su primer elemento.",
+      },
+      {
+        type: "listRemoveLast",
+        label: "Quitar el último",
+        description: "Devuelve la lista sin su último elemento.",
       },
       {
         type: "listPrepend",
@@ -367,6 +384,28 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "listIsEmpty",
         label: "Lista vacía",
         description: "Devuelve verdadero si la lista no tiene elementos.",
+      },
+      {
+        type: "listReverse",
+        label: "Voltear",
+        description: "Invierte el orden de los elementos de una lista.",
+      },
+      {
+        type: "splitList",
+        label: "Separar",
+        description:
+          "Convierte un número o texto en una lista de sus caracteres/elementos.",
+      },
+      {
+        type: "listEvenPositions",
+        label: "Posiciones pares",
+        description: "Devuelve los elementos en posiciones pares de una lista.",
+      },
+      {
+        type: "listOddPositions",
+        label: "Posiciones impares",
+        description:
+          "Devuelve los elementos en posiciones impares de una lista.",
       },
     ],
   },

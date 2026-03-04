@@ -234,6 +234,22 @@ export class EngineListAtPositionNode extends NodeDefinition {
   }
 }
 
+export class EngineListFindElementNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[], item: unknown) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        const index = list.findIndex((entry) => entry === item);
+        if (index < 0) return 0;
+        return index + 1;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["inputList", "item", "output"],
+      { stickyInputPorts: ["inputList", "item"] }
+    );
+  }
+}
+
 export class EngineListRemoveFirstNode extends NodeDefinition {
   constructor() {
     super(
@@ -243,6 +259,22 @@ export class EngineListRemoveFirstNode extends NodeDefinition {
           return [];
         }
         return list.slice(1);
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "outputList"]
+    );
+  }
+}
+
+export class EngineListRemoveLastNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        if (list.length === 0) {
+          return [];
+        }
+        return list.slice(0, -1);
       },
       [FirePatterns.EXISTS],
       ["inputList", "outputList"]
@@ -287,6 +319,82 @@ export class EngineListIsEmptyNode extends NodeDefinition {
       },
       [FirePatterns.EXISTS],
       ["inputList", "output"]
+    );
+  }
+}
+
+export class EngineListReverseNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        return [...list].reverse();
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "outputList"]
+    );
+  }
+}
+
+export class EngineSplitListNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputValue: unknown) => {
+        if (typeof inputValue === "string") {
+          return Array.from(inputValue);
+        }
+
+        if (typeof inputValue === "number") {
+          if (!Number.isFinite(inputValue)) {
+            throw new Error("El valor numérico no es válido.");
+          }
+          if (!Number.isInteger(inputValue) || inputValue < 0) {
+            throw new Error(
+              "Para números, Separar solo acepta enteros mayores o iguales a 0.",
+            );
+          }
+
+          return String(inputValue).split("").map((digit) => Number(digit));
+        }
+
+        throw new Error("Separar solo acepta números o texto.");
+      },
+      [FirePatterns.EXISTS],
+      ["inputValue", "outputList"],
+    );
+  }
+}
+
+export class EngineListEvenPositionsNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+
+        return list.filter((_item, index) => {
+          const position = index + 1;
+          return position % 2 === 0;
+        });
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "outputList"],
+    );
+  }
+}
+
+export class EngineListOddPositionsNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+
+        return list.filter((_item, index) => {
+          const position = index + 1;
+          return position % 2 !== 0;
+        });
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "outputList"],
     );
   }
 }
