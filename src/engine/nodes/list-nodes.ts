@@ -1,4 +1,9 @@
-import { DataToken, FirePatterns, NodeDefinition, PortAddress } from "../program-elements";
+import {
+  DataToken,
+  FirePatterns,
+  NodeDefinition,
+  PortAddress,
+} from "../program-elements";
 
 export class EngineGenerateSequenceNode extends NodeDefinition {
   constructor(params?: {
@@ -27,27 +32,39 @@ export class EngineGenerateSequenceNode extends NodeDefinition {
         const start = typeof startArg === "number" ? startArg : defaultStart;
         const end = typeof endArg === "number" ? endArg : defaultEnd;
         const stepRaw = typeof stepArg === "number" ? stepArg : defaultStep;
-        const step = Number.isFinite(stepRaw) && stepRaw != 0 ? stepRaw : 1;
+        if (!Number.isFinite(stepRaw)) {
+          throw new Error("El paso debe ser un número finito.");
+        }
+        if (stepRaw === 0) {
+          throw new Error("El paso no puede ser 0.");
+        }
+        const step = stepRaw;
 
         if (start > end && step > 0) {
           throw new Error(
-            "El valor de inicio no puede ser mayor que el valor de fin cuando el paso es positivo."
+            "El valor de inicio no puede ser mayor que el valor de fin cuando el paso es positivo.",
           );
         }
         if (start < end && step < 0) {
           throw new Error(
-            "El valor de inicio no puede ser menor que el valor de fin cuando el paso es negativo."
+            "El valor de inicio no puede ser menor que el valor de fin cuando el paso es negativo.",
           );
         }
 
         const sequence: number[] = [];
-        for (let i = start; i <= end; i += step) {
-          sequence.push(i);
+        if (step > 0) {
+          for (let i = start; i <= end; i += step) {
+            sequence.push(i);
+          }
+        } else {
+          for (let i = start; i >= end; i += step) {
+            sequence.push(i);
+          }
         }
         return sequence;
       },
       [...firePatterns],
-      ["start", "end", "step", "output"]
+      ["start", "end", "step", "output"],
     );
   }
 }
@@ -79,29 +96,43 @@ export class EnginePulseSequenceNode extends NodeDefinition {
         const start = typeof startArg === "number" ? startArg : defaultStart;
         const end = typeof endArg === "number" ? endArg : defaultEnd;
         const stepRaw = typeof stepArg === "number" ? stepArg : defaultStep;
-        const step = Number.isFinite(stepRaw) && stepRaw != 0 ? stepRaw : 1;
+        if (!Number.isFinite(stepRaw)) {
+          throw new Error("El paso debe ser un número finito.");
+        }
+        if (stepRaw === 0) {
+          throw new Error("El paso no puede ser 0.");
+        }
+        const step = stepRaw;
 
         if (start > end && step > 0) {
           throw new Error(
-            "El valor de inicio no puede ser mayor que el valor de fin cuando el paso es positivo."
+            "El valor de inicio no puede ser mayor que el valor de fin cuando el paso es positivo.",
           );
         }
         if (start < end && step < 0) {
           throw new Error(
-            "El valor de inicio no puede ser menor que el valor de fin cuando el paso es negativo."
+            "El valor de inicio no puede ser menor que el valor de fin cuando el paso es negativo.",
           );
         }
 
         const pulses: DataToken<number>[] = [];
-        for (let i = start; i <= end; i += step) {
-          pulses.push(
-            new DataToken<number>(i, new PortAddress("", "output"))
-          );
+        if (step > 0) {
+          for (let i = start; i <= end; i += step) {
+            pulses.push(
+              new DataToken<number>(i, new PortAddress("", "output")),
+            );
+          }
+        } else {
+          for (let i = start; i >= end; i += step) {
+            pulses.push(
+              new DataToken<number>(i, new PortAddress("", "output")),
+            );
+          }
         }
         return pulses;
       },
       [...firePatterns],
-      ["start", "end", "step", "output"]
+      ["start", "end", "step", "output"],
     );
   }
 }
@@ -120,7 +151,7 @@ export class EngineFilterNode extends NodeDefinition {
       },
       [FirePatterns.EXISTS],
       ["inputList", "outputList"],
-      { skipStepDelay: true }
+      { skipStepDelay: true },
     );
   }
 }
@@ -137,7 +168,7 @@ export class EngineMapNode extends NodeDefinition {
       },
       [FirePatterns.EXISTS],
       ["inputList", "outputList"],
-      { skipStepDelay: true }
+      { skipStepDelay: true },
     );
   }
 }
@@ -145,12 +176,12 @@ export class EngineMapNode extends NodeDefinition {
 export class EngineReduceNode extends NodeDefinition {
   constructor(
     reducer: (accumulator: number, currentValue: number) => number,
-    initialValue: number
+    initialValue: number,
   ) {
     super(
       (inputList: number[]) => inputList.reduce(reducer, initialValue),
       [FirePatterns.EXISTS],
-      ["inputList", "output"]
+      ["inputList", "output"],
     );
   }
 }
@@ -160,7 +191,7 @@ export class EngineCountNode extends NodeDefinition {
     super(
       (inputList: number[]) => inputList.length,
       [FirePatterns.EXISTS],
-      ["inputList", "output"]
+      ["inputList", "output"],
     );
   }
 }
@@ -176,7 +207,7 @@ export class EngineListFirstNode extends NodeDefinition {
         return list[0];
       },
       [FirePatterns.EXISTS],
-      ["inputList", "output"]
+      ["inputList", "output"],
     );
   }
 }
@@ -192,7 +223,7 @@ export class EngineListLastNode extends NodeDefinition {
         return list[list.length - 1];
       },
       [FirePatterns.EXISTS],
-      ["inputList", "output"]
+      ["inputList", "output"],
     );
   }
 }
@@ -229,7 +260,7 @@ export class EngineListAtPositionNode extends NodeDefinition {
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
       ["inputList", "position", "output"],
-      { stickyInputPorts: ["inputList", "position"] }
+      { stickyInputPorts: ["inputList", "position"] },
     );
   }
 }
@@ -245,7 +276,7 @@ export class EngineListFindElementNode extends NodeDefinition {
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
       ["inputList", "item", "output"],
-      { stickyInputPorts: ["inputList", "item"] }
+      { stickyInputPorts: ["inputList", "item"] },
     );
   }
 }
@@ -261,7 +292,7 @@ export class EngineListRemoveFirstNode extends NodeDefinition {
         return list.slice(1);
       },
       [FirePatterns.EXISTS],
-      ["inputList", "outputList"]
+      ["inputList", "outputList"],
     );
   }
 }
@@ -277,7 +308,7 @@ export class EngineListRemoveLastNode extends NodeDefinition {
         return list.slice(0, -1);
       },
       [FirePatterns.EXISTS],
-      ["inputList", "outputList"]
+      ["inputList", "outputList"],
     );
   }
 }
@@ -291,7 +322,7 @@ export class EngineListPrependNode extends NodeDefinition {
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
       ["inputList", "item", "outputList"],
-      { stickyInputPorts: ["inputList", "item"] }
+      { stickyInputPorts: ["inputList", "item"] },
     );
   }
 }
@@ -305,7 +336,7 @@ export class EngineListAppendNode extends NodeDefinition {
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
       ["inputList", "item", "outputList"],
-      { stickyInputPorts: ["inputList", "item"] }
+      { stickyInputPorts: ["inputList", "item"] },
     );
   }
 }
@@ -318,7 +349,7 @@ export class EngineListIsEmptyNode extends NodeDefinition {
         return list.length === 0;
       },
       [FirePatterns.EXISTS],
-      ["inputList", "output"]
+      ["inputList", "output"],
     );
   }
 }
@@ -331,7 +362,7 @@ export class EngineListReverseNode extends NodeDefinition {
         return [...list].reverse();
       },
       [FirePatterns.EXISTS],
-      ["inputList", "outputList"]
+      ["inputList", "outputList"],
     );
   }
 }
@@ -354,7 +385,9 @@ export class EngineSplitListNode extends NodeDefinition {
             );
           }
 
-          return String(inputValue).split("").map((digit) => Number(digit));
+          return String(inputValue)
+            .split("")
+            .map((digit) => Number(digit));
         }
 
         throw new Error("Separar solo acepta números o texto.");
@@ -405,13 +438,13 @@ export class EngineSortListNode extends NodeDefinition {
       (inputList: unknown[]) => {
         const list = Array.isArray(inputList) ? [...inputList] : [];
         const isNumeric = list.every(
-          (item) => typeof item === "number" && Number.isFinite(item)
+          (item) => typeof item === "number" && Number.isFinite(item),
         );
 
         if (isNumeric) {
           const numericList = list as number[];
           return [...numericList].sort((a, b) =>
-            order === "asc" ? a - b : b - a
+            order === "asc" ? a - b : b - a,
           );
         }
 
@@ -423,13 +456,13 @@ export class EngineSortListNode extends NodeDefinition {
         decorated.sort((a, b) =>
           order === "asc"
             ? a.key.localeCompare(b.key)
-            : b.key.localeCompare(a.key)
+            : b.key.localeCompare(a.key),
         );
 
         return decorated.map((item) => item.value);
       },
       [FirePatterns.EXISTS],
-      ["inputList", "outputList"]
+      ["inputList", "outputList"],
     );
   }
 }
@@ -446,7 +479,7 @@ export class EngineZipNode extends NodeDefinition {
         return zipped;
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["listA", "listB", "output"]
+      ["listA", "listB", "output"],
     );
   }
 }
@@ -470,7 +503,7 @@ export class EngineUnzipNode extends NodeDefinition {
         ];
       },
       [FirePatterns.EXISTS],
-      ["inputList", "listA", "listB"]
+      ["inputList", "listA", "listB"],
     );
   }
 }
