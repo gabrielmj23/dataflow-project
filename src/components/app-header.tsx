@@ -12,9 +12,9 @@ export default function AppHeader({ centerTitle, children }: AppHeaderProps) {
       data-app-header
       className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b-[0.5px] border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
     >
-      <Link to="/" className="flex items-center">
-        <img src="/nodeland.png" className="h-12 mb-1" />
-        <span className="mt-1 text-3xl font-semibold text-white">NodeLand</span>
+      <Link to="/" className="flex items-center gap-1.5">
+        <img src="/nodeland-white.png" className="h-12 mb-1" />
+        <span className="text-3xl font-semibold text-white">NodeLand</span>
       </Link>
 
       {centerTitle ? (

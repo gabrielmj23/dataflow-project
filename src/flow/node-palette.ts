@@ -109,7 +109,7 @@ export const nodePalette: NodePaletteCategory[] = [
     items: [
       {
         type: "runtimeInput",
-        label: "Entrada",
+        label: "Leer",
         description:
           "Pausa la ejecución y solicita un número al usuario en tiempo real.",
       },
@@ -230,7 +230,7 @@ export const nodePalette: NodePaletteCategory[] = [
       },
       {
         type: "subtractText",
-        label: "Sustraer",
+        label: "Eliminar",
         description:
           "Elimina todas las ocurrencias de un fragmento en un texto.",
       },
