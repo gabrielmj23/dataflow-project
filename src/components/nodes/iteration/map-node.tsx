@@ -14,7 +14,6 @@ import {
   BackgroundVariant,
   ControlButton,
   Controls,
-  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -42,6 +41,7 @@ import {
   editorPaletteLabelByType,
   projectClientToFlowPosition,
 } from "@/flow/editor-node-factory";
+import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-node";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
@@ -377,6 +377,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
     },
     [connectionTooltip, draftNodes],
   );
+  const sharedEdgeConfig = useSharedEdgeConfig<Edge>(setDraftEdges);
 
   const onEditorConnectStart = useCallback(
     (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
@@ -587,13 +588,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                     nodes={draftNodes}
                     edges={draftEdges}
                     nodeTypes={editorNodeTypes}
-                    defaultEdgeOptions={{
-                      markerEnd: {
-                        type: MarkerType.ArrowClosed,
-                        width: 10,
-                        height: 10,
-                      },
-                    }}
+                    {...sharedEdgeConfig}
                     connectionLineComponent={ArrowConnectionLine}
                     onNodesChange={onEditorNodesChange}
                     onEdgesChange={onEditorEdgesChange}

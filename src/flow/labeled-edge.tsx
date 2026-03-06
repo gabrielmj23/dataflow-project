@@ -13,6 +13,7 @@ import {
   subscribeEdgeFeedbackMode,
   type EdgeFeedbackMode,
 } from "./edge-feedback-mode";
+import { EDGE_STROKE_WIDTH } from "./edge-appearance";
 
 type EdgeFocusState = {
   hoveredEdgeId: string | null;
@@ -134,10 +135,7 @@ function isHoverSuppressed(id: string): boolean {
   return true;
 }
 
-import {
-  getPortTypeMask,
-  maskToVisualPortDataType,
-} from "./port-data-type";
+import { getPortTypeMask, maskToVisualPortDataType } from "./port-data-type";
 
 type SwitchCondition = {
   label?: string;
@@ -213,9 +211,7 @@ function getSwitchEdgeLabel(params: {
   return describeCondition(cond as SwitchCondition);
 }
 
-function getSequenceEdgeLabel(params: {
-  targetNode: unknown;
-}): string | null {
+function getSequenceEdgeLabel(params: { targetNode: unknown }): string | null {
   const { targetNode } = params;
   if (!targetNode || typeof targetNode !== "object") return null;
   const type = (targetNode as { type?: unknown }).type;
@@ -233,7 +229,8 @@ function getTextTransformEdgeLabel(params: {
   if (!targetNode || typeof targetNode !== "object") return null;
   const type = (targetNode as { type?: unknown }).type;
 
-  if (type !== "replaceText" && type !== "subtractText" && type !== "sliceText") return null;
+  if (type !== "replaceText" && type !== "subtractText" && type !== "sliceText")
+    return null;
   return null;
 }
 
@@ -250,7 +247,7 @@ export function LabeledEdge(props: EdgeProps) {
   const targetHandleId = props.targetHandleId;
 
   const nodeLookup = useStore(
-    (state) => (state as unknown as { nodeLookup: unknown }).nodeLookup
+    (state) => (state as unknown as { nodeLookup: unknown }).nodeLookup,
   );
 
   const sourceNode =
@@ -279,14 +276,14 @@ export function LabeledEdge(props: EdgeProps) {
       nodeType: typeof sourceNodeType === "string" ? sourceNodeType : null,
       handleType: "source",
       handleId: sourceHandleId ?? null,
-    })
+    }),
   );
 
   const strokeWidth =
     typeof style?.strokeWidth === "number" ||
     typeof style?.strokeWidth === "string"
       ? style.strokeWidth
-      : 2.4;
+      : EDGE_STROKE_WIDTH;
 
   const mergedStyle = {
     ...(style ?? {}),
@@ -395,7 +392,8 @@ export function LabeledEdge(props: EdgeProps) {
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
-  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  if (typeof value === "number")
+    return Number.isFinite(value) ? String(value) : "";
   if (typeof value === "boolean") return value ? "Verdadero" : "Falso";
   return String(value);
 }
@@ -413,7 +411,7 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
   }));
   const lastSnapshot = useMemo(
     () => getEdgeLastValue(String(id)),
-    [id, version, transient]
+    [id, version, transient],
   );
 
   const left = Math.round(x);
@@ -432,17 +430,20 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
       setFocusState({
         hoveredEdgeId: state.hoveredEdgeId,
         latchedEdgeIds: new Set(state.latchedEdgeIds),
-      })
+      }),
     );
     return () => {
       unsub();
     };
   }, []);
 
-  useEffect(() => () => {
-    clearHoveredEdge(id);
-    clearLatchedEdge(id);
-  }, [id]);
+  useEffect(
+    () => () => {
+      clearHoveredEdge(id);
+      clearLatchedEdge(id);
+    },
+    [id],
+  );
 
   useEffect(() => {
     let timeoutId: number | null = null;
@@ -468,7 +469,7 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
 
       timeoutId = window.setTimeout(
         () => setTransient(null),
-        TRANSIENT_VISIBLE_MS
+        TRANSIENT_VISIBLE_MS,
       );
     });
 
@@ -480,16 +481,10 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     };
   }, [id]);
 
-  const isHovered =
-    focusState.hoveredEdgeId === id && !isHoverSuppressed(id);
+  const isHovered = focusState.hoveredEdgeId === id && !isHoverSuppressed(id);
   const isLatched = focusState.latchedEdgeIds.has(id);
 
-  type BubbleVariant =
-    | "latched"
-    | "persistent"
-    | "transient"
-    | "hover"
-    | null;
+  type BubbleVariant = "latched" | "persistent" | "transient" | "hover" | null;
   let variant: BubbleVariant = null;
   let bubbleValue: string | null = null;
 
@@ -513,9 +508,15 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
   }
 
   // Manage mount/unmount to allow fade-out animation when the bubble disappears.
-  const [mounted, setMounted] = useState<boolean>(() => !!variant && !!bubbleValue);
-  const [visible, setVisible] = useState<boolean>(() => !!variant && !!bubbleValue);
-  const [renderValue, setRenderValue] = useState<string | null>(() => bubbleValue ?? null);
+  const [mounted, setMounted] = useState<boolean>(
+    () => !!variant && !!bubbleValue,
+  );
+  const [visible, setVisible] = useState<boolean>(
+    () => !!variant && !!bubbleValue,
+  );
+  const [renderValue, setRenderValue] = useState<string | null>(
+    () => bubbleValue ?? null,
+  );
 
   useEffect(() => {
     // When a new variant/value appears, ensure we mount and show it.
@@ -575,7 +576,9 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     letterSpacing: "normal",
     transition: `opacity ${FADE_MS}ms ease, transform ${FADE_MS}ms ease`,
     opacity: visible ? (variant === "hover" ? 0.85 : 1) : 0,
-    transform: visible ? "translateY(0) scale(1)" : "translateY(-4px) scale(0.96)",
+    transform: visible
+      ? "translateY(0) scale(1)"
+      : "translateY(-4px) scale(0.96)",
   };
 
   return (

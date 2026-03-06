@@ -16,7 +16,6 @@ import {
   BackgroundVariant,
   ControlButton,
   Controls,
-  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -70,6 +69,7 @@ import {
   type MicrobitConnectionType,
 } from "@/microbit/slot-manager";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
@@ -431,6 +431,7 @@ export const ReplicateFlowNode = memo(
       },
       [connectionTooltip, draftNodes],
     );
+    const sharedEdgeConfig = useSharedEdgeConfig<Edge>(setDraftEdges);
 
     const editorFlowId = useMemo(() => `nested-subflow-editor-${id}`, [id]);
 
@@ -777,13 +778,7 @@ export const ReplicateFlowNode = memo(
                       type: normalizeNodeTypeForEditor(n.type, nodeTypesCore),
                     }))}
                     edges={draftEdges}
-                    defaultEdgeOptions={{
-                      markerEnd: {
-                        type: MarkerType.ArrowClosed,
-                        width: 10,
-                        height: 10,
-                      },
-                    }}
+                    {...sharedEdgeConfig}
                     connectionLineComponent={ArrowConnectionLine}
                     nodeTypes={{
                       ...nodeTypesCore,
