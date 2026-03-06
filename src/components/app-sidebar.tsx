@@ -12,7 +12,6 @@ import {
   Divide,
   Percent,
   ArrowUpAZ,
-  
   ArrowLeft,
   ArrowRight,
   EqualApproximately,
@@ -446,6 +445,8 @@ function NodePreview({
       case "divide":
       case "mod":
       case "power":
+      case "root":
+      case "logarithm":
       case "floor":
       case "ceiling":
       case "round":
@@ -457,6 +458,8 @@ function NodePreview({
           divide: "divide",
           mod: "mod",
           power: "power",
+          root: "root",
+          logarithm: "logarithm",
           floor: "floor",
           ceiling: "ceiling",
           round: "round",
@@ -475,6 +478,12 @@ function NodePreview({
               {symbolMap[type] === "mod" && <Percent className="h-5 w-5" />}
               {symbolMap[type] === "power" && (
                 <span className="text-base font-normal leading-none">xⁿ</span>
+              )}
+              {symbolMap[type] === "root" && (
+                <span className="text-base font-normal leading-none">√</span>
+              )}
+              {symbolMap[type] === "logarithm" && (
+                <span className="text-xs font-semibold leading-none">log</span>
               )}
               {symbolMap[type] === "floor" && (
                 <span className="text-sm font-normal leading-none">⎣ ⎦</span>
@@ -828,17 +837,17 @@ function NodePreview({
         </TooltipContent>
       </Tooltip>
       {isCustom && onDelete ? (
-      <button
-        type="button"
-        className="absolute left-0 top-0 z-10 -translate-y-1/2 -translate-x-1/2 rounded-full bg-destructive px-1 py-px text-[0.6rem] leading-none shadow text-white hover:cursor-pointer"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onDelete();
-        }}
-      >
-        ×
-      </button>
+        <button
+          type="button"
+          className="absolute left-0 top-0 z-10 -translate-y-1/2 -translate-x-1/2 rounded-full bg-destructive px-1 py-px text-[0.6rem] leading-none shadow text-white hover:cursor-pointer"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          ×
+        </button>
       ) : null}
     </div>
   );

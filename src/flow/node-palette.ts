@@ -36,6 +36,8 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   divide: 1,
   mod: 1,
   power: 1,
+  root: 1,
+  logarithm: 1,
   floor: 1,
   ceiling: 1,
   round: 1,
@@ -196,7 +198,21 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Potencia",
         description: "Eleva una base a un exponente.",
       },
-      { type: "floor", label: "Piso", description: "Redondea hacia abajo. Ejemplo: piso(3.7) → 3." },
+      {
+        type: "root",
+        label: "Raíz",
+        description: "Calcula la raíz n-ésima de un número.",
+      },
+      {
+        type: "logarithm",
+        label: "Logaritmo",
+        description: "Calcula el logaritmo de un número en una base dada.",
+      },
+      {
+        type: "floor",
+        label: "Piso",
+        description: "Redondea hacia abajo. Ejemplo: piso(3.7) → 3.",
+      },
       {
         type: "ceiling",
         label: "Techo",

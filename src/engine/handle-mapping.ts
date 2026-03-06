@@ -228,6 +228,8 @@ register(
     NODE_TYPES.DIVIDE_NODE,
     NODE_TYPES.MOD_NODE,
     NODE_TYPES.POWER_NODE,
+    NODE_TYPES.ROOT_NODE,
+    NODE_TYPES.LOGARITHM_NODE,
     NODE_TYPES.CONCAT_NODE,
   ],
   makeTwoInOneOutMapper(),
@@ -452,16 +454,23 @@ register([NODE_TYPES.LIST_FIND_ELEMENT_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register([NODE_TYPES.LIST_REMOVE_FIRST_NODE, NODE_TYPES.LIST_REMOVE_LAST_NODE, NODE_TYPES.LIST_REVERSE_NODE], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [
+    NODE_TYPES.LIST_REMOVE_FIRST_NODE,
+    NODE_TYPES.LIST_REMOVE_LAST_NODE,
+    NODE_TYPES.LIST_REVERSE_NODE,
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "outputList";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "outputList";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 register([NODE_TYPES.LIST_PREPEND_NODE, NODE_TYPES.LIST_APPEND_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
@@ -497,16 +506,23 @@ register([NODE_TYPES.SPLIT_LIST_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register([NODE_TYPES.LIST_EVEN_POSITIONS_NODE, NODE_TYPES.LIST_ODD_POSITIONS_NODE, "listParityPositions"], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [
+    NODE_TYPES.LIST_EVEN_POSITIONS_NODE,
+    NODE_TYPES.LIST_ODD_POSITIONS_NODE,
+    "listParityPositions",
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "outputList";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "outputList";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 register(
   [NODE_TYPES.GENERATE_SEQUENCE_NODE, NODE_TYPES.PULSE_SEQUENCE_NODE],

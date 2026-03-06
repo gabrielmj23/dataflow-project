@@ -40,6 +40,8 @@ const OPCODES = {
   FLOOR: 0x16,
   CEIL: 0x17,
   ROUND: 0x18,
+  ROOT: 0x19,
+  LOG: 0x1a,
   CONCAT: 0x20,
   REPLACE_TEXT: 0x21,
   SUBTRACT_TEXT: 0x22,
@@ -342,7 +344,9 @@ export function compileSubflowToDfbc1(
       case NODE_TYPES.MULTIPLY_NODE:
       case NODE_TYPES.DIVIDE_NODE:
       case NODE_TYPES.MOD_NODE:
-      case NODE_TYPES.POWER_NODE: {
+      case NODE_TYPES.POWER_NODE:
+      case NODE_TYPES.ROOT_NODE:
+      case NODE_TYPES.LOGARITHM_NODE: {
         compileInputForNode(nodeId, "in-1");
         compileInputForNode(nodeId, "in-2");
         const op =
@@ -356,7 +360,11 @@ export function compileSubflowToDfbc1(
                   ? OPCODES.DIV
                   : type === NODE_TYPES.MOD_NODE
                     ? OPCODES.MOD
-                    : OPCODES.POW;
+                    : type === NODE_TYPES.POWER_NODE
+                      ? OPCODES.POW
+                      : type === NODE_TYPES.ROOT_NODE
+                        ? OPCODES.ROOT
+                        : OPCODES.LOG;
         emit(op);
         break;
       }

@@ -98,6 +98,77 @@ export class EnginePowerNode extends NodeDefinition {
   }
 }
 
+export class EngineRootNode extends NodeDefinition {
+  constructor() {
+    super(
+      (value: number, degree: number) => {
+        if (!Number.isFinite(value) || !Number.isFinite(degree)) {
+          throw new Error("Raiz no definida para estos valores");
+        }
+
+        if (!Number.isInteger(degree) || degree === 0) {
+          throw new Error(
+            "El grado de la raiz debe ser un entero distinto de cero",
+          );
+        }
+
+        if (value < 0 && Math.abs(degree % 2) !== 1) {
+          throw new Error("No existe raiz real par para un numero negativo");
+        }
+
+        const result = Math.pow(value, 1 / degree);
+        if (!Number.isFinite(result) || Number.isNaN(result)) {
+          throw new Error("Raiz no definida para estos valores");
+        }
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineLogarithmNode extends NodeDefinition {
+  constructor() {
+    super(
+      (value: number, base: number) => {
+        if (!Number.isFinite(value) || !Number.isFinite(base)) {
+          throw new Error("Logaritmo no definido para estos valores");
+        }
+
+        if (value <= 0) {
+          throw new Error("El numero del logaritmo debe ser mayor que cero");
+        }
+
+        if (base <= 0 || base === 1) {
+          throw new Error(
+            "La base del logaritmo debe ser mayor que cero y distinta de uno",
+          );
+        }
+
+        const denominator = Math.log(base);
+        if (!Number.isFinite(denominator) || denominator === 0) {
+          throw new Error("Logaritmo no definido para estos valores");
+        }
+
+        const result = Math.log(value) / denominator;
+        if (!Number.isFinite(result) || Number.isNaN(result)) {
+          throw new Error("Logaritmo no definido para estos valores");
+        }
+        return result;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2", "output"],
+      {
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
 export class EngineConcatNode extends NodeDefinition {
   constructor() {
     super(

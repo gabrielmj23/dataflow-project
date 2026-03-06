@@ -28,6 +28,8 @@ export type RemoteExecutionOp =
   | "divide"
   | "mod"
   | "power"
+  | "root"
+  | "logarithm"
   | "floor"
   | "ceiling"
   | "round"

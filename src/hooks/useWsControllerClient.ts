@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import {
-  DataflowEngine,
-  type EngineNodeStatus,
-} from "@/engine/engine";
+import { DataflowEngine, type EngineNodeStatus } from "@/engine/engine";
 import { Arc, DataToken, PortAddress } from "@/engine/program-elements";
 import {
   buildEngineStoresFromFlowGraph,
@@ -107,6 +104,51 @@ function computeOperation(op: string, args: unknown[]): unknown {
       }
       return result;
     }
+    case "root": {
+      const value = coerceNumber(args[0]);
+      const degree = coerceNumber(args[1]);
+
+      if (!Number.isInteger(degree) || degree === 0) {
+        throw new Error(
+          "El grado de la raíz debe ser un entero distinto de cero",
+        );
+      }
+
+      if (value < 0 && Math.abs(degree % 2) !== 1) {
+        throw new Error("No existe raíz real par para un número negativo");
+      }
+
+      const result = Math.pow(value, 1 / degree);
+      if (!Number.isFinite(result) || Number.isNaN(result)) {
+        throw new Error("Raíz no definida para estos valores");
+      }
+      return result;
+    }
+    case "logarithm": {
+      const value = coerceNumber(args[0]);
+      const base = coerceNumber(args[1]);
+
+      if (value <= 0) {
+        throw new Error("El número del logaritmo debe ser mayor que cero");
+      }
+
+      if (base <= 0 || base === 1) {
+        throw new Error(
+          "La base del logaritmo debe ser mayor que cero y distinta de uno",
+        );
+      }
+
+      const denominator = Math.log(base);
+      if (!Number.isFinite(denominator) || denominator === 0) {
+        throw new Error("Logaritmo no definido para estos valores");
+      }
+
+      const result = Math.log(value) / denominator;
+      if (!Number.isFinite(result) || Number.isNaN(result)) {
+        throw new Error("Logaritmo no definido para estos valores");
+      }
+      return result;
+    }
     case "floor": {
       const a = coerceNumber(args[0]);
       return Math.floor(a);
@@ -143,7 +185,9 @@ function computeOperation(op: string, args: unknown[]): unknown {
       const rawStart = Number(args[1]);
       const rawEnd = Number(args[2]);
 
-      const start = Number.isFinite(rawStart) ? Math.max(0, Math.floor(rawStart)) : 0;
+      const start = Number.isFinite(rawStart)
+        ? Math.max(0, Math.floor(rawStart))
+        : 0;
       const end = Number.isFinite(rawEnd)
         ? Math.min(len, Math.floor(rawEnd) + 1)
         : len;
@@ -190,7 +234,10 @@ function computeOperation(op: string, args: unknown[]): unknown {
     }
     case "reduceSum": {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
-      return inputList.reduce((acc, curr) => (acc as number) + (curr as number), 0);
+      return inputList.reduce(
+        (acc, curr) => (acc as number) + (curr as number),
+        0,
+      );
     }
     case "count": {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
@@ -269,7 +316,10 @@ function computeOperation(op: string, args: unknown[]): unknown {
       if (outputCount === 0) return [];
 
       const len = values.length;
-      const buckets: unknown[][] = Array.from({ length: outputCount }, () => []);
+      const buckets: unknown[][] = Array.from(
+        { length: outputCount },
+        () => [],
+      );
       for (let i = 0; i < outputCount; i += 1) {
         const start = Math.floor((i * len) / outputCount);
         const end = Math.floor(((i + 1) * len) / outputCount);
@@ -507,7 +557,11 @@ export function useWsControllerClient(config: RemoteConfig): {
                 ? msg.controllerId.trim()
                 : "";
             const ownControllerId = controllerIdRef.current;
-            if (targetControllerId && ownControllerId && targetControllerId !== ownControllerId) {
+            if (
+              targetControllerId &&
+              ownControllerId &&
+              targetControllerId !== ownControllerId
+            ) {
               return;
             }
 
@@ -561,7 +615,11 @@ export function useWsControllerClient(config: RemoteConfig): {
                 ? msg.controllerId.trim()
                 : "";
             const ownControllerId = controllerIdRef.current;
-            if (targetControllerId && ownControllerId && targetControllerId !== ownControllerId) {
+            if (
+              targetControllerId &&
+              ownControllerId &&
+              targetControllerId !== ownControllerId
+            ) {
               return;
             }
 
@@ -569,7 +627,9 @@ export function useWsControllerClient(config: RemoteConfig): {
             if (!line) return;
 
             setState((prev) => {
-              const next = prev.consoleText ? `${prev.consoleText}\n${line}` : line;
+              const next = prev.consoleText
+                ? `${prev.consoleText}\n${line}`
+                : line;
               const lines = next.split("\n");
               const MAX = 200;
               const trimmed =

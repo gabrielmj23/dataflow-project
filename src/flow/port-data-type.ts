@@ -213,6 +213,8 @@ export function inferPortDataType(params: {
     nodeType === "divide" ||
     nodeType === "mod" ||
     nodeType === "power" ||
+    nodeType === "root" ||
+    nodeType === "logarithm" ||
     nodeType === "floor" ||
     nodeType === "ceiling" ||
     nodeType === "round" ||
@@ -379,6 +381,8 @@ export function getPortTypeMask(params: {
     nodeType === "divide" ||
     nodeType === "mod" ||
     nodeType === "power" ||
+    nodeType === "root" ||
+    nodeType === "logarithm" ||
     nodeType === "floor" ||
     nodeType === "ceiling" ||
     nodeType === "round" ||

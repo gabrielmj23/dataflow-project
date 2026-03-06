@@ -56,8 +56,13 @@ export function ProcessingRectNodeShell({
   const in2Type = maskToVisualPortDataType(in2Mask);
   const in3Type = maskToVisualPortDataType(in3Mask);
   const outType = maskToVisualPortDataType(outMask);
-  const isPowerNode = nodeType === "power";
-  const inputLabels = isPowerNode ? ["Base", "Exponente"] : [];
+  const inputLabelsByNodeType: Record<string, [string, string]> = {
+    power: ["Base", "Exponente"],
+    root: ["Número", "Grado"],
+    logarithm: ["Número", "Base"],
+  };
+  const inputLabels = inputLabelsByNodeType[nodeType] ?? [];
+  const hasInputLabels = inputLabels.length > 0;
 
   return (
     <BaseNode
@@ -66,12 +71,12 @@ export function ProcessingRectNodeShell({
       onConfigClick={onConfigClick}
       onConnectClick={onConnectClick}
       className={`relative flex flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 text-center text-white shadow-md ${
-        isPowerNode ? "h-20 w-34 px-6" : "h-18 w-25 px-5"
+        hasInputLabels ? "h-20 w-34 px-6" : "h-18 w-25 px-5"
       }`}
     >
       <div
         className={`flex flex-col items-center gap-0.5 ${
-          inputLabels.length > 0 ? "ml-12" : ""
+          hasInputLabels ? "ml-12" : ""
         }`}
       >
         <div className="text-xl font-bold leading-none">{icon}</div>
