@@ -17,7 +17,7 @@ export type SubtractTextNodeData = {
 
 export const SubtractTextNode = memo(({ id, data }: NodeProps) => {
   const {
-    label = "Sustraer",
+    label = "Eliminar",
     runtimeError,
     executionTarget,
     transport,
@@ -27,7 +27,7 @@ export const SubtractTextNode = memo(({ id, data }: NodeProps) => {
 
   const config = useMicrobitExecutionConfig({
     nodeId: id,
-    title: "Configurar · Sustraer",
+    title: "Configurar · Eliminar",
     executionTarget,
     transport,
     controllerId,

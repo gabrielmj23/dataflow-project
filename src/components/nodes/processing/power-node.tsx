@@ -7,7 +7,7 @@ export const PowerNode = memo((props: NodeProps) => (
   <ProcessingExecutionNode
     {...props}
     nodeType="power"
-    icon={<span className="text-lg font-normal leading-none">x²</span>}
+    icon={<span className="text-lg font-normal leading-none">xⁿ</span>}
     defaultLabel="Potencia"
     configTitle="Configurar · Potencia"
   />

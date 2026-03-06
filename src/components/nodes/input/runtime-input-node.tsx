@@ -29,7 +29,7 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
   const numericDefault = typeof defaultValue === "number" ? defaultValue : 0;
   const textDefault = typeof defaultValue === "string" ? defaultValue : "";
   const identifierValue = typeof identifier === "string" ? identifier : "";
-  const identifierLabel = identifierValue.trim() ? identifierValue.trim() : "Entrada";
+  const identifierLabel = identifierValue.trim() ? identifierValue.trim() : "Leer";
   const identifierLabelDisplay = (() => {
     const MAX = 10;
     return identifierLabel.length > MAX

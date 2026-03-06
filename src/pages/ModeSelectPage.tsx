@@ -56,7 +56,7 @@ export default function ModeSelectPage() {
           <div className="flex items-center gap-2">
             <div className="rounded-2xl bg-blue-50/90 p-2.5 text-blue-600 shadow-sm border border-slate-200">
               <img
-                src="/nodeland-dark.png"
+                src="/nodeland-mini.png"
                 alt="NodeLand"
                 className="h-10 w-10"
               />

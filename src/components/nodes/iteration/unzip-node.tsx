@@ -1,5 +1,4 @@
 import { memo } from "react";
-import { UnfoldVertical } from "lucide-react";
 import type { NodeProps } from "@xyflow/react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
@@ -35,7 +34,9 @@ export const UnzipNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="unzip"
-        icon={<UnfoldVertical className="h-5 w-5" />}
+        icon={
+          <img src="/zipper.png" className="h-11 -mb-2.25 -mt-2.5 rotate-90" />
+        }
         label={label}
         subtitle={config.subtitle}
         variant="singleInDoubleOut"
