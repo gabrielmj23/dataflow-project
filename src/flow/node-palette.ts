@@ -93,6 +93,15 @@ export function getNodeAbstractionLevel(type: string): AbstractionLevel {
   return nodeAbstractionLevelMap[type] ?? 3;
 }
 
+export function getNodeDescription(type: string): string | undefined {
+  for (const category of nodePalette) {
+    for (const item of category.items) {
+      if (item.type === type) return item.description;
+    }
+  }
+  return undefined;
+}
+
 export const nodePalette: NodePaletteCategory[] = [
   {
     id: "inputs",
@@ -187,11 +196,11 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "Potencia",
         description: "Eleva una base a un exponente.",
       },
-      { type: "floor", label: "Piso", description: "Redondea hacia abajo." },
+      { type: "floor", label: "Piso", description: "Redondea hacia abajo. Ejemplo: piso(3.7) → 3." },
       {
         type: "ceiling",
         label: "Techo",
-        description: "Redondea hacia arriba.",
+        description: "Redondea hacia arriba. Ejemplo: techo(3.1) → 4.",
       },
       {
         type: "round",

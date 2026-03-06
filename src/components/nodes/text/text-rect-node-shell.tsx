@@ -8,6 +8,7 @@ import {
   getPortTypeMask,
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
+import { getNodeDescription } from "@/flow/node-palette";
 
 export type TextRectNodeShellProps = {
   nodeType: string;
@@ -56,6 +57,7 @@ export function TextRectNodeShell({
       runtimeError={runtimeError}
       onConnectClick={onConnectClick}
       className="relative flex h-18 w-36 flex-col justify-center rounded-2xl border-fuchsia-700 bg-fuchsia-600 px-6 text-white shadow-md"
+      infoDescription={getNodeDescription(nodeType) ?? undefined}
     >
       <div className={`flex flex-col gap-0.5 items-center ${inputLabels.length > 0 ? "ml-10" : ""}`}>
         <div className="text-xl font-bold leading-none">{icon}</div>
