@@ -101,14 +101,21 @@ function register(nodeTypes: string[], mapper: HandleMapper): void {
 }
 
 // Internal "input value" nodes (used inside Map/Filter embedded editors)
-register([NODE_TYPES.FILTER_INPUT_VALUE, NODE_TYPES.MAP_INPUT_VALUE], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "source") {
-    if (handleId === "value" || handleId == null) return "output";
-    throw unknownOutputHandle({ nodeId, nodeType, handleId });
-  }
-  throw noInputsAllowed({ nodeId, nodeType });
-});
+register(
+  [
+    NODE_TYPES.FILTER_INPUT_VALUE,
+    NODE_TYPES.MAP_INPUT_VALUE,
+    NODE_TYPES.REPLICATE_INPUT_VALUE,
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "source") {
+      if (handleId === "value" || handleId == null) return "output";
+      throw unknownOutputHandle({ nodeId, nodeType, handleId });
+    }
+    throw noInputsAllowed({ nodeId, nodeType });
+  },
+);
 
 // Subflow node (indexed in/out handles)
 register([NODE_TYPES.SUBFLOW, NODE_TYPES.REPLICATE_FLOW], (p) => {
@@ -229,6 +236,8 @@ register(
     NODE_TYPES.MOD_NODE,
     NODE_TYPES.POWER_NODE,
     NODE_TYPES.MATH_OPERATION_NODE,
+    NODE_TYPES.ROOT_NODE,
+    NODE_TYPES.LOGARITHM_NODE,
     NODE_TYPES.CONCAT_NODE,
   ],
   makeTwoInOneOutMapper(),
@@ -425,16 +434,19 @@ register(
   },
 );
 
-register([NODE_TYPES.COUNT_NODE, NODE_TYPES.REDUCE_NODE], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [NODE_TYPES.COUNT_NODE, NODE_TYPES.REDUCE_NODE, NODE_TYPES.PRODUCT_NODE],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "output";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "output";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 register([NODE_TYPES.LIST_FIRST_NODE, NODE_TYPES.LIST_LAST_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
@@ -471,16 +483,23 @@ register([NODE_TYPES.LIST_FIND_ELEMENT_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register([NODE_TYPES.LIST_REMOVE_FIRST_NODE, NODE_TYPES.LIST_REMOVE_LAST_NODE, NODE_TYPES.LIST_REVERSE_NODE], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [
+    NODE_TYPES.LIST_REMOVE_FIRST_NODE,
+    NODE_TYPES.LIST_REMOVE_LAST_NODE,
+    NODE_TYPES.LIST_REVERSE_NODE,
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "outputList";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "outputList";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 register([NODE_TYPES.LIST_PREPEND_NODE, NODE_TYPES.LIST_APPEND_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
@@ -516,16 +535,23 @@ register([NODE_TYPES.SPLIT_LIST_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register([NODE_TYPES.LIST_EVEN_POSITIONS_NODE, NODE_TYPES.LIST_ODD_POSITIONS_NODE, "listParityPositions"], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [
+    NODE_TYPES.LIST_EVEN_POSITIONS_NODE,
+    NODE_TYPES.LIST_ODD_POSITIONS_NODE,
+    "listParityPositions",
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "outputList";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "outputList";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 register(
   [NODE_TYPES.GENERATE_SEQUENCE_NODE, NODE_TYPES.PULSE_SEQUENCE_NODE],

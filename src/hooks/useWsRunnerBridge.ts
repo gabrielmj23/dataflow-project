@@ -38,6 +38,7 @@ const OP_LABEL_BY_KEY: Record<string, string> = {
   filtertruthy: "Filtrar",
   mapidentity: "Mapear",
   reducesum: "Acumular",
+  reduceproduct: "Productorio",
   count: "Contar",
   listfirst: "Primer elemento",
   listlast: "Último elemento",

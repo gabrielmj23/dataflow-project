@@ -9,9 +9,11 @@ import {
   EngineDivideNode,
   EngineFloorNode,
   EngineFormulaNode,
+  EngineLogarithmNode,
   EngineModNode,
   EngineMultiplyNode,
   EnginePowerNode,
+  EngineRootNode,
   EngineReplaceTextNode,
   EngineRoundNode,
   EngineSliceTextNode,
@@ -364,6 +366,44 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
         operation: selectedOpType,
       };
       return compileBinaryMathByNodeType(selectedOpType, selectedData);
+    }
+    case NODE_TYPES.ROOT_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "root",
+          ["input1", "input2", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["input1", "input2"],
+        );
+      }
+      if (executionTarget === "microbit") {
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
+      return new EngineRootNode();
+    }
+    case NODE_TYPES.LOGARITHM_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "logarithm",
+          ["input1", "input2", "output"],
+          [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          ["input1", "input2"],
+        );
+      }
+      if (executionTarget === "microbit") {
+        return ensureMicrobitSubflow({
+          inputHandles: ["in-1", "in-2"],
+          ports: ["input1", "input2", "output"],
+          firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          stickyInputPorts: ["input1", "input2"],
+        });
+      }
+      return new EngineLogarithmNode();
     }
     case NODE_TYPES.FLOOR_NODE: {
       if (executionTarget === "controller") {

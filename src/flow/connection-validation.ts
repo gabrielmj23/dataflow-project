@@ -13,7 +13,7 @@ function safeString(value: unknown): string | null {
 
 export function validateConnection(
   nodes: Node[],
-  edgeOrConnection: Edge | Connection
+  edgeOrConnection: Edge | Connection,
 ): { ok: boolean; message?: string } {
   const sourceId = safeString(edgeOrConnection.source);
   const targetId = safeString(edgeOrConnection.target);
@@ -48,15 +48,27 @@ export function validateConnection(
     }
 
     const sourceData =
-      sourceNode && typeof sourceNode === "object" ? (sourceNode as { data?: unknown }).data : null;
+      sourceNode && typeof sourceNode === "object"
+        ? (sourceNode as { data?: unknown }).data
+        : null;
     const targetData =
-      targetNode && typeof targetNode === "object" ? (targetNode as { data?: unknown }).data : null;
+      targetNode && typeof targetNode === "object"
+        ? (targetNode as { data?: unknown }).data
+        : null;
     const sourcePairId =
-      sourceData && typeof sourceData === "object" ? (sourceData as { pairId?: unknown }).pairId : null;
+      sourceData && typeof sourceData === "object"
+        ? (sourceData as { pairId?: unknown }).pairId
+        : null;
     const targetPairId =
-      targetData && typeof targetData === "object" ? (targetData as { pairId?: unknown }).pairId : null;
+      targetData && typeof targetData === "object"
+        ? (targetData as { pairId?: unknown }).pairId
+        : null;
 
-    if (!sourcePairId || !targetPairId || String(sourcePairId) !== String(targetPairId)) {
+    if (
+      !sourcePairId ||
+      !targetPairId ||
+      String(sourcePairId) !== String(targetPairId)
+    ) {
       return {
         ok: false,
         message: "Condicional y Selector deben pertenecer al mismo par.",
@@ -75,15 +87,35 @@ export function validateConnection(
     handleId: targetHandle,
   });
 
-  const ok = isTypeCompatible({ sourceType: sourceMask, targetType: targetMask });
-  if (ok) {
-    return { ok: true };
+  const ok = isTypeCompatible({
+    sourceType: sourceMask,
+    targetType: targetMask,
+  });
+  if (!ok) {
+    return {
+      ok: false,
+      message: `No se puede conectar ${describePortTypeMask(
+        sourceMask,
+      )} a ${describePortTypeMask(targetMask)}.`,
+    };
   }
 
-  return {
-    ok: false,
-    message: `No se puede conectar ${describePortTypeMask(
-      sourceMask
-    )} a ${describePortTypeMask(targetMask)}.`,
-  };
+  return { ok: true };
+}
+
+export function filterValidEdgesForNodes(nodes: Node[], edges: Edge[]): Edge[] {
+  return edges.filter((edge) => validateConnection(nodes, edge).ok);
+}
+
+export function countInvalidEdgesForNodes(
+  nodes: Node[],
+  edges: Edge[],
+): number {
+  let invalid = 0;
+  for (const edge of edges) {
+    if (!validateConnection(nodes, edge).ok) {
+      invalid += 1;
+    }
+  }
+  return invalid;
 }

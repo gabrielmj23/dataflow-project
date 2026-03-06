@@ -518,7 +518,9 @@ function dfpHandleRun(seq: number, payloadRaw: string) {
       op == 0x12 ||
       op == 0x13 ||
       op == 0x14 ||
-      op == 0x15
+      op == 0x15 ||
+      op == 0x19 ||
+      op == 0x1a
     ) {
       const right = stack.pop();
       const left = stack.pop();
@@ -535,6 +537,17 @@ function dfpHandleRun(seq: number, payloadRaw: string) {
       if (op == 0x13) r = y == 0 ? 0 : x / y;
       if (op == 0x14) r = y == 0 ? 0 : x % y;
       if (op == 0x15) r = Math.pow(x, y);
+      if (op == 0x19) {
+        const degree = Math.floor(y);
+        const validDegree = degree != 0 && degree == y;
+        const invalidEvenNegative = x < 0 && Math.abs(degree % 2) != 1;
+        r = validDegree && !invalidEvenNegative ? Math.pow(x, 1 / degree) : NaN;
+      }
+      if (op == 0x1a) {
+        const validValue = x > 0;
+        const validBase = y > 0 && y != 1;
+        r = validValue && validBase ? Math.log(x) / Math.log(y) : NaN;
+      }
       stack.push(dfpValueNumber(r));
       continue;
     }

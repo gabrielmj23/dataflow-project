@@ -15,6 +15,24 @@ Este módulo contiene utilidades compartidas para:
 - `buildDroppedNodeData(...)`: construcción unificada de `data` para nodos soltados, incluyendo resolución de plantillas de subflujo (`templateId`).
 - `normalizeNodeTypeForEditor(...)`: normalización del tipo al render en editores embebidos para evitar fallbacks inconsistentes por mayúsculas/minúsculas.
 
+Archivo: `src/flow/edge-appearance.ts`
+
+Este módulo contiene la configuración visual unificada de edges:
+
+- `EDGE_STROKE_WIDTH`: grosor estándar en todos los editores.
+- `EDGE_MARKER_SIZE`: tamaño de flecha estándar.
+- `DEFAULT_EDGE_OPTIONS`: opciones por defecto para `ReactFlow` (flecha + grosor).
+
+Archivo: `src/hooks/useSharedEdgeConfig.ts`
+
+Este hook concentra en un solo lugar:
+
+- `defaultEdgeOptions`
+- `edgesReconnectable`
+- `onReconnect` (usa `reconnectEdge`)
+
+Con esto, todos los editores principales/embebidos comparten el mismo comportamiento para editar la conexión de un edge arrastrando su extremo.
+
 ## Archivos que consumen esta lógica
 
 - `src/hooks/usePaletteDrag.ts` (editor principal)
@@ -32,5 +50,6 @@ Si agregas un nuevo editor interno:
 2. En el `onDrop`, toma `type` (`application/reactflow`) y `templateId` (`application/subflow-template-id`).
 3. Usa `buildDroppedNodeData` para crear el `data` del nodo.
 4. Si tu editor renderiza nodos de fuentes mixtas, usa `normalizeNodeTypeForEditor` al pasar `nodes` a `ReactFlow`.
+5. Para consistencia visual y edición de edges, usa `const sharedEdgeConfig = useSharedEdgeConfig(setEdges)` y luego `<ReactFlow {...sharedEdgeConfig} />`.
 
 Si agregas nuevos campos comunes para nodos soltados, hazlo en `buildDroppedNodeData(...)` y quedará disponible para todos los editores sin duplicar cambios.

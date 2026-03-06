@@ -90,7 +90,7 @@ export const GatherNode = memo(({ id, data }: NodeProps) => {
   }, [id, safeInputCount, setNodes]);
 
   const outputMask = getPortTypeMask({
-    nodeType: "scatter",
+    nodeType: "gather",
     handleType: "source",
     handleId: "out",
   });
@@ -174,7 +174,7 @@ export const GatherNode = memo(({ id, data }: NodeProps) => {
       {inputOffsets.map((offset, index) => {
         const id = `in-${index + 1}`;
         const mask = getPortTypeMask({
-          nodeType: "scatter",
+          nodeType: "gather",
           handleType: "target",
           handleId: id,
         });

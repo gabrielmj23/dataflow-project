@@ -61,6 +61,8 @@ Variables (opcionales):
 
 La lógica común de drag/drop para decidir qué nodo dibujar en canvas (principal e internos) está centralizada en `src/flow/editor-node-factory.ts`.
 
+La apariencia compartida de edges (grosor/flecha) está centralizada en `src/flow/edge-appearance.ts`.
+
 Guía de uso y extensión: `docs/editor-node-factory.md`
 
 You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:

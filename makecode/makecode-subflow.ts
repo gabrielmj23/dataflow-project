@@ -440,6 +440,8 @@ function executeVm(runId: string, args: DfpVal[]) {
         case 0x13: // DIV
         case 0x14: // MOD
         case 0x15: // POW
+        case 0x19: // ROOT
+        case 0x1a: // LOG
           const valB = stack.pop();
           const valA = stack.pop();
           const nB = valB ? valB.num || 0 : 0;
@@ -451,6 +453,20 @@ function executeVm(runId: string, args: DfpVal[]) {
           if (op == 0x13) res = nB == 0 ? 0 : nA / nB;
           if (op == 0x14) res = nB == 0 ? 0 : nA % nB;
           if (op == 0x15) res = Math.pow(nA, nB);
+          if (op == 0x19) {
+            const degree = Math.floor(nB);
+            const validDegree = degree != 0 && degree == nB;
+            const invalidEvenNegative = nA < 0 && Math.abs(degree % 2) != 1;
+            res =
+              validDegree && !invalidEvenNegative
+                ? Math.pow(nA, 1 / degree)
+                : NaN;
+          }
+          if (op == 0x1a) {
+            const validValue = nA > 0;
+            const validBase = nB > 0 && nB != 1;
+            res = validValue && validBase ? Math.log(nA) / Math.log(nB) : NaN;
+          }
           stack.push(valNum(res));
           break;
 

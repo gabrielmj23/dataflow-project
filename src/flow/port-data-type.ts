@@ -11,6 +11,39 @@ const TYPE_TEXT = 1 << 1;
 const TYPE_BOOLEAN = 1 << 2;
 const TYPE_LIST = 1 << 3;
 const TYPE_ANY = TYPE_NUMBER | TYPE_TEXT | TYPE_BOOLEAN | TYPE_LIST;
+const TYPE_NON_LIST = TYPE_NUMBER | TYPE_TEXT | TYPE_BOOLEAN;
+
+const LIST_NODE_TYPES = new Set<string>([
+  NODE_TYPES.GENERATE_SEQUENCE_NODE,
+  NODE_TYPES.ZIP_NODE,
+  NODE_TYPES.UNZIP_NODE,
+  NODE_TYPES.FILTER_NODE,
+  NODE_TYPES.MAP_NODE,
+  NODE_TYPES.LIST_FIRST_NODE,
+  NODE_TYPES.LIST_LAST_NODE,
+  NODE_TYPES.LIST_AT_POSITION_NODE,
+  NODE_TYPES.LIST_FIND_ELEMENT_NODE,
+  NODE_TYPES.LIST_REMOVE_FIRST_NODE,
+  NODE_TYPES.LIST_REMOVE_LAST_NODE,
+  NODE_TYPES.LIST_PREPEND_NODE,
+  NODE_TYPES.LIST_APPEND_NODE,
+  NODE_TYPES.LIST_IS_EMPTY_NODE,
+  NODE_TYPES.LIST_REVERSE_NODE,
+  NODE_TYPES.SPLIT_LIST_NODE,
+  NODE_TYPES.LIST_EVEN_POSITIONS_NODE,
+  NODE_TYPES.LIST_ODD_POSITIONS_NODE,
+  NODE_TYPES.COUNT_NODE,
+  NODE_TYPES.SORT_LIST_NODE,
+  NODE_TYPES.REDUCE_NODE,
+  NODE_TYPES.PRODUCT_NODE,
+  NODE_TYPES.SCATTER_NODE,
+  NODE_TYPES.GATHER_NODE,
+]);
+
+export function isListNodeType(nodeType: string | null | undefined): boolean {
+  if (!nodeType) return false;
+  return LIST_NODE_TYPES.has(nodeType);
+}
 
 export function maskToVisualPortDataType(mask: PortDataTypeMask): PortDataType {
   const safe =
@@ -199,7 +232,7 @@ export function inferPortDataType(params: {
     return "text";
   }
   if (nodeType === "constantList") {
-    return "any";
+    return "list";
   }
   if (nodeType === "constantBoolean") {
     return "boolean";
@@ -214,6 +247,8 @@ export function inferPortDataType(params: {
     nodeType === "mod" ||
     nodeType === "power" ||
     nodeType === NODE_TYPES.MATH_OPERATION_NODE ||
+    nodeType === "root" ||
+    nodeType === "logarithm" ||
     nodeType === "floor" ||
     nodeType === "ceiling" ||
     nodeType === "round" ||
@@ -229,12 +264,6 @@ export function inferPortDataType(params: {
     nodeType === "replaceText" ||
     nodeType === "subtractText"
   ) {
-    return "text";
-  }
-  if (nodeType === "replaceText" || nodeType === "subtractText") {
-    return "text";
-  }
-  if (nodeType === "sliceText") {
     return "text";
   }
 
@@ -270,6 +299,40 @@ export function inferPortDataType(params: {
   // IO
   if (nodeType === "write") {
     return "any";
+  }
+
+  if (nodeType === NODE_TYPES.GENERATE_SEQUENCE_NODE) {
+    return handleType === "source" ? "list" : "number";
+  }
+
+  if (nodeType === NODE_TYPES.REPLICATE_INPUT_VALUE) {
+    return "list";
+  }
+
+  if (
+    nodeType === NODE_TYPES.ZIP_NODE ||
+    nodeType === NODE_TYPES.UNZIP_NODE ||
+    nodeType === NODE_TYPES.FILTER_NODE ||
+    nodeType === NODE_TYPES.MAP_NODE ||
+    nodeType === NODE_TYPES.SORT_LIST_NODE
+  ) {
+    return "list";
+  }
+
+  if (
+    nodeType === NODE_TYPES.COUNT_NODE ||
+    nodeType === NODE_TYPES.REDUCE_NODE ||
+    nodeType === NODE_TYPES.PRODUCT_NODE
+  ) {
+    return handleType === "source" ? "number" : "list";
+  }
+
+  if (nodeType === NODE_TYPES.GATHER_NODE) {
+    return handleType === "source" ? "list" : "any";
+  }
+
+  if (nodeType === NODE_TYPES.SCATTER_NODE) {
+    return handleType === "target" ? "list" : "any";
   }
 
   // Switch passes through the incoming value.
@@ -345,193 +408,219 @@ export function getPortTypeMask(params: {
   if (!nodeType) return TYPE_ANY;
 
   const isOutput = handleType === "source";
+  const rawMask = (() => {
+    // Inputs & events
+    if (nodeType === "constantNumber" || nodeType === "randomInput") {
+      return isOutput ? TYPE_NUMBER : TYPE_ANY;
+    }
+    if (nodeType === "runtimeInput") {
+      return isOutput ? TYPE_NUMBER | TYPE_TEXT : TYPE_ANY;
+    }
+    if (nodeType === "microbitReadButton") {
+      return isOutput ? TYPE_TEXT : TYPE_ANY;
+    }
+    if (nodeType === "microbitReadTemperature") {
+      return isOutput ? TYPE_NUMBER : TYPE_ANY;
+    }
+    if (nodeType === "timerInput") {
+      // Timer can optionally pass-through any incoming value after a delay.
+      return TYPE_ANY;
+    }
+    if (nodeType === "constantText") {
+      return isOutput ? TYPE_TEXT : TYPE_ANY;
+    }
+    if (nodeType === "choiceInput") {
+      return isOutput ? TYPE_TEXT : TYPE_ANY;
+    }
+    if (nodeType === "constantList") {
+      return isOutput ? TYPE_LIST : TYPE_ANY;
+    }
+    if (nodeType === "constantBoolean") {
+      return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
+    }
+    if (nodeType === "constantInput") {
+      return TYPE_ANY;
+    }
 
-  // Inputs & events
-  if (nodeType === "constantNumber" || nodeType === "randomInput") {
-    return isOutput ? TYPE_NUMBER : TYPE_ANY;
-  }
-  if (nodeType === "runtimeInput") {
-    return isOutput ? TYPE_NUMBER | TYPE_TEXT : TYPE_ANY;
-  }
-  if (nodeType === "microbitReadButton") {
-    return isOutput ? TYPE_TEXT : TYPE_ANY;
-  }
-  if (nodeType === "microbitReadTemperature") {
-    return isOutput ? TYPE_NUMBER : TYPE_ANY;
-  }
-  if (nodeType === "timerInput") {
-    // Timer can optionally pass-through any incoming value after a delay.
-    return TYPE_ANY;
-  }
-  if (nodeType === "constantText") {
-    return isOutput ? TYPE_TEXT : TYPE_ANY;
-  }
-  if (nodeType === "choiceInput") {
-    return isOutput ? TYPE_TEXT : TYPE_ANY;
-  }
-  if (nodeType === "constantList") {
-    return TYPE_ANY;
-  }
-  if (nodeType === "constantBoolean") {
-    return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
-  }
-  if (nodeType === "constantInput") {
-    return TYPE_ANY;
-  }
+    if (nodeType === NODE_TYPES.REPLICATE_INPUT_VALUE) {
+      return isOutput ? TYPE_LIST : TYPE_ANY;
+    }
 
-  // Processing
+    // Processing
+    if (
+      nodeType === "sum" ||
+      nodeType === "subtract" ||
+      nodeType === "multiply" ||
+      nodeType === "divide" ||
+      nodeType === "mod" ||
+      nodeType === "power" ||
+      nodeType === NODE_TYPES.MATH_OPERATION_NODE ||
+      nodeType === "root" ||
+      nodeType === "logarithm" ||
+      nodeType === "floor" ||
+      nodeType === "ceiling" ||
+      nodeType === "round" ||
+      nodeType === "formulaEditor"
+    ) {
+      return TYPE_NUMBER;
+    }
+    if (nodeType === "concat") {
+      // Inputs: number OR text; output is text.
+      return isOutput ? TYPE_TEXT : TYPE_NUMBER | TYPE_TEXT;
+    }
+    if (nodeType === "replaceText" || nodeType === "subtractText") {
+      return TYPE_TEXT;
+    }
+    if (nodeType === "sliceText") {
+      if (isOutput) return TYPE_TEXT;
+      // in-1 text, in-2 start number, in-3 end number
+      if (handleId === "in-1") return TYPE_TEXT;
+      if (handleId === "in-2" || handleId === "in-3") return TYPE_NUMBER;
+      return TYPE_ANY;
+    }
+
+    // Control & logic
+    if (
+      nodeType === "and" ||
+      nodeType === "nand" ||
+      nodeType === "or" ||
+      nodeType === "nor" ||
+      nodeType === "xor" ||
+      nodeType === "not"
+    ) {
+      return TYPE_BOOLEAN;
+    }
+    if (nodeType === "comparison") {
+      // Inputs can be anything; output is boolean.
+      return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
+    }
+    if (nodeType === "conditional") {
+      return isOutput ? TYPE_NUMBER : TYPE_ANY;
+    }
+    if (nodeType === "selector") {
+      // Selector inputs and output accept any type (token + routed value).
+      return TYPE_ANY;
+    }
+    if (nodeType === NODE_TYPES.DESVIO_NODE) {
+      if (isOutput) return TYPE_ANY;
+      return handleId === "in-cond" ? TYPE_BOOLEAN : TYPE_ANY;
+    }
+    if (nodeType === NODE_TYPES.SCATTER_NODE) {
+      return isOutput ? TYPE_ANY : TYPE_LIST;
+    }
+    if (nodeType === NODE_TYPES.GATHER_NODE) {
+      return isOutput ? TYPE_LIST : TYPE_ANY;
+    }
+    if (nodeType === "switch") {
+      // Switch passes through the incoming value.
+      return TYPE_ANY;
+    }
+
+    // IO
+    if (nodeType === "write") {
+      return TYPE_ANY;
+    }
+
+    // micro:bit sinks (accept any input for now)
+    if (nodeType === "microbitWrite" || nodeType === "microbitSound") {
+      return TYPE_ANY;
+    }
+
+    if (
+      nodeType === "zip" ||
+      nodeType === "filter" ||
+      nodeType === "map" ||
+      nodeType === "sortList" ||
+      nodeType === "unzip"
+    ) {
+      return TYPE_LIST;
+    }
+
+    if (
+      nodeType === "accumulate" ||
+      nodeType === "count" ||
+      nodeType === "product"
+    ) {
+      return isOutput ? TYPE_NUMBER : TYPE_LIST;
+    }
+
+    if (nodeType === "sequence") {
+      // Inputs (Inicio/Fin/Paso) are numbers; output is a list of numbers.
+      return isOutput ? TYPE_LIST : TYPE_NUMBER;
+    }
+
+    if (nodeType === "pulseSequence") {
+      // Inputs (Inicio/Fin/Paso) are numbers; output are numeric pulses.
+      return TYPE_NUMBER;
+    }
+
+    if (
+      nodeType === NODE_TYPES.LIST_FIRST_NODE ||
+      nodeType === NODE_TYPES.LIST_LAST_NODE
+    ) {
+      return isOutput ? TYPE_ANY : TYPE_LIST;
+    }
+
+    if (nodeType === NODE_TYPES.LIST_AT_POSITION_NODE) {
+      if (isOutput) return TYPE_ANY;
+      if (handleId === "in-1") return TYPE_LIST;
+      if (handleId === "in-2") return TYPE_NUMBER;
+      return TYPE_ANY;
+    }
+
+    if (nodeType === NODE_TYPES.LIST_FIND_ELEMENT_NODE) {
+      if (isOutput) return TYPE_NUMBER;
+      if (handleId === "in-1") return TYPE_LIST;
+      if (handleId === "in-2") return TYPE_ANY;
+      return TYPE_ANY;
+    }
+
+    if (
+      nodeType === NODE_TYPES.LIST_REMOVE_FIRST_NODE ||
+      nodeType === NODE_TYPES.LIST_REMOVE_LAST_NODE ||
+      nodeType === NODE_TYPES.LIST_REVERSE_NODE
+    ) {
+      return TYPE_LIST;
+    }
+
+    if (
+      nodeType === NODE_TYPES.LIST_PREPEND_NODE ||
+      nodeType === NODE_TYPES.LIST_APPEND_NODE
+    ) {
+      if (isOutput) return TYPE_LIST;
+      if (handleId === "in-1") return TYPE_LIST;
+      if (handleId === "in-2") return TYPE_ANY;
+      return TYPE_ANY;
+    }
+
+    if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
+      return isOutput ? TYPE_BOOLEAN : TYPE_LIST;
+    }
+
+    if (nodeType === NODE_TYPES.SPLIT_LIST_NODE) {
+      return isOutput ? TYPE_LIST : TYPE_NUMBER | TYPE_TEXT;
+    }
+
+    if (
+      nodeType === NODE_TYPES.LIST_EVEN_POSITIONS_NODE ||
+      nodeType === NODE_TYPES.LIST_ODD_POSITIONS_NODE ||
+      nodeType === "listParityPositions"
+    ) {
+      return TYPE_LIST;
+    }
+
+    return TYPE_ANY;
+  })();
+
   if (
-    nodeType === "sum" ||
-    nodeType === "subtract" ||
-    nodeType === "multiply" ||
-    nodeType === "divide" ||
-    nodeType === "mod" ||
-    nodeType === "power" ||
-    nodeType === NODE_TYPES.MATH_OPERATION_NODE ||
-    nodeType === "floor" ||
-    nodeType === "ceiling" ||
-    nodeType === "round" ||
-    nodeType === "formulaEditor"
+    !isOutput &&
+    nodeType !== NODE_TYPES.WRITE_SINK &&
+    !isListNodeType(nodeType)
   ) {
-    return isOutput ? TYPE_NUMBER : TYPE_NUMBER;
-  }
-  if (nodeType === "concat") {
-    // Inputs: number OR text; output is text.
-    return isOutput ? TYPE_TEXT : TYPE_NUMBER | TYPE_TEXT;
-  }
-  if (nodeType === "replaceText" || nodeType === "subtractText") {
-    return TYPE_TEXT;
-  }
-  if (nodeType === "sliceText") {
-    if (isOutput) return TYPE_TEXT;
-    // in-1 text, in-2 start number, in-3 end number
-    if (handleId === "in-1") return TYPE_TEXT;
-    if (handleId === "in-2" || handleId === "in-3") return TYPE_NUMBER;
-    return TYPE_ANY;
+    return rawMask & TYPE_NON_LIST;
   }
 
-  // Control & logic
-  if (
-    nodeType === "and" ||
-    nodeType === "nand" ||
-    nodeType === "or" ||
-    nodeType === "nor" ||
-    nodeType === "xor" ||
-    nodeType === "not"
-  ) {
-    return TYPE_BOOLEAN;
-  }
-  if (nodeType === "comparison") {
-    // Inputs can be anything; output is boolean.
-    return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
-  }
-  if (nodeType === "conditional") {
-    return isOutput ? TYPE_NUMBER : TYPE_ANY;
-  }
-  if (nodeType === "selector") {
-    // Selector inputs and output accept any type (token + routed value).
-    return TYPE_ANY;
-  }
-  if (nodeType === NODE_TYPES.DESVIO_NODE) {
-    if (isOutput) return TYPE_ANY;
-    return handleId === "in-cond" ? TYPE_BOOLEAN : TYPE_ANY;
-  }
-  if (nodeType === NODE_TYPES.SCATTER_NODE) {
-    return isOutput ? TYPE_ANY : TYPE_LIST;
-  }
-  if (nodeType === "switch") {
-    // Switch passes through the incoming value.
-    return TYPE_ANY;
-  }
-
-  // IO
-  if (nodeType === "write") {
-    return TYPE_ANY;
-  }
-
-  // micro:bit sinks (accept any input for now)
-  if (nodeType === "microbitWrite" || nodeType === "microbitSound") {
-    return TYPE_ANY;
-  }
-
-  // Lists / iteration: keep permissive for now.
-  if (
-    nodeType === "zip" ||
-    nodeType === "filter" ||
-    nodeType === "map" ||
-    nodeType === "sortList" ||
-    nodeType === "accumulate" ||
-    nodeType === "count"
-  ) {
-    return TYPE_ANY;
-  }
-
-  if (nodeType === "sequence") {
-    // Inputs (Inicio/Fin/Paso) are numbers; output is a list of numbers (kept as any).
-    return isOutput ? TYPE_ANY : TYPE_NUMBER;
-  }
-
-  if (nodeType === "pulseSequence") {
-    // Inputs (Inicio/Fin/Paso) are numbers; output are numeric pulses.
-    return isOutput ? TYPE_NUMBER : TYPE_NUMBER;
-  }
-
-  if (
-    nodeType === NODE_TYPES.LIST_FIRST_NODE ||
-    nodeType === NODE_TYPES.LIST_LAST_NODE
-  ) {
-    return isOutput ? TYPE_ANY : TYPE_LIST;
-  }
-
-  if (nodeType === NODE_TYPES.LIST_AT_POSITION_NODE) {
-    if (isOutput) return TYPE_ANY;
-    if (handleId === "in-1") return TYPE_LIST;
-    if (handleId === "in-2") return TYPE_NUMBER;
-    return TYPE_ANY;
-  }
-
-  if (nodeType === NODE_TYPES.LIST_FIND_ELEMENT_NODE) {
-    if (isOutput) return TYPE_NUMBER;
-    if (handleId === "in-1") return TYPE_LIST;
-    if (handleId === "in-2") return TYPE_ANY;
-    return TYPE_ANY;
-  }
-
-  if (
-    nodeType === NODE_TYPES.LIST_REMOVE_FIRST_NODE ||
-    nodeType === NODE_TYPES.LIST_REMOVE_LAST_NODE ||
-    nodeType === NODE_TYPES.LIST_REVERSE_NODE
-  ) {
-    return TYPE_LIST;
-  }
-
-  if (
-    nodeType === NODE_TYPES.LIST_PREPEND_NODE ||
-    nodeType === NODE_TYPES.LIST_APPEND_NODE
-  ) {
-    if (isOutput) return TYPE_LIST;
-    if (handleId === "in-1") return TYPE_LIST;
-    if (handleId === "in-2") return TYPE_ANY;
-    return TYPE_ANY;
-  }
-
-  if (nodeType === NODE_TYPES.LIST_IS_EMPTY_NODE) {
-    return isOutput ? TYPE_BOOLEAN : TYPE_LIST;
-  }
-
-  if (nodeType === NODE_TYPES.SPLIT_LIST_NODE) {
-    return isOutput ? TYPE_LIST : TYPE_NUMBER | TYPE_TEXT;
-  }
-
-  if (
-    nodeType === NODE_TYPES.LIST_EVEN_POSITIONS_NODE ||
-    nodeType === NODE_TYPES.LIST_ODD_POSITIONS_NODE ||
-    nodeType === "listParityPositions"
-  ) {
-    return TYPE_LIST;
-  }
-
-  return TYPE_ANY;
+  return rawMask;
 }
 
 export function isTypeCompatible(params: {

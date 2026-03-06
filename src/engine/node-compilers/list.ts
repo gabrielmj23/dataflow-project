@@ -67,7 +67,7 @@ function buildMicrobitListGraph(params: {
   outputSources: Array<{ nodeId: string; portId: string }>;
   programId: string;
 } {
-  const inputNodes = params.inputHandles.map((_ , index) => ({
+  const inputNodes = params.inputHandles.map((_, index) => ({
     id: `mb-${params.nodeId}-in-${index + 1}`,
     type: NODE_TYPES.SUBFLOW_INPUT,
     position: { x: 0, y: index * 120 },
@@ -356,8 +356,10 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
           return new NodeDefinition(
             async (inputList: unknown[]) => {
               const executor = ctx.remoteExecutor;
-              if (!executor) throw new Error("Ejecución remota no configurada.");
-              if (!controllerId) throw new Error("No hay controller seleccionado.");
+              if (!executor)
+                throw new Error("Ejecución remota no configurada.");
+              if (!controllerId)
+                throw new Error("No hay controller seleccionado.");
 
               const items = Array.isArray(inputList) ? inputList : [];
               const output: unknown[] = [];
@@ -499,8 +501,10 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
           return new NodeDefinition(
             async (inputList: unknown[]) => {
               const executor = ctx.remoteExecutor;
-              if (!executor) throw new Error("Ejecución remota no configurada.");
-              if (!controllerId) throw new Error("No hay controller seleccionado.");
+              if (!executor)
+                throw new Error("Ejecución remota no configurada.");
+              if (!controllerId)
+                throw new Error("No hay controller seleccionado.");
 
               const items = Array.isArray(inputList) ? inputList : [];
               const output: unknown[] = [];
@@ -654,6 +658,23 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       }
 
       return new EngineReduceNode((acc, curr) => acc + curr, 0);
+    }
+
+    case NODE_TYPES.PRODUCT_NODE: {
+      if (executionTarget === "controller") {
+        return ensureRemote(
+          "reduceProduct",
+          ["inputList", "output"],
+          [FirePatterns.EXISTS],
+          ["inputList"],
+        );
+      }
+
+      if (executionTarget === "microbit") {
+        throw new Error("Productorio no está soportado en micro:bit todavía.");
+      }
+
+      return new EngineReduceNode((acc, curr) => acc * curr, 1);
     }
 
     case NODE_TYPES.COUNT_NODE: {

@@ -37,6 +37,8 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   mod: 1,
   power: 1,
   mathOperation: 2,
+  root: 1,
+  logarithm: 1,
   floor: 1,
   ceiling: 1,
   round: 1,
@@ -70,6 +72,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   map: 3,
   sortList: 3,
   accumulate: 3,
+  product: 3,
   count: 3,
   listFirst: 2,
   listLast: 2,
@@ -210,7 +213,21 @@ export const nodePalette: NodePaletteCategory[] = [
         description:
           "Nodo rápido para elegir entre sumar, restar, multiplicar, dividir, resto o potencia.",
       },
-      { type: "floor", label: "Piso", description: "Redondea hacia abajo. Ejemplo: piso(3.7) → 3." },
+      {
+        type: "root",
+        label: "Raíz",
+        description: "Calcula la raíz n-ésima de un número.",
+      },
+      {
+        type: "logarithm",
+        label: "Logaritmo",
+        description: "Calcula el logaritmo de un número en una base dada.",
+      },
+      {
+        type: "floor",
+        label: "Piso",
+        description: "Redondea hacia abajo. Ejemplo: piso(3.7) → 3.",
+      },
       {
         type: "ceiling",
         label: "Techo",
@@ -355,6 +372,11 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "accumulate",
         label: "Acumular",
         description: "Suma los elementos de una lista.",
+      },
+      {
+        type: "product",
+        label: "Productorio",
+        description: "Multiplica todos los elementos de una lista.",
       },
       {
         type: "count",

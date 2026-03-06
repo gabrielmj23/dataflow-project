@@ -13,7 +13,6 @@ import {
   BackgroundVariant,
   ControlButton,
   Controls,
-  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -55,6 +54,7 @@ import { Input } from "@/components/ui/input";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
@@ -398,6 +398,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     },
     [connectionTooltip, syncedDraftNodes],
   );
+  const sharedEdgeConfig = useSharedEdgeConfig<Edge>(setDraftEdges);
 
   const onEditorConnectStart = useCallback(
     (event: MouseEvent | TouchEvent, params: OnConnectStartParams) => {
@@ -887,13 +888,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                         type: normalizeNodeType(n.type),
                       }))}
                       edges={effectiveDraftEdges}
-                      defaultEdgeOptions={{
-                        markerEnd: {
-                          type: MarkerType.ArrowClosed,
-                          width: 14,
-                          height: 14,
-                        },
-                      }}
+                      {...sharedEdgeConfig}
                       connectionLineComponent={ArrowConnectionLine}
                       nodeTypes={{
                         ...nodeTypesCore,
