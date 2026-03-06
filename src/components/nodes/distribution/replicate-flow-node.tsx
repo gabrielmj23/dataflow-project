@@ -647,20 +647,23 @@ export const ReplicateFlowNode = memo(
           ? createInnerNodeId()
           : REPLICATE_INPUT_NODE_ID;
 
+        const HORIZONTAL_OFFSET = 160;
+        const VERTICAL_OFFSET = 40;
+
         const newNode: Node = {
           id: candidateId,
           type: "mapInputValue",
           position: {
             x:
               typeof outputNode?.position?.x === "number"
-                ? outputNode.position.x - 420
+                ? outputNode.position.x - HORIZONTAL_OFFSET
                 : 0,
             y:
               typeof outputNode?.position?.y === "number"
-                ? outputNode.position.y + 80
+                ? outputNode.position.y + VERTICAL_OFFSET
                 : 120,
           },
-          data: { label: "Valor de entrada" },
+          data: { label: "Lista de entrada" },
           selected: true,
         };
 
@@ -862,7 +865,10 @@ export const ReplicateFlowNode = memo(
                         draftEdges,
                         normalizedNodes,
                       );
-                      let nextInCount = 0;
+                      const hasMapInputValue = normalizedNodes.some(
+                        (node) => String(node.type) === "mapInputValue",
+                      );
+                      const nextInCount = hasMapInputValue ? 1 : 0;
                       let nextOutCount = 1;
                       try {
                         const computed = computeOpenPortsFromLookup(
@@ -871,7 +877,6 @@ export const ReplicateFlowNode = memo(
                           lookup,
                         );
                         if (computed && computed.ready) {
-                          nextInCount = Math.min(1, computed.inCount);
                           nextOutCount = Math.min(1, computed.outCount);
                         }
                       } catch {
