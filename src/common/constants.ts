@@ -47,6 +47,7 @@ export const NODE_TYPES = {
   GATHER_NODE: "gather",
   FILTER_INPUT_VALUE: "filterInputValue",
   MAP_INPUT_VALUE: "mapInputValue",
+  REPLICATE_INPUT_VALUE: "replicateInputValue",
   ZIP_NODE: "zip",
   UNZIP_NODE: "unzip",
   FILTER_NODE: "filter",

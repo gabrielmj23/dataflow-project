@@ -101,14 +101,21 @@ function register(nodeTypes: string[], mapper: HandleMapper): void {
 }
 
 // Internal "input value" nodes (used inside Map/Filter embedded editors)
-register([NODE_TYPES.FILTER_INPUT_VALUE, NODE_TYPES.MAP_INPUT_VALUE], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "source") {
-    if (handleId === "value" || handleId == null) return "output";
-    throw unknownOutputHandle({ nodeId, nodeType, handleId });
-  }
-  throw noInputsAllowed({ nodeId, nodeType });
-});
+register(
+  [
+    NODE_TYPES.FILTER_INPUT_VALUE,
+    NODE_TYPES.MAP_INPUT_VALUE,
+    NODE_TYPES.REPLICATE_INPUT_VALUE,
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "source") {
+      if (handleId === "value" || handleId == null) return "output";
+      throw unknownOutputHandle({ nodeId, nodeType, handleId });
+    }
+    throw noInputsAllowed({ nodeId, nodeType });
+  },
+);
 
 // Subflow node (indexed in/out handles)
 register([NODE_TYPES.SUBFLOW, NODE_TYPES.REPLICATE_FLOW], (p) => {

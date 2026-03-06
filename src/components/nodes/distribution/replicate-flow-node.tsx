@@ -74,6 +74,7 @@ import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 import { reconcileWriteGraph } from "@/utils/flow";
+import { NODE_TYPES } from "@/common/constants";
 import {
   createConditionalPair,
   filterLockedEdgeChanges,
@@ -160,6 +161,24 @@ function parseReplicateFlowConnections(params: {
 type ReplicateFlowRfNode = Node<ReplicateFlowNodeData>;
 const REPLICATE_INPUT_NODE_ID = "replicate-input-value";
 const REPLICATE_OUTPUT_NODE_ID = "replicate-output-value";
+
+function isReplicateInputNodeType(type: unknown): boolean {
+  const safe = String(type ?? "");
+  return (
+    safe === NODE_TYPES.REPLICATE_INPUT_VALUE ||
+    safe === NODE_TYPES.MAP_INPUT_VALUE
+  );
+}
+
+function normalizeReplicateInputNodes(nodes: Node[]): Node[] {
+  return nodes.map((node) => {
+    if (!isReplicateInputNodeType(node.type)) return node;
+    return {
+      ...node,
+      type: NODE_TYPES.REPLICATE_INPUT_VALUE,
+    };
+  });
+}
 
 function ensureReplicateBoundaryNodes(nodes: Node[]): Node[] {
   const list = Array.isArray(nodes) ? nodes : [];
@@ -292,12 +311,16 @@ export const ReplicateFlowNode = memo(
       "pan",
     );
     const [draftNodes, setDraftNodes] = useState<Node[]>(() =>
-      ensureReplicateBoundaryNodes(subflowNodes ?? []),
+      ensureReplicateBoundaryNodes(
+        normalizeReplicateInputNodes(subflowNodes ?? []),
+      ),
     );
     const [draftEdges, setDraftEdges] = useState<Edge[]>(() =>
       filterEdgesByNodeIds(
         subflowEdges ?? [],
-        ensureReplicateBoundaryNodes(subflowNodes ?? []),
+        ensureReplicateBoundaryNodes(
+          normalizeReplicateInputNodes(subflowNodes ?? []),
+        ),
       ),
     );
     const [draftLabel, setDraftLabel] = useState(label);
@@ -626,8 +649,8 @@ export const ReplicateFlowNode = memo(
 
     const addInputValueNode = () => {
       setDraftNodes((prev) => {
-        const existingInput = prev.find(
-          (node) => String(node.type) === "mapInputValue",
+        const existingInput = prev.find((node) =>
+          isReplicateInputNodeType(node.type),
         );
         if (existingInput) {
           return prev.map((node) => ({
@@ -652,7 +675,7 @@ export const ReplicateFlowNode = memo(
 
         const newNode: Node = {
           id: candidateId,
-          type: "mapInputValue",
+          type: NODE_TYPES.REPLICATE_INPUT_VALUE,
           position: {
             x:
               typeof outputNode?.position?.x === "number"
@@ -678,7 +701,7 @@ export const ReplicateFlowNode = memo(
           !isSelfCall
             ? () => {
                 const normalizedNodes = ensureReplicateBoundaryNodes(
-                  subflowNodes ?? [],
+                  normalizeReplicateInputNodes(subflowNodes ?? []),
                 );
                 setDraftNodes(normalizedNodes);
                 setDraftEdges(
@@ -788,6 +811,7 @@ export const ReplicateFlowNode = memo(
                       // Permite seguir anidando subflujos si se desea.
                       subflow: NestedSubflowNode,
                       mapInputValue: MapInputValueNode,
+                      replicateInputValue: MapInputValueNode,
                     }}
                     onNodesChange={onEditorNodesChange}
                     onEdgesChange={onEditorEdgesChange}
@@ -865,8 +889,8 @@ export const ReplicateFlowNode = memo(
                         draftEdges,
                         normalizedNodes,
                       );
-                      const hasMapInputValue = normalizedNodes.some(
-                        (node) => String(node.type) === "mapInputValue",
+                      const hasMapInputValue = normalizedNodes.some((node) =>
+                        isReplicateInputNodeType(node.type),
                       );
                       const nextInCount = hasMapInputValue ? 1 : 0;
                       let nextOutCount = 1;
