@@ -302,6 +302,24 @@ register([NODE_TYPES.SWITCH_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
+// Desvio node
+register([NODE_TYPES.DESVIO_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "value";
+    if (handleId === "in-cond") return "condition";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  const idx = parseIndexHandle(handleId);
+  if (handleId?.startsWith("out-") && idx) {
+    if (idx === 1) return "output1";
+    if (idx === 2) return "output2";
+  }
+
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
 // Conditional node
 register([NODE_TYPES.CONDITIONAL_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;

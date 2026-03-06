@@ -53,6 +53,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   nor: 1,
   xor: 1,
   not: 1,
+  desvio: 2,
   switch: 2,
   selector: 2,
   conditional: 3,
@@ -280,6 +281,12 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "not",
         label: "NOT",
         description: "Niega un valor booleano de entrada.",
+      },
+      {
+        type: "desvio",
+        label: "Desvio",
+        description:
+          "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
       },
       {
         type: "switch",

@@ -259,6 +259,13 @@ export function inferPortDataType(params: {
     return "any";
   }
 
+  if (nodeType === NODE_TYPES.DESVIO_NODE) {
+    if (handleType === "target") {
+      return params.handleId === "in-cond" ? "boolean" : "any";
+    }
+    return "any";
+  }
+
   // IO
   if (nodeType === "write") {
     return "any";
@@ -422,6 +429,10 @@ export function getPortTypeMask(params: {
   if (nodeType === "selector") {
     // Selector inputs and output accept any type (token + routed value).
     return TYPE_ANY;
+  }
+  if (nodeType === NODE_TYPES.DESVIO_NODE) {
+    if (isOutput) return TYPE_ANY;
+    return handleId === "in-cond" ? TYPE_BOOLEAN : TYPE_ANY;
   }
   if (nodeType === NODE_TYPES.SCATTER_NODE) {
     return isOutput ? TYPE_ANY : TYPE_LIST;

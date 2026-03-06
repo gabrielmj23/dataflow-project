@@ -24,6 +24,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -426,7 +427,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
                 <div className="text-sm font-medium">Condiciones</div>
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="outline"
                   onClick={() =>
                     setDraftConditions((prev) => [
                       ...prev,
@@ -589,25 +590,29 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
                 })}
               </div>
             </div>
+          </div>
 
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => setIsDialogOpen(false)}
-              >
-                Cancelar
-              </Button>
+          <DialogFooter>
+            <div className="flex items-center gap-2 w-full">
               {dialogError ? (
-                <div className="mr-auto self-center text-sm text-red-600">
+                <div className="self-center text-sm text-red-600">
                   {dialogError}
                 </div>
               ) : null}
-              <Button type="button" onClick={saveDialog}>
-                Guardar
-              </Button>
+              <div className="ml-auto flex gap-2">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsDialogOpen(false)}
+                >
+                  Cancelar
+                </Button>
+                <Button type="button" onClick={saveDialog}>
+                  Guardar
+                </Button>
+              </div>
             </div>
-          </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

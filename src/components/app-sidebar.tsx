@@ -531,6 +531,7 @@ function NodePreview({
       case "nor":
       case "xor":
       case "not":
+      case "desvio":
       case "switch":
       case "conditionalPair": {
         const symbolMap: Record<string, string> = {
@@ -541,6 +542,7 @@ function NodePreview({
           nor: "nor",
           xor: "xor",
           not: "not",
+          desvio: "desvio",
           switch: "switch",
           conditionalPair: "conditionalPair",
         };
@@ -569,6 +571,9 @@ function NodePreview({
               )}
               {symbolMap[type] === "not" && (
                 <span className="text-xl font-medium leading-none">¬</span>
+              )}
+              {symbolMap[type] === "desvio" && (
+                <span className="text-lg font-medium leading-none">↗↘</span>
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />

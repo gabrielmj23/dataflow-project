@@ -66,7 +66,7 @@ export function ProcessingRectNodeShell({
       onConfigClick={onConfigClick}
       onConnectClick={onConnectClick}
       className={`relative flex flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 text-center text-white shadow-md ${
-        isPowerNode ? "h-20 w-34 px-6" : "h-18 w-25 px-5"
+        isPowerNode ? "h-20 w-38 px-6" : "h-18 w-25 px-5"
       }`}
     >
       <div
@@ -75,7 +75,7 @@ export function ProcessingRectNodeShell({
         }`}
       >
         <div className="text-xl font-bold leading-none">{icon}</div>
-        <div className="text-sm leading-tight">{label}</div>
+        <div className={`${isPowerNode ? "text-base" : "text-sm"} leading-tight`}>{label}</div>
         {subtitle && (
           <div className="text-xs leading-tight text-white/85">{subtitle}</div>
         )}
@@ -135,7 +135,7 @@ export function ProcessingRectNodeShell({
           ].map(({ top, label }) => (
             <div
               key={`processing-input-${label}-${top}`}
-              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90"
+              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[11px] font-medium leading-none text-white/90"
               style={{ top }}
             >
               {label}

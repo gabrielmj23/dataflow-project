@@ -38,6 +38,7 @@ export const NODE_TYPES = {
   NOR_NODE: "nor",
   XOR_NODE: "xor",
   NOT_NODE: "not",
+  DESVIO_NODE: "desvio",
   SWITCH_NODE: "switch",
   CONDITIONAL_NODE: "conditional",
   SELECTOR_NODE: "selector",

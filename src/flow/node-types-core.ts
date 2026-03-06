@@ -36,6 +36,7 @@ import { NotNode } from "@/components/nodes/control/not-node";
 import { NandNode } from "@/components/nodes/control/nand-node";
 import { NorNode } from "@/components/nodes/control/nor-node";
 import { XorNode } from "@/components/nodes/control/xor-node";
+import { DesvioNode } from "@/components/nodes/control/desvio-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
 import { SelectorNode } from "@/components/nodes/control/selector-node";
@@ -108,6 +109,7 @@ export const nodeTypesCore: NodeTypes = {
   or: OrNode,
   nor: NorNode,
   xor: XorNode,
+  desvio: DesvioNode,
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,
