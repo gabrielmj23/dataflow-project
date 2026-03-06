@@ -1,6 +1,6 @@
 import { memo, useCallback, useId, useMemo, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
-import { Shuffle } from "lucide-react";
+import { Dices } from "lucide-react";
 
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
 import {
@@ -71,7 +71,7 @@ export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
     <>
       <InputCircleNodeShell
         nodeType="choiceInput"
-        icon={<Shuffle className="h-4 w-4" />}
+        icon={<Dices className="h-5 w-5" />}
         label=""
         sublabel={`${choices.length} opciones`}
         sublabelClassName="text-[8px]"
