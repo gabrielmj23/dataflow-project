@@ -415,16 +415,19 @@ register(
   },
 );
 
-register([NODE_TYPES.COUNT_NODE, NODE_TYPES.REDUCE_NODE], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [NODE_TYPES.COUNT_NODE, NODE_TYPES.REDUCE_NODE, NODE_TYPES.PRODUCT_NODE],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "output";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "output";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 register([NODE_TYPES.LIST_FIRST_NODE, NODE_TYPES.LIST_LAST_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;

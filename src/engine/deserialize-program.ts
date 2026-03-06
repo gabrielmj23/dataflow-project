@@ -67,6 +67,7 @@ export type RemoteExecutionOp =
   | "filterTruthy"
   | "mapIdentity"
   | "reduceSum"
+  | "reduceProduct"
   | "count"
   | "listFirst"
   | "listLast"

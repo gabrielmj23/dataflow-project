@@ -239,6 +239,13 @@ function computeOperation(op: string, args: unknown[]): unknown {
         0,
       );
     }
+    case "reduceProduct": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      return inputList.reduce(
+        (acc, curr) => (acc as number) * (curr as number),
+        1,
+      );
+    }
     case "count": {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
       return inputList.length;

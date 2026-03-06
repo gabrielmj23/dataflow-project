@@ -35,6 +35,7 @@ const LIST_NODE_TYPES = new Set<string>([
   NODE_TYPES.COUNT_NODE,
   NODE_TYPES.SORT_LIST_NODE,
   NODE_TYPES.REDUCE_NODE,
+  NODE_TYPES.PRODUCT_NODE,
   NODE_TYPES.SCATTER_NODE,
   NODE_TYPES.GATHER_NODE,
 ]);
@@ -310,6 +311,14 @@ export function inferPortDataType(params: {
     return "list";
   }
 
+  if (
+    nodeType === NODE_TYPES.COUNT_NODE ||
+    nodeType === NODE_TYPES.REDUCE_NODE ||
+    nodeType === NODE_TYPES.PRODUCT_NODE
+  ) {
+    return handleType === "source" ? "number" : "list";
+  }
+
   if (nodeType === NODE_TYPES.GATHER_NODE) {
     return handleType === "source" ? "list" : "any";
   }
@@ -514,7 +523,11 @@ export function getPortTypeMask(params: {
       return TYPE_LIST;
     }
 
-    if (nodeType === "accumulate" || nodeType === "count") {
+    if (
+      nodeType === "accumulate" ||
+      nodeType === "count" ||
+      nodeType === "product"
+    ) {
       return isOutput ? TYPE_NUMBER : TYPE_LIST;
     }
 

@@ -70,6 +70,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   map: 3,
   sortList: 3,
   accumulate: 3,
+  product: 3,
   count: 3,
   listFirst: 2,
   listLast: 2,
@@ -357,6 +358,11 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "accumulate",
         label: "Acumular",
         description: "Suma los elementos de una lista.",
+      },
+      {
+        type: "product",
+        label: "Productorio",
+        description: "Multiplica todos los elementos de una lista.",
       },
       {
         type: "count",

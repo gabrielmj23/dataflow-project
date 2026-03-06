@@ -54,6 +54,7 @@ import { UnzipNode } from "@/components/nodes/iteration/unzip-node";
 import { FilterNode } from "@/components/nodes/iteration/filter-node";
 import { MapNode } from "@/components/nodes/iteration/map-node";
 import { AccumulateNode } from "@/components/nodes/iteration/accumulate-node";
+import { ProductNode } from "@/components/nodes/iteration/product-node";
 import { CountNode } from "@/components/nodes/iteration/count-node";
 import { SortListNode } from "@/components/nodes/iteration/sort-list-node";
 import { ListFirstNode } from "@/components/nodes/iteration/list-first-node";
@@ -130,6 +131,7 @@ export const nodeTypesCore: NodeTypes = {
   filter: FilterNode,
   map: MapNode,
   accumulate: AccumulateNode,
+  product: ProductNode,
   count: CountNode,
   sortList: SortListNode,
   listFirst: ListFirstNode,

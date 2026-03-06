@@ -68,6 +68,7 @@ export const NODE_TYPES = {
   COUNT_NODE: "count",
   SORT_LIST_NODE: "sortList",
   REDUCE_NODE: "accumulate",
+  PRODUCT_NODE: "product",
   GENERATE_SEQUENCE_NODE: "sequence",
   PULSE_SEQUENCE_NODE: "pulseSequence",
   COMMENT_NODE: "comment",

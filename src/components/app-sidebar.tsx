@@ -650,6 +650,7 @@ function NodePreview({
       case "map":
       case "sortList":
       case "accumulate":
+      case "product":
       case "count":
       case "listFirst":
       case "listLast":
@@ -673,6 +674,7 @@ function NodePreview({
           map: "↦",
           sortList: "sort",
           accumulate: "Σ",
+          product: "Π",
           count: "#",
           listFirst: "1°",
           listLast: "N°",
