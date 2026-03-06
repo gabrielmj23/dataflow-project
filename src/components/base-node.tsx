@@ -10,6 +10,7 @@ import { Trash2 } from "lucide-react";
 import { useNodeId, useReactFlow } from "@xyflow/react";
 
 import NodeSettingsButton from "@/components/ui/node-settings-button";
+import NodeInfoButton from "@/components/ui/node-info-button";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip,
@@ -43,6 +44,8 @@ type BaseNodeProps = ComponentProps<"div"> & {
   sideActionsClassName?: string;
   /** Optional extra actions shown on the top action bar before delete. */
   topActions?: ReactNode;
+  /** Optional description text to show in the info tooltip button. */
+  infoDescription?: string | null;
 };
 
 export function BaseNode({
@@ -57,6 +60,7 @@ export function BaseNode({
   sideActions,
   sideActionsClassName,
   topActions,
+  infoDescription,
   ...props
 }: BaseNodeProps) {
   const hasErrorTooltip = Boolean(runtimeError) && !disableRuntimeStyles;
@@ -143,6 +147,13 @@ export function BaseNode({
               : "opacity-0 pointer-events-none",
           )}
         >
+          {infoDescription && (
+            <NodeInfoButton
+              description={infoDescription}
+              className="pointer-events-auto"
+            />
+          )}
+
           {onConfigClick && (
             <NodeSettingsButton
               onClick={onConfigClick}

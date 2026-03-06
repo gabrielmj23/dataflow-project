@@ -25,7 +25,7 @@ export const BaseDataflowNode = memo(
     } = (data ?? {}) as BaseDataflowNodeData;
 
     return (
-      <BaseNode className="w-80">
+      <BaseNode className="w-80" infoDescription={description}>
         <BaseNodeHeader className="border-b">
           <Rocket className="size-5" />
           <BaseNodeHeaderTitle>{title}</BaseNodeHeaderTitle>

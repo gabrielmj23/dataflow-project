@@ -3,6 +3,7 @@ import { useState, type ReactNode } from "react";
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import { getNodeDescription } from "@/flow/node-palette";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -87,6 +88,7 @@ export function IoRectNodeShell({
   return (
     <BaseNode
       runtimeError={runtimeError}
+      infoDescription={getNodeDescription(nodeType) ?? undefined}
       onConfigClick={onConfigClick}
       className={`relative flex ${variant === "sink" ? "h-auto" : "h-18"} ${hasTargetLabels ? "w-52" : "w-25"} flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md`}
       style={

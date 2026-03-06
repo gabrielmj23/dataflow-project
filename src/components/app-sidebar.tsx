@@ -52,6 +52,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   getNodeAbstractionLevel,
   type AbstractionLevel,
   type NodePaletteCategory,
@@ -320,6 +325,7 @@ export function AppSidebar({
                                 <NodePreview
                                   type={item.type}
                                   label={item.label}
+                                  description={item.description}
                                   isCustom={
                                     !!item.templateId && !!onDeleteTemplate
                                   }
@@ -364,11 +370,18 @@ export function AppSidebar({
 type NodePreviewProps = {
   type: string;
   label: string;
+  description?: string;
   isCustom?: boolean;
   onDelete?: () => void;
 };
 
-function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
+function NodePreview({
+  type,
+  label,
+  description,
+  isCustom,
+  onDelete,
+}: NodePreviewProps) {
   const core = (() => {
     switch (type) {
       case "constantInput":
@@ -770,17 +783,39 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
         );
     }
   })();
-
-  if (!isCustom || !onDelete) {
-    return core;
-  }
+  const nodeDescription = description?.trim() || "Sin descripción disponible.";
 
   return (
     <div className="relative inline-block">
       {core}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            role="button"
+            tabIndex={0}
+            draggable={false}
+            aria-label={`Información de ${label}`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onPointerDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-500 bg-background text-slate-500 shadow-sm"
+          >
+            <span className="text-sm font-semibold leading-none">i</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" sideOffset={6} className="max-w-56">
+          {nodeDescription}
+        </TooltipContent>
+      </Tooltip>
+      {isCustom && onDelete ? (
       <button
         type="button"
-        className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 rounded-full bg-destructive px-1 py-px text-[0.6rem] leading-none shadow text-white hover:cursor-pointer"
+        className="absolute left-0 top-0 z-10 -translate-y-1/2 -translate-x-1/2 rounded-full bg-destructive px-1 py-px text-[0.6rem] leading-none shadow text-white hover:cursor-pointer"
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -789,6 +824,7 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
       >
         ×
       </button>
+      ) : null}
     </div>
   );
 }

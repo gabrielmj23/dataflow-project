@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import { getNodeDescription } from "@/flow/node-palette";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import {
   getPortTypeMask,
@@ -86,6 +87,7 @@ export function ControlRectNodeShell({
   return (
     <BaseNode
       runtimeError={runtimeError}
+      infoDescription={getNodeDescription(nodeType) ?? undefined}
       onConfigClick={onConfigClick}
       onConnectClick={onConnectClick}
       className={className ? `${baseClass} ${className}` : baseClass}

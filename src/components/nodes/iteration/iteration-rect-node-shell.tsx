@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import { getNodeDescription } from "@/flow/node-palette";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import {
   getPortTypeMask,
@@ -65,6 +66,7 @@ export function IterationRectNodeShell({
 
   return (
     <BaseNode
+      infoDescription={getNodeDescription(nodeType) ?? undefined}
       onConfigClick={onConfigClick}
       onConnectClick={onConnectClick}
       className="relative flex h-18 w-36 flex-col justify-center rounded-2xl border-teal-800 bg-teal-600 px-6 text-center text-white shadow-md"

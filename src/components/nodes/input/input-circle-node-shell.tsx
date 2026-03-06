@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import { getNodeDescription } from "@/flow/node-palette";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import {
   getPortTypeMask,
@@ -52,6 +53,7 @@ export function InputCircleNodeShell({
 
   return (
     <BaseNode
+      infoDescription={getNodeDescription(nodeType) ?? undefined}
       hideRuntimeBadges
       disableRuntimeStyles={disableRuntimeStyles}
       onConfigClick={onConfigClick}
