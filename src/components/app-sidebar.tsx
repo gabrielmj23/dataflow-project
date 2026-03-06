@@ -33,6 +33,7 @@ import {
   Eraser,
   Search,
   Scissors,
+  Dices,
 } from "lucide-react";
 
 import {
@@ -401,9 +402,9 @@ function NodePreview({
               <>
                 <span className="mb-1 flex items-center justify-center">
                   {type === "timerInput" && <Timer className="h-6 w-6" />}
-                  {type === "randomInput" && <Shuffle className="h-6 w-6" />}
+                  {type === "randomInput" && <Dices className="h-6 w-6" />}
                   {type === "runtimeInput" && <Keyboard className="h-6 w-6" />}
-                  {type === "choiceInput" && <Shuffle className="h-6 w-6" />}
+                  {type === "choiceInput" && <Dices className="h-6 w-6" />}
                 </span>
                 <span className="px-1 text-xs leading-tight">{label}</span>
               </>
