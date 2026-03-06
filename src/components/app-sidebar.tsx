@@ -11,16 +11,12 @@ import {
   X,
   Divide,
   Percent,
-  ArrowDown,
-  ArrowUp,
   ArrowUpAZ,
   
   ArrowLeft,
   ArrowRight,
   EqualApproximately,
   Funnel,
-  FoldVertical,
-  UnfoldVertical,
   SquareFunction,
   Link2,
   Ampersand,
@@ -464,10 +460,14 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               {symbolMap[type] === "divide" && <Divide className="h-5 w-5" />}
               {symbolMap[type] === "mod" && <Percent className="h-5 w-5" />}
               {symbolMap[type] === "power" && (
-                <span className="text-base font-normal leading-none">x²</span>
+                <span className="text-base font-normal leading-none">xⁿ</span>
               )}
-              {symbolMap[type] === "floor" && <ArrowDown className="h-5 w-5" />}
-              {symbolMap[type] === "ceiling" && <ArrowUp className="h-5 w-5" />}
+              {symbolMap[type] === "floor" && (
+                <span className="text-sm font-normal leading-none">⎣ ⎦</span>
+              )}
+              {symbolMap[type] === "ceiling" && (
+                <span className="text-sm font-normal leading-none">⎡ ⎤</span>
+              )}
               {symbolMap[type] === "round" && (
                 <EqualApproximately className="h-5 w-5" />
               )}
@@ -686,19 +686,33 @@ function NodePreview({ type, label, isCustom, onDelete }: NodePreviewProps) {
               ) : symbolMap[type] === "sort" ? (
                 <ArrowUpAZ className="h-5 w-5" />
               ) : type === "zip" ? (
-                <FoldVertical className="h-5 w-5" />
+                <img
+                  src="/zipper.png"
+                  className="h-10 -mb-2.25 -mt-2.5 -rotate-90"
+                />
               ) : type === "unzip" ? (
-                <UnfoldVertical className="h-5 w-5" />
+                <img
+                  src="/zipper.png"
+                  className="h-11 -mb-2.25 -mt-2.5 rotate-90"
+                />
               ) : type === "filter" ? (
                 <Funnel className="h-5 w-5" />
               ) : type === "map" ? (
                 <SquareFunction className="h-5 w-5" />
               ) : symbolMap[type] === "1..N" ? (
                 <span className="font-semibold">1..N</span>
-              ) : type === "splitList" || type === "listEvenPositions" || type === "listOddPositions" ? (
-                <span className="text-lg font-medium leading-none">{symbolMap[type]}</span>
-              ) : symbolMap[type] === "#" || symbolMap[type] === "1°" || symbolMap[type] === "N°" ? (
-                <span className="text-xl font-medium leading-none">{symbolMap[type]}</span>
+              ) : type === "splitList" ||
+                type === "listEvenPositions" ||
+                type === "listOddPositions" ? (
+                <span className="text-lg font-medium leading-none">
+                  {symbolMap[type]}
+                </span>
+              ) : symbolMap[type] === "#" ||
+                symbolMap[type] === "1°" ||
+                symbolMap[type] === "N°" ? (
+                <span className="text-xl font-medium leading-none">
+                  {symbolMap[type]}
+                </span>
               ) : (
                 (symbolMap[type] ?? "")
               )}
