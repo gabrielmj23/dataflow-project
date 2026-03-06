@@ -633,7 +633,7 @@ function NodePreview({
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-yellow-600 bg-yellow-500 px-3 text-center text-white shadow-md"
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-none border border-yellow-600 bg-yellow-500 px-3 text-center text-white shadow-md"
           >
             <span className="text-xl font-bold leading-none">
               <Copy className="h-5 w-5 rotate-90" />

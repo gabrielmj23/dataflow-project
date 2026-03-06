@@ -673,7 +673,7 @@ export const ReplicateFlowNode = memo(
 
     return (
       <BaseNode
-        className="relative flex w-36 flex-col items-center justify-center rounded-xl border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md"
+        className="relative flex w-36 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md"
         onConfigClick={
           !isSelfCall
             ? () => {
