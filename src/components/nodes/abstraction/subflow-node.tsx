@@ -618,7 +618,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             <div
               className={`flex flex-col gap-0.5 items-center ${hasInputs ? "ml-15" : ""}`}
             >
-              <div className="text-xl font-bold leading-none">
+              <div className="text-2xl font-bold leading-none">
                 <PictureInPicture2 />
               </div>
               <div className="text-sm leading-tight">{label}</div>

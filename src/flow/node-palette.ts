@@ -36,6 +36,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   divide: 1,
   mod: 1,
   power: 1,
+  mathOperation: 2,
   floor: 1,
   ceiling: 1,
   round: 1,
@@ -150,6 +151,12 @@ export const nodePalette: NodePaletteCategory[] = [
         description:
           "Elige un elemento aleatorio de una lista de opciones configurables.",
       },
+      {
+        type: "pulseSequence",
+        label: "Generar pulsos",
+        description:
+          "Genera una secuencia de números como pulsos individuales.",
+      },
     ],
   },
   {
@@ -196,6 +203,12 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "power",
         label: "Potencia",
         description: "Eleva una base a un exponente.",
+      },
+      {
+        type: "mathOperation",
+        label: "Operación matemática",
+        description:
+          "Nodo rápido para elegir entre sumar, restar, multiplicar, dividir, resto o potencia.",
       },
       { type: "floor", label: "Piso", description: "Redondea hacia abajo. Ejemplo: piso(3.7) → 3." },
       {
@@ -309,12 +322,6 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "sequence",
         label: "Generar secuencia",
         description: "Genera una secuencia de números (ej. 0..N).",
-      },
-      {
-        type: "pulseSequence",
-        label: "Generar pulsos",
-        description:
-          "Genera una secuencia de números como pulsos individuales.",
       },
       {
         type: "zip",

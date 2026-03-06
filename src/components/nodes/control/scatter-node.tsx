@@ -158,7 +158,7 @@ export const ScatterNode = memo(({ id, data }: NodeProps) => {
           clipPath: "polygon(0% 25%, 100% 0%, 100% 100%, 0% 75%)",
         }}
       >
-        <div className="text-xl font-bold leading-none rotate-90">
+        <div className="text-2xl font-bold leading-none rotate-90">
           <GitFork />
         </div>
         <div className="text-sm leading-tight">{label}</div>

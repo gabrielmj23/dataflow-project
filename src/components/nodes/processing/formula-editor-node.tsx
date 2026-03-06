@@ -136,7 +136,7 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
         className="relative flex h-20 w-56 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 px-5 text-center text-white shadow-md"
       >
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-xl font-bold leading-none">ƒx</div>
+          <div className="text-2xl font-bold leading-none">ƒx</div>
           {formula ? (
             <div className="max-w-40 truncate text-md leading-tight">
               {formula}

@@ -24,6 +24,8 @@ type IterationRectNodeShellProps = {
     | "source";
   onConfigClick?: () => void;
   onConnectClick?: () => void;
+  className?: string;
+  indicatorClassName?: string;
 };
 
 export function IterationRectNodeShell({
@@ -34,6 +36,8 @@ export function IterationRectNodeShell({
   variant = "multi",
   onConfigClick,
   onConnectClick,
+  className,
+  indicatorClassName,
 }: IterationRectNodeShellProps) {
   const offsets = ["15%", "35%", "65%", "85%"];
   const inputLabels =
@@ -64,12 +68,17 @@ export function IterationRectNodeShell({
     handleId: string | null | undefined;
   }) => maskToVisualPortDataType(maskFor(params));
 
+  const rootClass =
+    className ??
+    "relative flex h-18 w-36 flex-col justify-center rounded-2xl border-teal-800 bg-teal-600 px-6 text-center text-white shadow-md";
+  const handleIndicatorClass = indicatorClassName ?? "border-teal-800";
+
   return (
     <BaseNode
       infoDescription={getNodeDescription(nodeType) ?? undefined}
       onConfigClick={onConfigClick}
       onConnectClick={onConnectClick}
-      className="relative flex h-18 w-36 flex-col justify-center rounded-2xl border-teal-800 bg-teal-600 px-6 text-center text-white shadow-md"
+      className={rootClass}
     >
       <div
         className={`flex flex-col items-center gap-0.5 ${
@@ -93,7 +102,7 @@ export function IterationRectNodeShell({
           dataType={typeFor({ handleType: "source", handleId: "out" })}
           typeMask={maskFor({ handleType: "source", handleId: "out" })}
           className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-          indicatorClassName="border-teal-800"
+          indicatorClassName={handleIndicatorClass}
         />
       )}
 
@@ -114,7 +123,7 @@ export function IterationRectNodeShell({
                   dataType={dt}
                   typeMask={mask}
                   className="h-2 w-2 -translate-y-1/2"
-                  indicatorClassName="border-teal-800"
+                  indicatorClassName={handleIndicatorClass}
                 />
               );
             })(),
@@ -135,7 +144,7 @@ export function IterationRectNodeShell({
                   dataType={dt}
                   typeMask={mask}
                   className="h-2 w-2 -translate-y-1/2"
-                  indicatorClassName="border-teal-800"
+                  indicatorClassName={handleIndicatorClass}
                 />
               );
             })(),
@@ -152,7 +161,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "target", handleId: "in" })}
             typeMask={maskFor({ handleType: "target", handleId: "in" })}
             className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
           <CustomTypedHandle
             type="source"
@@ -161,7 +170,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "source", handleId: "out" })}
             typeMask={maskFor({ handleType: "source", handleId: "out" })}
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
         </>
       )}
@@ -175,7 +184,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "target", handleId: "in" })}
             typeMask={maskFor({ handleType: "target", handleId: "in" })}
             className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
 
           <CustomTypedHandle
@@ -186,7 +195,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "source", handleId: "out-1" })}
             typeMask={maskFor({ handleType: "source", handleId: "out-1" })}
             className="absolute -right-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
 
           <CustomTypedHandle
@@ -197,7 +206,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "source", handleId: "out-2" })}
             typeMask={maskFor({ handleType: "source", handleId: "out-2" })}
             className="absolute -right-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
         </>
       )}
@@ -212,7 +221,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "target", handleId: "in-1" })}
             typeMask={maskFor({ handleType: "target", handleId: "in-1" })}
             className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
           <CustomTypedHandle
             type="target"
@@ -222,7 +231,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "target", handleId: "in-2" })}
             typeMask={maskFor({ handleType: "target", handleId: "in-2" })}
             className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
           <CustomTypedHandle
             type="source"
@@ -231,7 +240,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "source", handleId: "out" })}
             typeMask={maskFor({ handleType: "source", handleId: "out" })}
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
         </>
       )}
@@ -246,7 +255,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "target", handleId: "in-1" })}
             typeMask={maskFor({ handleType: "target", handleId: "in-1" })}
             className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
           <CustomTypedHandle
             type="target"
@@ -256,7 +265,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "target", handleId: "in-2" })}
             typeMask={maskFor({ handleType: "target", handleId: "in-2" })}
             className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
           <CustomTypedHandle
             type="target"
@@ -266,7 +275,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "target", handleId: "in-3" })}
             typeMask={maskFor({ handleType: "target", handleId: "in-3" })}
             className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
           <CustomTypedHandle
             type="source"
@@ -275,7 +284,7 @@ export function IterationRectNodeShell({
             dataType={typeFor({ handleType: "source", handleId: "out" })}
             typeMask={maskFor({ handleType: "source", handleId: "out" })}
             className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-teal-800"
+            indicatorClassName={handleIndicatorClass}
           />
         </>
       )}

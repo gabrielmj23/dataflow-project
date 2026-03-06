@@ -20,6 +20,7 @@ import { MultiplyNode } from "@/components/nodes/processing/multiply-node";
 import { DivideNode } from "@/components/nodes/processing/divide-node";
 import { ModNode } from "@/components/nodes/processing/mod-node";
 import { PowerNode } from "@/components/nodes/processing/power-node";
+import { MathOperationNode } from "@/components/nodes/processing/math-operation-node";
 import { FloorNode } from "@/components/nodes/processing/floor-node";
 import { CeilingNode } from "@/components/nodes/processing/ceiling-node";
 import { RoundNode } from "@/components/nodes/processing/round-node";
@@ -95,6 +96,7 @@ export const nodeTypesCore: NodeTypes = {
   divide: DivideNode,
   mod: ModNode,
   power: PowerNode,
+  mathOperation: MathOperationNode,
   floor: FloorNode,
   ceiling: CeilingNode,
   round: RoundNode,

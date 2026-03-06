@@ -23,6 +23,7 @@ export const NODE_TYPES = {
   DIVIDE_NODE: "divide",
   MOD_NODE: "mod",
   POWER_NODE: "power",
+  MATH_OPERATION_NODE: "mathOperation",
   FLOOR_NODE: "floor",
   CEILING_NODE: "ceiling",
   ROUND_NODE: "round",

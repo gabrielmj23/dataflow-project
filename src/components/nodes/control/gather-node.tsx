@@ -155,7 +155,7 @@ export const GatherNode = memo(({ id, data }: NodeProps) => {
           clipPath: "polygon(0% 0%, 100% 25%, 100% 75%, 0% 100%)",
         }}
       >
-        <div className="text-xl font-bold leading-none -rotate-90">
+        <div className="text-2xl font-bold leading-none -rotate-90">
           <GitFork />
         </div>
         <div className="text-sm leading-tight">{label}</div>

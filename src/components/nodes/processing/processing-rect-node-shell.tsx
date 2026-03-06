@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import { NODE_TYPES } from "@/common/constants";
 import { getNodeDescription } from "@/flow/node-palette";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import {
@@ -57,6 +58,7 @@ export function ProcessingRectNodeShell({
   const in3Type = maskToVisualPortDataType(in3Mask);
   const outType = maskToVisualPortDataType(outMask);
   const isPowerNode = nodeType === "power";
+  const isMathOperation = nodeType === NODE_TYPES.MATH_OPERATION_NODE;
   const inputLabels = isPowerNode ? ["Base", "Exponente"] : [];
 
   return (
@@ -74,8 +76,8 @@ export function ProcessingRectNodeShell({
           inputLabels.length > 0 ? "ml-12" : ""
         }`}
       >
-        <div className="text-xl font-bold leading-none">{icon}</div>
-        <div className={`${isPowerNode ? "text-base" : "text-sm"} leading-tight`}>{label}</div>
+        <div className={`${isMathOperation ? "text-2xl" : "text-xl"} font-bold leading-none`}>{icon}</div>
+        <div className={`${isPowerNode ? "text-base" : isMathOperation ? "text-xs" : "text-sm"} leading-tight`}>{label}</div>
         {subtitle && (
           <div className="text-xs leading-tight text-white/85">{subtitle}</div>
         )}

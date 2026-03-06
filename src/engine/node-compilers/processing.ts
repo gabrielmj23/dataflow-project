@@ -150,12 +150,14 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
     firePatterns: FirePatterns[];
     stickyInputPorts?: string[];
     outputPortId?: string;
+    nodeTypeOverride?: string;
+    nodeDataOverride?: Record<string, unknown>;
   }) => {
     const transport = parseTransport(data);
     const graph = buildMicrobitRemoteGraph({
       nodeId: String(flowNode.id),
-      nodeType,
-      nodeData: data,
+      nodeType: params.nodeTypeOverride ?? nodeType,
+      nodeData: params.nodeDataOverride ?? data,
       inputHandles: params.inputHandles,
       outputPortId: params.outputPortId ?? "output",
     });
@@ -182,8 +184,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
     );
   };
 
-  switch (nodeType) {
-    case NODE_TYPES.SUM_NODE: {
+  const compileBinaryMathByNodeType = (
+    opNodeType: string,
+    executionData: Record<string, unknown> = data,
+  ): NodeDefinition | null => {
+    if (opNodeType === NODE_TYPES.SUM_NODE) {
       if (executionTarget === "controller") {
         return ensureRemote(
           "sum",
@@ -198,11 +203,14 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
           ports: ["input1", "input2", "output"],
           firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
           stickyInputPorts: ["input1", "input2"],
+          nodeTypeOverride: NODE_TYPES.SUM_NODE,
+          nodeDataOverride: executionData,
         });
       }
       return new EngineSumNode();
     }
-    case NODE_TYPES.SUBTRACT_NODE: {
+
+    if (opNodeType === NODE_TYPES.SUBTRACT_NODE) {
       if (executionTarget === "controller") {
         return ensureRemote(
           "subtract",
@@ -217,11 +225,14 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
           ports: ["input1", "input2", "output"],
           firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
           stickyInputPorts: ["input1", "input2"],
+          nodeTypeOverride: NODE_TYPES.SUBTRACT_NODE,
+          nodeDataOverride: executionData,
         });
       }
       return new EngineSubstractNode();
     }
-    case NODE_TYPES.MULTIPLY_NODE: {
+
+    if (opNodeType === NODE_TYPES.MULTIPLY_NODE) {
       if (executionTarget === "controller") {
         return ensureRemote(
           "multiply",
@@ -236,11 +247,14 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
           ports: ["input1", "input2", "output"],
           firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
           stickyInputPorts: ["input1", "input2"],
+          nodeTypeOverride: NODE_TYPES.MULTIPLY_NODE,
+          nodeDataOverride: executionData,
         });
       }
       return new EngineMultiplyNode();
     }
-    case NODE_TYPES.DIVIDE_NODE: {
+
+    if (opNodeType === NODE_TYPES.DIVIDE_NODE) {
       if (executionTarget === "controller") {
         return ensureRemote(
           "divide",
@@ -255,11 +269,14 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
           ports: ["input1", "input2", "output"],
           firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
           stickyInputPorts: ["input1", "input2"],
+          nodeTypeOverride: NODE_TYPES.DIVIDE_NODE,
+          nodeDataOverride: executionData,
         });
       }
       return new EngineDivideNode();
     }
-    case NODE_TYPES.MOD_NODE: {
+
+    if (opNodeType === NODE_TYPES.MOD_NODE) {
       if (executionTarget === "controller") {
         return ensureRemote(
           "mod",
@@ -274,11 +291,14 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
           ports: ["input1", "input2", "output"],
           firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
           stickyInputPorts: ["input1", "input2"],
+          nodeTypeOverride: NODE_TYPES.MOD_NODE,
+          nodeDataOverride: executionData,
         });
       }
       return new EngineModNode();
     }
-    case NODE_TYPES.POWER_NODE: {
+
+    if (opNodeType === NODE_TYPES.POWER_NODE) {
       if (executionTarget === "controller") {
         return ensureRemote(
           "power",
@@ -293,9 +313,57 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
           ports: ["input1", "input2", "output"],
           firePatterns: [FirePatterns.EXISTS, FirePatterns.EXISTS],
           stickyInputPorts: ["input1", "input2"],
+          nodeTypeOverride: NODE_TYPES.POWER_NODE,
+          nodeDataOverride: executionData,
         });
       }
       return new EnginePowerNode();
+    }
+
+    return null;
+  };
+
+  const resolveMathOperationType = (): string => {
+    const raw = data.operation;
+    if (
+      raw === NODE_TYPES.SUM_NODE ||
+      raw === NODE_TYPES.SUBTRACT_NODE ||
+      raw === NODE_TYPES.MULTIPLY_NODE ||
+      raw === NODE_TYPES.DIVIDE_NODE ||
+      raw === NODE_TYPES.MOD_NODE ||
+      raw === NODE_TYPES.POWER_NODE
+    ) {
+      return raw;
+    }
+    return NODE_TYPES.SUM_NODE;
+  };
+
+  switch (nodeType) {
+    case NODE_TYPES.SUM_NODE: {
+      return compileBinaryMathByNodeType(NODE_TYPES.SUM_NODE);
+    }
+    case NODE_TYPES.SUBTRACT_NODE: {
+      return compileBinaryMathByNodeType(NODE_TYPES.SUBTRACT_NODE);
+    }
+    case NODE_TYPES.MULTIPLY_NODE: {
+      return compileBinaryMathByNodeType(NODE_TYPES.MULTIPLY_NODE);
+    }
+    case NODE_TYPES.DIVIDE_NODE: {
+      return compileBinaryMathByNodeType(NODE_TYPES.DIVIDE_NODE);
+    }
+    case NODE_TYPES.MOD_NODE: {
+      return compileBinaryMathByNodeType(NODE_TYPES.MOD_NODE);
+    }
+    case NODE_TYPES.POWER_NODE: {
+      return compileBinaryMathByNodeType(NODE_TYPES.POWER_NODE);
+    }
+    case NODE_TYPES.MATH_OPERATION_NODE: {
+      const selectedOpType = resolveMathOperationType();
+      const selectedData = {
+        ...data,
+        operation: selectedOpType,
+      };
+      return compileBinaryMathByNodeType(selectedOpType, selectedData);
     }
     case NODE_TYPES.FLOOR_NODE: {
       if (executionTarget === "controller") {

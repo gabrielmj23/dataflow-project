@@ -351,7 +351,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
         style={{ minHeight: `${minHeight}px` }}
       >
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-xl font-bold leading-none">
+          <div className="text-2xl font-bold leading-none">
             <ListChecks className="h-5 w-5" />
           </div>
           <div className="text-sm leading-tight">{label}</div>
