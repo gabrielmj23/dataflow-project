@@ -158,7 +158,8 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
 
   if (
     nodeType === NODE_TYPES.FILTER_INPUT_VALUE ||
-    nodeType === NODE_TYPES.MAP_INPUT_VALUE
+    nodeType === NODE_TYPES.MAP_INPUT_VALUE ||
+    nodeType === NODE_TYPES.REPLICATE_INPUT_VALUE
   ) {
     return new NodeDefinition(
       (v: unknown) => v,

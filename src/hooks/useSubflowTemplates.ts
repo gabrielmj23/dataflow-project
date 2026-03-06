@@ -1,5 +1,6 @@
 import { useCallback, useState } from "react";
 import { type SubflowTemplatePayload } from "@/flow/subflow-templates-context";
+import { filterValidEdgesForNodes } from "@/flow/connection-validation";
 import {
   type FlowEdge,
   type FlowNode,
@@ -24,6 +25,12 @@ export function useSubflowTemplates() {
   const addOrUpdateTemplate = useCallback((payload: SubflowTemplatePayload) => {
     setSubflowTemplates((prev) => {
       const existing = prev.find((tpl) => tpl.id === payload.id);
+      const normalizedNodes = payload.nodes as FlowNode[];
+      const normalizedEdges = filterValidEdgesForNodes(
+        normalizedNodes,
+        payload.edges as FlowEdge[],
+      ) as FlowEdge[];
+
       const nextTemplate: SavedSubflowTemplate = {
         id: payload.id,
         name: payload.name,
@@ -33,8 +40,8 @@ export function useSubflowTemplates() {
           outCount: payload.outCount,
         },
         snapshot: {
-          nodes: payload.nodes as FlowNode[],
-          edges: payload.edges as FlowEdge[],
+          nodes: normalizedNodes,
+          edges: normalizedEdges,
         },
       };
 

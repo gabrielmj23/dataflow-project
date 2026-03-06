@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ReactFlow,
-  MarkerType,
   Background,
   BackgroundVariant,
   SelectionMode,
@@ -78,6 +77,7 @@ import {
   updatePublishedProject,
 } from "@/lib/projects";
 import { deserializeProgram, serializeProgram } from "@/flow/serialization";
+import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -879,6 +879,7 @@ export default function EditorPage() {
   }, [nodes, edges, setNodes, setEdges]);
 
   const { width: windowWidth, height: windowHeight } = useWindowSize();
+  const sharedEdgeConfig = useSharedEdgeConfig<FlowEdge>(setEdges);
 
   useEffect(() => {
     if (!isPublishDialogOpen) {
@@ -1114,13 +1115,7 @@ export default function EditorPage() {
                               isValidConnection={
                                 connectionTooltip.isValidConnection
                               }
-                              defaultEdgeOptions={{
-                                markerEnd: {
-                                  type: MarkerType.ArrowClosed,
-                                  width: 10,
-                                  height: 10,
-                                },
-                              }}
+                              {...sharedEdgeConfig}
                               onInit={setReactFlowInstance}
                               onNodesChange={onNodesChange}
                               onEdgesChange={onEdgesChange}

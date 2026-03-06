@@ -16,7 +16,6 @@ import {
   BackgroundVariant,
   ControlButton,
   Controls,
-  MarkerType,
   ReactFlow,
   ReactFlowProvider,
   SelectionMode,
@@ -70,10 +69,12 @@ import {
   type MicrobitConnectionType,
 } from "@/microbit/slot-manager";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
 import { reconcileWriteGraph } from "@/utils/flow";
+import { NODE_TYPES } from "@/common/constants";
 import {
   createConditionalPair,
   filterLockedEdgeChanges,
@@ -160,6 +161,24 @@ function parseReplicateFlowConnections(params: {
 type ReplicateFlowRfNode = Node<ReplicateFlowNodeData>;
 const REPLICATE_INPUT_NODE_ID = "replicate-input-value";
 const REPLICATE_OUTPUT_NODE_ID = "replicate-output-value";
+
+function isReplicateInputNodeType(type: unknown): boolean {
+  const safe = String(type ?? "");
+  return (
+    safe === NODE_TYPES.REPLICATE_INPUT_VALUE ||
+    safe === NODE_TYPES.MAP_INPUT_VALUE
+  );
+}
+
+function normalizeReplicateInputNodes(nodes: Node[]): Node[] {
+  return nodes.map((node) => {
+    if (!isReplicateInputNodeType(node.type)) return node;
+    return {
+      ...node,
+      type: NODE_TYPES.REPLICATE_INPUT_VALUE,
+    };
+  });
+}
 
 function ensureReplicateBoundaryNodes(nodes: Node[]): Node[] {
   const list = Array.isArray(nodes) ? nodes : [];
@@ -292,12 +311,16 @@ export const ReplicateFlowNode = memo(
       "pan",
     );
     const [draftNodes, setDraftNodes] = useState<Node[]>(() =>
-      ensureReplicateBoundaryNodes(subflowNodes ?? []),
+      ensureReplicateBoundaryNodes(
+        normalizeReplicateInputNodes(subflowNodes ?? []),
+      ),
     );
     const [draftEdges, setDraftEdges] = useState<Edge[]>(() =>
       filterEdgesByNodeIds(
         subflowEdges ?? [],
-        ensureReplicateBoundaryNodes(subflowNodes ?? []),
+        ensureReplicateBoundaryNodes(
+          normalizeReplicateInputNodes(subflowNodes ?? []),
+        ),
       ),
     );
     const [draftLabel, setDraftLabel] = useState(label);
@@ -431,6 +454,7 @@ export const ReplicateFlowNode = memo(
       },
       [connectionTooltip, draftNodes],
     );
+    const sharedEdgeConfig = useSharedEdgeConfig<Edge>(setDraftEdges);
 
     const editorFlowId = useMemo(() => `nested-subflow-editor-${id}`, [id]);
 
@@ -625,8 +649,8 @@ export const ReplicateFlowNode = memo(
 
     const addInputValueNode = () => {
       setDraftNodes((prev) => {
-        const existingInput = prev.find(
-          (node) => String(node.type) === "mapInputValue",
+        const existingInput = prev.find((node) =>
+          isReplicateInputNodeType(node.type),
         );
         if (existingInput) {
           return prev.map((node) => ({
@@ -646,20 +670,23 @@ export const ReplicateFlowNode = memo(
           ? createInnerNodeId()
           : REPLICATE_INPUT_NODE_ID;
 
+        const HORIZONTAL_OFFSET = 160;
+        const VERTICAL_OFFSET = 40;
+
         const newNode: Node = {
           id: candidateId,
-          type: "mapInputValue",
+          type: NODE_TYPES.REPLICATE_INPUT_VALUE,
           position: {
             x:
               typeof outputNode?.position?.x === "number"
-                ? outputNode.position.x - 420
+                ? outputNode.position.x - HORIZONTAL_OFFSET
                 : 0,
             y:
               typeof outputNode?.position?.y === "number"
-                ? outputNode.position.y + 80
+                ? outputNode.position.y + VERTICAL_OFFSET
                 : 120,
           },
-          data: { label: "Valor de entrada" },
+          data: { label: "Lista de entrada" },
           selected: true,
         };
 
@@ -669,12 +696,12 @@ export const ReplicateFlowNode = memo(
 
     return (
       <BaseNode
-        className="relative flex w-36 flex-col items-center justify-center rounded-xl border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md"
+        className="relative flex w-36 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md"
         onConfigClick={
           !isSelfCall
             ? () => {
                 const normalizedNodes = ensureReplicateBoundaryNodes(
-                  subflowNodes ?? [],
+                  normalizeReplicateInputNodes(subflowNodes ?? []),
                 );
                 setDraftNodes(normalizedNodes);
                 setDraftEdges(
@@ -777,19 +804,14 @@ export const ReplicateFlowNode = memo(
                       type: normalizeNodeTypeForEditor(n.type, nodeTypesCore),
                     }))}
                     edges={draftEdges}
-                    defaultEdgeOptions={{
-                      markerEnd: {
-                        type: MarkerType.ArrowClosed,
-                        width: 10,
-                        height: 10,
-                      },
-                    }}
+                    {...sharedEdgeConfig}
                     connectionLineComponent={ArrowConnectionLine}
                     nodeTypes={{
                       ...nodeTypesCore,
                       // Permite seguir anidando subflujos si se desea.
                       subflow: NestedSubflowNode,
                       mapInputValue: MapInputValueNode,
+                      replicateInputValue: MapInputValueNode,
                     }}
                     onNodesChange={onEditorNodesChange}
                     onEdgesChange={onEditorEdgesChange}
@@ -867,7 +889,10 @@ export const ReplicateFlowNode = memo(
                         draftEdges,
                         normalizedNodes,
                       );
-                      let nextInCount = 0;
+                      const hasMapInputValue = normalizedNodes.some((node) =>
+                        isReplicateInputNodeType(node.type),
+                      );
+                      const nextInCount = hasMapInputValue ? 1 : 0;
                       let nextOutCount = 1;
                       try {
                         const computed = computeOpenPortsFromLookup(
@@ -876,7 +901,6 @@ export const ReplicateFlowNode = memo(
                           lookup,
                         );
                         if (computed && computed.ready) {
-                          nextInCount = Math.min(1, computed.inCount);
                           nextOutCount = Math.min(1, computed.outCount);
                         }
                       } catch {

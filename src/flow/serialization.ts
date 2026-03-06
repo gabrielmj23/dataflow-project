@@ -1,4 +1,5 @@
 import type { Edge, Node, Viewport } from "@xyflow/react";
+import { filterValidEdgesForNodes } from "@/flow/connection-validation";
 
 export type SerializedViewport = {
   x: number;
@@ -151,9 +152,11 @@ export function deserializeProgram(serialized: SerializedProgramV1): {
     };
   });
 
+  const validEdges = filterValidEdgesForNodes(nodes, edges);
+
   return {
     nodes,
-    edges,
+    edges: validEdges,
     viewport: serialized.viewport,
     programName: serialized.programName,
   };
