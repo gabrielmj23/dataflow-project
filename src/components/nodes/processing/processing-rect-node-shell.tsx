@@ -55,15 +55,23 @@ export function ProcessingRectNodeShell({
   const in2Type = maskToVisualPortDataType(in2Mask);
   const in3Type = maskToVisualPortDataType(in3Mask);
   const outType = maskToVisualPortDataType(outMask);
+  const isPowerNode = nodeType === "power";
+  const inputLabels = isPowerNode ? ["Base", "Exponente"] : [];
 
   return (
     <BaseNode
       runtimeError={runtimeError}
       onConfigClick={onConfigClick}
       onConnectClick={onConnectClick}
-      className="relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 px-5 text-center text-white shadow-md"
+      className={`relative flex flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-500 text-center text-white shadow-md ${
+        isPowerNode ? "h-20 w-34 px-6" : "h-18 w-25 px-5"
+      }`}
     >
-      <div className="flex flex-col items-center gap-0.5">
+      <div
+        className={`flex flex-col items-center gap-0.5 ${
+          inputLabels.length > 0 ? "ml-12" : ""
+        }`}
+      >
         <div className="text-xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
         {subtitle && (
@@ -116,6 +124,23 @@ export function ProcessingRectNodeShell({
         className="absolute -right-1 top-1/2 h-4 w-4 -translate-y-1/2"
         indicatorClassName="border-sky-700"
       />
+
+      {inputLabels.length === 2 && (
+        <>
+          {[
+            { top: "35%", label: inputLabels[0] },
+            { top: "65%", label: inputLabels[1] },
+          ].map(({ top, label }) => (
+            <div
+              key={`processing-input-${label}-${top}`}
+              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90"
+              style={{ top }}
+            >
+              {label}
+            </div>
+          ))}
+        </>
+      )}
     </BaseNode>
   );
 }
