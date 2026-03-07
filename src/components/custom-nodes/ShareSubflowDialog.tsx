@@ -9,6 +9,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { ExtensionListItem } from "@/lib/extensions";
 
 type ShareSubflowDialogProps = {
   open: boolean;
@@ -17,6 +19,9 @@ type ShareSubflowDialogProps = {
   inCount: number;
   outCount: number;
   onConfirm: (payload: { name: string; description: string }) => void;
+  availableExtensions: ExtensionListItem[];
+  selectedExtensionIds: string[];
+  onToggleExtension: (extensionId: string) => void;
   isSubmitting?: boolean;
   submitError?: string | null;
 };
@@ -47,6 +52,9 @@ export function ShareSubflowDialog({
   inCount,
   outCount,
   onConfirm,
+  availableExtensions,
+  selectedExtensionIds,
+  onToggleExtension,
   isSubmitting = false,
   submitError = null,
 }: ShareSubflowDialogProps) {
@@ -66,7 +74,8 @@ export function ShareSubflowDialog({
   };
 
   const previewName = shareName.trim() || "Subflujo";
-  const canConfirm = shareName.trim().length > 0;
+  const canConfirm =
+    shareName.trim().length > 0 && selectedExtensionIds.length > 0;
 
   const inOffsets = useMemo(() => offsets(inCount), [inCount]);
   const outOffsets = useMemo(() => offsets(outCount), [outCount]);
@@ -78,7 +87,7 @@ export function ShareSubflowDialog({
           <DialogTitle>Compartir nodo</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[80vh] overflow-y-auto">
           <p className="text-sm text-muted-foreground">
             Puedes cambiar el nombre con el que se compartirá este nodo.
           </p>
@@ -96,6 +105,59 @@ export function ShareSubflowDialog({
             placeholder="Descripción breve"
             disabled={isSubmitting}
           />
+
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <p className="text-sm font-medium">Agregar a extensiones</p>
+            <p className="text-xs text-muted-foreground">
+              Debes seleccionar al menos una extension para publicar.
+            </p>
+
+            {availableExtensions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                No tienes extensiones disponibles. Crea una desde la barra
+                lateral para continuar.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {availableExtensions.map((extension) => {
+                  const selected = selectedExtensionIds.includes(extension.id);
+                  return (
+                    <button
+                      key={extension.id}
+                      type="button"
+                      className={cn(
+                        "rounded-md border px-3 py-2 text-left transition-colors",
+                        selected
+                          ? "border-(--nodi-blue) bg-blue-50"
+                          : "border-border hover:bg-muted",
+                      )}
+                      onClick={() => onToggleExtension(extension.id)}
+                      disabled={isSubmitting}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-2.5 w-2.5 rounded-full"
+                          style={{ backgroundColor: extension.color }}
+                        />
+                        <span className="text-sm font-medium line-clamp-1">
+                          {extension.name}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                        {extension.description}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {selectedExtensionIds.length === 0 ? (
+            <div className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+              Debes seleccionar al menos una extension.
+            </div>
+          ) : null}
 
           {submitError ? (
             <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">

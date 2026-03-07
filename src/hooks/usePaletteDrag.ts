@@ -40,28 +40,8 @@ export function usePaletteDrag({
   const paletteLabelByType = editorPaletteLabelByType;
 
   const paletteCategories: NodePaletteCategory[] = useMemo(() => {
-    if (!subflowTemplates.length) {
-      return nodePalette;
-    }
-
-    return nodePalette.map((category) => {
-      if (category.id !== "abstraction") {
-        return category;
-      }
-
-      const extraItems = subflowTemplates.map<NodePaletteItem>((tpl) => ({
-        type: "subflow",
-        label: tpl.name,
-        description: "Subflujo guardado",
-        templateId: tpl.id,
-      }));
-
-      return {
-        ...category,
-        items: [...category.items, ...extraItems],
-      };
-    });
-  }, [subflowTemplates]);
+    return nodePalette;
+  }, []);
 
   const onPaletteDragStart = useCallback(
     (event: React.DragEvent, item: NodePaletteItem) => {
@@ -74,6 +54,11 @@ export function usePaletteDrag({
           "application/subflow-template-id",
           item.templateId,
         );
+      }
+
+      const accentColor = (item as { accentColor?: string }).accentColor;
+      if (accentColor) {
+        event.dataTransfer.setData("application/accent-color", accentColor);
       }
 
       try {
@@ -116,6 +101,11 @@ export function usePaletteDrag({
       );
       const templateId = templateIdRaw || null;
 
+      const accentColorRaw = event.dataTransfer.getData(
+        "application/accent-color",
+      );
+      const accentColor = accentColorRaw || undefined;
+
       const position = projectClientToFlowPosition(
         reactFlowInstance,
         event.clientX,
@@ -125,6 +115,7 @@ export function usePaletteDrag({
       let data = buildDroppedNodeData({
         type,
         templateId,
+        accentColor,
         paletteLabelByType,
         resolveSubflowTemplate: (id) => {
           const template = subflowTemplates.find((tpl) => tpl.id === id);
@@ -133,6 +124,7 @@ export function usePaletteDrag({
             id: template.id,
             name: template.name,
             authorName: template.authorName,
+            accentColor: (template as { accentColor?: string }).accentColor,
             inCount: template.ports.inCount,
             outCount: template.ports.outCount,
             nodes: template.snapshot.nodes,

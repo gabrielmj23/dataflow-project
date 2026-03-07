@@ -6,6 +6,7 @@ export type ResolvedEditorSubflowTemplate = {
   id: string;
   name: string;
   authorName?: string;
+  accentColor?: string;
   inCount: number;
   outCount: number;
   nodes: Node[];
@@ -64,6 +65,7 @@ export function buildDroppedNodeData(params: {
   paletteLabelByType?: Map<string, string>;
   resolveSubflowTemplate?: ResolveEditorSubflowTemplate | null;
   includeTemplateAuthorName?: boolean;
+  accentColor?: string;
 }): Record<string, unknown> {
   const {
     type,
@@ -71,6 +73,7 @@ export function buildDroppedNodeData(params: {
     paletteLabelByType = editorPaletteLabelByType,
     resolveSubflowTemplate,
     includeTemplateAuthorName = true,
+    accentColor,
   } = params;
 
   const nodeLabel = paletteLabelByType.get(type);
@@ -88,11 +91,12 @@ export function buildDroppedNodeData(params: {
         subflowNodes: resolved.nodes,
         subflowEdges: resolved.edges,
         templateId: resolved.id,
+        accentColor: accentColor || resolved.accentColor,
       };
     }
   }
 
-  return nodeLabel ? { label: nodeLabel } : {};
+  return nodeLabel ? { label: nodeLabel, accentColor } : { accentColor };
 }
 
 export function normalizeNodeTypeForEditor(

@@ -51,6 +51,7 @@ import {
   projectClientToFlowPosition,
 } from "@/flow/editor-node-factory";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
@@ -80,11 +81,18 @@ import {
 import { getStoredAuthToken, getStoredAuthUser } from "@/lib/auth";
 import { ShareSubflowDialog } from "@/components/custom-nodes/ShareSubflowDialog";
 import { createCustomNode } from "@/lib/custom-nodes";
+import {
+  addNodesToExtension,
+  fetchMyExtensions,
+  type ExtensionListItem,
+} from "@/lib/extensions";
 import { toast } from "sonner";
+import { getDarkerColor } from "@/utils/colors";
 
 export type SubflowNodeData = {
   label?: string;
   templateAuthorName?: string;
+  accentColor?: string;
   inCount?: number;
   outCount?: number;
   subflowNodes?: Node[];
@@ -138,6 +146,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const {
     label = "Subflujo",
     templateAuthorName: rawTemplateAuthorName,
+    accentColor: rawAccentColor,
     inCount: rawInCount,
     outCount: rawOutCount,
     subflowNodes,
@@ -183,6 +192,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         ? resolvedTemplate.authorName.trim()
         : "";
 
+  const accentColor = rawAccentColor || resolvedTemplate?.accentColor;
+  const darkerBorder = useMemo(
+    () => (accentColor ? getDarkerColor(accentColor, 25) : undefined),
+    [accentColor],
+  );
+
   // Extract explicit `subflowInput` nodes (created in the editor) and
   // order them top-to-bottom so they map to the left handles deterministically.
   const explicitInputNodes = (() => {
@@ -224,6 +239,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isShareSubmitting, setIsShareSubmitting] = useState(false);
   const [shareSubmitError, setShareSubmitError] = useState<string | null>(null);
+  const [myExtensions, setMyExtensions] = useState<ExtensionListItem[]>([]);
+  const [selectedExtensionIds, setSelectedExtensionIds] = useState<string[]>(
+    [],
+  );
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
     "pan",
   );
@@ -312,6 +331,33 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [connectionHighlight, setConnectionHighlight] =
     useState<ConnectionHighlightState>(null);
   const isAuthenticated = Boolean(getStoredAuthUser() && getStoredAuthToken());
+
+  useEffect(() => {
+    if (!isShareDialogOpen || !isAuthenticated) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadMyExtensions = async () => {
+      try {
+        const extensions = await fetchMyExtensions();
+        if (cancelled) return;
+        setMyExtensions(extensions);
+      } catch (error) {
+        if (cancelled) return;
+        console.error("No se pudieron cargar tus extensiones.", error);
+      } finally {
+        // no-op
+      }
+    };
+
+    loadMyExtensions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isShareDialogOpen]);
 
   // Delete selected nodes/edges with Backspace/Delete when editor is open
   useEffect(() => {
@@ -573,8 +619,18 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   return (
     <>
       <BaseNode
-        className="relative flex w-52 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md"
-        style={{ minHeight: `${minHeight}px` }}
+        className={cn(
+          "relative flex w-52 flex-col items-center justify-center rounded-xl px-3 py-2 text-center text-white shadow-md",
+          !accentColor && "border-violet-700 bg-violet-500",
+        )}
+        style={{
+          minHeight: `${minHeight}px`,
+          backgroundColor: accentColor,
+          borderColor: darkerBorder,
+          backgroundImage: accentColor
+            ? `linear-gradient(135deg, ${accentColor} 0%, ${darkerBorder} 100%)`
+            : undefined,
+        }}
         onConfigClick={
           !isSelfCall
             ? () => {
@@ -618,6 +674,11 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           return (
             <div
               className={`flex flex-col gap-0.5 items-center ${hasInputs ? "ml-15" : ""}`}
+              style={{
+                textShadow: accentColor
+                  ? `0 1px 2px ${darkerBorder}88`
+                  : undefined,
+              }}
             >
               <div className="text-2xl font-bold leading-none">
                 <PictureInPicture2 />
@@ -637,11 +698,18 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             key={`l-${offset}`}
             type="target"
             position={Position.Left}
-            style={{ top: offset }}
             id={`in-${index + 1}`}
             dataType="any"
             className="h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-violet-700"
+            indicatorClassName={cn(
+              "border-violet-700",
+              accentColor && "border-[--indicator-border]",
+            )}
+            style={{
+              top: offset,
+              // @ts-expect-error custom css variable
+              "--indicator-border": darkerBorder,
+            }}
           />
         ))}
 
@@ -673,6 +741,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 left: "12px",
                 width: `${widthPx}px`,
                 transform: "translate(0, -50%)",
+                textShadow: accentColor
+                  ? `0 1px 1px ${darkerBorder}aa`
+                  : undefined,
               }}
             />
           );
@@ -683,11 +754,18 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             key={`r-${offset}`}
             type="source"
             position={Position.Right}
-            style={{ top: offset }}
+            style={{
+              top: offset,
+              // @ts-expect-error custom css variable
+              "--indicator-border": darkerBorder,
+            }}
             id={`out-${index + 1}`}
             dataType="any"
             className="h-2 w-2 -translate-y-1/2"
-            indicatorClassName="border-violet-700"
+            indicatorClassName={cn(
+              "border-violet-700",
+              accentColor && "border-[--indicator-border]",
+            )}
           />
         ))}
 
@@ -1136,17 +1214,34 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           if (!open) {
             setShareSubmitError(null);
             setIsShareSubmitting(false);
+            setSelectedExtensionIds([]);
           }
         }}
         subflowName={label}
         inCount={inCount}
         outCount={outCount}
+        availableExtensions={myExtensions}
+        selectedExtensionIds={selectedExtensionIds}
+        onToggleExtension={(extensionId) => {
+          setSelectedExtensionIds((prev) =>
+            prev.includes(extensionId)
+              ? prev.filter((idValue) => idValue !== extensionId)
+              : [...prev, extensionId],
+          );
+        }}
         isSubmitting={isShareSubmitting}
         submitError={shareSubmitError}
         onConfirm={async ({ name, description }) => {
           try {
             setShareSubmitError(null);
             setIsShareSubmitting(true);
+
+            if (selectedExtensionIds.length === 0) {
+              setShareSubmitError(
+                "Debes seleccionar al menos una extension para publicar.",
+              );
+              return;
+            }
 
             const payload = {
               label: name,
@@ -1157,12 +1252,44 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               subflowEdges: subflowEdges ?? [],
             };
 
-            await createCustomNode({
+            const createdNode = await createCustomNode({
               name,
               description: description || `Subflujo compartido: ${name}`,
               code: JSON.stringify(payload),
             });
-            toast.success("Felicidades, tu nodo es público ahora 🎉");
+
+            const selectedUniqueIds = Array.from(new Set(selectedExtensionIds));
+            const failedExtensionNames: string[] = [];
+
+            for (const extensionId of selectedUniqueIds) {
+              try {
+                await addNodesToExtension({
+                  extensionId,
+                  nodeIds: [createdNode.id],
+                });
+              } catch {
+                const extensionName =
+                  myExtensions.find((extension) => extension.id === extensionId)
+                    ?.name ?? extensionId;
+                failedExtensionNames.push(extensionName);
+              }
+            }
+
+            if (failedExtensionNames.length === selectedUniqueIds.length) {
+              throw new Error(
+                "No se pudo asociar el subflujo a las extensiones seleccionadas.",
+              );
+            }
+
+            if (failedExtensionNames.length > 0) {
+              toast.warning(
+                `Subflujo publicado, pero no se pudo asociar a: ${failedExtensionNames.join(", ")}.`,
+              );
+            } else {
+              toast.success(
+                `Subflujo publicado en ${selectedUniqueIds.length} extension(es).`,
+              );
+            }
 
             setIsShareDialogOpen(false);
           } catch (error) {

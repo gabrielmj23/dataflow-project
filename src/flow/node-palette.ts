@@ -2,6 +2,7 @@ export type NodePaletteItem = {
   type: string;
   label: string;
   description?: string;
+  accentColor?: string;
   /**
    * Identificador de plantilla para subflujos guardados.
    * Cuando está presente, el ítem representa un subflujo definido por el usuario
@@ -14,6 +15,7 @@ export type NodePaletteCategory = {
   id: string;
   title: string;
   items: NodePaletteItem[];
+  accentColor?: string;
   /** Optional nested subcategories */
   subcategories?: NodePaletteCategory[];
 };

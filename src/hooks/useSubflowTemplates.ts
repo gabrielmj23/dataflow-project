@@ -13,6 +13,7 @@ type SavedSubflowTemplate = {
   id: string;
   name: string;
   authorName?: string;
+  accentColor?: string;
   ports: SubflowPorts;
   snapshot: SubflowSnapshot;
 };
@@ -35,6 +36,7 @@ export function useSubflowTemplates() {
         id: payload.id,
         name: payload.name,
         authorName: payload.authorName ?? existing?.authorName,
+        accentColor: payload.accentColor ?? existing?.accentColor,
         ports: {
           inCount: payload.inCount,
           outCount: payload.outCount,
@@ -75,6 +77,7 @@ export function useSubflowTemplates() {
         id: tpl.id,
         name: tpl.name,
         authorName: tpl.authorName,
+        accentColor: tpl.accentColor,
         inCount: tpl.ports.inCount,
         outCount: tpl.ports.outCount,
         nodes: tpl.snapshot.nodes,
@@ -96,6 +99,7 @@ export function useSubflowTemplates() {
         id: tpl.id,
         name: tpl.name,
         authorName: tpl.authorName,
+        accentColor: tpl.accentColor,
         inCount: tpl.ports.inCount,
         outCount: tpl.ports.outCount,
         nodes: tpl.snapshot.nodes,

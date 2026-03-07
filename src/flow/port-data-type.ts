@@ -625,6 +625,7 @@ export function getPortTypeMask(params: {
   if (
     !isOutput &&
     nodeType !== NODE_TYPES.WRITE_SINK &&
+    nodeType !== NODE_TYPES.SUBFLOW &&
     !isListNodeType(nodeType)
   ) {
     return rawMask & TYPE_NON_LIST;
