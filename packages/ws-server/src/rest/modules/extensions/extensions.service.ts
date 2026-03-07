@@ -4,6 +4,8 @@ import { usersTable } from "../users/users.model";
 import { extensionsTable } from "./extensions.model";
 import { extensionsToNodes } from "../extensions-nodes/extensions-nodes.model";
 import { customNodesTable } from "../custom-nodes/custom-nodes.model";
+import { createCustomNode } from "../custom-nodes/custom-nodes.service";
+import type { CustomNodeCreate } from "../custom-nodes/custom-nodes.types";
 import { ExtensionCreate, ExtensionsSearchParams } from "./extensions.types";
 
 export async function createExtension(data: ExtensionCreate) {
@@ -103,4 +105,35 @@ export async function getExtensions(params: ExtensionsSearchParams) {
     .offset(offset);
 
   return extensions;
+}
+
+export async function getExtensionsByAuthor(authorId: string) {
+  const extensions = await db
+    .select({
+      id: extensionsTable.id,
+      name: extensionsTable.name,
+      description: extensionsTable.description,
+      color: extensionsTable.color,
+      authorId: usersTable.id,
+      authorName: usersTable.name,
+      createdAt: extensionsTable.createdAt,
+    })
+    .from(extensionsTable)
+    .innerJoin(usersTable, eq(extensionsTable.author, usersTable.id))
+    .where(eq(extensionsTable.author, authorId))
+    .orderBy(desc(extensionsTable.createdAt));
+
+  return extensions;
+}
+
+export async function createNodeAndAddToExtension(
+  extensionId: string,
+  nodeData: Omit<CustomNodeCreate, "author">,
+  authorId: string,
+) {
+  const createdNode = await createCustomNode({ ...nodeData, author: authorId });
+
+  await addNodesToExtension(extensionId, [createdNode.id as string]);
+
+  return createdNode;
 }

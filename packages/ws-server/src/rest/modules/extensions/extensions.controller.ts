@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createExtension,
   addNodesToExtension,
+  createNodeAndAddToExtension,
   getExtension,
   getExtensions,
 } from "./extensions.service";
@@ -184,6 +185,69 @@ extensionsRouter.post("/:id/nodes", authGuard, async (req, res) => {
     return res.status(201).json(inserted);
   } catch (error: unknown) {
     console.error("Error adding nodes to extension:", error);
+    return res.status(400).json({
+      error: error instanceof Error ? error.message : "Internal server error",
+    });
+  }
+});
+
+/**
+ * @openapi
+ * /extensions/{id}/nodes/upload:
+ *   post:
+ *     tags: [Extensions]
+ *     summary: Crea un nodo a partir de JSON y lo agrega a la extensión.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CustomNodeCreate'
+ *     responses:
+ *       201:
+ *         description: Nodo creado y asociado.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CustomNodeCreateResponse'
+ *       400:
+ *         $ref: '#/components/schemas/ErrorResponse'
+ */
+extensionsRouter.post("/:id/nodes/upload", authGuard, async (req, res) => {
+  try {
+    const extensionId = req.params.id;
+    if (Array.isArray(extensionId)) {
+      return res.status(400).json({ error: "Invalid extension ID" });
+    }
+
+    const { name, description, code } = req.body;
+    if (!name || !description || !code) {
+      return res
+        .status(400)
+        .json({ error: "name, description and code are required" });
+    }
+
+    const createdNode = await createNodeAndAddToExtension(
+      extensionId,
+      {
+        name,
+        description,
+        code,
+      },
+      req.user!.id,
+    );
+
+    return res.status(201).json(createdNode);
+  } catch (error: unknown) {
+    console.error("Error creating node and adding to extension:", error);
     return res.status(400).json({
       error: error instanceof Error ? error.message : "Internal server error",
     });
