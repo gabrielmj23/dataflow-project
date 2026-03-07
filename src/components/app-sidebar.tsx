@@ -53,7 +53,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  getNodeAbstractionLevel,
+  isNodeVisibleInLevel,
   type AbstractionLevel,
   type NodePaletteCategory,
   type NodePaletteItem,
@@ -131,7 +131,7 @@ export function AppSidebar({
     return categories
       .map((category) => {
         const items = (category.items ?? []).filter((item) => {
-          if (getNodeAbstractionLevel(item.type) > abstractionLevel) {
+          if (!isNodeVisibleInLevel(item.type, abstractionLevel)) {
             return false;
           }
 
@@ -152,7 +152,7 @@ export function AppSidebar({
         const subcategories = (category.subcategories ?? [])
           .map((sub) => {
             const subItems = (sub.items ?? []).filter((item) => {
-              if (getNodeAbstractionLevel(item.type) > abstractionLevel) {
+              if (!isNodeVisibleInLevel(item.type, abstractionLevel)) {
                 return false;
               }
 

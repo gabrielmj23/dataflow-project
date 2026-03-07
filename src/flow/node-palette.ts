@@ -20,7 +20,15 @@ export type NodePaletteCategory = {
 
 export type AbstractionLevel = 1 | 2 | 3;
 
-const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
+export type AbstractionRange = {
+  min?: AbstractionLevel;
+  max?: AbstractionLevel;
+};
+
+const nodeAbstractionLevelMap: Record<
+  string,
+  AbstractionLevel | AbstractionRange
+> = {
   runtimeInput: 1,
   constantNumber: 1,
   constantBoolean: 1,
@@ -32,18 +40,18 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   microbitReadButton: 3,
   microbitReadTemperature: 3,
 
-  sum: 1,
-  subtract: 1,
-  multiply: 1,
-  divide: 1,
-  mod: 1,
-  power: 1,
+  sum: { min: 1, max: 2 },
+  subtract: { min: 1, max: 2 },
+  multiply: { min: 1, max: 2 },
+  divide: { min: 1, max: 2 },
+  mod: { min: 1, max: 2 },
+  power: { min: 2, max: 2 },
   mathOperation: 2,
-  root: 1,
-  logarithm: 1,
-  floor: 1,
-  ceiling: 1,
-  round: 1,
+  root: 2,
+  logarithm: 2,
+  floor: 2,
+  ceiling: 2,
+  round: 2,
   formulaEditor: 3,
 
   concat: 1,
@@ -51,36 +59,37 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   subtractText: 1,
   sliceText: 1,
 
-  comparison: 1,
-  comparisonEqual: 1,
-  comparisonNotEqual: 1,
-  comparisonLess: 1,
-  comparisonLessOrEqual: 1,
-  comparisonGreater: 1,
-  comparisonGreaterOrEqual: 1,
+  comparison: 2,
+  comparisonEqual: { min: 1, max: 2 },
+  comparisonNotEqual: { min: 1, max: 2 },
+  comparisonLess: { min: 1, max: 2 },
+  comparisonLessOrEqual: { min: 1, max: 2 },
+  comparisonGreater: { min: 1, max: 2 },
+  comparisonGreaterOrEqual: { min: 1, max: 2 },
   and: 1,
   nand: 1,
   or: 1,
   nor: 1,
   xor: 1,
   not: 1,
-  desvio: 2,
-  switch: 2,
-  selector: 2,
+  desvio: { min: 1, max: 2 },
+  switch: { min: 2, max: 2 },
+  selector: 3,
   conditional: 3,
   conditionalPair: 3,
+
   scatter: 2,
   gather: 2,
 
-  sequence: 3,
+  sequence: 2,
   pulseSequence: 2,
-  zip: 3,
-  unzip: 3,
-  filter: 3,
-  map: 3,
+  zip: 2,
+  unzip: 2,
+  filter: 2,
+  map: 2,
   sortList: 3,
-  accumulate: 3,
-  product: 3,
+  accumulate: 2,
+  product: 2,
   count: 3,
   listFirst: 2,
   listLast: 2,
@@ -102,8 +111,21 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   microbitSound: 3,
 };
 
-export function getNodeAbstractionLevel(type: string): AbstractionLevel {
-  return nodeAbstractionLevelMap[type] ?? 3;
+export function isNodeVisibleInLevel(
+  type: string,
+  currentLevel: AbstractionLevel,
+): boolean {
+  const levelInfo = nodeAbstractionLevelMap[type] ?? 3;
+
+  if (typeof levelInfo === "number") {
+    return levelInfo <= currentLevel;
+  }
+
+  const { min, max } = levelInfo;
+  const isAboveMin = min === undefined || currentLevel >= min;
+  const isBelowMax = max === undefined || currentLevel <= max;
+
+  return isAboveMin && isBelowMax;
 }
 
 export function getNodeDescription(type: string): string | undefined {
