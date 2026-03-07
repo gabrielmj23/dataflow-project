@@ -130,7 +130,7 @@ export function AppSidebar({
   const filteredCategories = React.useMemo(() => {
     return categories
       .map((category) => {
-        const items = category.items.filter((item) => {
+        const items = (category.items ?? []).filter((item) => {
           if (getNodeAbstractionLevel(item.type) > abstractionLevel) {
             return false;
           }
@@ -148,9 +148,36 @@ export function AppSidebar({
             (!!description && description.includes(normalizedSearch))
           );
         });
-        return { ...category, items };
+
+        const subcategories = (category.subcategories ?? [])
+          .map((sub) => {
+            const subItems = (sub.items ?? []).filter((item) => {
+              if (getNodeAbstractionLevel(item.type) > abstractionLevel) {
+                return false;
+              }
+
+              if (!normalizedSearch) return true;
+
+              const label = item.label.toLowerCase();
+              const type = item.type.toLowerCase();
+              const description = item.description?.toLowerCase() ?? "";
+              return (
+                label.includes(normalizedSearch) ||
+                type.includes(normalizedSearch) ||
+                (!!description && description.includes(normalizedSearch))
+              );
+            });
+            return { ...sub, items: subItems };
+          })
+          .filter((s) => s.items.length > 0);
+
+        return { ...category, items, subcategories };
       })
-      .filter((category) => category.items.length > 0);
+      .filter(
+        (category) =>
+          category.items.length > 0 ||
+          (category.subcategories && category.subcategories.length > 0),
+      );
   }, [abstractionLevel, categories, normalizedSearch]);
 
   const handleScrollToCategory = (index: number) => {
@@ -335,6 +362,56 @@ export function AppSidebar({
                             </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
+                      ))}
+
+                      {/* Render subcategories (if any) */}
+                      {category.subcategories?.map((sub) => (
+                        <div key={sub.id} className="px-2">
+                          <div className="mb-1 mt-2 text-[11px] font-semibold text-muted-foreground">
+                            {sub.title}
+                          </div>
+                          {sub.items.map((item) => (
+                            <SidebarMenuItem
+                              key={
+                                item.templateId
+                                  ? `${item.type}-${item.templateId}`
+                                  : item.type
+                              }
+                            >
+                              <SidebarMenuButton
+                                type="button"
+                                draggable
+                                onDragStart={(event: DragEvent) =>
+                                  onDragStart(event, item)
+                                }
+                                className={`items-start justify-start gap-1 text-xs h-auto min-h-12 overflow-visible py-1.5 pl-3 ${
+                                  viewMode === "nodes"
+                                    ? "bg-transparent hover:bg-transparent active:bg-transparent shadow-none"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex w-full items-center justify-center py-1">
+                                  <div className="scale-100 origin-center">
+                                    <NodePreview
+                                      type={item.type}
+                                      label={item.label}
+                                      description={item.description}
+                                      isCustom={
+                                        !!item.templateId && !!onDeleteTemplate
+                                      }
+                                      onDelete={
+                                        item.templateId && onDeleteTemplate
+                                          ? () =>
+                                              onDeleteTemplate(item.templateId!)
+                                          : undefined
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))}
+                        </div>
                       ))}
                     </SidebarMenu>
                   </SidebarGroupContent>

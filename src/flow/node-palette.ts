@@ -14,6 +14,8 @@ export type NodePaletteCategory = {
   id: string;
   title: string;
   items: NodePaletteItem[];
+  /** Optional nested subcategories */
+  subcategories?: NodePaletteCategory[];
 };
 
 export type AbstractionLevel = 1 | 2 | 3;
@@ -108,6 +110,13 @@ export function getNodeDescription(type: string): string | undefined {
   for (const category of nodePalette) {
     for (const item of category.items) {
       if (item.type === type) return item.description;
+    }
+    if (category.subcategories) {
+      for (const sub of category.subcategories) {
+        for (const item of sub.items) {
+          if (item.type === type) return item.description;
+        }
+      }
     }
   }
   return undefined;
@@ -281,94 +290,117 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "control",
-    title: "Control y lógica",
-    items: [
+    title: "Lógica y control",
+    items: [],
+    subcategories: [
       {
-        type: "comparison",
-        label: "Comparación",
-        description: "Compara dos valores con un operador (>, ==, etc.).",
+        id: "control-compare",
+        title: "Comparaciones",
+        items: [
+          {
+            type: "comparison",
+            label: "Comparación",
+            description: "Compara dos valores con un operador.",
+          },
+          {
+            type: "comparisonEqual",
+            label: "Igual",
+            description:
+              "Compara dos valores y devuelve verdadero si son iguales.",
+          },
+          {
+            type: "comparisonNotEqual",
+            label: "Distinto",
+            description:
+              "Compara dos valores y devuelve verdadero si son distintos.",
+          },
+          {
+            type: "comparisonLess",
+            label: "Menor",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es menor.",
+          },
+          {
+            type: "comparisonLessOrEqual",
+            label: "Menor o igual",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es menor o igual.",
+          },
+          {
+            type: "comparisonGreater",
+            label: "Mayor",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es mayor.",
+          },
+          {
+            type: "comparisonGreaterOrEqual",
+            label: "Mayor o igual",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es mayor o igual.",
+          },
+        ],
       },
       {
-        type: "comparisonEqual",
-        label: "Igual",
-        description: "Compara dos valores y devuelve verdadero si son iguales.",
+        id: "control-logic",
+        title: "Lógica",
+        items: [
+          {
+            type: "and",
+            label: "AND",
+            description:
+              "Devuelve verdadero si todas las entradas son verdaderas.",
+          },
+          {
+            type: "nand",
+            label: "NAND",
+            description:
+              "Verdadero salvo que todas las entradas sean verdaderas.",
+          },
+          {
+            type: "or",
+            label: "OR",
+            description:
+              "Devuelve verdadero si al menos una entrada es verdadera.",
+          },
+          {
+            type: "nor",
+            label: "NOR",
+            description: "Verdadero solo cuando todas las entradas son falsas.",
+          },
+          {
+            type: "xor",
+            label: "XOR",
+            description: "Verdadero si exactamente una entrada es verdadera.",
+          },
+          {
+            type: "not",
+            label: "NOT",
+            description: "Niega un valor booleano de entrada.",
+          },
+        ],
       },
       {
-        type: "comparisonNotEqual",
-        label: "Distinto",
-        description:
-          "Compara dos valores y devuelve verdadero si son distintos.",
-      },
-      {
-        type: "comparisonLess",
-        label: "Menor",
-        description:
-          "Compara dos valores y devuelve verdadero si el primero es menor.",
-      },
-      {
-        type: "comparisonLessOrEqual",
-        label: "Menor o igual",
-        description:
-          "Compara dos valores y devuelve verdadero si el primero es menor o igual.",
-      },
-      {
-        type: "comparisonGreater",
-        label: "Mayor",
-        description:
-          "Compara dos valores y devuelve verdadero si el primero es mayor.",
-      },
-      {
-        type: "comparisonGreaterOrEqual",
-        label: "Mayor o igual",
-        description:
-          "Compara dos valores y devuelve verdadero si el primero es mayor o igual.",
-      },
-      {
-        type: "and",
-        label: "AND",
-        description: "Devuelve verdadero si todas las entradas son verdaderas.",
-      },
-      {
-        type: "nand",
-        label: "NAND",
-        description: "Verdadero salvo que todas las entradas sean verdaderas.",
-      },
-      {
-        type: "or",
-        label: "OR",
-        description: "Devuelve verdadero si al menos una entrada es verdadera.",
-      },
-      {
-        type: "nor",
-        label: "NOR",
-        description: "Verdadero solo cuando todas las entradas son falsas.",
-      },
-      {
-        type: "xor",
-        label: "XOR",
-        description: "Verdadero si exactamente una entrada es verdadera.",
-      },
-      {
-        type: "not",
-        label: "NOT",
-        description: "Niega un valor booleano de entrada.",
-      },
-      {
-        type: "desvio",
-        label: "Desvio",
-        description:
-          "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
-      },
-      {
-        type: "switch",
-        label: "Switch",
-        description: "Activa una de varias salidas según una condición.",
-      },
-      {
-        type: "conditionalPair",
-        label: "Condicional",
-        description:
-          "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
+        id: "control-flow",
+        title: "Flujo",
+        items: [
+          {
+            type: "desvio",
+            label: "Desvio",
+            description:
+              "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
+          },
+          {
+            type: "switch",
+            label: "Switch",
+            description: "Activa una de varias salidas según una condición.",
+          },
+          {
+            type: "conditionalPair",
+            label: "Condicional",
+            description:
+              "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
+          },
+        ],
       },
     ],
   },
