@@ -33,6 +33,7 @@ import {
   Search,
   Scissors,
   Dices,
+  Split,
 } from "lucide-react";
 
 import {
@@ -696,7 +697,9 @@ function NodePreview({
                 <span className="text-xl font-medium leading-none">¬</span>
               )}
               {symbolMap[type] === "desvio" && (
-                <span className="text-lg font-medium leading-none">↗↘</span>
+                <span className="text-lg font-medium leading-none">
+                  <Split className="rotate-90" />
+                </span>
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />
