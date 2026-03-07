@@ -132,7 +132,10 @@ export function AppSidebar({
     return categories
       .map((category) => {
         const items = (category.items ?? []).filter((item) => {
-          if (!isNodeVisibleInLevel(item.type, abstractionLevel)) {
+          if (
+            showAbstractionFilter &&
+            !isNodeVisibleInLevel(item.type, abstractionLevel)
+          ) {
             return false;
           }
 
@@ -153,7 +156,10 @@ export function AppSidebar({
         const subcategories = (category.subcategories ?? [])
           .map((sub) => {
             const subItems = (sub.items ?? []).filter((item) => {
-              if (!isNodeVisibleInLevel(item.type, abstractionLevel)) {
+              if (
+                showAbstractionFilter &&
+                !isNodeVisibleInLevel(item.type, abstractionLevel)
+              ) {
                 return false;
               }
 
@@ -179,7 +185,7 @@ export function AppSidebar({
           category.items.length > 0 ||
           (category.subcategories && category.subcategories.length > 0),
       );
-  }, [abstractionLevel, categories, normalizedSearch]);
+  }, [abstractionLevel, categories, normalizedSearch, showAbstractionFilter]);
 
   const handleScrollToCategory = (index: number) => {
     const target = sectionRefs[index]?.current;

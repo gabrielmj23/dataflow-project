@@ -761,13 +761,27 @@ export default function EditorPage() {
   const paletteCategories = useMemo(() => {
     if (!challenge.challengeAllowSet) return basePaletteCategories;
     return basePaletteCategories
-      .map((category) => ({
-        ...category,
-        items: category.items.filter((item) =>
+      .map((category) => {
+        const items = (category.items ?? []).filter((item) =>
           challenge.challengeAllowSet!.has(item.type),
-        ),
-      }))
-      .filter((category) => category.items.length > 0);
+        );
+
+        const subcategories = (category.subcategories ?? [])
+          .map((sub) => {
+            const subItems = (sub.items ?? []).filter((item) =>
+              challenge.challengeAllowSet!.has(item.type),
+            );
+            return { ...sub, items: subItems };
+          })
+          .filter((s) => (s.items ?? []).length > 0);
+
+        return { ...category, items, subcategories };
+      })
+      .filter(
+        (category) =>
+          (category.items ?? []).length > 0 ||
+          (category.subcategories ?? []).length > 0,
+      );
   }, [basePaletteCategories, challenge.challengeAllowSet]);
 
   const onPaletteDragStart = useCallback(
