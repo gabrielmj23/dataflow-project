@@ -541,6 +541,12 @@ function NodePreview({
         );
       }
       case "comparison":
+      case "comparisonEqual":
+      case "comparisonNotEqual":
+      case "comparisonLess":
+      case "comparisonLessOrEqual":
+      case "comparisonGreater":
+      case "comparisonGreaterOrEqual":
       case "and":
       case "nand":
       case "or":
@@ -552,6 +558,12 @@ function NodePreview({
       case "conditionalPair": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
+          comparisonEqual: "comparisonEqual",
+          comparisonNotEqual: "comparisonNotEqual",
+          comparisonLess: "comparisonLess",
+          comparisonLessOrEqual: "comparisonLessOrEqual",
+          comparisonGreater: "comparisonGreater",
+          comparisonGreaterOrEqual: "comparisonGreaterOrEqual",
           and: "and",
           nand: "nand",
           or: "or",
@@ -570,7 +582,25 @@ function NodePreview({
           >
             <span className="text-2xl font-bold leading-none">
               {symbolMap[type] === "comparison" && (
-                <span className="-rotate-90 text-2xl font-bold">=</span>
+                <span className="-rotate-90 text-xl font-bold">{"> < ="}</span>
+              )}
+              {symbolMap[type] === "comparisonEqual" && (
+                <span className="text-2xl font-bold leading-none">=</span>
+              )}
+              {symbolMap[type] === "comparisonNotEqual" && (
+                <span className="text-2xl font-bold leading-none">≠</span>
+              )}
+              {symbolMap[type] === "comparisonLess" && (
+                <span className="text-2xl font-bold leading-none">{"<"}</span>
+              )}
+              {symbolMap[type] === "comparisonLessOrEqual" && (
+                <span className="text-2xl font-bold leading-none">{"≤"}</span>
+              )}
+              {symbolMap[type] === "comparisonGreater" && (
+                <span className="text-2xl font-bold leading-none">{">"}</span>
+              )}
+              {symbolMap[type] === "comparisonGreaterOrEqual" && (
+                <span className="text-2xl font-bold leading-none">{"≥"}</span>
               )}
               {symbolMap[type] === "and" && <Ampersand className="h-7 w-7" />}
               {symbolMap[type] === "nand" && (

@@ -33,6 +33,14 @@ import { SubtractTextNode } from "@/components/nodes/processing/subtract-text-no
 import { SliceTextNode } from "@/components/nodes/processing/slice-text-node";
 
 import { ComparisonNode } from "@/components/nodes/control/comparison-node";
+import {
+  ComparisonEqualNode,
+  ComparisonNotEqualNode,
+  ComparisonLessNode,
+  ComparisonLessOrEqualNode,
+  ComparisonGreaterNode,
+  ComparisonGreaterOrEqualNode,
+} from "@/components/nodes/control/comparison-operator-nodes";
 import { AndNode } from "@/components/nodes/control/and-node";
 import { OrNode } from "@/components/nodes/control/or-node";
 import { NotNode } from "@/components/nodes/control/not-node";
@@ -111,6 +119,12 @@ export const nodeTypesCore: NodeTypes = {
   subtractText: SubtractTextNode,
   sliceText: SliceTextNode,
   comparison: ComparisonNode,
+  comparisonEqual: ComparisonEqualNode,
+  comparisonNotEqual: ComparisonNotEqualNode,
+  comparisonLess: ComparisonLessNode,
+  comparisonLessOrEqual: ComparisonLessOrEqualNode,
+  comparisonGreater: ComparisonGreaterNode,
+  comparisonGreaterOrEqual: ComparisonGreaterOrEqualNode,
   and: AndNode,
   nand: NandNode,
   or: OrNode,

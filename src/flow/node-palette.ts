@@ -50,6 +50,12 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   sliceText: 1,
 
   comparison: 1,
+  comparisonEqual: 1,
+  comparisonNotEqual: 1,
+  comparisonLess: 1,
+  comparisonLessOrEqual: 1,
+  comparisonGreater: 1,
+  comparisonGreaterOrEqual: 1,
   and: 1,
   nand: 1,
   or: 1,
@@ -281,6 +287,41 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "comparison",
         label: "Comparación",
         description: "Compara dos valores con un operador (>, ==, etc.).",
+      },
+      {
+        type: "comparisonEqual",
+        label: "Igual",
+        description: "Compara dos valores y devuelve verdadero si son iguales.",
+      },
+      {
+        type: "comparisonNotEqual",
+        label: "Distinto",
+        description:
+          "Compara dos valores y devuelve verdadero si son distintos.",
+      },
+      {
+        type: "comparisonLess",
+        label: "Menor",
+        description:
+          "Compara dos valores y devuelve verdadero si el primero es menor.",
+      },
+      {
+        type: "comparisonLessOrEqual",
+        label: "Menor o igual",
+        description:
+          "Compara dos valores y devuelve verdadero si el primero es menor o igual.",
+      },
+      {
+        type: "comparisonGreater",
+        label: "Mayor",
+        description:
+          "Compara dos valores y devuelve verdadero si el primero es mayor.",
+      },
+      {
+        type: "comparisonGreaterOrEqual",
+        label: "Mayor o igual",
+        description:
+          "Compara dos valores y devuelve verdadero si el primero es mayor o igual.",
       },
       {
         type: "and",

@@ -98,28 +98,54 @@ function buildMicrobitLogicGraph(params: {
   };
 }
 
+function resolveComparisonOperator(
+  nodeType: string,
+  operator: unknown,
+): "==" | "!=" | "<" | "<=" | ">" | ">=" {
+  switch (nodeType) {
+    case NODE_TYPES.COMPARISON_EQUAL_NODE:
+      return "==";
+    case NODE_TYPES.COMPARISON_NOT_EQUAL_NODE:
+      return "!=";
+    case NODE_TYPES.COMPARISON_LESS_NODE:
+      return "<";
+    case NODE_TYPES.COMPARISON_LESS_OR_EQUAL_NODE:
+      return "<=";
+    case NODE_TYPES.COMPARISON_GREATER_NODE:
+      return ">";
+    case NODE_TYPES.COMPARISON_GREATER_OR_EQUAL_NODE:
+      return ">=";
+    default:
+      return operator === "==" ||
+        operator === "!=" ||
+        operator === "<" ||
+        operator === "<=" ||
+        operator === ">" ||
+        operator === ">="
+        ? operator
+        : "==";
+  }
+}
+
 export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
   const nodeType = String(flowNode.type);
   const data = asRecord(flowNode.data);
   const executionTarget = data.executionTarget;
 
   switch (nodeType) {
-    case NODE_TYPES.COMPARISON_NODE: {
-      const operator = data.operator;
-      const op =
-        operator === "==" ||
-        operator === "!=" ||
-        operator === "<" ||
-        operator === "<=" ||
-        operator === ">" ||
-        operator === ">="
-          ? operator
-          : "==";
+    case NODE_TYPES.COMPARISON_NODE:
+    case NODE_TYPES.COMPARISON_EQUAL_NODE:
+    case NODE_TYPES.COMPARISON_NOT_EQUAL_NODE:
+    case NODE_TYPES.COMPARISON_LESS_NODE:
+    case NODE_TYPES.COMPARISON_LESS_OR_EQUAL_NODE:
+    case NODE_TYPES.COMPARISON_GREATER_NODE:
+    case NODE_TYPES.COMPARISON_GREATER_OR_EQUAL_NODE: {
+      const op = resolveComparisonOperator(nodeType, data.operator);
       if (executionTarget === "microbit") {
         const transport = parseTransport(data);
         const graph = buildMicrobitLogicGraph({
           nodeId: String(flowNode.id),
-          nodeType,
+          nodeType: NODE_TYPES.COMPARISON_NODE,
           nodeData: { ...data, operator: op },
           inputHandles: ["in-1", "in-2"],
           outputPortId: "output",
