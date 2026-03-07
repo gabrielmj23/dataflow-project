@@ -1513,6 +1513,7 @@ export default function EditorPage() {
                                   onToggle={() =>
                                     setIsConsoleOpen((prev) => !prev)
                                   }
+                                  editorContainerRef={editorContainerRef}
                                 />
                               </div>
 

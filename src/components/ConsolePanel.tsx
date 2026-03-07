@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Panel } from "@xyflow/react";
 import { ChevronDown, ChevronUp, Trash2, GripHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ export function ConsolePanel({
   consoleInputRef,
   isOpen,
   onToggle,
+  editorContainerRef,
 }: {
   consoleOutputText: string;
   activeRuntimePrompt: { nodeId: string } | null;
@@ -30,11 +31,13 @@ export function ConsolePanel({
   consoleInputRef: React.RefObject<HTMLTextAreaElement | null>;
   isOpen: boolean;
   onToggle: () => void;
+  editorContainerRef?: React.RefObject<HTMLElement | null>;
 }) {
   const [height, setHeight] = useState(120);
   const [isResizing, setIsResizing] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const startResizing = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -57,13 +60,54 @@ export function ConsolePanel({
   const drag = useCallback(
     (e: MouseEvent) => {
       if (isDragging) {
-        setOffset((prev) => ({
-          x: prev.x + e.movementX,
-          y: prev.y + e.movementY,
-        }));
+        setOffset((prev) => {
+          const newX = prev.x + e.movementX;
+          const newY = prev.y + e.movementY;
+
+          const panel = panelRef.current;
+          if (!panel) return { x: newX, y: newY };
+
+          const pw = panel.offsetWidth;
+          const ph = panel.offsetHeight;
+
+          const canvasRect =
+            editorContainerRef?.current?.getBoundingClientRect() ?? null;
+
+          if (canvasRect) {
+            const canvasLeft = canvasRect.left;
+            const canvasRight = canvasRect.right;
+            const canvasTop = canvasRect.top;
+            const canvasBottom = canvasRect.bottom;
+
+            const centerX = window.innerWidth / 2 + newX;
+            const minCenterX = canvasLeft + pw / 2;
+            const maxCenterX = canvasRight - pw / 2;
+            const clampedCenterX = Math.max(
+              minCenterX,
+              Math.min(centerX, maxCenterX),
+            );
+            const clampedX = clampedCenterX - window.innerWidth / 2;
+
+            const minOffsetY = canvasTop - (window.innerHeight - 16 - ph);
+            const maxOffsetY = canvasBottom - (window.innerHeight - 16);
+            const clampedY = Math.max(minOffsetY, Math.min(newY, maxOffsetY));
+
+            return { x: clampedX, y: clampedY };
+          }
+
+          const minX = pw / 2 - window.innerWidth / 2;
+          const maxX = window.innerWidth / 2 - pw / 2;
+          const minY = -16;
+          const maxY = Math.max(-16, window.innerHeight - 16 - ph);
+
+          const clampedX = Math.max(minX, Math.min(newX, maxX));
+          const clampedY = Math.max(minY, Math.min(newY, maxY));
+
+          return { x: clampedX, y: clampedY };
+        });
       }
     },
-    [isDragging],
+    [editorContainerRef, isDragging],
   );
 
   const resize = useCallback(
@@ -104,6 +148,49 @@ export function ConsolePanel({
     };
   }, [isResizing, isDragging, resize, stopResizing, drag, stopDragging]);
 
+  // Ensure offset stays within viewport when window resizes
+  useEffect(() => {
+    const onResize = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      setOffset((prev) => {
+        const pw = panel.offsetWidth;
+        const ph = panel.offsetHeight;
+
+        const canvasRect =
+          editorContainerRef?.current?.getBoundingClientRect() ?? null;
+        if (canvasRect) {
+          const minCenterX = canvasRect.left + pw / 2;
+          const maxCenterX = canvasRect.right - pw / 2;
+          const minX = minCenterX - window.innerWidth / 2;
+          const maxX = maxCenterX - window.innerWidth / 2;
+
+          const minY = canvasRect.top - (window.innerHeight - 16 - ph);
+          const maxY = canvasRect.bottom - (window.innerHeight - 16);
+
+          return {
+            x: Math.max(minX, Math.min(prev.x, maxX)),
+            y: Math.max(minY, Math.min(prev.y, maxY)),
+          };
+        }
+
+        const minX = pw / 2 - window.innerWidth / 2;
+        const maxX = window.innerWidth / 2 - pw / 2;
+        const minY = -16;
+        const maxY = Math.max(-16, window.innerHeight - 16 - ph);
+
+        return {
+          x: Math.max(minX, Math.min(prev.x, maxX)),
+          y: Math.max(minY, Math.min(prev.y, maxY)),
+        };
+      });
+    };
+
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [editorContainerRef]);
+
   return (
     <Panel
       position="bottom-left"
@@ -115,7 +202,10 @@ export function ConsolePanel({
         zIndex: isDragging || isResizing ? 1000 : 10,
       }}
     >
-      <div className="overflow-hidden rounded-md shadow-md bg-background/90 relative">
+      <div
+        ref={panelRef}
+        className="overflow-hidden rounded-md shadow-md bg-background/90 relative"
+      >
         {isOpen && (
           <div
             className="absolute top-0 left-0 right-0 h-1.5 cursor-ns-resize z-10 hover:bg-white/20 transition-colors"
