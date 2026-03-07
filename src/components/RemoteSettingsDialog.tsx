@@ -114,8 +114,8 @@ export function RemoteSettingsDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="disabled">Deshabilitado</SelectItem>
-                <SelectItem value="runner">Local</SelectItem>
-                <SelectItem value="controller">Remoto</SelectItem>
+                <SelectItem value="runner">Local (tengo el código)</SelectItem>
+                <SelectItem value="controller">Remoto (no tengo el código)</SelectItem>
               </SelectContent>
             </Select>
           </div>

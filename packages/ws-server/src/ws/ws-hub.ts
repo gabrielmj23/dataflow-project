@@ -327,7 +327,7 @@ export function attachWebSocketHub(
         );
         wsSend(socket, {
           type: "error",
-          message: `controllers cannot send ${type}`,
+          message: `Esta instrucción no se puede enviar, intenta con otra`,
         });
         return;
       }
@@ -356,7 +356,7 @@ export function attachWebSocketHub(
               type: "exec_result",
               requestId,
               ok: false,
-              error: "missing controllerId",
+              error: "No se especificó el nodo remoto en la solicitud.",
             });
             return;
           }
@@ -370,7 +370,8 @@ export function attachWebSocketHub(
               type: "exec_result",
               requestId,
               ok: false,
-              error: "controller not connected",
+              error:
+                "El nodo remoto no se pudo conectar, asegúrate de que esté conectado y vuelve a intentarlo.",
               controllerId,
             });
             return;
