@@ -62,7 +62,7 @@ export function MicrobitOutputShell({
 			className="relative flex h-18 w-56 flex-col items-center justify-center rounded-2xl border-sky-700 bg-sky-600 px-5 text-center text-white shadow-md"
 		>
 			<div className="flex flex-col items-center gap-0.5">
-				<div className="text-xl font-bold leading-none">{icon}</div>
+				<div className="text-2xl font-bold leading-none">{icon}</div>
 				<div className="text-sm leading-tight">{label}</div>
 				{subtitle && (
 					<div className="text-xs leading-tight text-white/85">{subtitle}</div>

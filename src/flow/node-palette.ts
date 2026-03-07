@@ -36,6 +36,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   divide: 1,
   mod: 1,
   power: 1,
+  mathOperation: 2,
   root: 1,
   logarithm: 1,
   floor: 1,
@@ -55,6 +56,7 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   nor: 1,
   xor: 1,
   not: 1,
+  desvio: 2,
   switch: 2,
   selector: 2,
   conditional: 3,
@@ -152,6 +154,12 @@ export const nodePalette: NodePaletteCategory[] = [
         description:
           "Elige un elemento aleatorio de una lista de opciones configurables.",
       },
+      {
+        type: "pulseSequence",
+        label: "Generar pulsos",
+        description:
+          "Genera una secuencia de números como pulsos individuales.",
+      },
     ],
   },
   {
@@ -198,6 +206,12 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "power",
         label: "Potencia",
         description: "Eleva una base a un exponente.",
+      },
+      {
+        type: "mathOperation",
+        label: "Operación matemática",
+        description:
+          "Nodo rápido para elegir entre sumar, restar, multiplicar, dividir, resto o potencia.",
       },
       {
         type: "root",
@@ -299,6 +313,12 @@ export const nodePalette: NodePaletteCategory[] = [
         description: "Niega un valor booleano de entrada.",
       },
       {
+        type: "desvio",
+        label: "Desvio",
+        description:
+          "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
+      },
+      {
         type: "switch",
         label: "Switch",
         description: "Activa una de varias salidas según una condición.",
@@ -319,12 +339,6 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "sequence",
         label: "Generar secuencia",
         description: "Genera una secuencia de números (ej. 0..N).",
-      },
-      {
-        type: "pulseSequence",
-        label: "Generar pulsos",
-        description:
-          "Genera una secuencia de números como pulsos individuales.",
       },
       {
         type: "zip",

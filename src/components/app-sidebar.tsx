@@ -378,6 +378,8 @@ function NodePreview({
   isCustom,
   onDelete,
 }: NodePreviewProps) {
+  const [isInfoVisible, setIsInfoVisible] = React.useState(false);
+
   const core = (() => {
     switch (type) {
       case "constantInput":
@@ -445,6 +447,7 @@ function NodePreview({
       case "divide":
       case "mod":
       case "power":
+      case "mathOperation":
       case "root":
       case "logarithm":
       case "floor":
@@ -458,6 +461,7 @@ function NodePreview({
           divide: "divide",
           mod: "mod",
           power: "power",
+          mathOperation: "mathOperation",
           root: "root",
           logarithm: "logarithm",
           floor: "floor",
@@ -470,7 +474,7 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-sky-500 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               {symbolMap[type] === "plus" && <Plus className="h-5 w-5" />}
               {symbolMap[type] === "minus" && <span>-</span>}
               {symbolMap[type] === "x" && <X className="h-5 w-5" />}
@@ -478,6 +482,9 @@ function NodePreview({
               {symbolMap[type] === "mod" && <Percent className="h-5 w-5" />}
               {symbolMap[type] === "power" && (
                 <span className="text-base font-normal leading-none">xⁿ</span>
+              )}
+              {symbolMap[type] === "mathOperation" && (
+                <span className="text-base font-normal leading-none">±×÷</span>
               )}
               {symbolMap[type] === "root" && (
                 <span className="text-base font-normal leading-none">√</span>
@@ -517,7 +524,7 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-fuchsia-600 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               {symbolMap[type] === "concat" && <Link2 className="h-4 w-4" />}
               {symbolMap[type] === "replaceText" && (
                 <ReplaceIcon className="h-5 w-5" />
@@ -540,6 +547,7 @@ function NodePreview({
       case "nor":
       case "xor":
       case "not":
+      case "desvio":
       case "switch":
       case "conditionalPair": {
         const symbolMap: Record<string, string> = {
@@ -550,6 +558,7 @@ function NodePreview({
           nor: "nor",
           xor: "xor",
           not: "not",
+          desvio: "desvio",
           switch: "switch",
           conditionalPair: "conditionalPair",
         };
@@ -559,7 +568,7 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-orange-500 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               {symbolMap[type] === "comparison" && (
                 <span className="-rotate-90 text-2xl font-bold">=</span>
               )}
@@ -578,6 +587,9 @@ function NodePreview({
               )}
               {symbolMap[type] === "not" && (
                 <span className="text-xl font-medium leading-none">¬</span>
+              )}
+              {symbolMap[type] === "desvio" && (
+                <span className="text-lg font-medium leading-none">↗↘</span>
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />
@@ -635,15 +647,25 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-none border border-yellow-600 bg-yellow-500 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               <Copy className="h-5 w-5 rotate-90" />
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>
         );
       }
+      case "pulseSequence": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border-emerald-600 bg-emerald-500 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-2xl font-bold leading-none">1..N</span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
       case "sequence":
-      case "pulseSequence":
       case "zip":
       case "unzip":
       case "filter":
@@ -689,7 +711,7 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-teal-600 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               {type === "listAtPosition" ? (
                 <Search className="h-5 w-5" />
               ) : type === "listFindElement" ? (
@@ -752,7 +774,7 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-24 flex-col items-center justify-center gap-0.5 rounded-2xl bg-rose-500 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               <PenSquare className="h-5 w-5" />
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
@@ -765,7 +787,7 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               <MessageSquareText className="h-5 w-5" />
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
@@ -778,7 +800,7 @@ function NodePreview({
             data-drag-preview
             className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
           >
-            <span className="text-xl font-bold leading-none">
+            <span className="text-2xl font-bold leading-none">
               <Volume2 className="h-5 w-5" />
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
@@ -812,7 +834,13 @@ function NodePreview({
   const nodeDescription = description?.trim() || "Sin descripción disponible.";
 
   return (
-    <div className="relative inline-block">
+    <div
+      className="relative inline-block"
+      onMouseEnter={() => setIsInfoVisible(true)}
+      onMouseLeave={() => setIsInfoVisible(false)}
+      onFocusCapture={() => setIsInfoVisible(true)}
+      onBlurCapture={() => setIsInfoVisible(false)}
+    >
       {core}
       <Tooltip>
         <TooltipTrigger asChild>
@@ -829,7 +857,12 @@ function NodePreview({
               e.preventDefault();
               e.stopPropagation();
             }}
-            className="absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-500 bg-background text-slate-500 shadow-sm"
+            className={cn(
+              "absolute right-0 top-0 z-10 -translate-y-1/2 translate-x-1/2 inline-flex h-5 w-5 items-center justify-center rounded-full border border-slate-500 bg-background text-slate-500 shadow-sm transition-opacity duration-150",
+              isInfoVisible
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none",
+            )}
           >
             <span className="text-sm font-semibold leading-none">i</span>
           </span>

@@ -60,7 +60,7 @@ export function TextRectNodeShell({
       infoDescription={getNodeDescription(nodeType) ?? undefined}
     >
       <div className={`flex flex-col gap-0.5 items-center ${inputLabels.length > 0 ? "ml-10" : ""}`}>
-        <div className="text-xl font-bold leading-none">{icon}</div>
+        <div className="text-2xl font-bold leading-none">{icon}</div>
         <div className="text-sm leading-tight">{label}</div>
         {subtitle && (
           <div className="text-xs leading-tight text-white/85">{subtitle}</div>

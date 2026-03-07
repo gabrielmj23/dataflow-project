@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +102,38 @@ function requiresTarget(operator: SwitchOperator): boolean {
   return operator !== "truthy" && operator !== "falsy";
 }
 
+function describeCondition(condition: SwitchCondition): string {
+  const customLabel = typeof condition.label === "string" ? condition.label.trim() : "";
+  if (customLabel) return customLabel;
+
+  const target =
+    typeof condition.target === "string"
+      ? condition.target
+      : String(condition.target ?? "");
+
+  switch (condition.operator) {
+    case "truthy":
+      return "Verdadero";
+    case "falsy":
+      return "Falso";
+    case "contains":
+      return `Contiene ${target}`;
+    case "startsWith":
+      return `Inicia con ${target}`;
+    case "endsWith":
+      return `Termina con ${target}`;
+    case "==":
+    case "!=":
+    case ">":
+    case ">=":
+    case "<":
+    case "<=":
+      return `${condition.operator} ${target}`;
+    default:
+      return "Condición";
+  }
+}
+
 export const SwitchNode = memo(({ id, data }: NodeProps) => {
   const {
     label = "Switch",
@@ -116,6 +149,11 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
   const outputHandleIds = useMemo(
     () => [...conditions.map((_, i) => `out-${i + 1}`)],
     [conditions]
+  );
+
+  const outputLabels = useMemo(
+    () => conditions.map((condition) => describeCondition(condition)),
+    [conditions],
   );
 
   const outputCount = outputHandleIds.length;
@@ -157,15 +195,36 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
 
   const headingId = useId();
 
+  const computedWidthPx = useMemo(() => {
+    const base = 152; // matches previous w-38 (~9.5rem = 152px)
+    const extraPerOutput = 18; // pixels to add per output beyond 2
+    const extra = Math.max(0, outputCount - 2) * extraPerOutput;
+    return base + extra;
+  }, [outputCount]);
+  const computedHeightPx = useMemo(() => {
+    const baseH = 72; // matches min-h-[72px]
+    const extraPerOutputH = 18; // px per extra output beyond 2
+    const extraH = Math.max(0, outputCount - 2) * extraPerOutputH;
+    return baseH + extraH;
+  }, [outputCount]);
+
+  const shellStyle: React.CSSProperties = { width: `${computedWidthPx}px`, minHeight: `${computedHeightPx}px` };
+
   return (
     <>
       <ControlRectNodeShell
         nodeType="switch"
         icon={<ToggleRight className="h-5 w-5" />}
         label={label}
+        className="pl-4 pr-14"
+        style={shellStyle}
+        contentClassName="items-start text-left"
+        labelClassName="text-base"
+        outputLabelClassName="text-[10px] max-w-[64px]"
         variant="singleInMultiOut"
         outputCount={outputCount}
         outputHandleIds={outputHandleIds}
+        outputLabels={outputLabels}
         onConfigClick={openDialog}
         runtimeError={runtimeError}
       />
@@ -176,15 +235,32 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
             <DialogTitle id={headingId}>Configurar Switch</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="max-h-[80vh] space-y-4 overflow-y-auto pr-1">
             <p className="text-sm text-muted-foreground">
               Define N condiciones. El nodo emitirá el valor de entrada por la
               primera salida cuya condición sea verdadera.
             </p>
 
             <div className="space-y-3">
-              {draftConditions.map((cond, idx) => (
-                <div key={`cond-${idx}`} className="rounded-md border p-3">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-medium">Condiciones</div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setDraftConditions((prev) => [
+                      ...prev,
+                      { operator: "==", target: "" },
+                    ])
+                  }
+                >
+                  Agregar condición
+                </Button>
+              </div>
+
+              <div className="space-y-4">
+                {draftConditions.map((cond, idx) => (
+                  <div key={`cond-${idx}`} className="rounded-md border p-3">
                   <div className="mb-2 flex items-center justify-between">
                     <div className="text-sm font-medium">
                       Condición {idx + 1} (Salida {idx + 1})
@@ -313,50 +389,38 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                     </div>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setDraftConditions((prev) => [
-                    ...prev,
-                    { operator: "==", target: "" },
-                  ])
-                }
-              >
-                Agregar condición
-              </Button>
-
-              <div className="flex items-center justify-end gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    setDraftConditions(conditions);
-                    setIsDialogOpen(false);
-                  }}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    setConditions(
-                      draftConditions.length > 0
-                        ? draftConditions
-                        : DEFAULT_CONDITIONS
-                    );
-                    setIsDialogOpen(false);
-                  }}
-                >
-                  Guardar
-                </Button>
+                ))}
               </div>
             </div>
           </div>
+
+          <DialogFooter>
+            <div className="flex items-center justify-end gap-2 w-full">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setDraftConditions(conditions);
+                  setIsDialogOpen(false);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  setConditions(
+                    draftConditions.length > 0
+                      ? draftConditions
+                      : DEFAULT_CONDITIONS
+                  );
+                  setIsDialogOpen(false);
+                }}
+              >
+                Guardar
+              </Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

@@ -17,6 +17,16 @@ type ControlRectNodeShellProps = {
   subtitle?: string;
   /** optional extra className to merge with the default shell classes */
   className?: string;
+  /** Optional className for the icon/label content block. */
+  contentClassName?: string;
+  /** Optional className for icon container. */
+  iconClassName?: string;
+  /** Optional className for label text. */
+  labelClassName?: string;
+  /** Optional className for output labels. */
+  outputLabelClassName?: string;
+  /** Optional inline style passed to the root node container. */
+  style?: React.CSSProperties;
   variant?:
     | "default"
     | "singleInDualOut"
@@ -31,6 +41,11 @@ type ControlRectNodeShellProps = {
    * When provided, it overrides the default `out-1..out-N` ids.
    */
   outputHandleIds?: string[];
+  /**
+   * Optional labels rendered beside each output handle.
+   * Index corresponds to output order (`out-1`, `out-2`, ...).
+   */
+  outputLabels?: string[];
   onConfigClick?: () => void;
   onConnectClick?: () => void;
   runtimeError?: string | null;
@@ -55,10 +70,16 @@ export function ControlRectNodeShell({
   variant = "default",
   outputCount,
   outputHandleIds,
+  outputLabels,
   onConfigClick,
   onConnectClick,
   runtimeError,
   className,
+  contentClassName,
+  iconClassName,
+  labelClassName,
+  outputLabelClassName,
+  style,
 }: ControlRectNodeShellProps) {
   const maskFor = (params: {
     handleType: "source" | "target";
@@ -82,7 +103,7 @@ export function ControlRectNodeShell({
 
   const outOffsets = variant === "singleInMultiOut" ? offsets(outCount) : [];
 
-  const baseClass = "relative flex h-18 w-25 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md";
+  const baseClass = "relative flex min-h-[72px] w-25 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md";
 
   return (
     <BaseNode
@@ -91,10 +112,15 @@ export function ControlRectNodeShell({
       onConfigClick={onConfigClick}
       onConnectClick={onConnectClick}
       className={className ? `${baseClass} ${className}` : baseClass}
+      style={style}
     >
-      <div className="flex flex-col items-center gap-0.5">
-        <div className="text-xl font-bold leading-none">{icon}</div>
-        <div className="text-sm leading-tight">{label}</div>
+      <div
+        className={`flex flex-col items-center gap-0.5 ${
+          contentClassName ?? ""
+        }`}
+      >
+        <div className={`text-xl font-bold leading-none ${iconClassName ?? ""}`}>{icon}</div>
+        <div className={`text-sm leading-tight ${labelClassName ?? ""}`}>{label}</div>
         {subtitle && (
           <div className="text-xs leading-tight text-white/85">
             {subtitle}
@@ -157,6 +183,16 @@ export function ControlRectNodeShell({
             className="absolute -right-1 h-2 w-2 -translate-y-1/2"
             indicatorClassName="border-orange-600"
           />
+          {outputLabels?.[0] && (
+            <div
+              className={`pointer-events-none absolute right-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90 ${
+                outputLabelClassName ?? ""
+              }`}
+              style={{ top: "35%" }}
+            >
+              {outputLabels[0]}
+            </div>
+          )}
           <CustomTypedHandle
             type="source"
             position={Position.Right}
@@ -167,6 +203,16 @@ export function ControlRectNodeShell({
             className="absolute -right-1 h-2 w-2 -translate-y-1/2"
             indicatorClassName="border-orange-600"
           />
+          {outputLabels?.[1] && (
+            <div
+              className={`pointer-events-none absolute right-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90 ${
+                outputLabelClassName ?? ""
+              }`}
+              style={{ top: "65%" }}
+            >
+              {outputLabels[1]}
+            </div>
+          )}
         </>
       )}
 
@@ -187,18 +233,30 @@ export function ControlRectNodeShell({
               const id = outputHandleIds?.[index] ?? `out-${index + 1}`;
               const mask = maskFor({ handleType: "source", handleId: id });
               const dt = maskToVisualPortDataType(mask);
+              const outputLabel = outputLabels?.[index];
               return (
-            <CustomTypedHandle
-              key={`r-${offset}`}
-              type="source"
-              position={Position.Right}
-              style={{ top: offset }}
-              id={id}
-              dataType={dt}
-              typeMask={mask}
-              className="absolute -right-1 h-2 w-2 -translate-y-1/2"
-              indicatorClassName="border-orange-600"
-            />
+            <div key={`r-${offset}`} className="contents">
+              {outputLabel && (
+                <div
+                  className={`pointer-events-none absolute right-3 -translate-y-1/2 max-w-[56px] truncate text-[8px] font-medium leading-none text-white/90 ${
+                    outputLabelClassName ?? ""
+                  }`}
+                  style={{ top: offset }}
+                >
+                  {outputLabel}
+                </div>
+              )}
+              <CustomTypedHandle
+                type="source"
+                position={Position.Right}
+                style={{ top: offset }}
+                id={id}
+                dataType={dt}
+                typeMask={mask}
+                className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+                indicatorClassName="border-orange-600"
+              />
+            </div>
               );
             })()
           ))}

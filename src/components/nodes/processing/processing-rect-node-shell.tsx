@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Position } from "@xyflow/react";
 
 import { BaseNode } from "@/components/base-node";
+import { NODE_TYPES } from "@/common/constants";
 import { getNodeDescription } from "@/flow/node-palette";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import {
@@ -56,6 +57,7 @@ export function ProcessingRectNodeShell({
   const in2Type = maskToVisualPortDataType(in2Mask);
   const in3Type = maskToVisualPortDataType(in3Mask);
   const outType = maskToVisualPortDataType(outMask);
+  const isMathOperation = nodeType === NODE_TYPES.MATH_OPERATION_NODE;
   const inputLabelsByNodeType: Record<string, [string, string]> = {
     power: ["Base", "Exponente"],
     root: ["Número", "Grado"],
@@ -79,8 +81,8 @@ export function ProcessingRectNodeShell({
           hasInputLabels ? "ml-12" : ""
         }`}
       >
-        <div className="text-xl font-bold leading-none">{icon}</div>
-        <div className="text-sm leading-tight">{label}</div>
+        <div className={`${isMathOperation ? "text-2xl" : "text-xl"} font-bold leading-none`}>{icon}</div>
+        <div className={`${hasInputLabels ? "text-base" : isMathOperation ? "text-xs" : "text-sm"} leading-tight`}>{label}</div>
         {subtitle && (
           <div className="text-xs leading-tight text-white/85">{subtitle}</div>
         )}
@@ -140,7 +142,7 @@ export function ProcessingRectNodeShell({
           ].map(({ top, label }) => (
             <div
               key={`processing-input-${label}-${top}`}
-              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[9px] font-medium leading-none text-white/90"
+              className="nodrag pointer-events-none absolute left-2 -translate-y-1/2 text-[11px] font-medium leading-none text-white/90"
               style={{ top }}
             >
               {label}

@@ -328,7 +328,7 @@ export const NestedSubflowNode = memo(
         }
       >
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-xl font-bold leading-none">
+          <div className="text-2xl font-bold leading-none">
             <PictureInPicture2 />
           </div>
           <div className="text-sm leading-tight">{label}</div>

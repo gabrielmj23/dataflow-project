@@ -246,6 +246,7 @@ export function inferPortDataType(params: {
     nodeType === "divide" ||
     nodeType === "mod" ||
     nodeType === "power" ||
+    nodeType === NODE_TYPES.MATH_OPERATION_NODE ||
     nodeType === "root" ||
     nodeType === "logarithm" ||
     nodeType === "floor" ||
@@ -285,6 +286,13 @@ export function inferPortDataType(params: {
   }
   if (nodeType === "selector") {
     // Selector passes through the selected value; accept/emit any type.
+    return "any";
+  }
+
+  if (nodeType === NODE_TYPES.DESVIO_NODE) {
+    if (handleType === "target") {
+      return params.handleId === "in-cond" ? "boolean" : "any";
+    }
     return "any";
   }
 
@@ -446,6 +454,7 @@ export function getPortTypeMask(params: {
       nodeType === "divide" ||
       nodeType === "mod" ||
       nodeType === "power" ||
+      nodeType === NODE_TYPES.MATH_OPERATION_NODE ||
       nodeType === "root" ||
       nodeType === "logarithm" ||
       nodeType === "floor" ||
@@ -491,6 +500,10 @@ export function getPortTypeMask(params: {
     if (nodeType === "selector") {
       // Selector inputs and output accept any type (token + routed value).
       return TYPE_ANY;
+    }
+    if (nodeType === NODE_TYPES.DESVIO_NODE) {
+      if (isOutput) return TYPE_ANY;
+      return handleId === "in-cond" ? TYPE_BOOLEAN : TYPE_ANY;
     }
     if (nodeType === NODE_TYPES.SCATTER_NODE) {
       return isOutput ? TYPE_ANY : TYPE_LIST;

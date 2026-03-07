@@ -137,78 +137,20 @@ function isHoverSuppressed(id: string): boolean {
 
 import { getPortTypeMask, maskToVisualPortDataType } from "./port-data-type";
 
-type SwitchCondition = {
-  label?: string;
-  operator?: unknown;
-  target?: unknown;
-};
-
-function parseOutIndex(handleId: string | null | undefined): number | null {
-  if (!handleId) return null;
-  const match = /^out-(\d+)$/.exec(handleId);
-  if (!match) return null;
-  const idx = Number(match[1]);
-  return Number.isFinite(idx) ? idx : null;
-}
-
-function describeCondition(condition: SwitchCondition): string {
-  const label =
-    typeof condition.label === "string" ? condition.label.trim() : "";
-  if (label) return label;
-
-  const op = condition.operator;
-  const target =
-    typeof condition.target === "string"
-      ? condition.target
-      : String(condition.target ?? "");
-
-  switch (op) {
-    case "truthy":
-      return "Verdadero";
-    case "falsy":
-      return "Falso";
-    case "contains":
-      return `Contiene ${target}`;
-    case "startsWith":
-      return `Inicia con ${target}`;
-    case "endsWith":
-      return `Termina con ${target}`;
-    case "==":
-    case "!=":
-    case ">":
-    case ">=":
-    case "<":
-    case "<=":
-      return `${String(op)} ${target}`;
-    default:
-      return "Condición";
-  }
-}
-
 function getSwitchEdgeLabel(params: {
   sourceNode: unknown;
   sourceHandleId: string | null | undefined;
 }): string | null {
-  const { sourceNode, sourceHandleId } = params;
+  void params;
+  return null;
+}
 
-  if (!sourceNode || typeof sourceNode !== "object") return null;
-  const type = (sourceNode as { type?: unknown }).type;
-  if (type !== "switch") return null;
-
-  const idx = parseOutIndex(sourceHandleId);
-  if (!idx) return null;
-
-  const data = (sourceNode as { data?: unknown }).data;
-  const conditionsRaw =
-    data && typeof data === "object"
-      ? (data as { conditions?: unknown }).conditions
-      : undefined;
-
-  if (!Array.isArray(conditionsRaw)) return `Salida ${idx}`;
-  const cond = conditionsRaw[idx - 1] as unknown;
-  if (!cond || typeof cond !== "object") return `Salida ${idx}`;
-
-  return describeCondition(cond as SwitchCondition);
+function getDesvioEdgeLabel(params: {
+  sourceNode: unknown;
+  sourceHandleId: string | null | undefined;
+}): string | null {
+  void params;
+  return null;
 }
 
 function getSequenceEdgeLabel(params: { targetNode: unknown }): string | null {
@@ -295,6 +237,7 @@ export function LabeledEdge(props: EdgeProps) {
 
   const label =
     getSwitchEdgeLabel({ sourceNode, sourceHandleId }) ??
+    getDesvioEdgeLabel({ sourceNode, sourceHandleId }) ??
     getSequenceEdgeLabel({ targetNode }) ??
     getTextTransformEdgeLabel({ targetNode });
 

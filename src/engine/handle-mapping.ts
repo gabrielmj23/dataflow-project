@@ -235,6 +235,7 @@ register(
     NODE_TYPES.DIVIDE_NODE,
     NODE_TYPES.MOD_NODE,
     NODE_TYPES.POWER_NODE,
+    NODE_TYPES.MATH_OPERATION_NODE,
     NODE_TYPES.ROOT_NODE,
     NODE_TYPES.LOGARITHM_NODE,
     NODE_TYPES.CONCAT_NODE,
@@ -308,6 +309,24 @@ register([NODE_TYPES.SWITCH_NODE], (p) => {
 
   const idx = parseIndexHandle(handleId);
   if (handleId?.startsWith("out-") && idx) return `output${idx}`;
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+// Desvio node
+register([NODE_TYPES.DESVIO_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "value";
+    if (handleId === "in-cond") return "condition";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  const idx = parseIndexHandle(handleId);
+  if (handleId?.startsWith("out-") && idx) {
+    if (idx === 1) return "output1";
+    if (idx === 2) return "output2";
+  }
+
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 

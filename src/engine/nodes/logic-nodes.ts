@@ -197,3 +197,19 @@ export class EngineSwitchNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineDesvioNode extends NodeDefinition {
+  constructor() {
+    super(
+      (value: unknown, condition: unknown) => {
+        const targetPort = Boolean(condition) ? "output1" : "output2";
+        return [new DataToken(value, new PortAddress("", targetPort))];
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["value", "condition", "output1", "output2"],
+      {
+        stickyInputPorts: ["value", "condition"],
+      },
+    );
+  }
+}

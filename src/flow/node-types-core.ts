@@ -20,6 +20,7 @@ import { MultiplyNode } from "@/components/nodes/processing/multiply-node";
 import { DivideNode } from "@/components/nodes/processing/divide-node";
 import { ModNode } from "@/components/nodes/processing/mod-node";
 import { PowerNode } from "@/components/nodes/processing/power-node";
+import { MathOperationNode } from "@/components/nodes/processing/math-operation-node";
 import { RootNode } from "@/components/nodes/processing/root-node";
 import { LogarithmNode } from "@/components/nodes/processing/logarithm-node";
 import { FloorNode } from "@/components/nodes/processing/floor-node";
@@ -38,6 +39,7 @@ import { NotNode } from "@/components/nodes/control/not-node";
 import { NandNode } from "@/components/nodes/control/nand-node";
 import { NorNode } from "@/components/nodes/control/nor-node";
 import { XorNode } from "@/components/nodes/control/xor-node";
+import { DesvioNode } from "@/components/nodes/control/desvio-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
 import { SelectorNode } from "@/components/nodes/control/selector-node";
@@ -97,6 +99,7 @@ export const nodeTypesCore: NodeTypes = {
   divide: DivideNode,
   mod: ModNode,
   power: PowerNode,
+  mathOperation: MathOperationNode,
   root: RootNode,
   logarithm: LogarithmNode,
   floor: FloorNode,
@@ -113,6 +116,7 @@ export const nodeTypesCore: NodeTypes = {
   or: OrNode,
   nor: NorNode,
   xor: XorNode,
+  desvio: DesvioNode,
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,
