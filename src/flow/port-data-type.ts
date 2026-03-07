@@ -40,6 +40,16 @@ const LIST_NODE_TYPES = new Set<string>([
   NODE_TYPES.GATHER_NODE,
 ]);
 
+const COMPARISON_NODE_TYPES = new Set<string>([
+  NODE_TYPES.COMPARISON_NODE,
+  NODE_TYPES.COMPARISON_EQUAL_NODE,
+  NODE_TYPES.COMPARISON_NOT_EQUAL_NODE,
+  NODE_TYPES.COMPARISON_LESS_NODE,
+  NODE_TYPES.COMPARISON_LESS_OR_EQUAL_NODE,
+  NODE_TYPES.COMPARISON_GREATER_NODE,
+  NODE_TYPES.COMPARISON_GREATER_OR_EQUAL_NODE,
+]);
+
 export function isListNodeType(nodeType: string | null | undefined): boolean {
   if (!nodeType) return false;
   return LIST_NODE_TYPES.has(nodeType);
@@ -278,7 +288,7 @@ export function inferPortDataType(params: {
   ) {
     return "boolean";
   }
-  if (nodeType === "comparison") {
+  if (COMPARISON_NODE_TYPES.has(nodeType)) {
     return handleType === "source" ? "boolean" : "number";
   }
   if (nodeType === "conditional") {
@@ -490,7 +500,7 @@ export function getPortTypeMask(params: {
     ) {
       return TYPE_BOOLEAN;
     }
-    if (nodeType === "comparison") {
+    if (COMPARISON_NODE_TYPES.has(nodeType)) {
       // Inputs can be anything; output is boolean.
       return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
     }

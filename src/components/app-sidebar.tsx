@@ -33,6 +33,7 @@ import {
   Search,
   Scissors,
   Dices,
+  Split,
 } from "lucide-react";
 
 import {
@@ -53,7 +54,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  getNodeAbstractionLevel,
+  isNodeVisibleInLevel,
   type AbstractionLevel,
   type NodePaletteCategory,
   type NodePaletteItem,
@@ -130,8 +131,11 @@ export function AppSidebar({
   const filteredCategories = React.useMemo(() => {
     return categories
       .map((category) => {
-        const items = category.items.filter((item) => {
-          if (getNodeAbstractionLevel(item.type) > abstractionLevel) {
+        const items = (category.items ?? []).filter((item) => {
+          if (
+            showAbstractionFilter &&
+            !isNodeVisibleInLevel(item.type, abstractionLevel)
+          ) {
             return false;
           }
 
@@ -148,10 +152,40 @@ export function AppSidebar({
             (!!description && description.includes(normalizedSearch))
           );
         });
-        return { ...category, items };
+
+        const subcategories = (category.subcategories ?? [])
+          .map((sub) => {
+            const subItems = (sub.items ?? []).filter((item) => {
+              if (
+                showAbstractionFilter &&
+                !isNodeVisibleInLevel(item.type, abstractionLevel)
+              ) {
+                return false;
+              }
+
+              if (!normalizedSearch) return true;
+
+              const label = item.label.toLowerCase();
+              const type = item.type.toLowerCase();
+              const description = item.description?.toLowerCase() ?? "";
+              return (
+                label.includes(normalizedSearch) ||
+                type.includes(normalizedSearch) ||
+                (!!description && description.includes(normalizedSearch))
+              );
+            });
+            return { ...sub, items: subItems };
+          })
+          .filter((s) => s.items.length > 0);
+
+        return { ...category, items, subcategories };
       })
-      .filter((category) => category.items.length > 0);
-  }, [abstractionLevel, categories, normalizedSearch]);
+      .filter(
+        (category) =>
+          category.items.length > 0 ||
+          (category.subcategories && category.subcategories.length > 0),
+      );
+  }, [abstractionLevel, categories, normalizedSearch, showAbstractionFilter]);
 
   const handleScrollToCategory = (index: number) => {
     const target = sectionRefs[index]?.current;
@@ -335,6 +369,56 @@ export function AppSidebar({
                             </div>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
+                      ))}
+
+                      {/* Render subcategories (if any) */}
+                      {category.subcategories?.map((sub) => (
+                        <div key={sub.id} className="px-2">
+                          <div className="mb-1 mt-2 text-[11px] font-semibold text-muted-foreground">
+                            {sub.title}
+                          </div>
+                          {sub.items.map((item) => (
+                            <SidebarMenuItem
+                              key={
+                                item.templateId
+                                  ? `${item.type}-${item.templateId}`
+                                  : item.type
+                              }
+                            >
+                              <SidebarMenuButton
+                                type="button"
+                                draggable
+                                onDragStart={(event: DragEvent) =>
+                                  onDragStart(event, item)
+                                }
+                                className={`items-start justify-start gap-1 text-xs h-auto min-h-12 overflow-visible py-1.5 pl-3 ${
+                                  viewMode === "nodes"
+                                    ? "bg-transparent hover:bg-transparent active:bg-transparent shadow-none"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex w-full items-center justify-center py-1">
+                                  <div className="scale-100 origin-center">
+                                    <NodePreview
+                                      type={item.type}
+                                      label={item.label}
+                                      description={item.description}
+                                      isCustom={
+                                        !!item.templateId && !!onDeleteTemplate
+                                      }
+                                      onDelete={
+                                        item.templateId && onDeleteTemplate
+                                          ? () =>
+                                              onDeleteTemplate(item.templateId!)
+                                          : undefined
+                                      }
+                                    />
+                                  </div>
+                                </div>
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          ))}
+                        </div>
                       ))}
                     </SidebarMenu>
                   </SidebarGroupContent>
@@ -541,6 +625,12 @@ function NodePreview({
         );
       }
       case "comparison":
+      case "comparisonEqual":
+      case "comparisonNotEqual":
+      case "comparisonLess":
+      case "comparisonLessOrEqual":
+      case "comparisonGreater":
+      case "comparisonGreaterOrEqual":
       case "and":
       case "nand":
       case "or":
@@ -552,6 +642,12 @@ function NodePreview({
       case "conditionalPair": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
+          comparisonEqual: "comparisonEqual",
+          comparisonNotEqual: "comparisonNotEqual",
+          comparisonLess: "comparisonLess",
+          comparisonLessOrEqual: "comparisonLessOrEqual",
+          comparisonGreater: "comparisonGreater",
+          comparisonGreaterOrEqual: "comparisonGreaterOrEqual",
           and: "and",
           nand: "nand",
           or: "or",
@@ -570,7 +666,25 @@ function NodePreview({
           >
             <span className="text-2xl font-bold leading-none">
               {symbolMap[type] === "comparison" && (
-                <span className="-rotate-90 text-2xl font-bold">=</span>
+                <span className="-rotate-90 text-xl font-bold">{"> < ="}</span>
+              )}
+              {symbolMap[type] === "comparisonEqual" && (
+                <span className="text-2xl font-bold leading-none">=</span>
+              )}
+              {symbolMap[type] === "comparisonNotEqual" && (
+                <span className="text-2xl font-bold leading-none">≠</span>
+              )}
+              {symbolMap[type] === "comparisonLess" && (
+                <span className="text-2xl font-bold leading-none">{"<"}</span>
+              )}
+              {symbolMap[type] === "comparisonLessOrEqual" && (
+                <span className="text-2xl font-bold leading-none">{"≤"}</span>
+              )}
+              {symbolMap[type] === "comparisonGreater" && (
+                <span className="text-2xl font-bold leading-none">{">"}</span>
+              )}
+              {symbolMap[type] === "comparisonGreaterOrEqual" && (
+                <span className="text-2xl font-bold leading-none">{"≥"}</span>
               )}
               {symbolMap[type] === "and" && <Ampersand className="h-7 w-7" />}
               {symbolMap[type] === "nand" && (
@@ -589,7 +703,9 @@ function NodePreview({
                 <span className="text-xl font-medium leading-none">¬</span>
               )}
               {symbolMap[type] === "desvio" && (
-                <span className="text-lg font-medium leading-none">↗↘</span>
+                <span className="text-lg font-medium leading-none">
+                  <Split className="rotate-90" />
+                </span>
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />

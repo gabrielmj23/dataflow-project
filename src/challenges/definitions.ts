@@ -240,7 +240,7 @@ const definitions: Record<string, ChallengeDefinition> = {
     id: "control-altura",
     title: "Control de altura",
     description:
-      "Para entrar al juego debes medir 120 cm o más. Puedes configurar el nodo de Entrada para cambiar el mensaje para pedir la altura. Configura el nodo Comparar para ver si cumples la altura.",
+      "Para entrar al juego debes medir 120 cm o más. Puedes configurar el nodo de Entrada para cambiar el mensaje para pedir la altura. Usa el nodo de Mayor o Igual para ver si cumples la altura.",
     sampleInput: "Ejemplo: entrada 130 → Verdadero",
     group: 1,
     level: 6,
@@ -248,7 +248,7 @@ const definitions: Record<string, ChallengeDefinition> = {
       paletteAllowList: [
         "runtimeInput",
         "constantNumber",
-        "comparison",
+        "comparisonGreaterOrEqual",
         "write",
       ],
       initialNodes: [

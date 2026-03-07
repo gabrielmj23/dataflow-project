@@ -14,11 +14,21 @@ export type NodePaletteCategory = {
   id: string;
   title: string;
   items: NodePaletteItem[];
+  /** Optional nested subcategories */
+  subcategories?: NodePaletteCategory[];
 };
 
 export type AbstractionLevel = 1 | 2 | 3;
 
-const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
+export type AbstractionRange = {
+  min?: AbstractionLevel;
+  max?: AbstractionLevel;
+};
+
+const nodeAbstractionLevelMap: Record<
+  string,
+  AbstractionLevel | AbstractionRange
+> = {
   runtimeInput: 1,
   constantNumber: 1,
   constantBoolean: 1,
@@ -30,18 +40,18 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   microbitReadButton: 3,
   microbitReadTemperature: 3,
 
-  sum: 1,
-  subtract: 1,
-  multiply: 1,
-  divide: 1,
-  mod: 1,
-  power: 1,
+  sum: { min: 1, max: 2 },
+  subtract: { min: 1, max: 2 },
+  multiply: { min: 1, max: 2 },
+  divide: { min: 1, max: 2 },
+  mod: { min: 1, max: 2 },
+  power: { min: 2, max: 2 },
   mathOperation: 2,
-  root: 1,
-  logarithm: 1,
-  floor: 1,
-  ceiling: 1,
-  round: 1,
+  root: 2,
+  logarithm: 2,
+  floor: 2,
+  ceiling: 2,
+  round: 2,
   formulaEditor: 3,
 
   concat: 1,
@@ -49,30 +59,37 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   subtractText: 1,
   sliceText: 1,
 
-  comparison: 1,
+  comparison: 2,
+  comparisonEqual: { min: 1, max: 2 },
+  comparisonNotEqual: { min: 1, max: 2 },
+  comparisonLess: { min: 1, max: 2 },
+  comparisonLessOrEqual: { min: 1, max: 2 },
+  comparisonGreater: { min: 1, max: 2 },
+  comparisonGreaterOrEqual: { min: 1, max: 2 },
   and: 1,
   nand: 1,
   or: 1,
   nor: 1,
   xor: 1,
   not: 1,
-  desvio: 2,
-  switch: 2,
-  selector: 2,
+  desvio: { min: 1, max: 2 },
+  switch: { min: 2, max: 2 },
+  selector: 3,
   conditional: 3,
   conditionalPair: 3,
+
   scatter: 2,
   gather: 2,
 
-  sequence: 3,
+  sequence: 2,
   pulseSequence: 2,
-  zip: 3,
-  unzip: 3,
-  filter: 3,
-  map: 3,
+  zip: 2,
+  unzip: 2,
+  filter: 2,
+  map: 2,
   sortList: 3,
-  accumulate: 3,
-  product: 3,
+  accumulate: 2,
+  product: 2,
   count: 3,
   listFirst: 2,
   listLast: 2,
@@ -94,14 +111,34 @@ const nodeAbstractionLevelMap: Record<string, AbstractionLevel> = {
   microbitSound: 3,
 };
 
-export function getNodeAbstractionLevel(type: string): AbstractionLevel {
-  return nodeAbstractionLevelMap[type] ?? 3;
+export function isNodeVisibleInLevel(
+  type: string,
+  currentLevel: AbstractionLevel,
+): boolean {
+  const levelInfo = nodeAbstractionLevelMap[type] ?? 3;
+
+  if (typeof levelInfo === "number") {
+    return levelInfo <= currentLevel;
+  }
+
+  const { min, max } = levelInfo;
+  const isAboveMin = min === undefined || currentLevel >= min;
+  const isBelowMax = max === undefined || currentLevel <= max;
+
+  return isAboveMin && isBelowMax;
 }
 
 export function getNodeDescription(type: string): string | undefined {
   for (const category of nodePalette) {
     for (const item of category.items) {
       if (item.type === type) return item.description;
+    }
+    if (category.subcategories) {
+      for (const sub of category.subcategories) {
+        for (const item of sub.items) {
+          if (item.type === type) return item.description;
+        }
+      }
     }
   }
   return undefined;
@@ -275,59 +312,117 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "control",
-    title: "Control y lógica",
-    items: [
+    title: "Lógica y control",
+    items: [],
+    subcategories: [
       {
-        type: "comparison",
-        label: "Comparación",
-        description: "Compara dos valores con un operador (>, ==, etc.).",
+        id: "control-compare",
+        title: "Comparaciones",
+        items: [
+          {
+            type: "comparison",
+            label: "Comparación",
+            description: "Compara dos valores con un operador.",
+          },
+          {
+            type: "comparisonEqual",
+            label: "Igual",
+            description:
+              "Compara dos valores y devuelve verdadero si son iguales.",
+          },
+          {
+            type: "comparisonNotEqual",
+            label: "Distinto",
+            description:
+              "Compara dos valores y devuelve verdadero si son distintos.",
+          },
+          {
+            type: "comparisonLess",
+            label: "Menor",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es menor.",
+          },
+          {
+            type: "comparisonLessOrEqual",
+            label: "Menor o igual",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es menor o igual.",
+          },
+          {
+            type: "comparisonGreater",
+            label: "Mayor",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es mayor.",
+          },
+          {
+            type: "comparisonGreaterOrEqual",
+            label: "Mayor o igual",
+            description:
+              "Compara dos valores y devuelve verdadero si el primero es mayor o igual.",
+          },
+        ],
       },
       {
-        type: "and",
-        label: "AND",
-        description: "Devuelve verdadero si todas las entradas son verdaderas.",
+        id: "control-logic",
+        title: "Lógica",
+        items: [
+          {
+            type: "and",
+            label: "AND",
+            description:
+              "Devuelve verdadero si todas las entradas son verdaderas.",
+          },
+          {
+            type: "nand",
+            label: "NAND",
+            description:
+              "Verdadero salvo que todas las entradas sean verdaderas.",
+          },
+          {
+            type: "or",
+            label: "OR",
+            description:
+              "Devuelve verdadero si al menos una entrada es verdadera.",
+          },
+          {
+            type: "nor",
+            label: "NOR",
+            description: "Verdadero solo cuando todas las entradas son falsas.",
+          },
+          {
+            type: "xor",
+            label: "XOR",
+            description: "Verdadero si exactamente una entrada es verdadera.",
+          },
+          {
+            type: "not",
+            label: "NOT",
+            description: "Niega un valor booleano de entrada.",
+          },
+        ],
       },
       {
-        type: "nand",
-        label: "NAND",
-        description: "Verdadero salvo que todas las entradas sean verdaderas.",
-      },
-      {
-        type: "or",
-        label: "OR",
-        description: "Devuelve verdadero si al menos una entrada es verdadera.",
-      },
-      {
-        type: "nor",
-        label: "NOR",
-        description: "Verdadero solo cuando todas las entradas son falsas.",
-      },
-      {
-        type: "xor",
-        label: "XOR",
-        description: "Verdadero si exactamente una entrada es verdadera.",
-      },
-      {
-        type: "not",
-        label: "NOT",
-        description: "Niega un valor booleano de entrada.",
-      },
-      {
-        type: "desvio",
-        label: "Desvio",
-        description:
-          "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
-      },
-      {
-        type: "switch",
-        label: "Switch",
-        description: "Activa una de varias salidas según una condición.",
-      },
-      {
-        type: "conditionalPair",
-        label: "Condicional",
-        description:
-          "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
+        id: "control-flow",
+        title: "Flujo",
+        items: [
+          {
+            type: "desvio",
+            label: "Desvio",
+            description:
+              "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
+          },
+          {
+            type: "switch",
+            label: "Switch",
+            description: "Activa una de varias salidas según una condición.",
+          },
+          {
+            type: "conditionalPair",
+            label: "Condicional",
+            description:
+              "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
+          },
+        ],
       },
     ],
   },

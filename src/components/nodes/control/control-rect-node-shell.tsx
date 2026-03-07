@@ -238,7 +238,7 @@ export function ControlRectNodeShell({
             <div key={`r-${offset}`} className="contents">
               {outputLabel && (
                 <div
-                  className={`pointer-events-none absolute right-3 -translate-y-1/2 max-w-[56px] truncate text-[8px] font-medium leading-none text-white/90 ${
+                  className={`pointer-events-none absolute right-3 -translate-y-1/2 max-w-14 truncate text-[8px] font-medium leading-none text-white/90 ${
                     outputLabelClassName ?? ""
                   }`}
                   style={{ top: offset }}

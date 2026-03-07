@@ -33,6 +33,13 @@ export function buildPaletteLabelLookup(): Map<string, string> {
     for (const item of category.items) {
       map.set(item.type, item.label);
     }
+    if (category.subcategories) {
+      for (const sub of category.subcategories) {
+        for (const item of sub.items) {
+          map.set(item.type, item.label);
+        }
+      }
+    }
   }
   return map;
 }

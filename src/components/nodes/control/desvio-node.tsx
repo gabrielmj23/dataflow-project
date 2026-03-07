@@ -8,6 +8,7 @@ import {
   getPortTypeMask,
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
+import { Split } from "lucide-react";
 
 export type DesvioNodeData = {
   label?: string;
@@ -38,8 +39,10 @@ export const DesvioNode = memo(({ data }: NodeProps) => {
       infoDescription={getNodeDescription("desvio") ?? undefined}
       className="relative flex h-18 w-38 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 pl-4 pr-14 text-center text-white shadow-md"
     >
-      <div className="flex flex-col items-start gap-0.5 text-left">
-        <div className="text-lg font-medium leading-none">↗↘</div>
+      <div className="flex flex-col items-center gap-0.5 text-left">
+        <div className="text-2xl font-bold rotate-90">
+          <Split />
+        </div>
         <div className="text-base leading-tight">{label}</div>
       </div>
 
@@ -74,7 +77,7 @@ export const DesvioNode = memo(({ data }: NodeProps) => {
         indicatorClassName="border-orange-600"
       />
       <div
-        className="pointer-events-none absolute right-3 -translate-y-1/2 max-w-[64px] truncate text-[10px] font-medium leading-none text-white/90"
+        className="pointer-events-none absolute right-3 -translate-y-1/2 max-w-16 truncate text-[10px] font-medium leading-none text-white/90"
         style={{ top: "35%" }}
       >
         Verdadero
@@ -91,7 +94,7 @@ export const DesvioNode = memo(({ data }: NodeProps) => {
         indicatorClassName="border-orange-600"
       />
       <div
-        className="pointer-events-none absolute right-3 -translate-y-1/2 max-w-[64px] truncate text-[10px] font-medium leading-none text-white/90"
+        className="pointer-events-none absolute right-3 -translate-y-1/2 max-w-16 truncate text-[10px] font-medium leading-none text-white/90"
         style={{ top: "65%" }}
       >
         Falso
