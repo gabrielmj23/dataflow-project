@@ -61,15 +61,15 @@ import {
 } from "@/flow/node-palette";
 import { NODE_TYPES } from "@/common/constants";
 import { CustomNodeSearchDialog } from "@/components/custom-nodes/CustomNodeSearchDialog";
-import type { CustomNodeSummary } from "@/lib/custom-nodes";
+import type { ExtensionListItem } from "@/lib/extensions";
 import { cn } from "@/lib/utils";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
   onDragStart: (event: DragEvent, item: NodePaletteItem) => void;
   onDeleteTemplate?: (templateId: string) => void;
-  onAddCustomNode?: (node: CustomNodeSummary) => boolean;
-  existingTemplateIds?: string[];
+  onAddExtension?: (extension: ExtensionListItem) => boolean | Promise<boolean>;
+  existingExtensionIds?: string[];
   showAbstractionFilter?: boolean;
   className?: string;
 };
@@ -78,8 +78,8 @@ export function AppSidebar({
   categories,
   onDragStart,
   onDeleteTemplate,
-  onAddCustomNode,
-  existingTemplateIds = [],
+  onAddExtension,
+  existingExtensionIds = [],
   showAbstractionFilter = true,
   className,
 }: AppSidebarProps) {
@@ -273,6 +273,7 @@ export function AppSidebar({
               const color = categoryColorMap[category.id] ?? "bg-gray-500";
               const borderColor =
                 categoryBorderMap[category.id] ?? "border-gray-500";
+              const hasCustomAccent = Boolean(category.accentColor);
               return (
                 <button
                   key={category.id}
@@ -281,7 +282,18 @@ export function AppSidebar({
                   className="group flex w-full flex-col items-center gap-1 rounded-md px-1.5 py-1 text-[0.7rem] text-muted-foreground transition duration-300 ease-out hover:bg-muted cursor-pointer"
                 >
                   <span
-                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm ${color} ${borderColor} border-2`}
+                    className={cn(
+                      "inline-flex h-6 w-6 items-center justify-center rounded-full shadow-sm border-2",
+                      hasCustomAccent ? "" : `${color} ${borderColor}`,
+                    )}
+                    style={
+                      hasCustomAccent
+                        ? {
+                            backgroundColor: category.accentColor,
+                            borderColor: category.accentColor,
+                          }
+                        : undefined
+                    }
                   />
                   <span className="text-[11px] leading-tight text-center line-clamp-2">
                     {category.title.split(" ")[0]}
@@ -355,6 +367,7 @@ export function AppSidebar({
                                 <NodePreview
                                   type={item.type}
                                   label={item.label}
+                                  accentColor={item.accentColor}
                                   description={item.description}
                                   isCustom={
                                     !!item.templateId && !!onDeleteTemplate
@@ -402,6 +415,7 @@ export function AppSidebar({
                                     <NodePreview
                                       type={item.type}
                                       label={item.label}
+                                      accentColor={item.accentColor}
                                       description={item.description}
                                       isCustom={
                                         !!item.templateId && !!onDeleteTemplate
@@ -441,8 +455,8 @@ export function AppSidebar({
       <CustomNodeSearchDialog
         open={customNodeDialogOpen}
         onOpenChange={setCustomNodeDialogOpen}
-        onAddCustomNode={onAddCustomNode}
-        existingTemplateIds={existingTemplateIds}
+        onAddExtension={onAddExtension}
+        existingExtensionIds={existingExtensionIds}
       />
     </Sidebar>
   );
@@ -450,6 +464,7 @@ export function AppSidebar({
 type NodePreviewProps = {
   type: string;
   label: string;
+  accentColor?: string;
   description?: string;
   isCustom?: boolean;
   onDelete?: () => void;
@@ -458,6 +473,7 @@ type NodePreviewProps = {
 function NodePreview({
   type,
   label,
+  accentColor,
   description,
   isCustom,
   onDelete,
@@ -927,7 +943,18 @@ function NodePreview({
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-violet-500 px-3 text-center text-white shadow-md"
+            className={cn(
+              "node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl px-3 text-center text-white shadow-md",
+              !accentColor && "bg-violet-500",
+            )}
+            style={
+              accentColor
+                ? {
+                    backgroundColor: accentColor,
+                    backgroundImage: `linear-gradient(135deg, ${accentColor} 0%, rgba(0,0,0,0.2) 100%)`,
+                  }
+                : undefined
+            }
           >
             <span className="text-xl font-bold leading-none">
               <PictureInPicture2 className="h-6 w-6" />
@@ -940,7 +967,18 @@ function NodePreview({
         return (
           <div
             data-drag-preview
-            className="node-preview flex h-18 w-32 items-center justify-center rounded-lg border border-dashed text-xs border-violet-700 bg-violet-500 text-white shadow-md"
+            className={cn(
+              "node-preview flex h-18 w-32 items-center justify-center rounded-lg border border-dashed text-xs text-white shadow-md",
+              !accentColor && "border-violet-700 bg-violet-500",
+            )}
+            style={
+              accentColor
+                ? {
+                    backgroundColor: accentColor,
+                    borderColor: "rgba(0,0,0,0.3)",
+                  }
+                : undefined
+            }
           >
             {label}
           </div>

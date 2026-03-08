@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+﻿import { useMemo, useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
@@ -7,43 +8,29 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { fetchCustomNodes, type CustomNodeSummary } from "@/lib/custom-nodes";
-import { ChevronLeft, ChevronRight, Info, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { fetchExtensions, type ExtensionListItem } from "@/lib/extensions";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 
 type CustomNodeSearchDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAddCustomNode?: (node: CustomNodeSummary) => boolean;
-  existingTemplateIds?: string[];
+  onAddExtension?: (extension: ExtensionListItem) => Promise<boolean> | boolean;
+  existingExtensionIds?: string[];
 };
-
-function resolveTemplateId(customNode: CustomNodeSummary): string {
-  try {
-    const parsed = JSON.parse(customNode.code) as { templateId?: unknown };
-    if (typeof parsed.templateId === "string" && parsed.templateId.trim()) {
-      return parsed.templateId;
-    }
-  } catch {
-    // no-op
-  }
-
-  return customNode.id;
-}
 
 export function CustomNodeSearchDialog({
   open,
   onOpenChange,
-  onAddCustomNode,
-  existingTemplateIds = [],
+  onAddExtension,
+  existingExtensionIds = [],
 }: CustomNodeSearchDialogProps) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [selectedCustomNodeId, setSelectedCustomNodeId] = useState<
-    string | null
-  >(null);
+  const [selectedExtensionId, setSelectedExtensionId] = useState<string | null>(
+    null,
+  );
   const pageSize = 8;
 
   useEffect(() => {
@@ -62,13 +49,14 @@ export function CustomNodeSearchDialog({
   );
 
   const {
-    data: customNodes = [],
+    data: extensions = [],
     isLoading,
     isError,
+    error,
   } = useQuery({
-    queryKey: ["custom-nodes", "search", normalizedSearch, page, pageSize],
+    queryKey: ["extensions", "search", normalizedSearch, page, pageSize],
     queryFn: () =>
-      fetchCustomNodes({
+      fetchExtensions({
         search: normalizedSearch || undefined,
         page,
         pageSize,
@@ -77,17 +65,18 @@ export function CustomNodeSearchDialog({
   });
 
   const canGoPrev = page > 1 && !isLoading;
-  const canGoNext = !isLoading && customNodes.length >= pageSize;
-  const selectedNode = useMemo(
-    () => customNodes.find((item) => item.id === selectedCustomNodeId) ?? null,
-    [customNodes, selectedCustomNodeId],
+  const canGoNext = !isLoading && extensions.length >= pageSize;
+  const selectedExtension = useMemo(
+    () => extensions.find((item) => item.id === selectedExtensionId) ?? null,
+    [extensions, selectedExtensionId],
   );
-  const selectedTemplateId = selectedNode
-    ? resolveTemplateId(selectedNode)
-    : "";
   const isDuplicateSelection =
-    !!selectedTemplateId && existingTemplateIds.includes(selectedTemplateId);
-  const canAddSelection = !!selectedNode && !isDuplicateSelection;
+    !!selectedExtension && existingExtensionIds.includes(selectedExtension.id);
+  const canAddSelection = !!selectedExtension && !isDuplicateSelection;
+  const searchErrorMessage =
+    error instanceof Error
+      ? error.message
+      : "No se pudieron cargar las extensiones.";
 
   return (
     <Dialog
@@ -95,13 +84,13 @@ export function CustomNodeSearchDialog({
       onOpenChange={(nextOpen) => {
         onOpenChange(nextOpen);
         if (!nextOpen) {
-          setSelectedCustomNodeId(null);
+          setSelectedExtensionId(null);
         }
       }}
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Agrega nuevos nodos</DialogTitle>
+          <DialogTitle>Extensiones</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3">
@@ -113,72 +102,83 @@ export function CustomNodeSearchDialog({
                 setSearch(event.currentTarget.value);
                 setPage(1);
               }}
-              placeholder="Buscar nodo personalizado"
+              placeholder="Buscar extensión"
               className="pl-9"
             />
           </div>
 
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">Cargando nodos...</p>
-          ) : null}
+          <div className="rounded-md border border-blue-100 bg-blue-50/50 p-3 text-center">
+            <p className="text-xs text-blue-700">
+              Para crear una extensión, primero comparte un subflujo desde su
+              menú.
+            </p>
+          </div>
 
-          {isError ? (
-            <p className="text-sm text-destructive">
-              No se pudieron cargar los nodos personalizados.
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">
+              Cargando extensiones...
             </p>
           ) : null}
 
-          {!isLoading && !isError && customNodes.length === 0 ? (
+          {isError ? (
+            <p className="text-sm text-destructive">{searchErrorMessage}</p>
+          ) : null}
+
+          {!isLoading && !isError && extensions.length === 0 ? (
             <div className="flex flex-col justify-center items-center pt-12 pb-14 gap-2">
-              <Info
-                className="text-muted-foreground"
+              <Search
+                className="text-muted-foreground opacity-20"
                 size={54}
                 strokeWidth={1.35}
               />
-              <span className="text-muted-foreground">
-                No hay nodos personalizados disponibles...
+              <span className="text-muted-foreground text-sm">
+                No hay extensiones disponibles...
               </span>
             </div>
           ) : null}
 
-          {!isLoading && !isError && customNodes.length > 0 ? (
+          {!isLoading && !isError && extensions.length > 0 ? (
             <div className="grid max-h-90 grid-cols-1 gap-3 overflow-y-auto overflow-x-hidden py-2 sm:grid-cols-2">
-              {customNodes.map((customNode) => (
-                <div
-                  key={customNode.id}
+              {extensions.map((extension) => (
+                <button
+                  type="button"
+                  key={extension.id}
                   className={cn(
-                    "flex flex-col px-2 justify-center py-3 border-2 rounded-lg transition-all hover:cursor-pointer",
+                    "flex flex-col px-2 justify-center py-3 border-2 rounded-lg transition-all text-left",
                     {
                       "border-(--nodi-blue)":
-                        selectedCustomNodeId === customNode.id,
-                      "border-neutral-200 hover:scale-105":
-                        selectedCustomNodeId !== customNode.id,
+                        selectedExtensionId === extension.id,
+                      "border-neutral-200 hover:scale-105 hover:cursor-pointer":
+                        selectedExtensionId !== extension.id,
                     },
                   )}
                   onClick={() => {
-                    setSelectedCustomNodeId(customNode.id);
+                    setSelectedExtensionId(extension.id);
                   }}
                 >
-                  <div className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-violet-500 px-3 text-center text-white shadow-md self-center">
+                  <div
+                    className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl px-3 text-center text-white shadow-md self-center"
+                    style={{ backgroundColor: extension.color }}
+                  >
                     <span className="text-sm leading-tight line-clamp-2">
-                      {customNode.name}
+                      {extension.name}
                     </span>
                   </div>
                   <p className="text-sm text-muted-foreground mt-2">
                     Por{" "}
-                    <span className="font-medium">{customNode.authorName}</span>
+                    <span className="font-medium">{extension.authorName}</span>
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    {customNode.description}
+                  <p className="text-xs text-muted-foreground line-clamp-2">
+                    {extension.description}
                   </p>
-                </div>
+                </button>
               ))}
             </div>
           ) : null}
 
           {isDuplicateSelection ? (
             <p className="text-xs text-destructive">
-              Este nodo ya está agregado en Subflujos.
+              Esta extension ya esta agregada en la paleta.
             </p>
           ) : null}
 
@@ -188,12 +188,12 @@ export function CustomNodeSearchDialog({
               variant="default"
               className="bg-(--nodi-blue) hover:bg-blue-600"
               disabled={!canAddSelection}
-              onClick={() => {
-                if (!selectedNode || !onAddCustomNode) return;
-                const added = onAddCustomNode(selectedNode);
+              onClick={async () => {
+                if (!selectedExtension || !onAddExtension) return;
+                const added = await onAddExtension(selectedExtension);
                 if (added) {
                   onOpenChange(false);
-                  setSelectedCustomNodeId(null);
+                  setSelectedExtensionId(null);
                 }
               }}
             >
@@ -206,7 +206,7 @@ export function CustomNodeSearchDialog({
                 variant="outline"
                 disabled={!canGoPrev}
                 onClick={() => setPage((prev) => Math.max(1, prev - 1))}
-                aria-label="Página anterior"
+                aria-label="Pagina anterior"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -219,7 +219,7 @@ export function CustomNodeSearchDialog({
                 variant="outline"
                 disabled={!canGoNext}
                 onClick={() => setPage((prev) => prev + 1)}
-                aria-label="Página siguiente"
+                aria-label="Pagina siguiente"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>

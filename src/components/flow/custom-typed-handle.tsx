@@ -1,7 +1,11 @@
 import { Handle, type HandleProps } from "@xyflow/react";
 
 import type { PortDataType, PortDataTypeMask } from "@/flow/port-data-type";
-import { getHandleShapeClasses, isTypeCompatible, portDataTypeToMask } from "@/flow/port-data-type";
+import {
+  getHandleShapeClasses,
+  isTypeCompatible,
+  portDataTypeToMask,
+} from "@/flow/port-data-type";
 import { useConnectionHighlight } from "@/flow/connection-highlight-context";
 import { cn } from "@/lib/utils";
 
@@ -39,7 +43,8 @@ export function CustomTypedHandle({
   const highlight = useConnectionHighlight();
 
   const ringColorClass = (() => {
-    const raw = typeof indicatorClassName === "string" ? indicatorClassName : "";
+    const raw =
+      typeof indicatorClassName === "string" ? indicatorClassName : "";
 
     // IMPORTANT: Tailwind cannot generate classes from dynamic strings.
     // Keep this mapping explicit so the classes are included in the build.
@@ -63,6 +68,14 @@ export function CustomTypedHandle({
     });
 
   const sizeClasses = cn(DEFAULT_INDICATOR_SIZE_CLASS, indicatorSizeClassName);
+  // If a caller passes a custom CSS property `--indicator-border` via the
+  // `style` prop (used by extension nodes to pass their `darkerColor`),
+  // expose it as an inline `borderColor` on the visible indicator so that
+  // arbitrary color values (not statically known to Tailwind) are applied.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const indicatorBorderColor = (style as any)?.["--indicator-border"] as
+    | string
+    | undefined;
 
   return (
     <Handle
@@ -70,7 +83,7 @@ export function CustomTypedHandle({
       className={cn(
         "relative border-0! bg-transparent!",
         // If callers pass width/height via classes (e.g. h-2 w-2), keep them.
-        className
+        className,
       )}
       style={{
         ...style,
@@ -89,9 +102,15 @@ export function CustomTypedHandle({
             cn(
               // Use a thinner ring so the highlight doesn't look like a big halo.
               "ring-1",
-              ringColorClass
-            )
+              ringColorClass,
+            ),
         )}
+        // Apply computed border color when provided (extension darker color).
+        style={
+          indicatorBorderColor
+            ? { borderColor: indicatorBorderColor }
+            : undefined
+        }
       />
     </Handle>
   );

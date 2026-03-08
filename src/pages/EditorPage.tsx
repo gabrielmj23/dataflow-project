@@ -61,7 +61,7 @@ import {
   type EdgeFeedbackMode,
 } from "@/flow/edge-feedback-mode";
 import { isSoundEnabled } from "@/lib/sound";
-import type { NodePaletteItem } from "@/flow/node-palette";
+import type { NodePaletteCategory, NodePaletteItem } from "@/flow/node-palette";
 import { type FlowEdge, type FlowNode } from "@/utils/flow";
 import { getLayoutedElements } from "@/utils/layout";
 import { CreateSubflowOverlay } from "@/components/CreateSubflowOverlay";
@@ -81,12 +81,17 @@ import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
-import type { CustomNodeSummary } from "@/lib/custom-nodes";
+import {
+  fetchExtensionById,
+  type ExtensionListItem,
+  type ExtensionNodeSummary,
+} from "@/lib/extensions";
 import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
-const CUSTOM_NODE_REFERENCES_KEY = "nodi-custom-node-references-v1";
+const LEGACY_CUSTOM_NODE_REFERENCES_KEY = "nodi-custom-node-references-v1";
+const EXTENSION_REFERENCES_KEY = "nodi-extension-references-v1";
 
 type SavedCustomNodeReference = {
   id: string;
@@ -98,9 +103,17 @@ type SavedCustomNodeReference = {
   edges: FlowEdge[];
 };
 
-function parseSavedCustomNodeReferences(): SavedCustomNodeReference[] {
+type SavedExtensionReference = {
+  id: string;
+  name: string;
+  color: string;
+  authorName: string;
+  templateIds: string[];
+};
+
+function parseSavedLegacyCustomNodeReferences(): SavedCustomNodeReference[] {
   try {
-    const raw = localStorage.getItem(CUSTOM_NODE_REFERENCES_KEY);
+    const raw = localStorage.getItem(LEGACY_CUSTOM_NODE_REFERENCES_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
@@ -118,6 +131,109 @@ function parseSavedCustomNodeReferences(): SavedCustomNodeReference[] {
     });
   } catch {
     return [];
+  }
+}
+
+function parseSavedExtensionReferences(): SavedExtensionReference[] {
+  try {
+    const raw = localStorage.getItem(EXTENSION_REFERENCES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .filter((entry): entry is SavedExtensionReference => {
+        const templateIds = Array.isArray(entry?.templateIds)
+          ? entry.templateIds.filter(
+              (value: unknown): value is string => typeof value === "string",
+            )
+          : [];
+
+        return (
+          !!entry &&
+          typeof entry.id === "string" &&
+          typeof entry.name === "string" &&
+          typeof entry.color === "string" &&
+          typeof entry.authorName === "string" &&
+          Array.isArray(templateIds)
+        );
+      })
+      .map((entry) => ({
+        id: entry.id,
+        name: entry.name,
+        color: entry.color,
+        authorName: entry.authorName,
+        templateIds: Array.isArray(entry.templateIds)
+          ? entry.templateIds.filter(
+              (value): value is string => typeof value === "string",
+            )
+          : [],
+      }));
+  } catch {
+    return [];
+  }
+}
+
+function parseNodeTemplate(customNode: {
+  id: string;
+  name: string;
+  code: string;
+  authorName?: string;
+}) {
+  const parsed = JSON.parse(customNode.code) as {
+    label?: unknown;
+    inCount?: unknown;
+    outCount?: unknown;
+    templateId?: unknown;
+    subflowNodes?: unknown;
+    subflowEdges?: unknown;
+  };
+
+  const nodes = Array.isArray(parsed.subflowNodes)
+    ? (parsed.subflowNodes as FlowNode[])
+    : [];
+  const edges = Array.isArray(parsed.subflowEdges)
+    ? (parsed.subflowEdges as FlowEdge[])
+    : [];
+  const inCount =
+    typeof parsed.inCount === "number" && Number.isFinite(parsed.inCount)
+      ? Math.max(0, Math.floor(parsed.inCount))
+      : 0;
+  const outCount =
+    typeof parsed.outCount === "number" && Number.isFinite(parsed.outCount)
+      ? Math.max(0, Math.floor(parsed.outCount))
+      : 0;
+
+  const templateId =
+    typeof parsed.templateId === "string" && parsed.templateId.trim()
+      ? parsed.templateId
+      : customNode.id;
+
+  const name =
+    typeof parsed.label === "string" && parsed.label.trim()
+      ? parsed.label.trim()
+      : customNode.name;
+
+  return {
+    templateId,
+    name,
+    inCount,
+    outCount,
+    nodes,
+    edges,
+  };
+}
+
+function extractTemplateId(customNode: {
+  id: string;
+  name: string;
+  code: string;
+  authorName?: string;
+}): string | null {
+  try {
+    return parseNodeTemplate(customNode).templateId;
+  } catch {
+    return null;
   }
 }
 
@@ -187,6 +303,7 @@ export default function EditorPage() {
     x: number;
     y: number;
   } | null>(null);
+  const hasHydratedExtensionsRef = useRef(false);
 
   const {
     subflowTemplates,
@@ -196,14 +313,17 @@ export default function EditorPage() {
     resolveTemplateByName,
     deleteTemplate,
   } = useSubflowTemplates();
+  const [addedExtensionRefs, setAddedExtensionRefs] = useState<
+    SavedExtensionReference[]
+  >(() => parseSavedExtensionReferences());
 
-  const existingSubflowTemplateIds = useMemo(
-    () => subflowTemplates.map((template) => template.id),
-    [subflowTemplates],
+  const existingExtensionIds = useMemo(
+    () => addedExtensionRefs.map((extension) => extension.id),
+    [addedExtensionRefs],
   );
 
   useEffect(() => {
-    const saved = parseSavedCustomNodeReferences();
+    const saved = parseSavedLegacyCustomNodeReferences();
     if (!saved.length) return;
 
     for (const template of saved) {
@@ -219,128 +339,223 @@ export default function EditorPage() {
     }
   }, [addOrUpdateTemplate]);
 
-  const handleAddCustomNodeToPalette = useCallback(
-    (customNode: CustomNodeSummary) => {
+  const addNodeSummaryToTemplateStore = useCallback(
+    (
+      customNode: Pick<
+        ExtensionNodeSummary,
+        "id" | "name" | "code" | "authorName"
+      >,
+      accentColor?: string,
+      knownTemplateIds?: Set<string>,
+    ) => {
       try {
-        const parsed = JSON.parse(customNode.code) as {
-          label?: unknown;
-          inCount?: unknown;
-          outCount?: unknown;
-          templateId?: unknown;
-          subflowNodes?: unknown;
-          subflowEdges?: unknown;
-        };
+        const parsed = parseNodeTemplate(customNode);
+        const templateIds =
+          knownTemplateIds ??
+          new Set(subflowTemplates.map((template) => template.id));
 
-        const nodes = Array.isArray(parsed.subflowNodes)
-          ? (parsed.subflowNodes as FlowNode[])
-          : [];
-        const edges = Array.isArray(parsed.subflowEdges)
-          ? (parsed.subflowEdges as FlowEdge[])
-          : [];
-        const inCount =
-          typeof parsed.inCount === "number" && Number.isFinite(parsed.inCount)
-            ? Math.max(0, Math.floor(parsed.inCount))
-            : 0;
-        const outCount =
-          typeof parsed.outCount === "number" &&
-          Number.isFinite(parsed.outCount)
-            ? Math.max(0, Math.floor(parsed.outCount))
-            : 0;
-        const templateId =
-          typeof parsed.templateId === "string" && parsed.templateId.trim()
-            ? parsed.templateId
-            : customNode.id;
-
-        const existingTemplate = subflowTemplates.find(
-          (template) => template.id === templateId,
-        );
-        const alreadyExists = Boolean(existingTemplate);
-        if (alreadyExists) {
-          console.log("alreadyExists");
-          const hasAuthor =
-            typeof existingTemplate?.authorName === "string" &&
-            existingTemplate.authorName.trim().length > 0;
-          const incomingAuthor =
-            typeof customNode.authorName === "string"
-              ? customNode.authorName.trim()
-              : "";
-
-          if (!hasAuthor && incomingAuthor) {
-            addOrUpdateTemplate({
-              id: templateId,
-              name: existingTemplate?.name ?? customNode.name,
-              authorName: incomingAuthor,
-              inCount:
-                existingTemplate?.ports.inCount ??
-                (typeof parsed.inCount === "number" ? parsed.inCount : 0),
-              outCount:
-                existingTemplate?.ports.outCount ??
-                (typeof parsed.outCount === "number" ? parsed.outCount : 0),
-              nodes: existingTemplate?.snapshot.nodes ?? nodes,
-              edges: existingTemplate?.snapshot.edges ?? edges,
-            });
-
-            const current = parseSavedCustomNodeReferences();
-            const next = current.map((entry) =>
-              entry.id === templateId
-                ? { ...entry, authorName: incomingAuthor }
-                : entry,
-            );
-            localStorage.setItem(
-              CUSTOM_NODE_REFERENCES_KEY,
-              JSON.stringify(next),
-            );
-
-            toast.success("Autor del subflujo actualizado.");
-            return true;
-          }
-
-          toast.error("Este nodo ya está agregado en Subflujos.");
-          return false;
-        }
-
-        const name =
-          typeof parsed.label === "string" && parsed.label.trim()
-            ? parsed.label.trim()
-            : customNode.name;
+        const isNewTemplate = !templateIds.has(parsed.templateId);
 
         addOrUpdateTemplate({
-          id: templateId,
-          name,
+          id: parsed.templateId,
+          name: parsed.name,
           authorName: customNode.authorName,
-          inCount,
-          outCount,
-          nodes,
-          edges,
+          accentColor: accentColor,
+          inCount: parsed.inCount,
+          outCount: parsed.outCount,
+          nodes: parsed.nodes,
+          edges: parsed.edges,
         });
 
-        const current = parseSavedCustomNodeReferences();
-        const nextEntry: SavedCustomNodeReference = {
-          id: templateId,
-          name,
-          authorName: customNode.authorName,
-          inCount,
-          outCount,
-          nodes,
-          edges,
-        };
-
-        const index = current.findIndex((entry) => entry.id === templateId);
-        const next =
-          index >= 0
-            ? current.map((entry, i) => (i === index ? nextEntry : entry))
-            : [...current, nextEntry];
-
-        localStorage.setItem(CUSTOM_NODE_REFERENCES_KEY, JSON.stringify(next));
-        toast.success(`"${name}" agregado a Subflujos.`);
-        return true;
+        templateIds.add(parsed.templateId);
+        return isNewTemplate;
       } catch {
-        toast.error("No se pudo agregar el nodo personalizado a Subflujos.");
         return false;
       }
     },
     [addOrUpdateTemplate, subflowTemplates],
   );
+
+  const refreshExtensionInPalette = useCallback(
+    async (extensionId: string) => {
+      const details = await fetchExtensionById(extensionId);
+      const knownTemplateIds = new Set(
+        subflowTemplates.map((template) => template.id),
+      );
+      const extensionTemplateIds = new Set<string>();
+
+      let addedCount = 0;
+      for (const node of details.nodes) {
+        const templateId = extractTemplateId(node);
+        if (templateId) {
+          extensionTemplateIds.add(templateId);
+        }
+
+        if (
+          addNodeSummaryToTemplateStore(node, details.color, knownTemplateIds)
+        ) {
+          addedCount += 1;
+        }
+      }
+
+      const nextTemplateIds = Array.from(extensionTemplateIds).sort();
+      const nextRef: SavedExtensionReference = {
+        id: details.id,
+        name: details.name,
+        color: details.color,
+        authorName: details.authorName,
+        templateIds: nextTemplateIds,
+      };
+
+      setAddedExtensionRefs((prev) => {
+        const index = prev.findIndex((entry) => entry.id === details.id);
+
+        if (index < 0) {
+          const next = [...prev, nextRef];
+          localStorage.setItem(EXTENSION_REFERENCES_KEY, JSON.stringify(next));
+          return next;
+        }
+
+        const current = prev[index];
+        const sameTemplateIds =
+          current.templateIds.length === nextRef.templateIds.length &&
+          current.templateIds.every(
+            (templateId, idx) => templateId === nextRef.templateIds[idx],
+          );
+        const unchanged =
+          current.name === nextRef.name &&
+          current.color === nextRef.color &&
+          current.authorName === nextRef.authorName &&
+          sameTemplateIds;
+
+        if (unchanged) {
+          return prev;
+        }
+
+        const next = [...prev];
+        next[index] = nextRef;
+        localStorage.setItem(EXTENSION_REFERENCES_KEY, JSON.stringify(next));
+        return next;
+      });
+
+      return {
+        details,
+        addedCount,
+        totalCount: nextTemplateIds.length,
+      };
+    },
+    [addNodeSummaryToTemplateStore, subflowTemplates],
+  );
+
+  const handleAddExtensionToPalette = useCallback(
+    async (extension: ExtensionListItem) => {
+      if (existingExtensionIds.includes(extension.id)) {
+        try {
+          const refreshed = await refreshExtensionInPalette(extension.id);
+          toast.success(
+            `Extensión actualizada: ${refreshed.totalCount} nodo(s) sincronizado(s).`,
+          );
+          return true;
+        } catch {
+          toast.error("No se pudo refrescar la extension en la paleta.");
+          return false;
+        }
+      }
+
+      try {
+        const refreshed = await refreshExtensionInPalette(extension.id);
+
+        if (refreshed.totalCount === 0) {
+          toast.error("Esta extension no tiene nodos disponibles.");
+          return false;
+        }
+
+        toast.success(
+          `Se sincronizó ${refreshed.details.name} (${refreshed.totalCount} nodo(s)).`,
+        );
+        return true;
+      } catch {
+        toast.error("No se pudo agregar la extension a la paleta.");
+        return false;
+      }
+    },
+    [existingExtensionIds, refreshExtensionInPalette],
+  );
+
+  useEffect(() => {
+    if (hasHydratedExtensionsRef.current) return;
+    const savedExtensions = parseSavedExtensionReferences();
+    if (!savedExtensions.length) {
+      hasHydratedExtensionsRef.current = true;
+      return;
+    }
+
+    hasHydratedExtensionsRef.current = true;
+
+    let cancelled = false;
+
+    const loadSavedExtensions = async () => {
+      for (const extension of savedExtensions) {
+        if (cancelled) return;
+        try {
+          await refreshExtensionInPalette(extension.id);
+        } catch {
+          // Ignore stale extension references from previous sessions.
+        }
+      }
+    };
+
+    loadSavedExtensions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshExtensionInPalette]);
+
+  useEffect(() => {
+    if (!addedExtensionRefs.length) return;
+
+    let disposed = false;
+
+    const refreshAll = async () => {
+      if (disposed || document.hidden) {
+        return;
+      }
+
+      for (const extension of addedExtensionRefs) {
+        if (disposed) return;
+        try {
+          await refreshExtensionInPalette(extension.id);
+        } catch {
+          // Best effort refresh; keep current palette state on failures.
+        }
+      }
+    };
+
+    const intervalId = window.setInterval(() => {
+      void refreshAll();
+    }, 15000);
+
+    const onFocus = () => {
+      void refreshAll();
+    };
+
+    const onVisibilityChange = () => {
+      if (!document.hidden) {
+        void refreshAll();
+      }
+    };
+
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      disposed = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [addedExtensionRefs, refreshExtensionInPalette]);
 
   const [programName, setProgramName] = useState<string>("Sin título");
 
@@ -759,8 +974,68 @@ export default function EditorPage() {
   });
 
   const paletteCategories = useMemo(() => {
-    if (!challenge.challengeAllowSet) return basePaletteCategories;
-    return basePaletteCategories
+    const extensionTemplateIdSet = new Set(
+      addedExtensionRefs.flatMap((extension) => extension.templateIds),
+    );
+
+    const localSubflowItems = subflowTemplates
+      .filter((template) => !extensionTemplateIdSet.has(template.id))
+      .map<NodePaletteItem>((template) => ({
+        type: "subflow",
+        label: template.name,
+        description: "Subflujo guardado",
+        templateId: template.id,
+      }));
+
+    const builtInCategories = basePaletteCategories.map((category) => {
+      if (category.id !== "abstraction") {
+        return category;
+      }
+
+      return {
+        ...category,
+        items: [...category.items, ...localSubflowItems],
+      };
+    });
+
+    const extensionCategories = addedExtensionRefs
+      .map<NodePaletteCategory | null>((extension) => {
+        const items: NodePaletteItem[] = [];
+        for (const templateId of extension.templateIds) {
+          const template = subflowTemplates.find(
+            (item) => item.id === templateId,
+          );
+          if (!template) {
+            continue;
+          }
+
+          items.push({
+            type: "subflow",
+            label: template.name,
+            description: `Subflujo de ${extension.name}`,
+            templateId: template.id,
+            accentColor: extension.color,
+          });
+        }
+
+        if (items.length === 0) {
+          return null;
+        }
+
+        return {
+          id: `extension-${extension.id}`,
+          title: extension.name,
+          accentColor: extension.color,
+          items,
+        };
+      })
+      .filter((category): category is NodePaletteCategory => category !== null);
+
+    const mergedCategories = [...builtInCategories, ...extensionCategories];
+
+    if (!challenge.challengeAllowSet) return mergedCategories;
+
+    return mergedCategories
       .map((category) => {
         const items = (category.items ?? []).filter((item) =>
           challenge.challengeAllowSet!.has(item.type),
@@ -782,7 +1057,12 @@ export default function EditorPage() {
           (category.items ?? []).length > 0 ||
           (category.subcategories ?? []).length > 0,
       );
-  }, [basePaletteCategories, challenge.challengeAllowSet]);
+  }, [
+    addedExtensionRefs,
+    basePaletteCategories,
+    challenge.challengeAllowSet,
+    subflowTemplates,
+  ]);
 
   const onPaletteDragStart = useCallback(
     (event: React.DragEvent, item: NodePaletteItem) => {
@@ -1073,8 +1353,8 @@ export default function EditorPage() {
               categories={paletteCategories}
               onDragStart={onPaletteDragStart}
               onDeleteTemplate={subflow.requestDeleteTemplate}
-              onAddCustomNode={handleAddCustomNodeToPalette}
-              existingTemplateIds={existingSubflowTemplateIds}
+              onAddExtension={handleAddExtensionToPalette}
+              existingExtensionIds={existingExtensionIds}
               showAbstractionFilter={!challenge.challengeAllowSet}
             />
 

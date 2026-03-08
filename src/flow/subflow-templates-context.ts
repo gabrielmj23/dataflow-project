@@ -5,6 +5,7 @@ export type SubflowTemplatePayload = {
   id: string;
   name: string;
   authorName?: string;
+  accentColor?: string;
   inCount: number;
   outCount: number;
   nodes: Node[];
@@ -18,6 +19,7 @@ export type SubflowTemplateContextValue = {
     id: string;
     name: string;
     authorName?: string;
+    accentColor?: string;
     inCount: number;
     outCount: number;
     nodes: Node[];
@@ -27,6 +29,7 @@ export type SubflowTemplateContextValue = {
     id: string;
     name: string;
     authorName?: string;
+    accentColor?: string;
     inCount: number;
     outCount: number;
     nodes: Node[];

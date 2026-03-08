@@ -6,6 +6,7 @@ import { authGuard } from "./modules/auth/auth.guard";
 import { setupSwagger } from "./swagger";
 import { projectsRouter } from "./modules/projects/projects.controller";
 import { customNodesRouter } from "./modules/custom-nodes/custom-nodes.controller";
+import { extensionsRouter } from "./modules/extensions/extensions.controller";
 
 export function createRestApp(options: RestApiOptions): express.Express {
   const app = express();
@@ -134,6 +135,7 @@ export function createRestApp(options: RestApiOptions): express.Express {
   app.use("/projects", projectsRouter);
 
   app.use("/nodes", customNodesRouter);
+  app.use("/extensions", extensionsRouter);
 
   app.use((_req, res) => {
     res.status(404).json({ error: "not found" });
