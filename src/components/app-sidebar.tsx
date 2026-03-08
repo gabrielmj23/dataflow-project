@@ -34,6 +34,7 @@ import {
   Scissors,
   Dices,
   Split,
+  Flag,
 } from "lucide-react";
 
 import {
@@ -654,6 +655,7 @@ function NodePreview({
       case "xor":
       case "not":
       case "desvio":
+      case "relevo":
       case "switch":
       case "conditionalPair": {
         const symbolMap: Record<string, string> = {
@@ -671,6 +673,7 @@ function NodePreview({
           xor: "xor",
           not: "not",
           desvio: "desvio",
+          relevo: "relevo",
           switch: "switch",
           conditionalPair: "conditionalPair",
         };
@@ -722,6 +725,9 @@ function NodePreview({
                 <span className="text-lg font-medium leading-none">
                   <Split className="rotate-90" />
                 </span>
+              )}
+              {symbolMap[type] === "relevo" && (
+                <Flag className="h-4 w-4" />
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />

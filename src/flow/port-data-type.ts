@@ -306,6 +306,10 @@ export function inferPortDataType(params: {
     return "any";
   }
 
+  if (nodeType === NODE_TYPES.RELEVO_NODE) {
+    return "any";
+  }
+
   // IO
   if (nodeType === "write") {
     return "any";
@@ -514,6 +518,9 @@ export function getPortTypeMask(params: {
     if (nodeType === NODE_TYPES.DESVIO_NODE) {
       if (isOutput) return TYPE_ANY;
       return handleId === "in-cond" ? TYPE_BOOLEAN : TYPE_ANY;
+    }
+    if (nodeType === NODE_TYPES.RELEVO_NODE) {
+      return TYPE_ANY;
     }
     if (nodeType === NODE_TYPES.SCATTER_NODE) {
       return isOutput ? TYPE_ANY : TYPE_LIST;

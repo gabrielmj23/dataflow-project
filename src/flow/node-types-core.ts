@@ -48,6 +48,7 @@ import { NandNode } from "@/components/nodes/control/nand-node";
 import { NorNode } from "@/components/nodes/control/nor-node";
 import { XorNode } from "@/components/nodes/control/xor-node";
 import { DesvioNode } from "@/components/nodes/control/desvio-node";
+import { RelevoNode } from "@/components/nodes/control/relevo-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
 import { SelectorNode } from "@/components/nodes/control/selector-node";
@@ -131,6 +132,7 @@ export const nodeTypesCore: NodeTypes = {
   nor: NorNode,
   xor: XorNode,
   desvio: DesvioNode,
+  relevo: RelevoNode,
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,
