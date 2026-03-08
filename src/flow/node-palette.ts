@@ -75,7 +75,7 @@ const nodeAbstractionLevelMap: Record<
   xor: 1,
   not: 1,
   desvio: { min: 1, max: 2 },
-  relevo: { min: 1, max: 2 },
+  relevo: 1,
   switch: { min: 2, max: 2 },
   selector: 3,
   conditional: 3,
