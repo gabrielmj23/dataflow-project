@@ -37,6 +37,14 @@ export function EditorCanvasControls({
         <Hand className="rf-icon-hand" />
       </ControlButton>
       <ControlButton
+        onClick={() => onSetCanvasMode("select")}
+        aria-pressed={canvasMode === "select"}
+        title="Modo selección (cuadro)"
+        className="rf-mode-toggle"
+      >
+        <MousePointer2 />
+      </ControlButton>
+      <ControlButton
         title={soundsEnabled ? "Silenciar sonidos" : "Activar sonidos"}
         onClick={() => {
           const next = toggleSoundEnabled();
@@ -45,14 +53,6 @@ export function EditorCanvasControls({
         aria-pressed={soundsEnabled}
       >
         {soundsEnabled ? <Volume2 /> : <VolumeX />}
-      </ControlButton>
-      <ControlButton
-        onClick={() => onSetCanvasMode("select")}
-        aria-pressed={canvasMode === "select"}
-        title="Modo selección (cuadro)"
-        className="rf-mode-toggle"
-      >
-        <MousePointer2 />
       </ControlButton>
       <ControlButton onClick={onDeleteNodes} title="Borrar nodos">
         <Trash2 className="fill-none!" />
