@@ -213,3 +213,18 @@ export class EngineDesvioNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineRelevoNode extends NodeDefinition {
+  constructor() {
+    super(
+      (_value: unknown, relay: unknown) => {
+        return [new DataToken(relay, new PortAddress("", "output"))];
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["value", "relay", "output"],
+      {
+        stickyInputPorts: ["value", "relay"],
+      },
+    );
+  }
+}

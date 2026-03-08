@@ -13,6 +13,7 @@ import {
   EngineXorNode,
   EngineSwitchNode,
   EngineDesvioNode,
+  EngineRelevoNode,
 } from "../nodes/logic-nodes";
 import type { SwitchCondition, SwitchOperator } from "../nodes/logic-nodes";
 import {
@@ -375,6 +376,9 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
 
     case NODE_TYPES.DESVIO_NODE:
       return new EngineDesvioNode();
+
+    case NODE_TYPES.RELEVO_NODE:
+      return new EngineRelevoNode();
 
     case NODE_TYPES.SWITCH_NODE: {
       const raw = data.conditions;

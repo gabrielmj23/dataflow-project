@@ -75,6 +75,7 @@ const nodeAbstractionLevelMap: Record<
   xor: 1,
   not: 1,
   desvio: { min: 1, max: 2 },
+  relevo: 1,
   switch: { min: 2, max: 2 },
   selector: 3,
   conditional: 3,
@@ -412,6 +413,12 @@ export const nodePalette: NodePaletteCategory[] = [
             label: "Desvio",
             description:
               "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
+          },
+          {
+            type: "relevo",
+            label: "Relevo",
+            description:
+              "Recibe una entrada por la izquierda y emite siempre el valor conectado en la entrada superior.",
           },
           {
             type: "switch",
