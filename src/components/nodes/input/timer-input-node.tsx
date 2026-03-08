@@ -14,6 +14,7 @@ import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -99,11 +100,11 @@ export const TimerInputNode = memo(({ id, data }: NodeProps) => {
                   timeValue: nextValue,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   return (
@@ -155,6 +156,11 @@ export const TimerInputNode = memo(({ id, data }: NodeProps) => {
               </Button>
             </div>
           </div>
+          <DialogFooter>
+            <div className="flex justify-end">
+              <Button onClick={() => setIsDialogOpen(false)}>Guardar</Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

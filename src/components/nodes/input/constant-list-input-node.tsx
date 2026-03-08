@@ -137,13 +137,6 @@ export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
-                variant="secondary"
-                onClick={() => setDraftText(itemsToMultiline(DEFAULT_ITEMS))}
-              >
-                Restablecer
-              </Button>
-              <Button
-                type="button"
                 disabled={!validation.isValid}
                 onClick={() => {
                   if (!validation.isValid) return;
@@ -151,7 +144,7 @@ export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
                   setIsDialogOpen(false);
                 }}
               >
-                Listo
+                Guardar
               </Button>
             </div>
           </div>

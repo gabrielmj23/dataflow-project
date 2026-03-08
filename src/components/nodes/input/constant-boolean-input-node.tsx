@@ -5,11 +5,13 @@ import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Toggle } from "@/components/ui/toggle";
 import { Check, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export type ConstantBooleanInputNodeData = {
   label?: string;
@@ -35,8 +37,8 @@ export const ConstantBooleanInputNode = memo(({ id, data }: NodeProps) => {
                 value: nextValue,
               },
             }
-          : node
-      )
+          : node,
+      ),
     );
   };
 
@@ -83,6 +85,11 @@ export const ConstantBooleanInputNode = memo(({ id, data }: NodeProps) => {
               </Toggle>
             </div>
           </div>
+          <DialogFooter>
+            <div className="flex justify-end">
+              <Button onClick={() => setIsDialogOpen(false)}>Guardar</Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

@@ -5,10 +5,12 @@ import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 export type ConstantTextInputNodeData = {
   label?: string;
@@ -128,6 +130,11 @@ export const ConstantTextInputNode = memo(({ id, data }: NodeProps) => {
               className="mt-1"
             />
           </div>
+          <DialogFooter>
+            <div className="flex justify-end">
+              <Button onClick={() => setIsDialogOpen(false)}>Guardar</Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

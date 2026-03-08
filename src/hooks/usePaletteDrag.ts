@@ -179,7 +179,7 @@ export function usePaletteDrag({
             ...(data ?? {}),
             min: 0,
             max: 100,
-            integerOnly: false,
+            integerOnly: true,
             label: (data.label as string) ?? "Valor Aleatorio",
           };
         }

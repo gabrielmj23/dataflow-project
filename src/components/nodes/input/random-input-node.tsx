@@ -32,7 +32,8 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
 
   const min = Number.isFinite(rawMin) ? (rawMin as number) : DEFAULT_MIN;
   const max = Number.isFinite(rawMax) ? (rawMax as number) : DEFAULT_MAX;
-  const integerOnly = rawIntegerOnly === true;
+  const integerOnly =
+    rawIntegerOnly === undefined ? true : rawIntegerOnly === true;
 
   const { setNodes } = useReactFlow();
   const setRange = useCallback(
@@ -224,14 +225,12 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
               </p>
             </div>
 
-            {/* Validación */}
             {!validation.isValid && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
                 {validation.message}
               </div>
             )}
 
-            {/* Acción simple e intuitiva */}
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
@@ -239,7 +238,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                 onClick={() => {
                   setDraftMin(DEFAULT_MIN);
                   setDraftMax(DEFAULT_MAX);
-                  setDraftIntegerOnly(false);
+                  setDraftIntegerOnly(true);
                 }}
               >
                 Restablecer
@@ -255,7 +254,7 @@ export const RandomInputNode = memo(({ id, data }: NodeProps) => {
                   setIsDialogOpen(false);
                 }}
               >
-                Listo
+                Guardar
               </Button>
             </div>
           </div>
