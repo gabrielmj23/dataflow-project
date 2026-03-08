@@ -1481,6 +1481,7 @@ export default function EditorPage() {
                                   onSetCanvasMode={setCanvasMode}
                                   soundsEnabled={soundsEnabled}
                                   onSoundsEnabledChange={setSoundsEnabledState}
+                                  onDeleteNodes={() => setNodes([])}
                                   onLayout={onLayout}
                                 />
                               </div>
@@ -1513,6 +1514,7 @@ export default function EditorPage() {
                                   onToggle={() =>
                                     setIsConsoleOpen((prev) => !prev)
                                   }
+                                  editorContainerRef={editorContainerRef}
                                 />
                               </div>
 

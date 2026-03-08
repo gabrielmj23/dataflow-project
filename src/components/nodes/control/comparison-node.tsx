@@ -194,7 +194,7 @@ export const ComparisonNode = memo(({ id, data }: NodeProps) => {
                   setIsDialogOpen(false);
                 }}
               >
-                Listo
+                Guardar
               </Button>
             </div>
           </div>
