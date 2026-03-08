@@ -6,11 +6,13 @@ import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 
 export type RuntimeInputNodeData = {
   identifier?: string;
@@ -20,8 +22,8 @@ export type RuntimeInputNodeData = {
 };
 
 export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
-  const { identifier, valueType, prompt, defaultValue } =
-    (data ?? {}) as RuntimeInputNodeData;
+  const { identifier, valueType, prompt, defaultValue } = (data ??
+    {}) as RuntimeInputNodeData;
 
   const resolvedValueType = valueType === "text" ? "text" : "number";
 
@@ -29,7 +31,9 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
   const numericDefault = typeof defaultValue === "number" ? defaultValue : 0;
   const textDefault = typeof defaultValue === "string" ? defaultValue : "";
   const identifierValue = typeof identifier === "string" ? identifier : "";
-  const identifierLabel = identifierValue.trim() ? identifierValue.trim() : "Leer";
+  const identifierLabel = identifierValue.trim()
+    ? identifierValue.trim()
+    : "Leer";
   const identifierLabelDisplay = (() => {
     const MAX = 10;
     return identifierLabel.length > MAX
@@ -56,11 +60,11 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
                   ...patch,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   return (
@@ -167,6 +171,11 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
               )}
             </div>
           </div>
+          <DialogFooter>
+            <div className="flex justify-end">
+              <Button onClick={() => setIsDialogOpen(false)}>Guardar</Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

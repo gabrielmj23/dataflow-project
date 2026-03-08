@@ -133,7 +133,7 @@ function caretRangeFromPoint(x: number, y: number): Range | null {
     caretRangeFromPoint?: (x: number, y: number) => Range | null;
     caretPositionFromPoint?: (
       x: number,
-      y: number
+      y: number,
     ) => { offsetNode: Node; offset: number } | null;
   };
 
@@ -244,12 +244,12 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
   const inputCount = useMemo(
     () => sanitizeInputCount(rawInputCount),
-    [rawInputCount]
+    [rawInputCount],
   );
 
   const targetHandleIds = useMemo(
     () => Array.from({ length: inputCount }, (_, i) => `in-${i + 1}`),
-    [inputCount]
+    [inputCount],
   );
 
   const edges = useStore(
@@ -294,7 +294,9 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
     const counts = new Map<string, number>();
     for (const entry of baseEntries) {
       if (entry.custom || typeof entry.label !== "string") continue;
-      const key = String(entry.label ?? "").trim().toLowerCase();
+      const key = String(entry.label ?? "")
+        .trim()
+        .toLowerCase();
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
 
@@ -316,11 +318,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
       return `${normalized} ${handleIndex}`;
     });
-  }, [
-    connectedTargetHandleIds,
-    inputLabels,
-    targetHandleIds,
-  ]);
+  }, [connectedTargetHandleIds, inputLabels, targetHandleIds]);
 
   const targetHandlePlaceholders = useMemo(
     () =>
@@ -396,15 +394,15 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draftTemplate, setDraftTemplate] = useState<string>(
-    typeof rawTemplate === "string" ? rawTemplate : "{1}"
+    typeof rawTemplate === "string" ? rawTemplate : "{1}",
   );
   const editorRef = useRef<HTMLDivElement | null>(null);
   const [editorEl, setEditorEl] = useState<HTMLDivElement | null>(null);
   const didInitEditorForOpenRef = useRef(false);
   const lastDraggedVarIndexRef = useRef<number | null>(null);
-  const [inlineInvalidHandleIds, setInlineInvalidHandleIds] = useState<string[]>(
-    [],
-  );
+  const [inlineInvalidHandleIds, setInlineInvalidHandleIds] = useState<
+    string[]
+  >([]);
 
   const setEditorRef = useCallback((el: HTMLDivElement | null) => {
     editorRef.current = el;
@@ -433,8 +431,8 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                 template: nextTemplate,
               },
             }
-          : n
-      )
+          : n,
+      ),
     );
     setIsDialogOpen(false);
   }, [draftTemplate, id, setNodes]);
@@ -526,7 +524,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
         }
       }
     },
-    [onEditorInput]
+    [onEditorInput],
   );
 
   const onEditorDragEnter = useCallback((e: React.DragEvent) => {
@@ -556,14 +554,14 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
         e.dataTransfer.getData("application/x-write-var-index") ||
         e.dataTransfer.getData("text/plain");
       console.log(
-        `[WriteNode] onEditorDrop raw='${raw}' clientX=${e.clientX} clientY=${e.clientY}`
+        `[WriteNode] onEditorDrop raw='${raw}' clientX=${e.clientX} clientY=${e.clientY}`,
       );
       const match = /^(?:\{)?(\d+)(?:\})?$/.exec(String(raw).trim());
       const idx = match
         ? Number(match[1])
-        : lastDraggedVarIndexRef.current ?? NaN;
+        : (lastDraggedVarIndexRef.current ?? NaN);
       console.log(
-        `[WriteNode] onEditorDrop resolved idx=${idx} lastDragged=${lastDraggedVarIndexRef.current}`
+        `[WriteNode] onEditorDrop resolved idx=${idx} lastDragged=${lastDraggedVarIndexRef.current}`,
       );
       if (!Number.isFinite(idx) || idx <= 0) return;
 
@@ -590,7 +588,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
       console.log(
         "[WriteNode] onEditorDrop selection after set",
-        window.getSelection()
+        window.getSelection(),
       );
 
       insertVarAtSelectionWithLabel({
@@ -600,7 +598,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
       });
       onEditorInput();
     },
-    [onEditorInput, variableDisplayLabels]
+    [onEditorInput, variableDisplayLabels],
   );
 
   return (
@@ -741,7 +739,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                         // is properly initialized by the browser.
                         e.dataTransfer.setData(
                           "application/x-write-var-index",
-                          String(idx)
+                          String(idx),
                         );
                         e.dataTransfer.setData("text/plain", `{${idx}}`);
                         e.dataTransfer.effectAllowed = "copy";
@@ -749,7 +747,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                           `[WriteNode] onDragStart idx=${idx} types=`,
                           Array.from(e.dataTransfer.types || []),
                           "effectAllowed=",
-                          e.dataTransfer.effectAllowed
+                          e.dataTransfer.effectAllowed,
                         );
                       }}
                       onDragEnd={(e) => {
@@ -757,14 +755,14 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                           `[WriteNode] onDragEnd types=`,
                           Array.from(e.dataTransfer.types || []),
                           "dropEffect=",
-                          e.dataTransfer.dropEffect
+                          e.dataTransfer.dropEffect,
                         );
                       }}
                       className="cursor-grab select-none rounded-md border px-2 py-1 text-sm text-white bg-teal-500 w-fit"
                     >
                       {variableDisplayLabels[idx - 1] ?? `Entrada ${idx}`}
                     </div>
-                  )
+                  ),
                 )}
               </div>
             </div>

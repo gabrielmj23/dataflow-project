@@ -5,6 +5,7 @@ import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -30,6 +31,7 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
 
   useEffect(() => {
     if (isInlineEditing) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setInlineValue(String(numericValue));
   }, [isInlineEditing, numericValue]);
 
@@ -101,7 +103,7 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
             <button
               type="button"
               onClick={startInlineEdit}
-              className="nodrag nopan max-w-[3rem] truncate text-sm font-normal outline-none"
+              className="nodrag nopan max-w-12 truncate text-sm font-normal outline-none"
               title="Editar valor"
             >
               {numericValue}
@@ -154,6 +156,11 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
               </Button>
             </div>
           </div>
+          <DialogFooter>
+            <div className="flex justify-end">
+              <Button onClick={() => setIsDialogOpen(false)}>Guardar</Button>
+            </div>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>
