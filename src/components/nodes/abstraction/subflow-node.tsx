@@ -83,11 +83,13 @@ import { ShareSubflowDialog } from "@/components/custom-nodes/ShareSubflowDialog
 import { createCustomNode } from "@/lib/custom-nodes";
 import {
   addNodesToExtension,
+  createExtension,
   fetchMyExtensions,
   type ExtensionListItem,
 } from "@/lib/extensions";
 import { toast } from "sonner";
 import { getDarkerColor } from "@/utils/colors";
+import { useQueryClient } from "@tanstack/react-query";
 
 export type SubflowNodeData = {
   label?: string;
@@ -142,6 +144,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const { setNodes, setEdges } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
   const templateContext = useSubflowTemplateContext();
+  const queryClient = useQueryClient();
 
   const {
     label = "Subflujo",
@@ -1218,8 +1221,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           }
         }}
         subflowName={label}
-        inCount={inCount}
-        outCount={outCount}
         availableExtensions={myExtensions}
         selectedExtensionIds={selectedExtensionIds}
         onToggleExtension={(extensionId) => {
@@ -1231,12 +1232,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         }}
         isSubmitting={isShareSubmitting}
         submitError={shareSubmitError}
-        onConfirm={async ({ name, description }) => {
+        onConfirm={async ({ name, description, newExtension }) => {
           try {
             setShareSubmitError(null);
             setIsShareSubmitting(true);
 
-            if (selectedExtensionIds.length === 0) {
+            if (!newExtension && selectedExtensionIds.length === 0) {
               setShareSubmitError(
                 "Debes seleccionar al menos una extension para publicar.",
               );
@@ -1259,9 +1260,23 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             });
 
             const selectedUniqueIds = Array.from(new Set(selectedExtensionIds));
+            const targetExtensionIds = [...selectedUniqueIds];
+
+            if (newExtension) {
+              try {
+                const createdExt = await createExtension(newExtension);
+                targetExtensionIds.push(createdExt.id);
+                // invalidate so it shows up in sidebar/dialogs
+                queryClient.invalidateQueries({ queryKey: ["extensions"] });
+              } catch (extError) {
+                console.error("Failed to create new extension:", extError);
+                throw new Error("No se pudo crear la nueva extensión.");
+              }
+            }
+
             const failedExtensionNames: string[] = [];
 
-            for (const extensionId of selectedUniqueIds) {
+            for (const extensionId of targetExtensionIds) {
               try {
                 await addNodesToExtension({
                   extensionId,
@@ -1275,7 +1290,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               }
             }
 
-            if (failedExtensionNames.length === selectedUniqueIds.length) {
+            if (failedExtensionNames.length === targetExtensionIds.length) {
               throw new Error(
                 "No se pudo asociar el subflujo a las extensiones seleccionadas.",
               );
@@ -1287,7 +1302,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               );
             } else {
               toast.success(
-                `Subflujo publicado en ${selectedUniqueIds.length} extension(es).`,
+                `Subflujo publicado en ${targetExtensionIds.length} extension(es).`,
               );
             }
 
