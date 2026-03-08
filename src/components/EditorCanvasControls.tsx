@@ -5,6 +5,7 @@ import {
   BrushCleaning,
   Volume2,
   VolumeX,
+  Trash2,
 } from "lucide-react";
 import { toggleSoundEnabled } from "@/lib/sound";
 
@@ -13,6 +14,7 @@ interface EditorCanvasControlsProps {
   onSetCanvasMode: (mode: "pan" | "select") => void;
   soundsEnabled: boolean;
   onSoundsEnabledChange: (enabled: boolean) => void;
+  onDeleteNodes: () => void;
   onLayout: () => void;
 }
 
@@ -21,6 +23,7 @@ export function EditorCanvasControls({
   onSetCanvasMode,
   soundsEnabled,
   onSoundsEnabledChange,
+  onDeleteNodes,
   onLayout,
 }: EditorCanvasControlsProps) {
   return (
@@ -50,6 +53,9 @@ export function EditorCanvasControls({
         className="rf-mode-toggle"
       >
         <MousePointer2 />
+      </ControlButton>
+      <ControlButton onClick={onDeleteNodes} title="Borrar nodos">
+        <Trash2 className="fill-none!" />
       </ControlButton>
       <ControlButton title="Mejorar formato" onClick={onLayout}>
         <BrushCleaning className="fill-none!" />
