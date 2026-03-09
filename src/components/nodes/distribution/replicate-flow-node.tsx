@@ -31,7 +31,7 @@ import {
 
 import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
-import { Copy, Hand, MousePointer2 } from "lucide-react";
+import { Copy, Hand, MousePointer2, Plus, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -48,6 +48,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   buildDroppedNodeData,
   editorPaletteLabelByType,
@@ -88,6 +93,7 @@ export type ReplicateFlowNodeData = {
   subflowNodes?: Node[];
   subflowEdges?: Edge[];
   remoteConnections?: ReplicateFlowRemoteConnection[];
+  runtimeError?: string | null;
   isSelfCall?: boolean;
 };
 
@@ -266,25 +272,76 @@ export const ReplicateFlowNode = memo(
       subflowNodes,
       subflowEdges,
       remoteConnections: rawRemoteConnections,
+      runtimeError,
       isSelfCall = false,
     } = (data ?? {}) as ReplicateFlowNodeData;
 
     const parsedConnections = parseReplicateFlowConnections({
       rawRemoteConnections,
     });
-    const allowsExternalInput =
-      typeof data.inCount === "number"
-        ? Math.max(0, Math.min(1, Math.floor(data.inCount)))
-        : 1;
+
+    const innerInputNode = (subflowNodes ?? []).find((node) =>
+      isReplicateInputNodeType(node.type),
+    );
+    const hasInternalInput = !!innerInputNode;
 
     const connectionCount = Math.max(1, parsedConnections.length);
-    const inOffsets = offsets(allowsExternalInput > 0 ? connectionCount : 0);
+    const inOffsets = offsets(hasInternalInput ? connectionCount : 0);
     const outOffsets = offsets(connectionCount);
 
     const connectionSubtitle = (() => {
       const count = parsedConnections.length;
       return count === 1 ? "1 conexión" : `${count} conexiones`;
     })();
+
+    const handleAddPort = useCallback(() => {
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.id !== id) return node;
+          const currentData = (node.data ?? {}) as ReplicateFlowNodeData;
+          const currentConns = parseReplicateFlowConnections({
+            rawRemoteConnections: currentData.remoteConnections,
+          });
+          const nextId = `conn-${Date.now()}-${currentConns.length + 1}`;
+          const nextConns: ReplicateFlowRemoteConnection[] = [
+            ...currentConns,
+            {
+              id: nextId,
+              executionTarget: "local",
+              transport: "serial",
+            },
+          ];
+          return {
+            ...node,
+            data: {
+              ...currentData,
+              remoteConnections: nextConns,
+            },
+          };
+        }),
+      );
+    }, [id, setNodes]);
+
+    const handleRemovePort = useCallback(() => {
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.id !== id) return node;
+          const currentData = (node.data ?? {}) as ReplicateFlowNodeData;
+          const currentConns = parseReplicateFlowConnections({
+            rawRemoteConnections: currentData.remoteConnections,
+          });
+          if (currentConns.length <= 1) return node;
+          const nextConns = currentConns.slice(0, -1);
+          return {
+            ...node,
+            data: {
+              ...currentData,
+              remoteConnections: nextConns,
+            },
+          };
+        }),
+      );
+    }, [id, setNodes]);
 
     useEffect(() => {
       const timer = window.setTimeout(() => {
@@ -294,7 +351,7 @@ export const ReplicateFlowNode = memo(
       return () => {
         window.clearTimeout(timer);
       };
-    }, [id, connectionCount, updateNodeInternals]);
+    }, [id, connectionCount, hasInternalInput, updateNodeInternals]);
 
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
@@ -696,7 +753,56 @@ export const ReplicateFlowNode = memo(
 
     return (
       <BaseNode
-        className="relative flex w-36 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md"
+        runtimeError={runtimeError}
+        className="relative flex w-36 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md z-10"
+        sideActionsClassName="top-auto -bottom-8 left-1/2 -translate-x-1/2 translate-y-0 flex flex-row items-center justify-center gap-2 w-auto h-auto bg-transparent backdrop-blur-none border-0 rounded-none shadow-none z-0"
+        sideActions={
+          !isSelfCall ? (
+            <>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="node"
+                    aria-label="Agregar conexión"
+                    className="pointer-events-auto rounded-sm bg-transparent p-0 text-(--node-action-color)  transition-colors flex h-5 w-5 items-center justify-center"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleAddPort();
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={4}>
+                  Agregar conexión
+                </TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="node"
+                    aria-label="Eliminar conexión"
+                    className="pointer-events-auto rounded-sm bg-transparent p-0 text-(--node-action-color) disabled:opacity-30 transition-colors flex h-5 w-5 items-center justify-center"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleRemovePort();
+                    }}
+                    disabled={connectionCount <= 1}
+                  >
+                    <Minus className="h-3.5 w-3.5 stroke-[2.5]" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" sideOffset={4}>
+                  Eliminar conexión
+                </TooltipContent>
+              </Tooltip>
+            </>
+          ) : undefined
+        }
         onConfigClick={
           !isSelfCall
             ? () => {
