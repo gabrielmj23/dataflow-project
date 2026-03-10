@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Search } from "lucide-react";
 import {
   fetchLatestPublishedProjects,
   fetchPublishedProjectById,
@@ -21,6 +21,7 @@ export function RecentPublishedProjectsSection() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     null,
   );
+  const [searchTerm, setSearchTerm] = useState("");
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -33,7 +34,23 @@ export function RecentPublishedProjectsSection() {
     enabled: Boolean(selectedProjectId),
   });
 
+  const filteredProjects = useMemo(() => {
+    const normalizedTerm = searchTerm.trim().toLowerCase();
+    if (!normalizedTerm) return projects;
+
+    return projects.filter((project) => {
+      const remixName = project.remixedFromName ?? "";
+      return [project.name, project.authorName, remixName].some((value) =>
+        value.toLowerCase().includes(normalizedTerm),
+      );
+    });
+  }, [projects, searchTerm]);
+
   const hasProjects = useMemo(() => projects.length > 0, [projects.length]);
+  const hasFilteredProjects = useMemo(
+    () => filteredProjects.length > 0,
+    [filteredProjects.length],
+  );
 
   const scrollRail = (direction: "left" | "right") => {
     const rail = railRef.current;
@@ -48,7 +65,24 @@ export function RecentPublishedProjectsSection() {
 
   return (
     <section className="w-full rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
-      <h2 className="text-2xl font-bold text-slate-800">Proyectos recientes</h2>
+      <h2 className="text-4xl font-normal tracking-tight text-emerald-700">
+        Proyectos recientes
+      </h2>
+      <div className="mt-2">
+        <p className="text-sm text-slate-800">Explora proyectos de la comunidad de NodeLand</p>
+      </div>
+
+      <label className="mt-3 flex max-w-md items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+        <Search size={18} className="text-emerald-700" />
+        <input
+          type="search"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Buscar proyecto"
+          className="w-full bg-transparent text-base text-slate-800 outline-none placeholder:text-slate-500"
+          aria-label="Buscar proyecto"
+        />
+      </label>
 
       {isLoading ? (
         <p className="mt-4 text-slate-500">Cargando proyectos...</p>
@@ -64,8 +98,8 @@ export function RecentPublishedProjectsSection() {
         <p className="mt-4 text-slate-500">Aún no hay proyectos publicados.</p>
       ) : null}
 
-      {hasProjects ? (
-        <div className="relative mt-4">
+      {hasFilteredProjects ? (
+        <div className="relative mt-4 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
           <button
             type="button"
             aria-label="Desplazar proyectos a la izquierda"
@@ -79,11 +113,11 @@ export function RecentPublishedProjectsSection() {
             ref={railRef}
             className="mx-9 flex gap-4 overflow-x-auto scroll-smooth pt-1 pb-2"
           >
-            {projects.map((project) => (
+            {filteredProjects.map((project) => (
               <button
                 key={project.id}
                 type="button"
-                className="w-56 shrink-0 rounded-lg border border-slate-200 bg-white text-left hover:cursor-pointer hover:scale-105 transition-all"
+                className="w-56 shrink-0 rounded-lg border border-slate-300 bg-slate-50 text-left transition-all hover:cursor-pointer hover:border-emerald-300 hover:shadow"
                 onClick={() => setSelectedProjectId(project.id)}
               >
                 {project.thumbnail ? (
@@ -100,12 +134,12 @@ export function RecentPublishedProjectsSection() {
 
                 <div className="p-3">
                   {project.remixedFromId ? (
-                    <p className="mb-1 inline-flex rounded-full bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-700">
+                    <p className="mb-1 inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
                       Remix
                     </p>
                   ) : null}
 
-                  <p className="truncate text-xl font-semibold text-violet-600">
+                  <p className="truncate text-xl font-semibold text-emerald-700">
                     {project.name}
                   </p>
                   <p className="truncate text-slate-600">
@@ -132,6 +166,12 @@ export function RecentPublishedProjectsSection() {
         </div>
       ) : null}
 
+      {!isLoading && !error && hasProjects && !hasFilteredProjects ? (
+        <p className="mt-4 text-slate-600">
+          No encontramos proyectos que coincidan con "{searchTerm}".
+        </p>
+      ) : null}
+
       <ProjectPreviewDialog
         open={Boolean(selectedProjectId)}
         onOpenChange={(open) => {
@@ -144,6 +184,8 @@ export function RecentPublishedProjectsSection() {
         isLoadingDetail={selectedProjectDetailQuery.isLoading}
         isDetailError={selectedProjectDetailQuery.isError}
       />
+
+      
     </section>
   );
 }

@@ -1,7 +1,5 @@
 import { Link } from "react-router-dom";
 import {
-  Cpu,
-  Download,
   LogIn,
   LogOut,
   Trophy,
@@ -15,12 +13,16 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { clearStoredAuthSession, getStoredAuthUser } from "@/lib/auth";
 import type { AuthMode, AuthSessionUser } from "@/types";
 import { RecentPublishedProjectsSection } from "@/components/projects/RecentPublishedProjectsSection";
+import { DistributedProgrammingSection } from "@/components/projects/DistributedProgrammingSection";
+import { PhysicalComputingSection } from "@/components/projects/PhysicalComputingSection";
 import makecodeSubflowSource from "../../makecode/makecode-subflow.ts?raw";
 import stickerCohete from "@/assets/landing/cohete.png";
 import stickerCompas from "@/assets/landing/compas.png";
 import stickerFlor from "@/assets/landing/flor.png";
 import stickerLoro from "@/assets/landing/loro.png";
 import stickerRegla from "@/assets/landing/regla.png";
+import ucabLogo from "@/assets/landing/ucab-logo.png";
+import labLogo from "@/assets/landing/lab-logo.png";
 
 export default function ModeSelectPage() {
   const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
@@ -55,7 +57,7 @@ export default function ModeSelectPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-linear-to-b from-sky-50 via-blue-50 to-cyan-100 text-slate-900">
+    <div className="min-h-screen bg-linear-to-b from-sky-50 via-blue-50 to-cyan-100 text-slate-900">
       <header className="sticky top-0 z-40 w-full bg-(--nodi-blue) text-white shadow-md">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-2.5 sm:px-7 sm:py-3">
           <div className="flex items-center gap-2">
@@ -184,14 +186,6 @@ export default function ModeSelectPage() {
             programar, en el modelo de DataFlow, hasta la interesante computación distribuida.
           </p>
 
-          <button
-            className="mt-2 inline-flex items-center gap-3 rounded-2xl border-2 border-sky-200 bg-white px-7 py-3 text-base font-semibold text-slate-900 shadow-md transition hover:border-sky-500 hover:text-sky-700 hover:cursor-pointer"
-            onClick={handleDownloadMicrobitFirmware}
-          >
-            <Cpu size={18} className="transition-colors group-hover:text-sky-600" />
-            Descargar firmware micro:bit
-            <Download size={16} className="transition-colors group-hover:text-sky-600" />
-          </button>
 
           <div className="grid w-full grid-cols-2 gap-2 pt-2 md:hidden">
             <StickerImage src={stickerCohete} alt="Sticker cohete" />
@@ -204,6 +198,8 @@ export default function ModeSelectPage() {
 
       <section className="mx-auto flex w-full max-w-7xl flex-col items-center gap-8 px-4 pb-8 sm:px-8">
         <RecentPublishedProjectsSection />
+        <DistributedProgrammingSection />
+        <PhysicalComputingSection onDownloadFirmware={handleDownloadMicrobitFirmware} />
 
         <AgeSelectionDialog
           visible={isChallengeDialogOpen}
@@ -218,7 +214,68 @@ export default function ModeSelectPage() {
           onAuthSuccess={handleAuthSuccess}
         />
       </section>
+
+      <DevelopedByFooter />
     </div>
+  );
+}
+
+function DevelopedByFooter() {
+  return (
+    <footer className="w-full border-t border-slate-200 bg-slate-100/90">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-8">
+        <p className="text-3xl font-normal leading-none text-sky-500 text-center">Desarrollado en:</p>
+
+        <div className="flex flex-wrap items-center justify-center gap-6">
+          <FooterLogo
+            src={ucabLogo}
+            alt="Logo UCAB"
+            fallbackLabel="UCAB"
+            className="h-20 w-auto"
+          />
+
+          <FooterLogo
+            src={labLogo}
+            alt="Logo Laboratorio"
+            fallbackLabel="LAB"
+            className="h-20 w-auto"
+          />
+        </div>
+
+        <p className="text-center text-sm text-slate-800">Version 1.0 - Marzo 2026</p>
+      </div>
+    </footer>
+  );
+}
+
+function FooterLogo({
+  src,
+  alt,
+  fallbackLabel,
+  className,
+}: {
+  src: string;
+  alt: string;
+  fallbackLabel: string;
+  className?: string;
+}) {
+  const [imageError, setImageError] = useState(false);
+
+  if (imageError) {
+    return (
+      <div className="flex h-16 min-w-28 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-2xl font-semibold text-slate-700">
+        {fallbackLabel}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={`${className ?? "h-16 w-auto"} object-contain`}
+      onError={() => setImageError(true)}
+    />
   );
 }
 
