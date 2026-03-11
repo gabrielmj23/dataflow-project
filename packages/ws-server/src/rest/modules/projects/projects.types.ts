@@ -15,15 +15,19 @@ export type ProjectCreate = Omit<
 
 export type ProjectUpdate = Omit<
   Partial<typeof projectsTable.$inferInsert>,
-  "id" | "author" | "remixedFrom" | "createdAt" | "updatedAt"
+  "id" | "author" | "guestOwnerId" | "remixedFrom" | "createdAt" | "updatedAt"
 >;
+
+export type ProjectAuthorKind = "user" | "guest";
 
 export type ProjectGet = Omit<
   typeof projectsTable.$inferSelect,
-  "author" | "remixedFrom"
+  "author" | "guestOwnerId" | "guestAuthorName" | "remixedFrom"
 > & {
-  authorId: string;
+  authorId: string | null;
+  authorKind: ProjectAuthorKind;
   authorName: string;
   remixedFromId: string | null;
   remixedFromName: string | null;
+  viewerCanEdit: boolean;
 };

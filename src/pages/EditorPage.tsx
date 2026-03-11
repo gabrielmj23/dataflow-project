@@ -73,6 +73,8 @@ import { PublishProjectDialog } from "@/components/projects/PublishProjectDialog
 import {
   captureProjectThumbnail,
   fetchPublishedProjectById,
+  getStoredGuestProjectAuthorName,
+  persistGuestProjectAuthorName,
   publishProject,
   updatePublishedProject,
 } from "@/lib/projects";
@@ -269,6 +271,9 @@ export default function EditorPage() {
   const [authToken] = useState<string | null>(() => getStoredAuthToken());
   const isAuthenticated = Boolean(authUser && authToken);
   const [projectDescription, setProjectDescription] = useState<string>("");
+  const [guestAuthorName, setGuestAuthorName] = useState<string>(() =>
+    getStoredGuestProjectAuthorName(),
+  );
 
   const [edgeFeedbackMode, setEdgeFeedbackMode] =
     useState<EdgeFeedbackMode>("transient");
@@ -822,10 +827,8 @@ export default function EditorPage() {
     }
   }, [editorContainerRef, reactFlowInstance, nodes.length]);
 
-  const isEditingOwnProject = Boolean(
-    publishedProjectQuery.data &&
-    authUser &&
-    publishedProjectQuery.data.authorId === authUser.id,
+  const canEditPublishedProject = Boolean(
+    publishedProjectQuery.data?.viewerCanEdit,
   );
 
   const handleSaveChanges = useCallback(
@@ -833,6 +836,7 @@ export default function EditorPage() {
       projectName: string,
       description: string,
       thumbnailOverride: string | null,
+      nextGuestAuthorName: string,
     ) => {
       if (!publishedProjectQuery.data) {
         setPublishError("No hay un proyecto publicado cargado para guardar.");
@@ -842,6 +846,14 @@ export default function EditorPage() {
       const normalizedName = projectName.trim();
       if (!normalizedName) {
         setPublishError("Ingresa un nombre para el proyecto.");
+        return;
+      }
+
+      const normalizedGuestAuthorName = nextGuestAuthorName.trim();
+      if (!isAuthenticated && !normalizedGuestAuthorName) {
+        setPublishError(
+          "Ingresa tu nombre para guardar este proyecto sin iniciar sesión.",
+        );
         return;
       }
 
@@ -876,10 +888,17 @@ export default function EditorPage() {
           description,
           thumbnail,
           program,
+          guestAuthorName: isAuthenticated
+            ? undefined
+            : normalizedGuestAuthorName,
         });
 
         setProgramName(normalizedName);
         setProjectDescription(description);
+        if (!isAuthenticated) {
+          persistGuestProjectAuthorName(normalizedGuestAuthorName);
+          setGuestAuthorName(normalizedGuestAuthorName);
+        }
         // refresh published project data
         try {
           await publishedProjectQuery.refetch();
@@ -905,6 +924,7 @@ export default function EditorPage() {
       generateThumbnailPreview,
       nodes,
       reactFlowInstance,
+      isAuthenticated,
       publishedProjectQuery,
       thumbnailPreview,
       updatePublishedProjectMutation,
@@ -929,6 +949,15 @@ export default function EditorPage() {
     setEdges(deserialized.edges as FlowEdge[]);
     setProgramName(project.name || project.program.programName || "Sin título");
     setProjectDescription(project.description ?? "");
+    if (
+      !isAuthenticated &&
+      project.authorKind === "guest" &&
+      project.viewerCanEdit &&
+      project.authorName.trim()
+    ) {
+      setGuestAuthorName(project.authorName.trim());
+      persistGuestProjectAuthorName(project.authorName.trim());
+    }
     resetHistory({
       nodes: deserialized.nodes as FlowNode[],
       edges: deserialized.edges as FlowEdge[],
@@ -944,6 +973,7 @@ export default function EditorPage() {
     setEdges,
     setNodes,
     setProgramName,
+    isAuthenticated,
   ]);
 
   useEffect(() => {
@@ -1195,10 +1225,17 @@ export default function EditorPage() {
       projectName: string,
       description: string,
       thumbnailOverride: string | null,
+      nextGuestAuthorName: string,
     ) => {
       const normalizedName = projectName.trim();
       if (!normalizedName) {
         setPublishError("Ingresa un nombre para el proyecto.");
+        return;
+      }
+
+      const normalizedGuestAuthorName = nextGuestAuthorName.trim();
+      if (!isAuthenticated && !normalizedGuestAuthorName) {
+        setPublishError("Ingresa tu nombre para publicar sin iniciar sesión.");
         return;
       }
 
@@ -1233,10 +1270,17 @@ export default function EditorPage() {
           thumbnail,
           remixedFrom: remixSourceProject?.id,
           program,
+          guestAuthorName: isAuthenticated
+            ? undefined
+            : normalizedGuestAuthorName,
         });
 
         setProgramName(normalizedName);
         setProjectDescription(description);
+        if (!isAuthenticated) {
+          persistGuestProjectAuthorName(normalizedGuestAuthorName);
+          setGuestAuthorName(normalizedGuestAuthorName);
+        }
         const shouldNavigateToCreatedRemix =
           Boolean(remixSourceProject) &&
           typeof createdProject?.id === "string" &&
@@ -1261,6 +1305,7 @@ export default function EditorPage() {
       edges,
       generateThumbnailPreview,
       publishProjectMutation,
+      isAuthenticated,
       nodes,
       reactFlowInstance,
       remixSourceProject,
@@ -1306,9 +1351,8 @@ export default function EditorPage() {
                 </span>
               </Link>
             ) : null}
-            {isAuthenticated &&
-              !challenge.challengeDefinition &&
-              (isEditingOwnProject ? (
+            {!challenge.challengeDefinition &&
+              (canEditPublishedProject ? (
                 <Button
                   variant="ghost"
                   className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
@@ -1579,8 +1623,10 @@ export default function EditorPage() {
         <PublishProjectDialog
           open={isPublishDialogOpen}
           mode={publishDialogMode}
+          isAuthenticated={isAuthenticated}
           defaultName={programName}
           defaultDescription={projectDescription}
+          defaultGuestAuthorName={guestAuthorName}
           thumbnailPreview={thumbnailPreview}
           isGeneratingPreview={isGeneratingThumbnailPreview}
           remixSourceName={
@@ -1601,12 +1647,27 @@ export default function EditorPage() {
               setThumbnailPreview(null);
             }
           }}
-          onConfirm={(name, description, thumbnailOverride) => {
+          onConfirm={(
+            name,
+            description,
+            thumbnailOverride,
+            nextGuestAuthorName,
+          ) => {
             if (publishDialogMode === "save") {
-              void handleSaveChanges(name, description, thumbnailOverride);
+              void handleSaveChanges(
+                name,
+                description,
+                thumbnailOverride,
+                nextGuestAuthorName,
+              );
               return;
             }
-            void handlePublishProject(name, description, thumbnailOverride);
+            void handlePublishProject(
+              name,
+              description,
+              thumbnailOverride,
+              nextGuestAuthorName,
+            );
           }}
         />
       </SidebarProvider>
