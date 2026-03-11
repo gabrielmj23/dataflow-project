@@ -1,6 +1,8 @@
 import microbitSticker from "@/assets/landing/microbit.png";
 import avionPapel from "@/assets/landing/avion-papel.png";
+import microbitDemoSticker from "@/assets/landing/microbit-demo.png";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { MicrobitFirmwareDialog } from "./MicrobitFirmwareDialog";
 
 type PhysicalComputingSectionProps = {
@@ -55,21 +57,27 @@ export function PhysicalComputingSection({
         />
 
         <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center">
-          <button
-            type="button"
+          <Link
+            to="/editor?demo=microbit"
             className="w-56 shrink-0 rounded-lg border border-emerald-200 bg-slate-50 text-left transition-all hover:cursor-pointer hover:border-emerald-300 hover:shadow"
           >
-            <div className="h-28 w-full flex items-center justify-center rounded-t-lg bg-emerald-50 text-xs font-medium text-emerald-700">
-              Placeholder Demo
+            <div className="h-32 w-full flex items-center justify-center rounded-t-lg bg-emerald-50 text-xs font-medium text-emerald-700">
+              <img
+                src={microbitDemoSticker}
+                alt="Sticker demo Micro:Bit"
+                className="h-full w-full object-contain drop-shadow-md"
+              />
             </div>
 
             <div className="p-3">
-              <p className="truncate text-xl font-semibold text-emerald-700">
-                Programa de demostracion
+              <p className="text-xl font-semibold text-emerald-700">
+                Leer temperatura con Micro:Bit
               </p>
-              <p className="truncate text-slate-600">proximamente</p>
+              <p className="truncate text-slate-600">
+                Interactúa con tu tarjeta
+              </p>
             </div>
-          </button>
+          </Link>
         </div>
       </div>
     </section>

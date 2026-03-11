@@ -1,0 +1,181 @@
+{
+  "version": 1,
+  "programName": "Leer Temperatura de micro:bit",
+  "nodes": [
+    {
+      "id": "Y2nbkfxg_WBQR1R7",
+      "type": "microbitReadTemperature",
+      "position": {
+        "x": 76.32323422879517,
+        "y": 295.3767665341443
+      },
+      "data": {
+        "label": "Temperatura"
+      }
+    },
+    {
+      "id": "9dzcSHNYt-yUAK5q",
+      "type": "comment",
+      "position": {
+        "x": -8.23315782623493,
+        "y": 179.33744551875185
+      },
+      "data": {
+        "text": "Conecta tu micro:bit a la PC y configura la conexión en el nodo Temperatura"
+      }
+    },
+    {
+      "id": "LPx0YKJxmJJFwFRG",
+      "type": "multiply",
+      "position": {
+        "x": 235.69058028987024,
+        "y": 342.25755849431647
+      },
+      "data": {
+        "label": "Multiplicar"
+      }
+    },
+    {
+      "id": "R0_ekP1whsy1tqmK",
+      "type": "constantNumber",
+      "position": {
+        "x": 93.8744534781812,
+        "y": 423.29534524385315
+      },
+      "data": {
+        "label": "Número",
+        "value": 9
+      }
+    },
+    {
+      "id": "8QEfqrtVXKGltykg",
+      "type": "divide",
+      "position": {
+        "x": 416.4048447413369,
+        "y": 364.1377609166914
+      },
+      "data": {
+        "label": "Dividir"
+      }
+    },
+    {
+      "id": "9PCLIDkDIevKSON7",
+      "type": "constantNumber",
+      "position": {
+        "x": 272.1575843271617,
+        "y": 435.45101325628355
+      },
+      "data": {
+        "label": "Número",
+        "value": 5
+      }
+    },
+    {
+      "id": "3kV3dtgkFP8-UjtD",
+      "type": "sum",
+      "position": {
+        "x": 591.4464641203359,
+        "y": 387.638719074057
+      },
+      "data": {
+        "label": "Sumar"
+      }
+    },
+    {
+      "id": "f1sWhjkeI8D8-r24",
+      "type": "constantNumber",
+      "position": {
+        "x": 456.11336024860975,
+        "y": 456.520837811163
+      },
+      "data": {
+        "label": "Número",
+        "value": 32
+      }
+    },
+    {
+      "id": "AoUtluqpiFQTTACN",
+      "type": "write",
+      "position": {
+        "x": 774.5918621742886,
+        "y": 385.20758547157084
+      },
+      "data": {
+        "label": "Escribir",
+        "inputCount": 2,
+        "template": "En Celsius: {1} °C\nEn Fahrenheit: {2} °F"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "-NY3ObgBWI1ES-Ic",
+      "source": "Y2nbkfxg_WBQR1R7",
+      "target": "LPx0YKJxmJJFwFRG",
+      "sourceHandle": null,
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "YcqUz2ePHdobCTZB",
+      "source": "R0_ekP1whsy1tqmK",
+      "target": "LPx0YKJxmJJFwFRG",
+      "sourceHandle": null,
+      "targetHandle": "in-2",
+      "data": {}
+    },
+    {
+      "id": "t6NZ46ntNdibY350",
+      "source": "LPx0YKJxmJJFwFRG",
+      "target": "8QEfqrtVXKGltykg",
+      "sourceHandle": "out",
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "eCVmbsXw79z08K0R",
+      "source": "9PCLIDkDIevKSON7",
+      "target": "8QEfqrtVXKGltykg",
+      "sourceHandle": null,
+      "targetHandle": "in-2",
+      "data": {}
+    },
+    {
+      "id": "LD237NPxCwXp2VOZ",
+      "source": "8QEfqrtVXKGltykg",
+      "target": "3kV3dtgkFP8-UjtD",
+      "sourceHandle": "out",
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "PQh9XXdmTkEyweaF",
+      "source": "f1sWhjkeI8D8-r24",
+      "target": "3kV3dtgkFP8-UjtD",
+      "sourceHandle": null,
+      "targetHandle": "in-2",
+      "data": {}
+    },
+    {
+      "id": "je8ERtgo5RWm2bUm",
+      "source": "Y2nbkfxg_WBQR1R7",
+      "target": "AoUtluqpiFQTTACN",
+      "sourceHandle": null,
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "eSrRwJvlulypzqfj",
+      "source": "3kV3dtgkFP8-UjtD",
+      "target": "AoUtluqpiFQTTACN",
+      "sourceHandle": "out",
+      "targetHandle": "in-2",
+      "data": {}
+    }
+  ],
+  "viewport": {
+    "x": 132.02009429886914,
+    "y": -138.91658318008558,
+    "zoom": 1.0917682505215687
+  }
+}
