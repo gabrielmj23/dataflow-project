@@ -338,11 +338,21 @@ function formatValue(value: unknown): string {
   if (typeof value === "number")
     return Number.isFinite(value) ? String(value) : "";
   if (typeof value === "boolean") return value ? "Verdadero" : "Falso";
-  return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
 }
 
 const TRANSIENT_VISIBLE_MS = 4300;
 const FADE_MS = 200;
+const TRANSIENT_TRUNCATE_CHARS = 15;
+
+function truncateTransientValue(text: string): string {
+  if (text.length <= TRANSIENT_TRUNCATE_CHARS) return text;
+  return `${text.slice(0, TRANSIENT_TRUNCATE_CHARS)}...`;
+}
 
 function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
   const [transient, setTransient] = useState<unknown | null>(null);
@@ -450,6 +460,11 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     bubbleValue = formatValue(lastSnapshot.value);
   }
 
+  const displayBubbleValue =
+    variant === "transient" && bubbleValue
+      ? truncateTransientValue(bubbleValue)
+      : bubbleValue;
+
   // Manage mount/unmount to allow fade-out animation when the bubble disappears.
   const [mounted, setMounted] = useState<boolean>(
     () => !!variant && !!bubbleValue,
@@ -458,13 +473,13 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     () => !!variant && !!bubbleValue,
   );
   const [renderValue, setRenderValue] = useState<string | null>(
-    () => bubbleValue ?? null,
+    () => displayBubbleValue ?? null,
   );
 
   useEffect(() => {
     // When a new variant/value appears, ensure we mount and show it.
-    if (variant && bubbleValue) {
-      setRenderValue(bubbleValue);
+    if (variant && displayBubbleValue) {
+      setRenderValue(displayBubbleValue);
       setMounted(true);
       // small delay to allow mount before setting visible so transition runs
       window.setTimeout(() => setVisible(true), 10);
@@ -480,7 +495,7 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
       }, FADE_MS);
       return () => window.clearTimeout(t);
     }
-  }, [variant, bubbleValue]);
+  }, [variant, displayBubbleValue]);
 
   // If nothing to render (not mounted), show the small invisible hit area like before.
   if (!mounted) {
