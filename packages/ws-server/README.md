@@ -18,6 +18,7 @@ Variables de entorno (opcionales):
 - `WS_PORT` (default: `8787`)
 - `WS_MAX_MESSAGE_BYTES` (default: `1000000`)
 - `WS_MAX_JSON_BODY_BYTES` (default: `8000000`)
+- `REST_ALLOWED_ORIGIN` (si se define, limita CORS al origen indicado y habilita credenciales para cookies)
 
 ## Endpoints HTTP (Express)
 

@@ -14,9 +14,9 @@ export const projectsTable = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     description: text("description").notNull().default(""),
-    author: uuid("author")
-      .notNull()
-      .references(() => usersTable.id),
+    author: uuid("author").references(() => usersTable.id),
+    guestOwnerId: text("guest_owner_id"),
+    guestAuthorName: text("guest_author_name"),
     remixedFrom: uuid("remixed_from"),
     thumbnail: text("thumbnail"),
     program: json("program").notNull(),

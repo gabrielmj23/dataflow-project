@@ -9,18 +9,67 @@ import {
   ProjectSearchParams,
   ProjectUpdate,
 } from "./projects.types";
-import { UserSelect } from "../users/users.types";
+import type { ProjectViewerIdentity } from "./project-identity";
 
 const remixedProjectsTable = alias(projectsTable, "remixed_projects");
 
-export async function findProjectById(id: string): Promise<ProjectGet> {
-  const project = await db
+type ProjectRow = {
+  id: string;
+  name: string;
+  description: string;
+  authorId: string | null;
+  registeredAuthorName: string | null;
+  guestOwnerId: string | null;
+  guestAuthorName: string | null;
+  remixedFromId: string | null;
+  remixedFromName: string | null;
+  thumbnail: string | null;
+  program: ProjectGet["program"];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+function mapProjectRow(
+  row: ProjectRow,
+  viewer: ProjectViewerIdentity = { kind: "anonymous" },
+): ProjectGet {
+  const authorKind = row.authorId ? "user" : "guest";
+  const authorName =
+    row.registeredAuthorName ?? row.guestAuthorName ?? "Autor desconocido";
+  const viewerCanEdit =
+    viewer.kind === "user"
+      ? row.authorId === viewer.user.id
+      : viewer.kind === "guest"
+        ? row.guestOwnerId === viewer.guestOwnerId
+        : false;
+
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    authorId: row.authorId,
+    authorKind,
+    authorName,
+    remixedFromId: row.remixedFromId,
+    remixedFromName: row.remixedFromName,
+    thumbnail: row.thumbnail,
+    program: row.program,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    viewerCanEdit,
+  };
+}
+
+function buildProjectBaseQuery() {
+  return db
     .select({
       id: projectsTable.id,
       name: projectsTable.name,
       description: projectsTable.description,
       authorId: usersTable.id,
-      authorName: usersTable.name,
+      registeredAuthorName: usersTable.name,
+      guestOwnerId: projectsTable.guestOwnerId,
+      guestAuthorName: projectsTable.guestAuthorName,
       remixedFromId: projectsTable.remixedFrom,
       remixedFromName: remixedProjectsTable.name,
       thumbnail: projectsTable.thumbnail,
@@ -29,11 +78,15 @@ export async function findProjectById(id: string): Promise<ProjectGet> {
       updatedAt: projectsTable.updatedAt,
     })
     .from(projectsTable)
-    .innerJoin(usersTable, eq(projectsTable.author, usersTable.id))
+    .leftJoin(usersTable, eq(projectsTable.author, usersTable.id))
     .leftJoin(
       remixedProjectsTable,
       eq(projectsTable.remixedFrom, remixedProjectsTable.id),
-    )
+    );
+}
+
+async function findProjectRowById(id: string): Promise<ProjectRow> {
+  const project = await buildProjectBaseQuery()
     .where(eq(projectsTable.id, id))
     .limit(1);
 
@@ -44,32 +97,37 @@ export async function findProjectById(id: string): Promise<ProjectGet> {
   return project[0];
 }
 
+function isProjectOwnedByViewer(
+  project: ProjectRow,
+  viewer: ProjectViewerIdentity,
+) {
+  if (viewer.kind === "user") {
+    return project.authorId === viewer.user.id;
+  }
+
+  if (viewer.kind === "guest") {
+    return project.guestOwnerId === viewer.guestOwnerId;
+  }
+
+  return false;
+}
+
+export async function findProjectById(
+  id: string,
+  viewer: ProjectViewerIdentity = { kind: "anonymous" },
+): Promise<ProjectGet> {
+  const project = await findProjectRowById(id);
+  return mapProjectRow(project, viewer);
+}
+
 export async function findProjects(
   searchData: ProjectSearchParams,
+  viewer: ProjectViewerIdentity = { kind: "anonymous" },
 ): Promise<ProjectGet[]> {
   const { name, authorId, remixedFromId, page = 1, pageSize = 10 } = searchData;
   const offset = (page - 1) * pageSize;
 
-  const projects = await db
-    .select({
-      id: projectsTable.id,
-      name: projectsTable.name,
-      description: projectsTable.description,
-      authorId: usersTable.id,
-      authorName: usersTable.name,
-      remixedFromId: projectsTable.remixedFrom,
-      remixedFromName: remixedProjectsTable.name,
-      thumbnail: projectsTable.thumbnail,
-      program: projectsTable.program,
-      createdAt: projectsTable.createdAt,
-      updatedAt: projectsTable.updatedAt,
-    })
-    .from(projectsTable)
-    .innerJoin(usersTable, eq(projectsTable.author, usersTable.id))
-    .leftJoin(
-      remixedProjectsTable,
-      eq(projectsTable.remixedFrom, remixedProjectsTable.id),
-    )
+  const projects = await buildProjectBaseQuery()
     .where(
       and(
         name ? ilike(projectsTable.name, `%${name}%`) : undefined,
@@ -82,46 +140,41 @@ export async function findProjects(
     .orderBy(desc(projectsTable.updatedAt))
     .limit(pageSize)
     .offset(offset);
-  return projects;
+  return projects.map((project) => mapProjectRow(project, viewer));
 }
 
-export async function createProject(data: ProjectCreate) {
+export async function createProject(
+  data: ProjectCreate,
+  viewer: ProjectViewerIdentity,
+) {
   const [project] = await db.insert(projectsTable).values(data).returning({
     id: projectsTable.id,
-    name: projectsTable.name,
-    description: projectsTable.description,
-    author: projectsTable.author,
-    remixedFrom: projectsTable.remixedFrom,
-    thumbnail: projectsTable.thumbnail,
-    program: projectsTable.program,
-    createdAt: projectsTable.createdAt,
-    updatedAt: projectsTable.updatedAt,
   });
-  return project;
+  return findProjectById(project.id, viewer);
 }
 
-export async function updateProject(id: string, data: ProjectUpdate) {
-  const [project] = await db
+export async function updateProject(
+  id: string,
+  data: ProjectUpdate,
+  viewer: ProjectViewerIdentity,
+) {
+  const existingProject = await findProjectRowById(id);
+  if (!isProjectOwnedByViewer(existingProject, viewer)) {
+    throw new Error("Acceso denegado");
+  }
+
+  await db
     .update(projectsTable)
     .set(data)
     .where(eq(projectsTable.id, id))
-    .returning({
-      id: projectsTable.id,
-      name: projectsTable.name,
-      description: projectsTable.description,
-      author: projectsTable.author,
-      remixedFrom: projectsTable.remixedFrom,
-      thumbnail: projectsTable.thumbnail,
-      program: projectsTable.program,
-      createdAt: projectsTable.createdAt,
-      updatedAt: projectsTable.updatedAt,
-    });
-  return project;
+    .returning({ id: projectsTable.id });
+
+  return findProjectById(id, viewer);
 }
 
-export async function deleteProject(id: string, user: UserSelect) {
-  const project = await findProjectById(id);
-  if (project.authorId !== user.id) {
+export async function deleteProject(id: string, viewer: ProjectViewerIdentity) {
+  const project = await findProjectRowById(id);
+  if (!isProjectOwnedByViewer(project, viewer)) {
     throw new Error("Acceso denegado");
   }
   await db.delete(projectsTable).where(eq(projectsTable.id, id));

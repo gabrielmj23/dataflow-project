@@ -1,4 +1,4 @@
-import { Handle, type HandleProps } from "@xyflow/react";
+import { Handle, type HandleProps, useNodeConnections } from "@xyflow/react";
 
 import type { PortDataType, PortDataTypeMask } from "@/flow/port-data-type";
 import {
@@ -9,7 +9,10 @@ import {
 import { useConnectionHighlight } from "@/flow/connection-highlight-context";
 import { cn } from "@/lib/utils";
 
-export type CustomTypedHandleProps = Omit<HandleProps, "children"> & {
+export type CustomTypedHandleProps = Omit<
+  HandleProps,
+  "children" | "isConnectable"
+> & {
   dataType?: PortDataType;
   /** Precise allowed-type mask for compatibility (recommended for mixed-type ports like concat inputs). */
   typeMask?: PortDataTypeMask;
@@ -22,6 +25,8 @@ export type CustomTypedHandleProps = Omit<HandleProps, "children"> & {
    * Use this to make handles visually larger without changing the XYFlow interaction box.
    */
   indicatorSizeClassName?: string;
+  /** Custom connection limit. Defaults to 1. */
+  maxConnections?: number;
 };
 
 export const DEFAULT_INDICATOR_SIZE_CLASS = "scale-150";
@@ -38,8 +43,19 @@ export function CustomTypedHandle({
   indicatorSizeClassName,
   className,
   style,
+  maxConnections = 1,
   ...props
 }: CustomTypedHandleProps) {
+  const connections = useNodeConnections({
+    handleType: props.type,
+    handleId: props.id ? String(props.id) : undefined,
+  });
+
+  const isTargetHandle = props.type === "target";
+  const isConnectable = isTargetHandle
+    ? connections.length < maxConnections
+    : true;
+
   const highlight = useConnectionHighlight();
 
   const ringColorClass = (() => {
@@ -80,6 +96,7 @@ export function CustomTypedHandle({
   return (
     <Handle
       {...props}
+      isConnectable={isConnectable}
       className={cn(
         "relative border-0! bg-transparent!",
         // If callers pass width/height via classes (e.g. h-2 w-2), keep them.

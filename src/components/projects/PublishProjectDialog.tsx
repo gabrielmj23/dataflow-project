@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -13,8 +13,10 @@ import {
 type PublishProjectDialogProps = {
   open: boolean;
   mode?: "publish" | "save";
+  isAuthenticated: boolean;
   defaultName: string;
   defaultDescription?: string;
+  defaultGuestAuthorName?: string;
   thumbnailPreview: string | null;
   isGeneratingPreview: boolean;
   remixSourceName?: string | null;
@@ -25,14 +27,17 @@ type PublishProjectDialogProps = {
     projectName: string,
     projectDescription: string,
     thumbnailOverride: string | null,
+    guestAuthorName: string,
   ) => void;
 };
 
 export function PublishProjectDialog({
   open,
   mode = "publish",
+  isAuthenticated,
   defaultName,
   defaultDescription = "",
+  defaultGuestAuthorName = "",
   thumbnailPreview,
   isGeneratingPreview,
   remixSourceName,
@@ -44,12 +49,21 @@ export function PublishProjectDialog({
   const [projectName, setProjectName] = useState(defaultName);
   const [projectDescription, setProjectDescription] =
     useState(defaultDescription);
+  const [guestAuthorName, setGuestAuthorName] = useState(
+    defaultGuestAuthorName,
+  );
   const [thumbnailOverride, setThumbnailOverride] = useState<string | null>(
     null,
   );
+  const [guestAuthorNameError, setGuestAuthorNameError] = useState<
+    string | null
+  >(null);
   const [thumbnailOverrideError, setThumbnailOverrideError] = useState<
     string | null
   >(null);
+  const guestAuthorId = useId();
+  const projectNameId = useId();
+  const projectDescriptionId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const MAX_THUMBNAIL_BYTES = 3 * 1024 * 1024;
 
@@ -58,10 +72,12 @@ export function PublishProjectDialog({
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setProjectName(defaultName);
       setProjectDescription(defaultDescription);
+      setGuestAuthorName(defaultGuestAuthorName);
+      setGuestAuthorNameError(null);
       setThumbnailOverride(null);
       setThumbnailOverrideError(null);
     }
-  }, [open, defaultName, defaultDescription]);
+  }, [open, defaultName, defaultDescription, defaultGuestAuthorName]);
 
   const isSaveMode = mode === "save";
   const effectiveThumbnailPreview = thumbnailOverride ?? thumbnailPreview;
@@ -123,7 +139,22 @@ export function PublishProjectDialog({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    onConfirm(projectName.trim(), projectDescription.trim(), thumbnailOverride);
+
+    const normalizedGuestAuthorName = guestAuthorName.trim();
+    if (!isAuthenticated && !normalizedGuestAuthorName) {
+      setGuestAuthorNameError(
+        "Ingresa tu nombre para publicar o guardar sin iniciar sesión.",
+      );
+      return;
+    }
+
+    setGuestAuthorNameError(null);
+    onConfirm(
+      projectName.trim(),
+      projectDescription.trim(),
+      thumbnailOverride,
+      normalizedGuestAuthorName,
+    );
   };
 
   return (
@@ -199,21 +230,65 @@ export function PublishProjectDialog({
             <p className="text-sm text-red-600">{thumbnailOverrideError}</p>
           ) : null}
 
-          <Input
-            value={projectName}
-            onChange={(event) => setProjectName(event.target.value)}
-            placeholder="Nombre del proyecto"
-            disabled={isPublishing}
-          />
+          {!isAuthenticated ? (
+            <div className="space-y-1">
+              <label
+                htmlFor={guestAuthorId}
+                className="text-sm font-medium text-slate-700"
+              >
+                Autor
+              </label>
+              <Input
+                id={guestAuthorId}
+                value={guestAuthorName}
+                onChange={(event) => {
+                  setGuestAuthorName(event.target.value);
+                  if (guestAuthorNameError) {
+                    setGuestAuthorNameError(null);
+                  }
+                }}
+                placeholder="Tu nombre"
+                disabled={isPublishing}
+              />
+              {guestAuthorNameError ? (
+                <p className="text-sm text-red-600">{guestAuthorNameError}</p>
+              ) : null}
+            </div>
+          ) : null}
 
-          <textarea
-            value={projectDescription}
-            onChange={(event) => setProjectDescription(event.target.value)}
-            placeholder="Descripción del proyecto (opcional)"
-            disabled={isPublishing}
-            rows={4}
-            className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-          />
+          <div className="space-y-1">
+            <label
+              htmlFor={projectNameId}
+              className="text-sm font-medium text-slate-700"
+            >
+              Título
+            </label>
+            <Input
+              id={projectNameId}
+              value={projectName}
+              onChange={(event) => setProjectName(event.target.value)}
+              placeholder="Nombre del proyecto"
+              disabled={isPublishing}
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label
+              htmlFor={projectDescriptionId}
+              className="text-sm font-medium text-slate-700"
+            >
+              Descripción
+            </label>
+            <textarea
+              id={projectDescriptionId}
+              value={projectDescription}
+              onChange={(event) => setProjectDescription(event.target.value)}
+              placeholder="Descripción del proyecto (opcional)"
+              disabled={isPublishing}
+              rows={4}
+              className="flex min-h-24 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+            />
+          </div>
 
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
