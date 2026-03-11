@@ -113,6 +113,7 @@ projectsRouter.get("/", async (req, res) => {
       remixedFromId: req.query.remixedFromId
         ? String(req.query.remixedFromId)
         : undefined,
+      mine: req.query.mine === "true",
       page: req.query.page ? parseInt(String(req.query.page), 10) : undefined,
       pageSize: req.query.pageSize
         ? parseInt(String(req.query.pageSize), 10)

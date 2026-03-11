@@ -4,6 +4,7 @@ export type ProjectSearchParams = {
   name?: string;
   authorId?: string;
   remixedFromId?: string;
+  mine?: boolean;
   page?: number;
   pageSize?: number;
 };

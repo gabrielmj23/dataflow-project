@@ -7,6 +7,7 @@ import { AuthDialog } from "@/components/auth/AuthDialog";
 import { clearStoredAuthSession, getStoredAuthUser } from "@/lib/auth";
 import type { AuthMode, AuthSessionUser } from "@/types";
 import { RecentPublishedProjectsSection } from "@/components/projects/RecentPublishedProjectsSection";
+import { MyProjectsSection } from "@/components/projects/MyProjectsSection";
 import { DistributedProgrammingSection } from "@/components/projects/DistributedProgrammingSection";
 import { PhysicalComputingSection } from "@/components/projects/PhysicalComputingSection";
 import makecodeSubflowSource from "../../makecode/nodeland-microbit.hex?raw";
@@ -200,6 +201,7 @@ export default function ModeSelectPage() {
       </main>
 
       <section className="mx-auto flex w-full max-w-7xl flex-col items-center gap-8 px-4 pb-8 sm:px-8">
+        <MyProjectsSection />
         <RecentPublishedProjectsSection />
         <DistributedProgrammingSection />
         <PhysicalComputingSection

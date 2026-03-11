@@ -124,7 +124,14 @@ export async function findProjects(
   searchData: ProjectSearchParams,
   viewer: ProjectViewerIdentity = { kind: "anonymous" },
 ): Promise<ProjectGet[]> {
-  const { name, authorId, remixedFromId, page = 1, pageSize = 10 } = searchData;
+  const {
+    name,
+    authorId,
+    remixedFromId,
+    mine,
+    page = 1,
+    pageSize = 10,
+  } = searchData;
   const offset = (page - 1) * pageSize;
 
   const projects = await buildProjectBaseQuery()
@@ -134,6 +141,13 @@ export async function findProjects(
         authorId ? eq(projectsTable.author, authorId) : undefined,
         remixedFromId
           ? eq(projectsTable.remixedFrom, remixedFromId)
+          : undefined,
+        mine
+          ? viewer.kind === "user"
+            ? eq(projectsTable.author, viewer.user.id)
+            : viewer.kind === "guest"
+              ? eq(projectsTable.guestOwnerId, viewer.guestOwnerId)
+              : eq(projectsTable.id, "00000000-0000-0000-0000-000000000000") // Impossible match
           : undefined,
       ),
     )
