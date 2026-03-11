@@ -169,7 +169,7 @@ export class DataflowEngine {
         return coerceNumberInput(params.defaultValue);
       }
       throw new Error(
-        "No hay UI para solicitar input en runtime (observer.onPrompt no está configurado)."
+        "No hay UI para solicitar input en runtime (observer.onPrompt no está configurado).",
       );
     }
 
@@ -243,7 +243,7 @@ export class DataflowEngine {
         return coerceTextInput(params.defaultValue);
       }
       throw new Error(
-        "No hay UI para solicitar input en runtime (observer.onPrompt no está configurado)."
+        "No hay UI para solicitar input en runtime (observer.onPrompt no está configurado).",
       );
     }
 
@@ -312,7 +312,9 @@ export class DataflowEngine {
     this.tokenStore = new TokenStore();
     this.lastInputValues = new Map();
     this.stepDelayMs =
-      typeof params?.stepDelayMs === "number" ? params.stepDelayMs : ENGINE_STEP_DELAY_MS;
+      typeof params?.stepDelayMs === "number"
+        ? params.stepDelayMs
+        : ENGINE_STEP_DELAY_MS;
   }
 
   setObserver(observer: EngineObserver | null): void {
@@ -424,7 +426,7 @@ export class DataflowEngine {
           // Start the node immediately and keep a handle to its completion.
           const id = nextActiveId++;
           const promise = this.executeUnit(t, params.signal).then(
-            (outputTokens) => ({ id, outputTokens })
+            (outputTokens) => ({ id, outputTokens }),
           );
           active.set(id, promise);
         }
@@ -517,7 +519,8 @@ export class DataflowEngine {
         .getArcs()
         .filter(
           (a) =>
-            a.target.nodeId === target.nodeId && a.target.portId === target.portId
+            a.target.nodeId === target.nodeId &&
+            a.target.portId === target.portId,
         );
     };
 
@@ -725,7 +728,7 @@ export class DataflowEngine {
 
     const cloned = new DataToken<T>(
       token.value,
-      new PortAddress(location.nodeId, location.portId)
+      new PortAddress(location.nodeId, location.portId),
     );
 
     if (isInternalAddress) {
@@ -786,7 +789,7 @@ export class DataflowEngine {
    */
   async executeUnit(
     token: ExecuteToken,
-    signal?: AbortSignal
+    signal?: AbortSignal,
   ): Promise<DataToken<unknown>[]> {
     throwIfAborted(signal);
     const node = token.node;
@@ -799,8 +802,8 @@ export class DataflowEngine {
       (globalToken) =>
         new DataToken(
           globalToken.value,
-          new PortAddress("", globalToken.location.portId)
-        )
+          new PortAddress("", globalToken.location.portId),
+        ),
     );
 
     // Order arguments by the node's declared port order.
@@ -814,8 +817,14 @@ export class DataflowEngine {
     const stepDelayMs = this.stepDelayMs;
     // Do not apply the artificial step delay to nodes that opt out via
     // meta.skipStepDelay or to runtime input nodes which must prompt immediately.
-    const isRuntimeInput = (nodeDefinition.meta && (nodeDefinition.meta as { kind?: unknown }).kind) === "runtimeInput";
-    if (stepDelayMs > 0 && !nodeDefinition.meta.skipStepDelay && !isRuntimeInput) {
+    const isRuntimeInput =
+      (nodeDefinition.meta &&
+        (nodeDefinition.meta as { kind?: unknown }).kind) === "runtimeInput";
+    if (
+      stepDelayMs > 0 &&
+      !nodeDefinition.meta.skipStepDelay &&
+      !isRuntimeInput
+    ) {
       await abortableDelay(stepDelayMs, signal);
     }
 
@@ -909,7 +918,7 @@ export class DataflowEngine {
 
     const localOutputTokens = this.normalizeToLocalOutputTokens(
       rawResult,
-      outputPortIds
+      outputPortIds,
     );
 
     this.observer?.onNodeStatus?.({ nodeId: node.id, status: "done" });
@@ -919,8 +928,8 @@ export class DataflowEngine {
       (localToken) =>
         new DataToken(
           localToken.value,
-          new PortAddress(node.id, localToken.location.portId)
-        )
+          new PortAddress(node.id, localToken.location.portId),
+        ),
     );
   }
 
@@ -936,7 +945,7 @@ export class DataflowEngine {
    */
   private normalizeToLocalOutputTokens(
     result: unknown,
-    outputPortIds: string[]
+    outputPortIds: string[],
   ): DataToken<unknown>[] {
     // If the node returns local tokens already, keep them.
     // NOTE: `[].every(...)` is `true`, so we must require a non-empty array to
@@ -967,8 +976,8 @@ export class DataflowEngine {
           (value, index) =>
             new DataToken(
               value,
-              new PortAddress("", outputPortIds[index] ?? "output")
-            )
+              new PortAddress("", outputPortIds[index] ?? "output"),
+            ),
         );
     }
 
@@ -993,6 +1002,27 @@ export class DataflowEngine {
     const ports = nodeDefinition.ports;
     const collectedTokens: DataToken<unknown>[] = [];
     const stickyPorts = nodeDefinition.meta.stickyInputPorts ?? [];
+    const isWriteNode = nodeDefinition.meta.kind === "write";
+
+    if (isWriteNode) {
+      let hasRealToken = false;
+      for (let index = 0; index < firePatterns.length; index += 1) {
+        const portName = ports[index];
+        const pattern = firePatterns[index];
+        if (!portName || pattern !== FirePatterns.EXISTS) continue;
+
+        const address = new PortAddress(node.id, portName);
+        const portTokens = this.tokenStore.getTokensByAddress(address);
+        if (portTokens.length > 0) {
+          hasRealToken = true;
+          break;
+        }
+      }
+
+      if (!hasRealToken) {
+        return null;
+      }
+    }
 
     // For nodes with sticky inputs, only allow firing when there is at least
     // one *new* token available on an EXISTS port. Sticky values are then
@@ -1052,6 +1082,11 @@ export class DataflowEngine {
             break;
           }
 
+          if (isWriteNode) {
+            collectedTokens.push(new DataToken(undefined, address));
+            break;
+          }
+
           return null;
         }
         case FirePatterns.EMPTY: {
@@ -1079,7 +1114,7 @@ export class DataflowEngine {
   private rememberLastInput(
     nodeId: string,
     portId: string,
-    value: unknown
+    value: unknown,
   ): void {
     let byPort = this.lastInputValues.get(nodeId);
     if (!byPort) {
@@ -1091,7 +1126,7 @@ export class DataflowEngine {
 
   private getStickyToken(
     nodeId: string,
-    portId: string
+    portId: string,
   ): DataToken<unknown> | null {
     const byPort = this.lastInputValues.get(nodeId);
     const value = byPort?.get(portId);
@@ -1106,7 +1141,7 @@ export class DataflowEngine {
    */
   private matchesFirePattern(
     pattern: FirePatterns,
-    tokens: DataToken<unknown>[]
+    tokens: DataToken<unknown>[],
   ): boolean {
     switch (pattern) {
       case FirePatterns.EXISTS:

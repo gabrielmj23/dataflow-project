@@ -5,7 +5,7 @@ import {
   useUpdateNodeInternals,
   type NodeProps,
 } from "@xyflow/react";
-import { PenSquare } from "lucide-react";
+import { Minus, PenSquare, Plus } from "lucide-react";
 
 import { IoRectNodeShell } from "@/components/nodes/io/io-rect-node-shell";
 import {
@@ -15,10 +15,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export type WriteNodeData = {
   label?: string;
-  /** Number of input handles to render. We keep one extra empty input. */
+  /** Number of explicit input handles to render. */
   inputCount?: number;
   /** Optional custom labels by write input handle id (`in-1`, `in-2`, ...). */
   inputLabels?: Record<string, string>;
@@ -199,6 +204,43 @@ function sanitizeInputCount(value: unknown): number {
   return Math.max(1, Math.floor(n));
 }
 
+function defaultWriteTemplate(inputCount: number): string {
+  const safeCount = sanitizeInputCount(inputCount);
+  return Array.from({ length: safeCount }, (_, index) => `{${index + 1}}`).join(
+    "\n",
+  );
+}
+
+function resolveWriteTemplate(template: unknown, inputCount: number): string {
+  return typeof template === "string"
+    ? template
+    : defaultWriteTemplate(inputCount);
+}
+
+function clampWriteTemplateToInputCount(
+  template: unknown,
+  inputCount: number,
+): string | undefined {
+  if (typeof template !== "string") return undefined;
+
+  const maxVar = sanitizeInputCount(inputCount);
+  const clamped = template.replace(/\{(\d+)\}/g, (full, raw) => {
+    const idx = Number(raw);
+    if (!Number.isFinite(idx)) return "";
+    return idx >= 1 && idx <= maxVar ? full : "";
+  });
+
+  return clamped.replace(/(?:\r?\n[ \t]*)+$/g, "");
+}
+
+function appendWriteTemplateLine(template: unknown, index: number): string {
+  const nextLine = `{${index}}`;
+  if (typeof template !== "string") return nextLine;
+
+  const base = template.replace(/(?:\r?\n[ \t]*)+$/g, "");
+  return base.length > 0 ? `${base}\n${nextLine}` : nextLine;
+}
+
 function parseWriteInputHandleIndex(handleId: unknown): number {
   const match = /^in-(\d+)$/.exec(String(handleId ?? ""));
   const idx = match ? Number(match[1]) : NaN;
@@ -222,6 +264,20 @@ function normalizeWriteInputLabels(value: unknown): Record<string, string> {
   }
 
   return next;
+}
+
+function clampWriteInputLabels(
+  value: unknown,
+  inputCount: number,
+): Record<string, string> {
+  const safeCount = sanitizeInputCount(inputCount);
+  const labels = normalizeWriteInputLabels(value);
+  return Object.fromEntries(
+    Object.entries(labels).filter(([handleId]) => {
+      const idx = parseWriteInputHandleIndex(handleId);
+      return idx >= 1 && idx <= safeCount;
+    }),
+  );
 }
 
 function isEntradaLikeLabel(value: string): boolean {
@@ -323,11 +379,10 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
   const targetHandlePlaceholders = useMemo(
     () =>
       targetHandleIds.map((handleId) => {
-        if (!connectedTargetHandleIds.has(handleId)) return null;
         const idx = parseWriteInputHandleIndex(handleId);
         return `Entrada ${idx}`;
       }),
-    [connectedTargetHandleIds, targetHandleIds],
+    [targetHandleIds],
   );
 
   const invalidTargetHandleIds = useMemo(() => {
@@ -375,7 +430,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
   const variableDisplayLabels = useMemo(
     () =>
-      Array.from({ length: Math.max(0, inputCount - 1) }, (_, index) => {
+      Array.from({ length: inputCount }, (_, index) => {
         const label = targetHandleLabels[index];
         if (typeof label === "string" && label.trim().length > 0) {
           return label.trim();
@@ -390,11 +445,11 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
     updateNodeInternals(id);
   }, [id, inputCount, updateNodeInternals]);
 
-  const { setNodes } = useReactFlow();
+  const { setNodes, setEdges } = useReactFlow();
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draftTemplate, setDraftTemplate] = useState<string>(
-    typeof rawTemplate === "string" ? rawTemplate : "{1}",
+    resolveWriteTemplate(rawTemplate, inputCount),
   );
   const editorRef = useRef<HTMLDivElement | null>(null);
   const [editorEl, setEditorEl] = useState<HTMLDivElement | null>(null);
@@ -409,10 +464,92 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
     setEditorEl(el);
   }, []);
 
+  const handleAddInput = useCallback(() => {
+    setNodes((prev) =>
+      prev.map((node) => {
+        if (String(node.id) !== String(id)) return node;
+
+        const currentData =
+          node.data && typeof node.data === "object"
+            ? (node.data as Record<string, unknown>)
+            : {};
+        const currentCount = sanitizeInputCount(currentData.inputCount);
+        const nextCount = currentCount + 1;
+
+        return {
+          ...node,
+          data: {
+            ...currentData,
+            inputCount: nextCount,
+            template: appendWriteTemplateLine(
+              resolveWriteTemplate(currentData.template, currentCount),
+              nextCount,
+            ),
+          },
+        };
+      }),
+    );
+  }, [id, setNodes]);
+
+  const handleRemoveInput = useCallback(() => {
+    if (inputCount <= 1) return;
+
+    const handleIdToRemove = `in-${inputCount}`;
+    const nextCount = inputCount - 1;
+
+    setEdges((prev) =>
+      prev.filter(
+        (edge) =>
+          !(
+            String(edge.target ?? "") === String(id) &&
+            String(edge.targetHandle ?? "") === handleIdToRemove
+          ),
+      ),
+    );
+
+    setNodes((prev) =>
+      prev.map((node) => {
+        if (String(node.id) !== String(id)) return node;
+
+        const currentData =
+          node.data && typeof node.data === "object"
+            ? (node.data as Record<string, unknown>)
+            : {};
+        const currentCount = sanitizeInputCount(currentData.inputCount);
+        const normalizedNextCount = Math.max(
+          1,
+          Math.min(nextCount, currentCount),
+        );
+        const nextLabels = clampWriteInputLabels(
+          currentData.inputLabels,
+          normalizedNextCount,
+        );
+        const hasCustomLabels = Object.keys(nextLabels).length > 0;
+
+        return {
+          ...node,
+          data: {
+            ...currentData,
+            inputCount: normalizedNextCount,
+            template: clampWriteTemplateToInputCount(
+              resolveWriteTemplate(currentData.template, currentCount),
+              normalizedNextCount,
+            ),
+            ...(hasCustomLabels
+              ? { inputLabels: nextLabels }
+              : { inputLabels: undefined }),
+          },
+        };
+      }),
+    );
+
+    setInlineInvalidHandleIds([]);
+  }, [id, inputCount, setEdges, setNodes]);
+
   const openDialog = useCallback(() => {
-    setDraftTemplate(typeof rawTemplate === "string" ? rawTemplate : "{1}");
+    setDraftTemplate(resolveWriteTemplate(rawTemplate, inputCount));
     setIsDialogOpen(true);
-  }, [rawTemplate]);
+  }, [inputCount, rawTemplate]);
 
   const saveTemplate = useCallback(() => {
     const editor = editorRef.current;
@@ -614,6 +751,52 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
         invalidTargetHandleIds={[
           ...new Set([...invalidTargetHandleIds, ...inlineInvalidHandleIds]),
         ]}
+        sideActionsClassName="top-auto -bottom-8 left-1/2 -translate-x-1/2 translate-y-0 flex flex-row items-center justify-center gap-2 w-auto h-auto bg-transparent backdrop-blur-none border-0 rounded-none shadow-none z-0"
+        sideActions={
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="node"
+                  aria-label="Agregar entrada"
+                  className="pointer-events-auto rounded-sm bg-transparent p-0 text-(--node-action-color) transition-colors flex h-5 w-5 items-center justify-center"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleAddInput();
+                  }}
+                >
+                  <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={4}>
+                Agregar entrada
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="node"
+                  aria-label="Eliminar entrada"
+                  className="pointer-events-auto rounded-sm bg-transparent p-0 text-(--node-action-color) disabled:opacity-30 transition-colors flex h-5 w-5 items-center justify-center"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    handleRemoveInput();
+                  }}
+                  disabled={inputCount <= 1}
+                >
+                  <Minus className="h-3.5 w-3.5 stroke-[2.5]" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" sideOffset={4}>
+                Eliminar entrada
+              </TooltipContent>
+            </Tooltip>
+          </>
+        }
         onTargetHandleLabelChange={({ handleId, label: nextLabel }) => {
           const normalizedHandle = String(handleId ?? "");
           const handleIndex = parseWriteInputHandleIndex(normalizedHandle);
@@ -728,7 +911,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
               </div>
 
               <div className="mt-2 flex flex-wrap gap-y-1.5 gap-2 rounded-md border p-2">
-                {Array.from({ length: inputCount - 1 }, (_, i) => i + 1).map(
+                {Array.from({ length: inputCount }, (_, i) => i + 1).map(
                   (idx) => (
                     <div
                       key={`var-${idx}`}

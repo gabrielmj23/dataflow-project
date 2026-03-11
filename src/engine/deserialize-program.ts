@@ -195,6 +195,19 @@ export function buildEngineStoresFromFlowGraph(params: {
   const scatterOutputCountByNodeId = new Map<string, number>();
   const gatherInputCountByNodeId = new Map<string, number>();
   const gatherIncomingByNodeId = new Map<string, Set<string>>();
+  for (const node of uiNodes) {
+    if (node.type !== NODE_TYPES.WRITE_SINK) continue;
+
+    const data = asRecord(node.data);
+    const rawInputCount = data.inputCount;
+    const safeInputCount =
+      typeof rawInputCount === "number" && Number.isFinite(rawInputCount)
+        ? Math.max(1, Math.floor(rawInputCount))
+        : 1;
+
+    writeSinkInputCountByNodeId.set(String(node.id), safeInputCount);
+  }
+
   for (const edge of params.edges) {
     const sourceId = String(edge.source);
     const sourceNode = nodeById.get(sourceId);

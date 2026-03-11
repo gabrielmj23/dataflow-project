@@ -7,7 +7,7 @@ export class EngineWriteNode extends NodeDefinition {
       : 1;
 
     super(
-      (..._values: unknown[]) => {
+      () => {
         // Logging is surfaced via the engine observer.
         return undefined;
       },
@@ -16,10 +16,7 @@ export class EngineWriteNode extends NodeDefinition {
       {
         kind: "write",
         template: typeof template === "string" ? template : undefined,
-        stickyInputPorts: Array.from({ length: safeCount }, (_, i) =>
-          `input${i + 1}`
-        ),
-      }
+      },
     );
   }
 }
