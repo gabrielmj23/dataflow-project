@@ -9,7 +9,7 @@ import type { AuthMode, AuthSessionUser } from "@/types";
 import { RecentPublishedProjectsSection } from "@/components/projects/RecentPublishedProjectsSection";
 import { DistributedProgrammingSection } from "@/components/projects/DistributedProgrammingSection";
 import { PhysicalComputingSection } from "@/components/projects/PhysicalComputingSection";
-import makecodeSubflowSource from "../../makecode/makecode-subflow.ts?raw";
+import makecodeSubflowSource from "../../makecode/nodeland-microbit.hex?raw";
 import stickerCohete from "@/assets/landing/cohete.png";
 import stickerCompas from "@/assets/landing/compas.png";
 import stickerFlor from "@/assets/landing/flor.png";
@@ -43,7 +43,7 @@ export default function ModeSelectPage() {
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement("a");
     anchor.href = url;
-    anchor.download = "makecode-subflow.ts";
+    anchor.download = "nodeland-microbit.hex";
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();

@@ -1,5 +1,7 @@
 import microbitSticker from "@/assets/landing/microbit.png";
 import avionPapel from "@/assets/landing/avion-papel.png";
+import { useState } from "react";
+import { MicrobitFirmwareDialog } from "./MicrobitFirmwareDialog";
 
 type PhysicalComputingSectionProps = {
   onDownloadFirmware: () => void;
@@ -9,6 +11,8 @@ type PhysicalComputingSectionProps = {
 export function PhysicalComputingSection({
   onDownloadFirmware,
 }: PhysicalComputingSectionProps) {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   return (
     <section className="w-full rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
       <h2 className="text-4xl font-medium tracking-tight text-emerald-700">
@@ -23,18 +27,26 @@ export function PhysicalComputingSection({
             className="h-28 w-40 object-contain rounded-2xl drop-shadow-md"
           />
 
-          <p className="max-w-xl ps-5 text-lg leading-snug text-slate-900">
-            Entre infinitas posibilidades, NodeLand te permite interactuar con
-            el mundo físico usando las tarjetas Micro:Bit.
+          <div className="ps-5">
+            <p className="max-w-xl text-lg leading-snug text-slate-900">
+              Entre infinitas posibilidades, NodeLand te permite interactuar con
+              el mundo físico usando las tarjetas Micro:Bit.
+            </p>
             <button
               type="button"
-              onClick={onDownloadFirmware}
+              onClick={() => setIsDialogOpen(true)}
               className="rounded-xl bg-emerald-700 mt-3 px-6 py-3 text-base font-medium text-white transition hover:brightness-95 hover:cursor-pointer"
             >
               Descargar Firmware para Micro:Bit
             </button>
-          </p>
+          </div>
         </div>
+
+        <MicrobitFirmwareDialog
+          open={isDialogOpen}
+          onOpenChange={setIsDialogOpen}
+          onConfirm={onDownloadFirmware}
+        />
 
         <img
           src={avionPapel}
