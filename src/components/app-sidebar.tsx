@@ -1,5 +1,5 @@
 import * as React from "react";
-import type { DragEvent } from "react";
+import type { DragEvent, TouchEvent } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -67,7 +67,7 @@ import { cn } from "@/lib/utils";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
-  onDragStart: (event: DragEvent, item: NodePaletteItem) => void;
+  onDragStart: (event: DragEvent | TouchEvent, item: NodePaletteItem) => void;
   onDeleteTemplate?: (templateId: string) => void;
   onAddExtension?: (extension: ExtensionListItem) => boolean | Promise<boolean>;
   existingExtensionIds?: string[];
@@ -357,6 +357,9 @@ export function AppSidebar({
                             onDragStart={(event: DragEvent) =>
                               onDragStart(event, item)
                             }
+                            onTouchStart={(event: TouchEvent) =>
+                              onDragStart(event, item)
+                            }
                             className={`items-start justify-start gap-1 text-xs h-auto min-h-12 overflow-visible py-1.5 ${
                               viewMode === "nodes"
                                 ? "bg-transparent hover:bg-transparent active:bg-transparent shadow-none"
@@ -403,6 +406,9 @@ export function AppSidebar({
                                 type="button"
                                 draggable
                                 onDragStart={(event: DragEvent) =>
+                                  onDragStart(event, item)
+                                }
+                                onTouchStart={(event: TouchEvent) =>
                                   onDragStart(event, item)
                                 }
                                 className={`items-start justify-start gap-1 text-xs h-auto min-h-12 overflow-visible py-1.5 pl-3 ${
@@ -726,9 +732,7 @@ function NodePreview({
                   <Split className="rotate-90" />
                 </span>
               )}
-              {symbolMap[type] === "relevo" && (
-                <Flag className="h-4 w-4" />
-              )}
+              {symbolMap[type] === "relevo" && <Flag className="h-4 w-4" />}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />
               )}

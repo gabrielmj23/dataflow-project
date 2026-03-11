@@ -1095,7 +1095,7 @@ export default function EditorPage() {
   ]);
 
   const onPaletteDragStart = useCallback(
-    (event: React.DragEvent, item: NodePaletteItem) => {
+    (event: React.DragEvent | React.TouchEvent, item: NodePaletteItem) => {
       if (
         challenge.challengeAllowSet &&
         !challenge.challengeAllowSet.has(item.type)
@@ -1443,6 +1443,13 @@ export default function EditorPage() {
                           <div
                             ref={editorContainerRef}
                             className="relative h-full w-full"
+                            onTouchEnd={(e) => {
+                              const touch = e.changedTouches[0];
+                              onDrop({
+                                clientX: touch.clientX,
+                                clientY: touch.clientY,
+                              });
+                            }}
                           >
                             <ReactFlow
                               nodes={nodes}

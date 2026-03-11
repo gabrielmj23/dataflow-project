@@ -36,6 +36,7 @@ export function usePaletteDrag({
   subflowTemplates,
 }: UsePaletteDragParams) {
   const draggingTypeRef = useRef<string | null>(null);
+  const draggingItemRef = useRef<NodePaletteItem | null>(null);
 
   const paletteLabelByType = editorPaletteLabelByType;
 
@@ -44,37 +45,41 @@ export function usePaletteDrag({
   }, []);
 
   const onPaletteDragStart = useCallback(
-    (event: React.DragEvent, item: NodePaletteItem) => {
+    (event: React.DragEvent | React.TouchEvent, item: NodePaletteItem) => {
       draggingTypeRef.current = item.type;
-      event.dataTransfer.setData("application/reactflow", item.type);
-      event.dataTransfer.effectAllowed = "move";
+      draggingItemRef.current = item;
 
-      if (item.templateId) {
-        event.dataTransfer.setData(
-          "application/subflow-template-id",
-          item.templateId,
-        );
-      }
+      if ("dataTransfer" in event) {
+        event.dataTransfer.setData("application/reactflow", item.type);
+        event.dataTransfer.effectAllowed = "move";
 
-      const accentColor = (item as { accentColor?: string }).accentColor;
-      if (accentColor) {
-        event.dataTransfer.setData("application/accent-color", accentColor);
-      }
-
-      try {
-        const buttonEl = event.currentTarget as unknown as HTMLElement | null;
-        const previewEl = buttonEl?.querySelector<HTMLElement>(
-          "[data-drag-preview]",
-        );
-        if (previewEl) {
-          event.dataTransfer.setDragImage(
-            previewEl,
-            Math.round(previewEl.offsetWidth / 2),
-            Math.round(previewEl.offsetHeight / 2),
+        if (item.templateId) {
+          event.dataTransfer.setData(
+            "application/subflow-template-id",
+            item.templateId,
           );
         }
-      } catch {
-        // ignore
+
+        const accentColor = (item as { accentColor?: string }).accentColor;
+        if (accentColor) {
+          event.dataTransfer.setData("application/accent-color", accentColor);
+        }
+
+        try {
+          const buttonEl = event.currentTarget as unknown as HTMLElement | null;
+          const previewEl = buttonEl?.querySelector<HTMLElement>(
+            "[data-drag-preview]",
+          );
+          if (previewEl) {
+            event.dataTransfer.setDragImage(
+              previewEl,
+              Math.round(previewEl.offsetWidth / 2),
+              Math.round(previewEl.offsetHeight / 2),
+            );
+          }
+        } catch {
+          // ignore
+        }
       }
     },
     [],
@@ -86,25 +91,28 @@ export function usePaletteDrag({
   }, []);
 
   const onDrop = useCallback(
-    (event: React.DragEvent) => {
-      event.preventDefault();
+    (event: React.DragEvent | { clientX: number; clientY: number }) => {
+      const isDragEvent = "dataTransfer" in event;
+      if (isDragEvent) {
+        event.preventDefault();
+      }
 
-      const type =
-        event.dataTransfer.getData("application/reactflow") ||
-        draggingTypeRef.current;
+      const type = isDragEvent
+        ? event.dataTransfer.getData("application/reactflow") ||
+          draggingTypeRef.current
+        : draggingTypeRef.current;
+
       if (!type) {
         return;
       }
 
-      const templateIdRaw = event.dataTransfer.getData(
-        "application/subflow-template-id",
-      );
-      const templateId = templateIdRaw || null;
+      const templateId = isDragEvent
+        ? event.dataTransfer.getData("application/subflow-template-id") || null
+        : draggingItemRef.current?.templateId || null;
 
-      const accentColorRaw = event.dataTransfer.getData(
-        "application/accent-color",
-      );
-      const accentColor = accentColorRaw || undefined;
+      const accentColor = isDragEvent
+        ? event.dataTransfer.getData("application/accent-color") || undefined
+        : (draggingItemRef.current as { accentColor?: string })?.accentColor;
 
       const position = projectClientToFlowPosition(
         reactFlowInstance,
@@ -272,6 +280,7 @@ export function usePaletteDrag({
       // Play placement sound
       playPop();
       draggingTypeRef.current = null;
+      draggingItemRef.current = null;
     },
     [
       paletteLabelByType,
