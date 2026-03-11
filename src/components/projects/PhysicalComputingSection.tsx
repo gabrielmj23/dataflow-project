@@ -20,7 +20,6 @@ export function PhysicalComputingSection({
       <h2 className="text-4xl font-medium tracking-tight text-emerald-700">
         Computación física
       </h2>
-
       <div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 items-center gap-4">
           <img

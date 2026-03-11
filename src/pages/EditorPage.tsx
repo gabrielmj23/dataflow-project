@@ -94,6 +94,7 @@ import {
 } from "@/lib/extensions";
 import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
 import microbitExample from "@/examples/microbit-example.json";
+import distributionExample from "@/examples/distribution-example.json";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
@@ -704,24 +705,44 @@ export default function EditorPage() {
   useEffect(() => {
     if (!challengeId) {
       const searchParams = new URLSearchParams(window.location.search);
-      const isExample = searchParams.get("demo") === "microbit";
+      const demoParam = searchParams.get("demo");
 
-      if (isExample) {
+      if (demoParam === "microbit" || demoParam === "distribution") {
+        const exampleData =
+          demoParam === "microbit" ? microbitExample : distributionExample;
         const deserialized = deserializeProgram(
-          microbitExample as SerializedProgramV1,
+          exampleData as SerializedProgramV1,
         );
+
         setNodes(deserialized.nodes as FlowNode[]);
         setEdges(deserialized.edges as FlowEdge[]);
-        setProgramName("Leer Temperatura: Micro:bit");
+        setProgramName(
+          deserialized.programName ||
+            (demoParam === "microbit" ? "Demo Micro:bit" : "Demo Distribución"),
+        );
+
         resetHistory({
           nodes: deserialized.nodes as FlowNode[],
           edges: deserialized.edges as FlowEdge[],
         });
+
+        if (reactFlowInstance) {
+          requestAnimationFrame(() => {
+            reactFlowInstance.fitView({ padding: 0.2, duration: 800 });
+          });
+        }
         return;
       }
       return;
     }
-  }, [challengeId, setNodes, setEdges, setProgramName, resetHistory]);
+  }, [
+    challengeId,
+    setNodes,
+    setEdges,
+    setProgramName,
+    resetHistory,
+    reactFlowInstance,
+  ]);
 
   const shouldLoadPublishedProject = Boolean(
     challengeId &&
