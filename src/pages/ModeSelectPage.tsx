@@ -1,11 +1,5 @@
 import { Link } from "react-router-dom";
-import {
-  LogIn,
-  LogOut,
-  Trophy,
-  UserRound,
-  Zap,
-} from "lucide-react";
+import { LogIn, LogOut, Trophy, UserRound, Zap } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -61,26 +55,31 @@ export default function ModeSelectPage() {
       <header className="sticky top-0 z-40 w-full bg-(--nodi-blue) text-white shadow-md">
         <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-5 py-2.5 sm:px-7 sm:py-3">
           <div className="flex items-center gap-2">
-            <div className="rounded-xl bg-white/15 p-2 ring-1 ring-white/35">
-              <img src="/nodeland-mini.png" alt="NodeLand" className="h-10 w-10" />
-            </div>
-            <span className="text-[2rem] font-medium tracking-tight">NodeLand</span>
+            <img
+              src="/nodeland-mini-white.png"
+              alt="NodeLand"
+              className="h-10 w-10"
+            />
+
+            <span className="text-[2.15rem] font-medium tracking-tight">
+              NodeLand
+            </span>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <Link
               to="/editor"
-              className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-white/15"
+              className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-white/15 hover:cursor-pointer"
             >
               Programar
             </Link>
 
             <button
               type="button"
-              className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-white/15"
+              className="inline-flex items-center rounded-xl px-3 py-2 text-sm font-medium transition hover:bg-white/15 hover:cursor-pointer"
               onClick={() => setIsChallengeDialogOpen(true)}
             >
-              Completar desafío
+              Completar desafíos
             </button>
 
             {currentUser ? (
@@ -152,15 +151,19 @@ export default function ModeSelectPage() {
         />
 
         <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-7 text-center">
-          <h1 className="text-4xl font-semibold leading-tight text-slate-800 sm:text-5xl md:text-6xl">
-            <span className="font-medium text-amber-500">La forma más fácil de</span>
-            <br />
-            <span className="text-(--nodi-blue)">programar computadoras</span>
-          </h1>
+          <div>
+            <h1 className="text-4xl font-semibold leading-tight text-slate-800 sm:text-5xl md:text-6xl mb-3">
+              <span className="font-medium text-amber-600/90">
+                La forma más fácil de
+              </span>
+              <br />
+              <span className="text-blue-500">programar computadoras</span>
+            </h1>
 
-          <p className="max-w-2xl text-2xl text-emerald-700">
-            Solo con conectar "nodos con funciones" de forma creativa
-          </p>
+            <p className="max-w-2xl text-2xl text-emerald-700">
+              Solo con conectar nodos de forma creativa
+            </p>
+          </div>
 
           <div className="mt-1 flex flex-wrap justify-center gap-4">
             <Link
@@ -176,16 +179,16 @@ export default function ModeSelectPage() {
               onClick={() => setIsChallengeDialogOpen(true)}
               className="inline-flex items-center gap-2 rounded-xl bg-(--nodi-blue) px-8 py-3 text-lg font-medium text-white shadow-lg transition hover:brightness-95 hover:cursor-pointer"
             >
-              <Trophy size={18} />
-              Completar Desafío
+              <Trophy size={18} className="fill-yellow-300 text-yellow-300" />
+              Completar Desafíos
             </button>
           </div>
 
           <p className="max-w-3xl pt-2 text-base text-slate-700 sm:text-lg">
-            Con NodeLand recorre de forma divertida el camino que te lleva desde aprender a
-            programar, en el modelo de DataFlow, hasta la interesante computación distribuida.
+            Con NodeLand, recorre de forma divertida el camino que te lleva
+            desde aprender a programar en el modelo de DataFlow, hasta la
+            interesante computación distribuida.
           </p>
-
 
           <div className="grid w-full grid-cols-2 gap-2 pt-2 md:hidden">
             <StickerImage src={stickerCohete} alt="Sticker cohete" />
@@ -199,7 +202,9 @@ export default function ModeSelectPage() {
       <section className="mx-auto flex w-full max-w-7xl flex-col items-center gap-8 px-4 pb-8 sm:px-8">
         <RecentPublishedProjectsSection />
         <DistributedProgrammingSection />
-        <PhysicalComputingSection onDownloadFirmware={handleDownloadMicrobitFirmware} />
+        <PhysicalComputingSection
+          onDownloadFirmware={handleDownloadMicrobitFirmware}
+        />
 
         <AgeSelectionDialog
           visible={isChallengeDialogOpen}
@@ -222,16 +227,18 @@ export default function ModeSelectPage() {
 
 function DevelopedByFooter() {
   return (
-    <footer className="w-full border-t border-slate-200 bg-slate-100/90">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-8">
-        <p className="text-3xl font-normal leading-none text-sky-500 text-center">Desarrollado en:</p>
+    <footer className="w-full border-t border-slate-200 bg-slate-100/90 mt-4">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-3 px-4 py-5 sm:px-8">
+        <p className="text-3xl font-normal leading-none text-sky-500 text-center">
+          Desarrollado en:
+        </p>
 
         <div className="flex flex-wrap items-center justify-center gap-6">
           <FooterLogo
             src={ucabLogo}
             alt="Logo UCAB"
             fallbackLabel="UCAB"
-            className="h-20 w-auto"
+            className="h-18 w-auto"
           />
 
           <FooterLogo
@@ -242,7 +249,9 @@ function DevelopedByFooter() {
           />
         </div>
 
-        <p className="text-center text-sm text-slate-800">Version 1.0 - Marzo 2026</p>
+        <p className="text-center text-sm text-slate-800">
+          Version 1.0 - Marzo 2026
+        </p>
       </div>
     </footer>
   );

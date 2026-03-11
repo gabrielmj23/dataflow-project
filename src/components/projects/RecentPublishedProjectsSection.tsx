@@ -65,7 +65,7 @@ export function RecentPublishedProjectsSection() {
 
   return (
     <section className="w-full rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
-      <h2 className="text-4xl font-normal tracking-tight text-emerald-700">
+      <h2 className="text-4xl font-medium tracking-tight text-emerald-700">
         Proyectos recientes
       </h2>
       <div className="mt-2">
