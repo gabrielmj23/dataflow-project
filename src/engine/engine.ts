@@ -1002,27 +1002,6 @@ export class DataflowEngine {
     const ports = nodeDefinition.ports;
     const collectedTokens: DataToken<unknown>[] = [];
     const stickyPorts = nodeDefinition.meta.stickyInputPorts ?? [];
-    const isWriteNode = nodeDefinition.meta.kind === "write";
-
-    if (isWriteNode) {
-      let hasRealToken = false;
-      for (let index = 0; index < firePatterns.length; index += 1) {
-        const portName = ports[index];
-        const pattern = firePatterns[index];
-        if (!portName || pattern !== FirePatterns.EXISTS) continue;
-
-        const address = new PortAddress(node.id, portName);
-        const portTokens = this.tokenStore.getTokensByAddress(address);
-        if (portTokens.length > 0) {
-          hasRealToken = true;
-          break;
-        }
-      }
-
-      if (!hasRealToken) {
-        return null;
-      }
-    }
 
     // For nodes with sticky inputs, only allow firing when there is at least
     // one *new* token available on an EXISTS port. Sticky values are then
@@ -1079,11 +1058,6 @@ export class DataflowEngine {
               return null;
             }
             collectedTokens.push(stickyToken);
-            break;
-          }
-
-          if (isWriteNode) {
-            collectedTokens.push(new DataToken(undefined, address));
             break;
           }
 
