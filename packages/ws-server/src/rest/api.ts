@@ -10,17 +10,31 @@ import { extensionsRouter } from "./modules/extensions/extensions.controller";
 
 export function createRestApp(options: RestApiOptions): express.Express {
   const app = express();
+  const allowedOrigin = process.env.REST_ALLOWED_ORIGIN?.trim();
 
   app.disable("x-powered-by");
   app.use((req, res, next) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+    const requestOrigin =
+      typeof req.headers.origin === "string" ? req.headers.origin : null;
+
+    if (allowedOrigin) {
+      if (requestOrigin === allowedOrigin) {
+        res.setHeader("Access-Control-Allow-Origin", allowedOrigin);
+        res.setHeader("Vary", "Origin");
+      }
+    } else if (requestOrigin) {
+      res.setHeader("Access-Control-Allow-Origin", requestOrigin);
+      res.setHeader("Vary", "Origin");
+    }
+
+    res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader(
       "Access-Control-Allow-Methods",
       "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
-      "Content-Type, Authorization",
+      "Content-Type, Authorization, Cookie",
     );
 
     if (req.method === "OPTIONS") {

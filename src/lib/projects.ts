@@ -2,19 +2,25 @@ import type { SerializedProgramV1 } from "@/flow/serialization";
 import { getStoredAuthToken } from "@/lib/auth";
 import { toJpeg } from "html-to-image";
 
+const GUEST_PROJECT_AUTHOR_NAME_KEY = "nodi-project-guest-author-name";
+
 type ApiErrorResponse = {
   error?: string;
 };
+
+export type ProjectAuthorKind = "user" | "guest";
 
 export type PublicProjectSummary = {
   id: string;
   name: string;
   description: string;
-  authorId: string;
+  authorId: string | null;
+  authorKind: ProjectAuthorKind;
   authorName: string;
   thumbnail: string | null;
   remixedFromId: string | null;
   remixedFromName: string | null;
+  viewerCanEdit: boolean;
 };
 
 export type PublishedProject = PublicProjectSummary & {
@@ -27,6 +33,18 @@ export type PublishedProject = PublicProjectSummary & {
 
 function getApiBaseUrl(): string {
   return import.meta.env.VITE_AUTH_API_URL?.trim() || "/api";
+}
+
+function buildProjectRequestHeaders(): Record<string, string> {
+  const token = getStoredAuthToken();
+  return token
+    ? {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      }
+    : {
+        "Content-Type": "application/json",
+      };
 }
 
 async function readApiError(response: Response): Promise<string> {
@@ -48,24 +66,19 @@ export async function publishProject(params: {
   program: SerializedProgramV1;
   thumbnail: string;
   remixedFrom?: string;
+  guestAuthorName?: string;
 }) {
-  const token = getStoredAuthToken();
-  if (!token) {
-    throw new Error("Debes iniciar sesión para publicar proyectos.");
-  }
-
   const response = await fetch(`${getApiBaseUrl()}/projects`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
+    headers: buildProjectRequestHeaders(),
     body: JSON.stringify({
       name: params.name,
       description: params.description,
       thumbnail: params.thumbnail,
       remixedFrom: params.remixedFrom,
       program: params.program,
+      guestAuthorName: params.guestAuthorName,
     }),
   });
 
@@ -99,6 +112,9 @@ export async function captureProjectThumbnail(
 export async function fetchLatestPublishedProjects(limit: number = 12) {
   const response = await fetch(
     `${getApiBaseUrl()}/projects?page=1&pageSize=${Math.max(1, limit)}`,
+    {
+      credentials: "include",
+    },
   );
 
   if (!response.ok) {
@@ -114,7 +130,9 @@ export async function fetchLatestPublishedProjects(limit: number = 12) {
 }
 
 export async function fetchPublishedProjectById(projectId: string) {
-  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`);
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
+    credentials: "include",
+  });
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
@@ -129,23 +147,18 @@ export async function updatePublishedProject(params: {
   description?: string;
   program: SerializedProgramV1;
   thumbnail?: string;
+  guestAuthorName?: string;
 }) {
-  const token = getStoredAuthToken();
-  if (!token) {
-    throw new Error("Debes iniciar sesión para editar proyectos.");
-  }
-
   const response = await fetch(`${getApiBaseUrl()}/projects/${params.id}`, {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
+    headers: buildProjectRequestHeaders(),
     body: JSON.stringify({
       name: params.name,
       description: params.description,
       thumbnail: params.thumbnail,
       program: params.program,
+      guestAuthorName: params.guestAuthorName,
     }),
   });
 
@@ -154,4 +167,19 @@ export async function updatePublishedProject(params: {
   }
 
   return (await response.json()) as { id: string; name?: string };
+}
+
+export function getStoredGuestProjectAuthorName(): string {
+  const storedValue = localStorage.getItem(GUEST_PROJECT_AUTHOR_NAME_KEY);
+  return storedValue?.trim() ?? "";
+}
+
+export function persistGuestProjectAuthorName(name: string) {
+  const normalizedName = name.trim();
+  if (!normalizedName) {
+    localStorage.removeItem(GUEST_PROJECT_AUTHOR_NAME_KEY);
+    return;
+  }
+
+  localStorage.setItem(GUEST_PROJECT_AUTHOR_NAME_KEY, normalizedName);
 }

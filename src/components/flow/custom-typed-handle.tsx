@@ -51,7 +51,10 @@ export function CustomTypedHandle({
     handleId: props.id ? String(props.id) : undefined,
   });
 
-  const isConnectable = connections.length < maxConnections;
+  const isTargetHandle = props.type === "target";
+  const isConnectable = isTargetHandle
+    ? connections.length < maxConnections
+    : true;
 
   const highlight = useConnectionHighlight();
 
