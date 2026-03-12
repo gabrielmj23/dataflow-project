@@ -78,7 +78,11 @@ import {
   publishProject,
   updatePublishedProject,
 } from "@/lib/projects";
-import { deserializeProgram, serializeProgram } from "@/flow/serialization";
+import {
+  deserializeProgram,
+  serializeProgram,
+  type SerializedProgramV1,
+} from "@/flow/serialization";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
@@ -89,6 +93,8 @@ import {
   type ExtensionNodeSummary,
 } from "@/lib/extensions";
 import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
+import microbitExample from "@/examples/microbit-example.json";
+import distributionExample from "@/examples/distribution-example.json";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
@@ -695,6 +701,48 @@ export default function EditorPage() {
     setIsConsoleOpen,
     consoleOutputText,
   });
+
+  useEffect(() => {
+    if (!challengeId) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const demoParam = searchParams.get("demo");
+
+      if (demoParam === "microbit" || demoParam === "distribution") {
+        const exampleData =
+          demoParam === "microbit" ? microbitExample : distributionExample;
+        const deserialized = deserializeProgram(
+          exampleData as SerializedProgramV1,
+        );
+
+        setNodes(deserialized.nodes as FlowNode[]);
+        setEdges(deserialized.edges as FlowEdge[]);
+        setProgramName(
+          deserialized.programName ||
+            (demoParam === "microbit" ? "Demo Micro:bit" : "Demo Distribución"),
+        );
+
+        resetHistory({
+          nodes: deserialized.nodes as FlowNode[],
+          edges: deserialized.edges as FlowEdge[],
+        });
+
+        if (reactFlowInstance) {
+          requestAnimationFrame(() => {
+            reactFlowInstance.fitView({ padding: 0.2, duration: 800 });
+          });
+        }
+        return;
+      }
+      return;
+    }
+  }, [
+    challengeId,
+    setNodes,
+    setEdges,
+    setProgramName,
+    resetHistory,
+    reactFlowInstance,
+  ]);
 
   const shouldLoadPublishedProject = Boolean(
     challengeId &&

@@ -18,6 +18,7 @@ export const compileOutputNodes: NodeCompiler = (flowNode, ctx) => {
       return new EngineWriteNode(
         ctx.writeSinkInputCountByNodeId?.get(String(flowNode.id)) ?? 1,
         typeof data.template === "string" ? data.template : undefined,
+        ctx.writeSinkConnectedInputPortsByNodeId?.get(String(flowNode.id)),
       );
 
     case NODE_TYPES.MICROBIT_WRITE:

@@ -129,6 +129,27 @@ export async function fetchLatestPublishedProjects(limit: number = 12) {
   return projects;
 }
 
+export async function fetchMyProjects(limit: number = 12) {
+  const response = await fetch(
+    `${getApiBaseUrl()}/projects?mine=true&page=1&pageSize=${Math.max(1, limit)}`,
+    {
+      credentials: "include",
+      headers: buildProjectRequestHeaders(),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  const projects = (await response.json()) as PublicProjectSummary[];
+  if (!Array.isArray(projects)) {
+    return [];
+  }
+
+  return projects;
+}
+
 export async function fetchPublishedProjectById(projectId: string) {
   const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
     credentials: "include",

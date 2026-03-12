@@ -6,7 +6,11 @@ import { BaseNode } from "@/components/base-node";
 import { getNodeDescription } from "@/flow/node-palette";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
@@ -31,6 +35,8 @@ type IoRectNodeShellProps = {
     label: string;
   }) => void;
   onConfigClick?: () => void;
+  sideActions?: ReactNode;
+  sideActionsClassName?: string;
   runtimeError?: string | null;
 };
 
@@ -56,6 +62,8 @@ export function IoRectNodeShell({
   invalidTargetHandleIds,
   onTargetHandleLabelChange,
   onConfigClick,
+  sideActions,
+  sideActionsClassName,
   runtimeError,
 }: IoRectNodeShellProps) {
   const maskFor = (params: {
@@ -90,11 +98,11 @@ export function IoRectNodeShell({
       runtimeError={runtimeError}
       infoDescription={getNodeDescription(nodeType) ?? undefined}
       onConfigClick={onConfigClick}
+      sideActions={sideActions}
+      sideActionsClassName={sideActionsClassName}
       className={`relative flex ${variant === "sink" ? "h-auto" : "h-18"} ${hasTargetLabels ? "w-52" : "w-25"} flex-col items-center justify-center rounded-2xl border-rose-700 bg-rose-500 px-5 text-center text-white shadow-md`}
       style={
-        variant === "sink"
-          ? { minHeight: `${sinkMinHeight}px` }
-          : undefined
+        variant === "sink" ? { minHeight: `${sinkMinHeight}px` } : undefined
       }
     >
       <div
@@ -149,13 +157,18 @@ export function IoRectNodeShell({
             const rawLabel = targetHandleLabels?.[index];
             if (rawLabel === null || rawLabel === undefined) return null;
             const resolved = typeof rawLabel === "string" ? rawLabel : "";
-            const widthPx = Math.min(150, Math.max(56, 20 + resolved.length * 8));
+            const widthPx = Math.min(
+              150,
+              Math.max(56, 20 + resolved.length * 8),
+            );
 
             if (onTargetHandleLabelChange) {
               const placeholderRaw = targetHandlePlaceholders?.[index];
               const placeholder =
                 typeof placeholderRaw === "string" ? placeholderRaw : "";
-              const isInvalid = (invalidTargetHandleIds ?? []).includes(handleId);
+              const isInvalid = (invalidTargetHandleIds ?? []).includes(
+                handleId,
+              );
               const isEditing = focusedHandleId === handleId;
               const borderClass = isEditing
                 ? isInvalid
@@ -163,14 +176,21 @@ export function IoRectNodeShell({
                   : "border border-white/55 focus-visible:border-white/70"
                 : "border border-transparent";
               return (
-                <Tooltip key={`sink-label-edit-${handleId}`} open={isInvalid && isEditing ? true : undefined}>
+                <Tooltip
+                  key={`sink-label-edit-${handleId}`}
+                  open={isInvalid && isEditing ? true : undefined}
+                >
                   <TooltipTrigger asChild>
                     <Input
                       value={resolved}
                       placeholder={placeholder}
                       aria-invalid={isInvalid || undefined}
                       onFocus={() => setFocusedHandleId(handleId)}
-                      onBlur={() => setFocusedHandleId((prev) => (prev === handleId ? null : prev))}
+                      onBlur={() =>
+                        setFocusedHandleId((prev) =>
+                          prev === handleId ? null : prev,
+                        )
+                      }
                       onChange={(event) =>
                         onTargetHandleLabelChange({
                           handleId,
@@ -185,7 +205,11 @@ export function IoRectNodeShell({
                     />
                   </TooltipTrigger>
                   {isInvalid ? (
-                    <TooltipContent side="top" sideOffset={6} className="border-red-300/50 bg-red-500/10 text-red-100">
+                    <TooltipContent
+                      side="top"
+                      sideOffset={6}
+                      className="border-red-300/50 bg-red-500/10 text-red-100"
+                    >
                       Nombre repetido
                     </TooltipContent>
                   ) : null}

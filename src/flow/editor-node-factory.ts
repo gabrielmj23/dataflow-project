@@ -1,5 +1,6 @@
 import type { Edge, Node } from "@xyflow/react";
 
+import { NODE_TYPES } from "@/common/constants";
 import { nodePalette } from "@/flow/node-palette";
 
 export type ResolvedEditorSubflowTemplate = {
@@ -46,6 +47,33 @@ export function buildPaletteLabelLookup(): Map<string, string> {
 }
 
 export const editorPaletteLabelByType = buildPaletteLabelLookup();
+
+const REPLICATE_INPUT_NODE_ID = "replicate-input-value";
+const REPLICATE_OUTPUT_NODE_ID = "replicate-output-value";
+
+function buildDefaultReplicateFlowGraph() {
+  const nodes: Node[] = [
+    {
+      id: REPLICATE_INPUT_NODE_ID,
+      type: NODE_TYPES.REPLICATE_INPUT_VALUE,
+      position: { x: 100, y: 40 },
+      data: { label: "Lista de entrada" },
+    },
+    {
+      id: REPLICATE_OUTPUT_NODE_ID,
+      type: "subflowOutput",
+      position: { x: 260, y: 0 },
+      data: { label: "Salida" },
+    },
+  ];
+
+  return {
+    nodes,
+    edges: [] as Edge[],
+    inCount: 1,
+    outCount: 1,
+  };
+}
 
 export function projectClientToFlowPosition(
   instance: FlowPositionProjector | null | undefined,
@@ -94,6 +122,18 @@ export function buildDroppedNodeData(params: {
         accentColor: accentColor || resolved.accentColor,
       };
     }
+  }
+
+  if (type === NODE_TYPES.REPLICATE_FLOW) {
+    const defaults = buildDefaultReplicateFlowGraph();
+    return {
+      ...(nodeLabel ? { label: nodeLabel } : {}),
+      accentColor,
+      subflowNodes: defaults.nodes,
+      subflowEdges: defaults.edges,
+      inCount: defaults.inCount,
+      outCount: defaults.outCount,
+    };
   }
 
   return nodeLabel ? { label: nodeLabel, accentColor } : { accentColor };

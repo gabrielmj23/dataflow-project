@@ -10,17 +10,24 @@ import { playClick } from "@/lib/sound";
 
 type UseConnectionsParams = {
   nodes: FlowNode[];
-  setNodes: React.Dispatch<React.SetStateAction<FlowNode[]>>;
+  setNodes?: React.Dispatch<React.SetStateAction<FlowNode[]>>;
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
 };
 
-export function useConnections({ nodes, setNodes, setEdges }: UseConnectionsParams) {
+export function useConnections({ nodes, setEdges }: UseConnectionsParams) {
   const connectionTooltip = useConnectionValidationTooltip(nodes);
   const [connectionHighlight, setConnectionHighlight] =
     useState<ConnectionHighlightState>(null);
 
   const onConnectStart = useCallback(
-    (event: MouseEvent | TouchEvent, params: { nodeId?: string | null; handleType?: string | null; handleId?: string | null }) => {
+    (
+      event: MouseEvent | TouchEvent,
+      params: {
+        nodeId?: string | null;
+        handleType?: string | null;
+        handleId?: string | null;
+      },
+    ) => {
       // Keep existing tooltip behavior.
       connectionTooltip.onConnectStart(event, params as never);
 
@@ -35,7 +42,7 @@ export function useConnections({ nodes, setNodes, setEdges }: UseConnectionsPara
       }
 
       const sourceNode = nodes.find(
-        (n) => String(n.id) === String(params.nodeId)
+        (n) => String(n.id) === String(params.nodeId),
       );
       const nodeType =
         sourceNode && typeof sourceNode.type === "string"
@@ -48,7 +55,7 @@ export function useConnections({ nodes, setNodes, setEdges }: UseConnectionsPara
       });
       setConnectionHighlight({ sourceMask });
     },
-    [connectionTooltip, nodes]
+    [connectionTooltip, nodes],
   );
 
   const onConnectEnd = useCallback(
@@ -56,7 +63,7 @@ export function useConnections({ nodes, setNodes, setEdges }: UseConnectionsPara
       connectionTooltip.onConnectEnd(event);
       setConnectionHighlight(null);
     },
-    [connectionTooltip]
+    [connectionTooltip],
   );
 
   const onConnect = useCallback(
@@ -79,36 +86,6 @@ export function useConnections({ nodes, setNodes, setEdges }: UseConnectionsPara
         data: (typed.data ?? {}) as Record<string, unknown>,
       };
 
-      // Dynamic inputs for Write node: when the user connects into the last
-      // available input handle, we append a new one.
-      if (typed.target && (typed.targetHandle ?? null) != null) {
-        const targetId = String(typed.target);
-        const targetHandle = String(typed.targetHandle);
-        setNodes((prev) =>
-          prev.map((n) => {
-            if (String(n.id) !== targetId) return n;
-            if (n.type !== "write") return n;
-            const data = (
-              n.data && typeof n.data === "object" ? n.data : {}
-            ) as Record<string, unknown>;
-            const current =
-              typeof data.inputCount === "number" ? data.inputCount : 1;
-            const currentCount = Number.isFinite(current)
-              ? Math.max(1, Math.floor(current))
-              : 1;
-            const lastHandleId = `in-${currentCount}`;
-            if (targetHandle !== lastHandleId) return n;
-            return {
-              ...n,
-              data: {
-                ...data,
-                inputCount: currentCount + 1,
-              },
-            };
-          })
-        );
-      }
-
       setEdges((edgesSnapshot) => [...edgesSnapshot, newEdge]);
       try {
         playClick();
@@ -116,7 +93,7 @@ export function useConnections({ nodes, setNodes, setEdges }: UseConnectionsPara
         // ignore
       }
     },
-    [connectionTooltip, nodes, setEdges, setNodes]
+    [connectionTooltip, nodes, setEdges],
   );
 
   return {

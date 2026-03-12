@@ -181,6 +181,7 @@ export function buildEngineStoresFromFlowGraph(params: {
   // For nodes with dynamic port counts (e.g., Write sink), infer the required
   // input count from the incoming edges.
   const writeSinkInputCountByNodeId = new Map<string, number>();
+  const writeSinkConnectedInputPortsByNodeId = new Map<string, Set<string>>();
   const timerHasIncomingByNodeId = new Map<string, boolean>();
   const sequenceIncomingByNodeId = new Map<
     string,
@@ -195,6 +196,19 @@ export function buildEngineStoresFromFlowGraph(params: {
   const scatterOutputCountByNodeId = new Map<string, number>();
   const gatherInputCountByNodeId = new Map<string, number>();
   const gatherIncomingByNodeId = new Map<string, Set<string>>();
+  for (const node of uiNodes) {
+    if (node.type !== NODE_TYPES.WRITE_SINK) continue;
+
+    const data = asRecord(node.data);
+    const rawInputCount = data.inputCount;
+    const safeInputCount =
+      typeof rawInputCount === "number" && Number.isFinite(rawInputCount)
+        ? Math.max(1, Math.floor(rawInputCount))
+        : 1;
+
+    writeSinkInputCountByNodeId.set(String(node.id), safeInputCount);
+  }
+
   for (const edge of params.edges) {
     const sourceId = String(edge.source);
     const sourceNode = nodeById.get(sourceId);
@@ -286,6 +300,11 @@ export function buildEngineStoresFromFlowGraph(params: {
     const idx = handleId == null ? 1 : (parseIndexHandle(handleId) ?? 1);
     const current = writeSinkInputCountByNodeId.get(targetId) ?? 1;
     writeSinkInputCountByNodeId.set(targetId, Math.max(current, idx));
+    const portId = `input${idx}`;
+    const set =
+      writeSinkConnectedInputPortsByNodeId.get(targetId) ?? new Set<string>();
+    set.add(portId);
+    writeSinkConnectedInputPortsByNodeId.set(targetId, set);
   }
 
   const runtimeCtx: SubflowRuntimeContext = params.subflowRuntimeContext ?? {
@@ -346,6 +365,7 @@ export function buildEngineStoresFromFlowGraph(params: {
   for (const flowNode of uiNodes) {
     const engineDef = flowNodeToEngineDefinition(flowNode, {
       writeSinkInputCountByNodeId,
+      writeSinkConnectedInputPortsByNodeId,
       timerHasIncomingByNodeId,
       sequenceIncomingByNodeId,
       pulseSequenceIncomingByNodeId,
@@ -904,6 +924,7 @@ function flowNodeToEngineDefinition(
   flowNode: Node,
   context?: {
     writeSinkInputCountByNodeId?: Map<string, number>;
+    writeSinkConnectedInputPortsByNodeId?: Map<string, Set<string>>;
     timerHasIncomingByNodeId?: Map<string, boolean>;
     sequenceIncomingByNodeId?: Map<
       string,
@@ -928,6 +949,8 @@ function flowNodeToEngineDefinition(
 ): NodeDefinition {
   return compileNodeDefinition(flowNode, {
     writeSinkInputCountByNodeId: context?.writeSinkInputCountByNodeId,
+    writeSinkConnectedInputPortsByNodeId:
+      context?.writeSinkConnectedInputPortsByNodeId,
     timerHasIncomingByNodeId: context?.timerHasIncomingByNodeId,
     sequenceIncomingByNodeId: context?.sequenceIncomingByNodeId,
     pulseSequenceIncomingByNodeId: context?.pulseSequenceIncomingByNodeId,

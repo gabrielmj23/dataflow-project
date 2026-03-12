@@ -10,6 +10,7 @@ import type {
 
 export type NodeCompilerContext = {
   writeSinkInputCountByNodeId?: Map<string, number>;
+  writeSinkConnectedInputPortsByNodeId?: Map<string, Set<string>>;
   timerHasIncomingByNodeId?: Map<string, boolean>;
   sequenceIncomingByNodeId?: Map<
     string,

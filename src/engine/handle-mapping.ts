@@ -369,14 +369,19 @@ register([NODE_TYPES.SELECTOR_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
     if (handleId === "token") return "token";
-    // Value handles use the token string as handle id; preserve as port id.
+    const idx = parseIndexHandle(handleId);
+    if (handleId?.startsWith("in-") && idx) return `input${idx}`;
+    // Backward compatibility for legacy graphs where selector handles were
+    // token-named; preserve original ids when index-based ids are absent.
     if (handleId) return String(handleId);
     throw unknownInputHandle({ nodeId, nodeType, handleId });
   }
 
-  // Allow selector source handles to be token-named (one output per option).
+  const idx = parseIndexHandle(handleId);
+  if (handleId?.startsWith("out-") && idx) return `output${idx}`;
   // Keep legacy "out" mapping for backward compatibility.
   if (handleId === "out" || handleId == null) return "output";
+  // Backward compatibility for legacy token-named source handles.
   return String(handleId);
 });
 

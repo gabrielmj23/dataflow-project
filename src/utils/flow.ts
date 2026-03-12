@@ -2,7 +2,12 @@ import type { Edge, Node } from "@xyflow/react";
 
 export type FlowNode = Node;
 export type FlowEdge = Edge;
-export type FlowBounds = { x: number; y: number; width: number; height: number };
+export type FlowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
 export type SubflowSnapshot = { nodes: FlowNode[]; edges: FlowEdge[] };
 export type HandleKey = string | null;
 
@@ -17,7 +22,7 @@ export function parseWriteTargetHandleIndex(handle: unknown): number {
 
 export function clampWriteTemplateToMaxVar(
   template: unknown,
-  maxVar: number
+  maxVar: number,
 ): string | undefined {
   if (typeof template !== "string") return undefined;
   if (!Number.isFinite(maxVar) || maxVar < 1) {
@@ -47,29 +52,25 @@ function normalizeWriteInputLabels(value: unknown): Record<string, string> {
   return next;
 }
 
-function remapWriteInputLabels(params: {
-  labels: Record<string, string>;
-  indexMap: Map<number, number>;
-  maxVarAllowed: number;
-}): Record<string, string> {
-  const { labels, indexMap, maxVarAllowed } = params;
-  const remapped: Record<string, string> = {};
+function clampWriteInputLabelsToCount(
+  labels: Record<string, string>,
+  inputCount: number,
+): Record<string, string> {
+  const safeCount = Math.max(1, Math.floor(inputCount));
+  const clamped: Record<string, string> = {};
 
   for (const [handleId, label] of Object.entries(labels)) {
-    const oldIdx = parseWriteTargetHandleIndex(handleId);
-    if (oldIdx <= 0) continue;
-    const newIdx = indexMap.get(oldIdx);
-    if (!newIdx) continue;
-    if (newIdx < 1 || newIdx > maxVarAllowed) continue;
-    remapped[`in-${newIdx}`] = label;
+    const idx = parseWriteTargetHandleIndex(handleId);
+    if (idx < 1 || idx > safeCount) continue;
+    clamped[`in-${idx}`] = label;
   }
 
-  return remapped;
+  return clamped;
 }
 
 function labelsEqual(
   left: Record<string, string>,
-  right: Record<string, string>
+  right: Record<string, string>,
 ): boolean {
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
@@ -82,139 +83,83 @@ function labelsEqual(
 
 export function reconcileWriteGraph(
   nodes: FlowNode[],
-  edges: FlowEdge[]
+  edges: FlowEdge[],
 ): {
   nodes: FlowNode[];
   edges: FlowEdge[];
   changedNodes: boolean;
   changedEdges: boolean;
 } {
-  // Build per-write-node compaction maps based on current incoming connections.
-  const writeMaps = new Map<
-    string,
-    {
-      map: Map<number, number>;
-      desiredInputCount: number;
-      maxVarAllowed: number;
-    }
-  >();
-
+  const inputCountByNodeId = new Map<string, number>();
   for (const n of nodes) {
     if (n.type !== "write") continue;
-    const nodeId = String(n.id);
 
-    const uniqueConnected = new Set<number>();
-    for (const e of edges) {
-      if (String(e.target) !== nodeId) continue;
-      const idx = parseWriteTargetHandleIndex(e.targetHandle);
-      if (idx > 0) uniqueConnected.add(idx);
-    }
+    const data =
+      n.data && typeof n.data === "object"
+        ? (n.data as Record<string, unknown>)
+        : ({} as Record<string, unknown>);
+    const currentRaw =
+      typeof data.inputCount === "number" ? data.inputCount : 1;
+    const inputCount = Number.isFinite(currentRaw)
+      ? Math.max(1, Math.floor(currentRaw))
+      : 1;
 
-    const sorted = Array.from(uniqueConnected).sort((a, b) => a - b);
-    const map = new Map<number, number>();
-    for (let i = 0; i < sorted.length; i++) {
-      const oldIdx = sorted[i];
-      if (!oldIdx) continue;
-      map.set(oldIdx, i + 1);
-    }
-
-    // If there are no connected inputs, keep a single empty handle only.
-    // Otherwise keep one extra empty handle beyond the highest connected input.
-    const desiredInputCount = sorted.length === 0 ? 1 : sorted.length + 1;
-    const maxVarAllowed = desiredInputCount - 1;
-    writeMaps.set(nodeId, { map, desiredInputCount, maxVarAllowed });
+    inputCountByNodeId.set(String(n.id), inputCount);
   }
 
-  // 1) Update edges: shift targetHandle indices down to compact away gaps.
   let changedEdges = false;
-  const nextEdges = edges.map((e) => {
+  const nextEdges = edges.filter((e) => {
     const targetId = String(e.target);
-    const info = writeMaps.get(targetId);
-    if (!info) return e;
+    const inputCount = inputCountByNodeId.get(targetId);
+    if (!inputCount) return true;
 
-    const oldIdx = parseWriteTargetHandleIndex(e.targetHandle);
-    if (oldIdx <= 0) return e;
-
-    const newIdx = info.map.get(oldIdx);
-    if (!newIdx || newIdx === oldIdx) return e;
+    const idx = parseWriteTargetHandleIndex(e.targetHandle);
+    if (idx <= 0) return true;
+    if (idx <= inputCount) return true;
 
     changedEdges = true;
-    return {
-      ...e,
-      targetHandle: `in-${newIdx}`,
-    } as FlowEdge;
+    return false;
   });
 
-  // 2) Update nodes: shrink inputCount to connectedCount+1 and remap template.
   let changedNodes = false;
   const nextNodes = nodes.map((n) => {
     if (n.type !== "write") return n;
     const nodeId = String(n.id);
-    const info = writeMaps.get(nodeId);
-    if (!info) return n;
+    const inputCount = inputCountByNodeId.get(nodeId) ?? 1;
 
     const data =
       n.data && typeof n.data === "object"
         ? (n.data as Record<string, unknown>)
         : ({} as Record<string, unknown>);
 
-    const currentRaw =
-      typeof data.inputCount === "number" ? data.inputCount : 1;
-    const current = Number.isFinite(currentRaw)
-      ? Math.max(1, Math.floor(currentRaw))
-      : 1;
-
     const template = data.template;
     const inputLabels = normalizeWriteInputLabels(data.inputLabels);
-    const remappedTemplate =
-      typeof template !== "string"
-        ? undefined
-        : template.replace(/\{(\d+)\}/g, (_full, raw) => {
-            const oldIdx = parseInt(String(raw), 10);
-            if (!Number.isFinite(oldIdx)) return "";
-            const newIdx = info.map.get(oldIdx);
-            if (!newIdx) return "";
-            // Also enforce max vars in case something goes out of bounds.
-            return newIdx >= 1 && newIdx <= info.maxVarAllowed
-              ? `{${newIdx}}`
-              : "";
-          });
-
-    // If there are no connections, we keep only Entrada 1 + empty; strip placeholders.
-    const clampedTemplate = clampWriteTemplateToMaxVar(
-      remappedTemplate ?? template,
-      info.maxVarAllowed
+    const clampedTemplate = clampWriteTemplateToMaxVar(template, inputCount);
+    const clampedInputLabels = clampWriteInputLabelsToCount(
+      inputLabels,
+      inputCount,
     );
-
-    const remappedInputLabels = remapWriteInputLabels({
-      labels: inputLabels,
-      indexMap: info.map,
-      maxVarAllowed: info.maxVarAllowed,
-    });
-
-    const needsInputCountUpdate = current !== info.desiredInputCount;
     const needsTemplateUpdate =
       typeof template === "string" && typeof clampedTemplate === "string"
         ? template !== clampedTemplate
         : false;
-    const needsInputLabelsUpdate = !labelsEqual(inputLabels, remappedInputLabels);
+    const needsInputLabelsUpdate = !labelsEqual(
+      inputLabels,
+      clampedInputLabels,
+    );
 
-    if (!needsInputCountUpdate && !needsTemplateUpdate && !needsInputLabelsUpdate)
-      return n;
+    if (!needsTemplateUpdate && !needsInputLabelsUpdate) return n;
 
     changedNodes = true;
-    const hasInputLabels = Object.keys(remappedInputLabels).length > 0;
+    const hasInputLabels = Object.keys(clampedInputLabels).length > 0;
     return {
       ...n,
       data: {
         ...data,
-        ...(needsInputCountUpdate
-          ? { inputCount: info.desiredInputCount }
-          : null),
         ...(needsTemplateUpdate ? { template: clampedTemplate } : null),
         ...(needsInputLabelsUpdate
           ? hasInputLabels
-            ? { inputLabels: remappedInputLabels }
+            ? { inputLabels: clampedInputLabels }
             : { inputLabels: undefined }
           : null),
       },
@@ -235,7 +180,7 @@ export function uniqueCount<T>(values: T[]): number {
 
 export function getHandleIds(
   nodeLookup: unknown,
-  nodeId: string
+  nodeId: string,
 ): { targets: HandleKey[]; sources: HandleKey[] } {
   const map = nodeLookup as Map<string, unknown> | undefined;
   const internalNode = map?.get(nodeId) as
@@ -250,10 +195,10 @@ export function getHandleIds(
     | undefined;
 
   const targets = (internalNode?.internals?.handleBounds?.target ?? []).map(
-    (h) => h.id ?? null
+    (h) => h.id ?? null,
   );
   const sources = (internalNode?.internals?.handleBounds?.source ?? []).map(
-    (h) => h.id ?? null
+    (h) => h.id ?? null,
   );
 
   return { targets, sources };
@@ -291,7 +236,7 @@ export function computeBounds(nodes: FlowNode[]): FlowBounds | null {
 export function buildSubflowSnapshot(
   selectedNodes: FlowNode[],
   edges: FlowEdge[],
-  bounds: FlowBounds
+  bounds: FlowBounds,
 ): SubflowSnapshot {
   const selectedSet = new Set(selectedNodes.map((n) => n.id));
   const padding = 40;
@@ -314,7 +259,7 @@ export function buildSubflowSnapshot(
   const internalEdges = edges
     .filter(
       (e) =>
-        selectedSet.has(String(e.source)) && selectedSet.has(String(e.target))
+        selectedSet.has(String(e.source)) && selectedSet.has(String(e.target)),
     )
     .map(
       (e) =>
@@ -326,7 +271,7 @@ export function buildSubflowSnapshot(
           targetHandle: e.targetHandle,
           type: e.type,
           data: e.data,
-        } as FlowEdge)
+        }) as FlowEdge,
     );
 
   return { nodes, edges: internalEdges };

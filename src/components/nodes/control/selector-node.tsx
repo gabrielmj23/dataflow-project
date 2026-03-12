@@ -3,6 +3,7 @@ import {
   Position,
   useReactFlow,
   useStore,
+  useUpdateNodeInternals,
   type NodeProps,
 } from "@xyflow/react";
 
@@ -76,7 +77,8 @@ export const SelectorNode = memo(({ id, data, selected }: NodeProps) => {
   const options = sanitizeOptions(rawOptions);
   const pairId = (data as { pairId?: string | null })?.pairId ?? null;
 
-  const { setNodes } = useReactFlow();
+  const { setNodes, setEdges } = useReactFlow();
+  const updateNodeInternals = useUpdateNodeInternals();
   const nodes = useStore((state) => state.nodes);
   const edges = useStore((state) => state.edges);
 
@@ -131,6 +133,94 @@ export const SelectorNode = memo(({ id, data, selected }: NodeProps) => {
     () => offsets(syncedOptions.length),
     [syncedOptions.length],
   );
+
+  const tokenToIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    syncedOptions.forEach((opt, idx) => {
+      const token = String(opt.token ?? "").trim();
+      if (!token) return;
+      // Keep first occurrence to avoid unstable remaps if duplicates exist
+      // in legacy data loaded before validation was introduced.
+      if (!map.has(token)) {
+        map.set(token, idx + 1);
+      }
+    });
+    return map;
+  }, [syncedOptions]);
+
+  // Selector option handles are index-based (`in-N`, `out-N`). Recompute node
+  // internals when option count changes so handle positions update correctly.
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, syncedOptions.length, updateNodeInternals]);
+
+  // Migrate legacy token-based handles to stable index-based handles.
+  useEffect(() => {
+    if (tokenToIndexMap.size === 0) return;
+
+    const hasLegacyHandles = edges.some((edge) => {
+      if (String(edge.source) === String(id)) {
+        const sourceHandle =
+          typeof edge.sourceHandle === "string" ? edge.sourceHandle.trim() : "";
+        const idx = sourceHandle ? tokenToIndexMap.get(sourceHandle) : null;
+        if (idx && sourceHandle !== `out-${idx}`) return true;
+      }
+
+      if (String(edge.target) === String(id)) {
+        const targetHandle =
+          typeof edge.targetHandle === "string" ? edge.targetHandle.trim() : "";
+        const idx = targetHandle ? tokenToIndexMap.get(targetHandle) : null;
+        if (idx && targetHandle !== `in-${idx}`) return true;
+      }
+
+      return false;
+    });
+
+    if (!hasLegacyHandles) return;
+
+    setEdges((prev) => {
+      let changed = false;
+      const next = prev.map((edge) => {
+        let sourceHandle = edge.sourceHandle;
+        let targetHandle = edge.targetHandle;
+
+        if (String(edge.source) === String(id)) {
+          const sourceToken =
+            typeof sourceHandle === "string" ? sourceHandle.trim() : "";
+          const idx = sourceToken ? tokenToIndexMap.get(sourceToken) : null;
+          if (idx && sourceHandle !== `out-${idx}`) {
+            sourceHandle = `out-${idx}`;
+            changed = true;
+          }
+        }
+
+        if (String(edge.target) === String(id)) {
+          const targetToken =
+            typeof targetHandle === "string" ? targetHandle.trim() : "";
+          const idx = targetToken ? tokenToIndexMap.get(targetToken) : null;
+          if (idx && targetHandle !== `in-${idx}`) {
+            targetHandle = `in-${idx}`;
+            changed = true;
+          }
+        }
+
+        if (
+          sourceHandle === edge.sourceHandle &&
+          targetHandle === edge.targetHandle
+        ) {
+          return edge;
+        }
+
+        return {
+          ...edge,
+          sourceHandle,
+          targetHandle,
+        };
+      });
+
+      return changed ? next : prev;
+    });
+  }, [edges, id, setEdges, tokenToIndexMap]);
 
   const minHeight = useMemo(() => {
     const base = 80; // compact base height
@@ -217,18 +307,18 @@ export const SelectorNode = memo(({ id, data, selected }: NodeProps) => {
         </div>
       ) : null}
 
-      {/* Handles anchored to the node edge (use token string as handle id) */}
-      {syncedOptions.map((opt, idx) => {
-        const tokenId = String(opt.token ?? `${idx + 1}`);
+      {/* Handles anchored to the node edge using stable index IDs. */}
+      {syncedOptions.map((_, idx) => {
+        const targetHandleId = `in-${idx + 1}`;
         return (
           <CustomTypedHandle
-            key={`handle-${tokenId}-${idx}`}
+            key={`handle-${targetHandleId}`}
             type="target"
             position={Position.Left}
-            id={tokenId}
+            id={targetHandleId}
             style={{ top: valueHandleOffsets[idx] ?? "50%" }}
-            dataType={typeFor({ handleType: "target", handleId: tokenId })}
-            typeMask={maskFor({ handleType: "target", handleId: tokenId })}
+            dataType={typeFor({ handleType: "target", handleId: targetHandleId })}
+            typeMask={maskFor({ handleType: "target", handleId: targetHandleId })}
             className="absolute -left-1 h-2 w-2 -translate-y-1/2"
             indicatorClassName="border-orange-600"
           />
@@ -260,17 +350,17 @@ export const SelectorNode = memo(({ id, data, selected }: NodeProps) => {
       })}
 
       {/* One source handle per option so outputs can take different paths. */}
-      {syncedOptions.map((opt, idx) => {
-        const tokenId = String(opt.token ?? `${idx + 1}`);
+      {syncedOptions.map((_, idx) => {
+        const sourceHandleId = `out-${idx + 1}`;
         return (
           <CustomTypedHandle
-            key={`out-${tokenId}-${idx}`}
+            key={sourceHandleId}
             type="source"
             position={Position.Right}
-            id={tokenId}
+            id={sourceHandleId}
             style={{ top: valueHandleOffsets[idx] ?? "50%" }}
-            dataType={typeFor({ handleType: "source", handleId: tokenId })}
-            typeMask={maskFor({ handleType: "source", handleId: tokenId })}
+            dataType={typeFor({ handleType: "source", handleId: sourceHandleId })}
+            typeMask={maskFor({ handleType: "source", handleId: sourceHandleId })}
             className="absolute -right-1 h-2 w-2 -translate-y-1/2"
             indicatorClassName="border-orange-600"
           />

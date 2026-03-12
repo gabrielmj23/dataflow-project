@@ -1,0 +1,367 @@
+{
+  "version": 1,
+  "programName": "Distribución en PCs",
+  "nodes": [
+    {
+      "id": "YAyBm6Wx1DCMHaKZ",
+      "type": "sequence",
+      "position": {
+        "x": 170,
+        "y": 114
+      },
+      "data": {
+        "label": "Generar secuencia",
+        "min": 0,
+        "max": 100,
+        "step": 1
+      }
+    },
+    {
+      "id": "G3JWibiJGkv6smEr",
+      "type": "constantNumber",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Número",
+        "value": 1
+      }
+    },
+    {
+      "id": "3ca2whNY_64x1vTn",
+      "type": "constantNumber",
+      "position": {
+        "x": 0,
+        "y": 114
+      },
+      "data": {
+        "label": "Número",
+        "value": 10
+      }
+    },
+    {
+      "id": "BYKlMDnoN5ZafLe3",
+      "type": "constantNumber",
+      "position": {
+        "x": 0,
+        "y": 228
+      },
+      "data": {
+        "label": "Número",
+        "value": 1
+      }
+    },
+    {
+      "id": "wseefSzBpjhMnb2I",
+      "type": "scatter",
+      "position": {
+        "x": 379.2780320012097,
+        "y": 68.17562933192207
+      },
+      "data": {
+        "label": "Distribuir",
+        "outputCount": 2
+      }
+    },
+    {
+      "id": "Xo01tasqtnZCZ5rP",
+      "type": "replicateFlow",
+      "position": {
+        "x": 537.407412825988,
+        "y": 107.64597059917872
+      },
+      "data": {
+        "label": "Replicar flujo",
+        "subflowNodes": [
+          {
+            "id": "replicate-output-value",
+            "type": "subflowOutput",
+            "position": {
+              "x": 328,
+              "y": 10
+            },
+            "data": {
+              "label": "Salida"
+            },
+            "measured": {
+              "width": 56,
+              "height": 56
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "replicate-input-value",
+            "type": "replicateInputValue",
+            "position": {
+              "x": 54,
+              "y": 3.5
+            },
+            "data": {
+              "label": "Lista de entrada"
+            },
+            "measured": {
+              "width": 64,
+              "height": 64
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "inner-replicate-flow-Xo01tasqtnZCZ5rP-1",
+            "type": "map",
+            "position": {
+              "x": 149.9499969482422,
+              "y": -2.4124984741210938
+            },
+            "data": {
+              "label": "Mapear",
+              "mapNodes": [
+                {
+                  "id": "map-input-value",
+                  "type": "mapInputValue",
+                  "position": {
+                    "x": 0,
+                    "y": 0
+                  },
+                  "data": {
+                    "label": "Valor de entrada"
+                  },
+                  "selected": false,
+                  "measured": {
+                    "width": 64,
+                    "height": 64
+                  }
+                },
+                {
+                  "id": "inner-map-inner-replicate-flow-Xo01tasqtnZCZ5rP-1-2",
+                  "type": "multiply",
+                  "position": {
+                    "x": 111.44999694824219,
+                    "y": -2.4124984741210938
+                  },
+                  "data": {
+                    "label": "Multiplicar"
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": true,
+                  "dragging": false
+                }
+              ],
+              "mapEdges": [
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "map-input-value",
+                  "sourceHandle": "value",
+                  "target": "inner-map-inner-replicate-flow-Xo01tasqtnZCZ5rP-1-2",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__map-input-valuevalue-inner-map-inner-replicate-flow-Xo01tasqtnZCZ5rP-1-2in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "map-input-value",
+                  "sourceHandle": "value",
+                  "target": "inner-map-inner-replicate-flow-Xo01tasqtnZCZ5rP-1-2",
+                  "targetHandle": "in-2",
+                  "id": "xy-edge__map-input-valuevalue-inner-map-inner-replicate-flow-Xo01tasqtnZCZ5rP-1-2in-2"
+                }
+              ]
+            },
+            "measured": {
+              "width": 144,
+              "height": 72
+            },
+            "selected": true,
+            "dragging": false
+          }
+        ],
+        "subflowEdges": [
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "replicate-input-value",
+            "sourceHandle": "value",
+            "target": "inner-replicate-flow-Xo01tasqtnZCZ5rP-1",
+            "targetHandle": "in",
+            "id": "xy-edge__replicate-input-valuevalue-inner-replicate-flow-Xo01tasqtnZCZ5rP-1in"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-replicate-flow-Xo01tasqtnZCZ5rP-1",
+            "sourceHandle": "out",
+            "target": "replicate-output-value",
+            "targetHandle": "value",
+            "id": "xy-edge__inner-replicate-flow-Xo01tasqtnZCZ5rP-1out-replicate-output-valuevalue"
+          }
+        ],
+        "inCount": 1,
+        "outCount": 0,
+        "remoteConnections": [
+          {
+            "id": "conn-1"
+          },
+          {
+            "id": "conn-1773264321089-2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "2zX841r2WTkrORUT",
+      "type": "gather",
+      "position": {
+        "x": 789.9090471194785,
+        "y": 73.97908602671333
+      },
+      "data": {
+        "label": "Reunir",
+        "outputCount": 2
+      }
+    },
+    {
+      "id": "8DMZz4uhflrgvSD-",
+      "type": "write",
+      "position": {
+        "x": 943.2804101718209,
+        "y": 116.0626917422951
+      },
+      "data": {
+        "label": "Escribir",
+        "inputCount": 1,
+        "template": "{1}"
+      }
+    },
+    {
+      "id": "CLeSCK5vK-xHxiCo",
+      "type": "comment",
+      "position": {
+        "x": 280.66530334787893,
+        "y": -100.22222096405329
+      },
+      "data": {
+        "text": "Cada computadora calcula el cuadrado de los elementos que recibe"
+      }
+    },
+    {
+      "id": "np5aWRaTTmKOwEKU",
+      "type": "comment",
+      "position": {
+        "x": 602.2902145806286,
+        "y": -100.94495877541478
+      },
+      "data": {
+        "text": "Configura las conexiones de dos computadoras usando el nodo Replicar flujo"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "PZhRba4VJtmQCldk",
+      "source": "G3JWibiJGkv6smEr",
+      "target": "YAyBm6Wx1DCMHaKZ",
+      "sourceHandle": null,
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "TUN_2nVKFiOHu2Yn",
+      "source": "3ca2whNY_64x1vTn",
+      "target": "YAyBm6Wx1DCMHaKZ",
+      "sourceHandle": null,
+      "targetHandle": "in-2",
+      "data": {}
+    },
+    {
+      "id": "S3XX0hf4DMf_teDi",
+      "source": "BYKlMDnoN5ZafLe3",
+      "target": "YAyBm6Wx1DCMHaKZ",
+      "sourceHandle": null,
+      "targetHandle": "in-3",
+      "data": {}
+    },
+    {
+      "id": "l7qz8TU0oQ0GDpsp",
+      "source": "YAyBm6Wx1DCMHaKZ",
+      "target": "wseefSzBpjhMnb2I",
+      "sourceHandle": "out",
+      "targetHandle": "in",
+      "data": {}
+    },
+    {
+      "id": "-i2VlOMjNm1CPOWs",
+      "source": "wseefSzBpjhMnb2I",
+      "target": "Xo01tasqtnZCZ5rP",
+      "sourceHandle": "out-1",
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "Jri-0d34ROx730PP",
+      "source": "wseefSzBpjhMnb2I",
+      "target": "Xo01tasqtnZCZ5rP",
+      "sourceHandle": "out-2",
+      "targetHandle": "in-2",
+      "data": {}
+    },
+    {
+      "id": "bKLjDAI4XGd3bXoQ",
+      "source": "Xo01tasqtnZCZ5rP",
+      "target": "2zX841r2WTkrORUT",
+      "sourceHandle": "out-1",
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "U-UbswRN37TXJooR",
+      "source": "Xo01tasqtnZCZ5rP",
+      "target": "2zX841r2WTkrORUT",
+      "sourceHandle": "out-2",
+      "targetHandle": "in-2",
+      "data": {}
+    },
+    {
+      "id": "6KsNKSymz-SFkjGd",
+      "source": "2zX841r2WTkrORUT",
+      "target": "8DMZz4uhflrgvSD-",
+      "sourceHandle": "out",
+      "targetHandle": "in-1",
+      "data": {}
+    }
+  ],
+  "viewport": {
+    "x": 108,
+    "y": 224.54797809079753,
+    "zoom": 0.9380859697237593
+  }
+}
