@@ -526,25 +526,45 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
           : `Salida ${idx + 1}`;
       });
 
-      const ports = ["token", ...tokens, "output"];
+      const inputPorts = tokens.map((_, idx) => `input${idx + 1}`);
+      const outputPorts = tokens.map((_, idx) => `output${idx + 1}`);
+
+      const ports = ["token", ...inputPorts, ...outputPorts, "output"];
 
       const incoming = ctx.selectorIncomingByNodeId?.get(String(flowNode.id));
       const firePatterns = [
         FirePatterns.EXISTS,
-        ...tokens.map((t) =>
-          incoming?.has(t) ? FirePatterns.EXISTS : FirePatterns.DONT_CARE,
-        ),
+        ...inputPorts.map((portId, idx) => {
+          const legacyTokenPort = tokens[idx];
+          return incoming?.has(portId) || incoming?.has(legacyTokenPort)
+            ? FirePatterns.EXISTS
+            : FirePatterns.DONT_CARE;
+        }),
       ];
 
       return new NodeDefinition(
-        (token: unknown, ...values: unknown[]) => {
+        (
+          token: unknown,
+          ...args: unknown[]
+        ) => {
+          const values = args.slice(0, inputPorts.length);
           const tokenStr = String(token ?? "");
           const matchIdx = tokens.findIndex((t) => t === tokenStr);
           const selected = matchIdx >= 0 ? values[matchIdx] : undefined;
 
-          const targetPort = matchIdx >= 0 ? tokenStr : "output";
+          if (matchIdx >= 0) {
+            const outputPortId = outputPorts[matchIdx] ?? "output";
+            const legacyPortId = tokens[matchIdx] ?? outputPortId;
 
-          return [new DataToken(selected, new PortAddress("", targetPort))];
+            // Emit both stable and legacy port ids so old projects keep
+            // running even if edges still use token-named source handles.
+            return [
+              new DataToken(selected, new PortAddress("", outputPortId)),
+              new DataToken(selected, new PortAddress("", legacyPortId)),
+            ];
+          }
+
+          return [new DataToken(selected, new PortAddress("", "output"))];
         },
         firePatterns,
         ports,

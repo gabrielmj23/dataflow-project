@@ -122,13 +122,13 @@ export default function ModeSelectPage() {
           floating
           src={stickerCohete}
           alt="Sticker cohete"
-          className="left-8 top-8 -rotate-12 -translate-x-12 z-0 pointer-events-none"
+          className="left-8 top-5 -rotate-12 -translate-x-12 z-0 pointer-events-none"
         />
         <StickerImage
           floating
           src={stickerFlor}
           alt="Sticker flor"
-          className="left-6 bottom-20 -rotate-6 -translate-x-16 z-0 pointer-events-none"
+          className="left-6 bottom-6 -rotate-6 -translate-x-16 z-0 pointer-events-none"
         />
 
         <StickerImage
@@ -148,7 +148,7 @@ export default function ModeSelectPage() {
           floating
           src={stickerRegla}
           alt="Sticker regla"
-          className="right-10 bottom-0 rotate-6 translate-x-8 translate-y-4 z-0 pointer-events-none"
+          className="right-10 bottom-0 rotate-6 translate-x-16 translate-y-4 z-0 pointer-events-none"
         />
 
         <div className="relative z-10 mx-auto flex max-w-3xl flex-col items-center gap-7 text-center">

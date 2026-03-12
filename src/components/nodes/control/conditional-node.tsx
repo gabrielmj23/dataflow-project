@@ -40,7 +40,6 @@ export type ConditionalInput = {
 };
 
 export type ConditionalCase = {
-  label?: string;
   outputToken: string;
   formula?: string;
 };
@@ -56,7 +55,6 @@ const DEFAULT_INPUTS: ConditionalInput[] = [{ id: "in-1", label: "a" }];
 
 const DEFAULT_CONDITIONS: ConditionalCase[] = [
   {
-    label: "Caso 1",
     outputToken: "Salida 1",
     formula: "a",
   },
@@ -116,7 +114,6 @@ function sanitizeConditions(
   for (let i = 0; i < value.length; i += 1) {
     const item = value[i];
     if (!item || typeof item !== "object") continue;
-    const label = (item as { label?: unknown }).label;
     const outputTokenRaw = (item as { outputToken?: unknown }).outputToken;
 
     const formulaRaw = (item as { formula?: unknown }).formula;
@@ -132,7 +129,6 @@ function sanitizeConditions(
         : `Salida ${i + 1}`;
 
     out.push({
-      label: typeof label === "string" ? label : undefined,
       outputToken,
       formula,
     });
@@ -280,6 +276,26 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
       setDialogError("Revisa las condiciones: hay expresiones inválidas.");
       return;
     }
+
+    const normalizedOutputTokens = draftConditions.map((cond, idx) => {
+      const raw = typeof cond.outputToken === "string" ? cond.outputToken : "";
+      const trimmed = raw.trim();
+      return trimmed || `Salida ${idx + 1}`;
+    });
+    const seen = new Set<string>();
+    const duplicate = normalizedOutputTokens.find((token) => {
+      const key = token.toLocaleLowerCase();
+      if (seen.has(key)) return true;
+      seen.add(key);
+      return false;
+    });
+    if (duplicate) {
+      setDialogError(
+        `Los nombres de salida deben ser unicos. '${duplicate}' esta repetido.`,
+      );
+      return;
+    }
+
     // Determine required input variables from the validated conditions.
     // Use the union of all variables referenced in the condition expressions
     // so the node exposes exactly the inputs that are used.
@@ -303,7 +319,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
       mergedInputs = sanitizeInputs(rawInputs ?? inputs);
     }
     const normalizedConditions = draftConditions.map((cond, idx) => ({
-      ...cond,
+      outputToken: normalizedOutputTokens[idx],
       formula: validationResults[idx]?.normalized ?? cond.formula ?? "",
     }));
 
@@ -424,7 +440,6 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
           <div className="space-y-6 max-h-[80vh] overflow-y-auto">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <div className="text-sm font-medium">Condiciones</div>
                 <Button
                   type="button"
                   variant="outline"
@@ -432,7 +447,6 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
                     setDraftConditions((prev) => [
                       ...prev,
                       {
-                        label: `Caso ${prev.length + 1}`,
                         outputToken: `Salida ${prev.length + 1}`,
                         formula: draftInputs[0]?.label ?? "a",
                       },
@@ -478,29 +492,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
                         </Button>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                        <div>
-                          <label className="mb-1 block text-sm font-medium text-gray-900">
-                            Etiqueta
-                          </label>
-                          <Input
-                            value={cond.label ?? ""}
-                            placeholder={`Caso ${condIdx + 1}`}
-                            onChange={(e) => {
-                              const next = e.currentTarget.value;
-                              setDraftConditions((prev) =>
-                                prev.map((c, i) =>
-                                  i === condIdx
-                                    ? {
-                                        ...c,
-                                        label: next.trim() ? next : undefined,
-                                      }
-                                    : c,
-                                ),
-                              );
-                            }}
-                          />
-                        </div>
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         <div>
                           <label className="mb-1 block text-sm font-medium text-gray-900">
                             Salida
