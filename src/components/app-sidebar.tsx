@@ -660,6 +660,7 @@ function NodePreview({
       case "nor":
       case "xor":
       case "not":
+      case "logicOperation":
       case "desvio":
       case "relevo":
       case "switch":
@@ -678,6 +679,7 @@ function NodePreview({
           nor: "nor",
           xor: "xor",
           not: "not",
+          logicOperation: "logicOperation",
           desvio: "desvio",
           relevo: "relevo",
           switch: "switch",
@@ -726,6 +728,12 @@ function NodePreview({
               )}
               {symbolMap[type] === "not" && (
                 <span className="text-xl font-medium leading-none">¬</span>
+              )}
+              {symbolMap[type] === "logicOperation" && (
+                <span className="text-xl font-medium leading-none">
+                  <Ampersand className="h-4 w-4 inline" />
+                  {"| ¬"}
+                </span>
               )}
               {symbolMap[type] === "desvio" && (
                 <span className="text-lg font-medium leading-none">

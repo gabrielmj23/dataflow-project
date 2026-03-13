@@ -22,6 +22,13 @@ export function validateConnection(
     return { ok: true };
   }
 
+  if (sourceId === targetId) {
+    return {
+      ok: false,
+      message: "Un nodo no puede conectarse a sí mismo.",
+    };
+  }
+
   const sourceNode = nodes.find((n) => safeString(n.id) === sourceId);
   const targetNode = nodes.find((n) => safeString(n.id) === targetId);
 

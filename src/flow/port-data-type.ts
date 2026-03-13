@@ -284,7 +284,8 @@ export function inferPortDataType(params: {
     nodeType === "or" ||
     nodeType === "nor" ||
     nodeType === "xor" ||
-    nodeType === "not"
+    nodeType === "not" ||
+    nodeType === NODE_TYPES.LOGIC_OPERATION_NODE
   ) {
     return "boolean";
   }
@@ -500,7 +501,8 @@ export function getPortTypeMask(params: {
       nodeType === "or" ||
       nodeType === "nor" ||
       nodeType === "xor" ||
-      nodeType === "not"
+      nodeType === "not" ||
+      nodeType === NODE_TYPES.LOGIC_OPERATION_NODE
     ) {
       return TYPE_BOOLEAN;
     }
