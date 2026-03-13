@@ -7,6 +7,7 @@ import {
   getExtensions,
 } from "./extensions.service";
 import { authGuard } from "../auth/auth.guard";
+import { ensureNoProhibitedTerms } from "../../moderation/text-moderation";
 
 const extensionsRouter = Router();
 
@@ -127,6 +128,12 @@ extensionsRouter.get("/:id", async (req, res) => {
  */
 extensionsRouter.post("/", authGuard, async (req, res) => {
   try {
+    ensureNoProhibitedTerms("El nombre de la extension", String(req.body?.name ?? ""));
+    ensureNoProhibitedTerms(
+      "La descripcion de la extension",
+      String(req.body?.description ?? ""),
+    );
+
     const extension = await createExtension({
       ...req.body,
       author: req.user!.id,
@@ -234,6 +241,12 @@ extensionsRouter.post("/:id/nodes/upload", authGuard, async (req, res) => {
         .status(400)
         .json({ error: "name, description and code are required" });
     }
+
+    ensureNoProhibitedTerms("El nombre del nodo personalizado", String(name));
+    ensureNoProhibitedTerms(
+      "La descripcion del nodo personalizado",
+      String(description),
+    );
 
     const createdNode = await createNodeAndAddToExtension(
       extensionId,

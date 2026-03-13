@@ -78,6 +78,7 @@ import {
   publishProject,
   updatePublishedProject,
 } from "@/lib/projects";
+import { buildProhibitedTermsError } from "@/lib/content-moderation";
 import {
   deserializeProgram,
   serializeProgram,
@@ -897,6 +898,24 @@ export default function EditorPage() {
         return;
       }
 
+      const titleError = buildProhibitedTermsError(
+        "El titulo del proyecto",
+        normalizedName,
+      );
+      if (titleError) {
+        setPublishError(titleError);
+        return;
+      }
+
+      const descriptionError = buildProhibitedTermsError(
+        "La descripcion del proyecto",
+        description,
+      );
+      if (descriptionError) {
+        setPublishError(descriptionError);
+        return;
+      }
+
       const normalizedGuestAuthorName = nextGuestAuthorName.trim();
       if (!isAuthenticated && !normalizedGuestAuthorName) {
         setPublishError(
@@ -1278,6 +1297,24 @@ export default function EditorPage() {
       const normalizedName = projectName.trim();
       if (!normalizedName) {
         setPublishError("Ingresa un nombre para el proyecto.");
+        return;
+      }
+
+      const titleError = buildProhibitedTermsError(
+        "El titulo del proyecto",
+        normalizedName,
+      );
+      if (titleError) {
+        setPublishError(titleError);
+        return;
+      }
+
+      const descriptionError = buildProhibitedTermsError(
+        "La descripcion del proyecto",
+        description,
+      );
+      if (descriptionError) {
+        setPublishError(descriptionError);
         return;
       }
 

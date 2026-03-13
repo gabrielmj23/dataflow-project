@@ -11,6 +11,7 @@ import {
   resolveProjectViewerIdentity,
 } from "./project-identity";
 import type { ProjectCreate, ProjectUpdate } from "./projects.types";
+import { ensureNoProhibitedTerms } from "../../moderation/text-moderation";
 
 function normalizeGuestAuthorName(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -208,6 +209,11 @@ projectsRouter.post("/", async (req, res) => {
     }
 
     const normalizedName = createBody.name.trim();
+    ensureNoProhibitedTerms("El titulo del proyecto", normalizedName);
+    ensureNoProhibitedTerms(
+      "La descripcion del proyecto",
+      createBody.description ?? "",
+    );
 
     const projectData: ProjectCreate =
       viewer.kind === "user"
@@ -299,6 +305,17 @@ projectsRouter.patch("/:id", async (req, res) => {
     }
 
     const updateBody = getProjectUpdateBody(req.body);
+    if (typeof updateBody.name === "string") {
+      ensureNoProhibitedTerms("El titulo del proyecto", updateBody.name);
+    }
+
+    if (typeof updateBody.description === "string") {
+      ensureNoProhibitedTerms(
+        "La descripcion del proyecto",
+        updateBody.description,
+      );
+    }
+
     const updatedProject = await updateProject(
       projectId,
       {

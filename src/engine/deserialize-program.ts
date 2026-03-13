@@ -163,6 +163,7 @@ export function buildEngineStoresFromFlowGraph(params: {
   edges: Edge[];
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
   signal?: AbortSignal;
   remoteExecutor?: RemoteExecutor;
   resolveSubflowTemplate?: SubflowTemplateResolver;
@@ -376,6 +377,7 @@ export function buildEngineStoresFromFlowGraph(params: {
       gatherIncomingByNodeId,
       onLog: params.onLog,
       onPrompt: params.onPrompt,
+      onEdgeValue: params.onEdgeValue,
       signal: params.signal,
       remoteExecutor: params.remoteExecutor,
       subflowRuntimeContext: runtimeCtx,
@@ -686,6 +688,7 @@ function computeSubflowExecutionPlan(params: {
   outCount?: number;
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
   signal?: AbortSignal;
   remoteExecutor?: RemoteExecutor;
   runtimeCtx?: SubflowRuntimeContext;
@@ -695,6 +698,7 @@ function computeSubflowExecutionPlan(params: {
     edges: params.subflowEdges,
     onLog: params.onLog,
     onPrompt: params.onPrompt,
+    onEdgeValue: params.onEdgeValue,
     signal: params.signal,
     remoteExecutor: params.remoteExecutor,
     subflowRuntimeContext: params.runtimeCtx,
@@ -797,6 +801,7 @@ function compileSubflowNodeDefinition(params: {
   outCount?: number;
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
   signal?: AbortSignal;
   remoteExecutor?: RemoteExecutor;
   runtimeCtx?: SubflowRuntimeContext;
@@ -808,6 +813,7 @@ function compileSubflowNodeDefinition(params: {
     outCount: params.outCount,
     onLog: params.onLog,
     onPrompt: params.onPrompt,
+    onEdgeValue: params.onEdgeValue,
     signal: params.signal,
     remoteExecutor: params.remoteExecutor,
     runtimeCtx: params.runtimeCtx,
@@ -860,10 +866,11 @@ function compileSubflowNodeDefinition(params: {
       }
 
       const engine = new DataflowEngine({ stepDelayMs: 0 });
-      if (params.onLog || params.onPrompt) {
+      if (params.onLog || params.onPrompt || params.onEdgeValue) {
         engine.setObserver({
           onLog: params.onLog,
           onPrompt: params.onPrompt,
+          onEdgeValue: params.onEdgeValue,
         });
       }
 
@@ -941,6 +948,7 @@ function flowNodeToEngineDefinition(
     gatherIncomingByNodeId?: Map<string, Set<string>>;
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
+    onEdgeValue?: EngineObserver["onEdgeValue"];
     signal?: AbortSignal;
     remoteExecutor?: RemoteExecutor;
     subflowRuntimeContext?: SubflowRuntimeContext;
@@ -961,6 +969,7 @@ function flowNodeToEngineDefinition(
     gatherIncomingByNodeId: context?.gatherIncomingByNodeId,
     onLog: context?.onLog,
     onPrompt: context?.onPrompt,
+    onEdgeValue: context?.onEdgeValue,
     signal: context?.signal,
     remoteExecutor: context?.remoteExecutor,
     subflowRuntimeContext: context?.subflowRuntimeContext,
@@ -990,6 +999,7 @@ export function deserializeProgramToEngineStores(
   options?: {
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
+    onEdgeValue?: EngineObserver["onEdgeValue"];
     signal?: AbortSignal;
     remoteExecutor?: RemoteExecutor;
     resolveSubflowTemplate?: SubflowTemplateResolver;
@@ -1003,6 +1013,7 @@ export function deserializeProgramToEngineStores(
     edges: edges as Edge[],
     onLog: options?.onLog,
     onPrompt: options?.onPrompt,
+    onEdgeValue: options?.onEdgeValue,
     signal: options?.signal,
     remoteExecutor: options?.remoteExecutor,
     resolveSubflowTemplate: options?.resolveSubflowTemplate,

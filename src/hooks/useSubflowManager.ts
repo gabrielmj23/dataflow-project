@@ -6,6 +6,7 @@ import type {
   SubflowSnapshot,
 } from "@/utils/flow";
 import type { CreateSubflowRequest } from "@/components/CreateSubflowOverlay";
+import { buildProhibitedTermsError } from "@/lib/content-moderation";
 
 type SubflowPorts = { inCount: number; outCount: number };
 
@@ -96,6 +97,15 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
       !pendingSubflowPorts ||
       !pendingSubflowSnapshot
     ) {
+      return;
+    }
+
+    const moderationError = buildProhibitedTermsError(
+      "El nombre del subflujo",
+      name,
+    );
+    if (moderationError) {
+      setCreateSubflowNameError(moderationError);
       return;
     }
 

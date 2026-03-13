@@ -278,6 +278,10 @@ export function useEngineRunner({
       const stores = deserializeProgramToEngineStores(program, {
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
+        onEdgeValue: ({ edgeId, value }) => {
+          publishEdgeValue({ edgeId, value });
+          onEngineEvent?.({ type: "edge_value", edgeId, value });
+        },
         signal: abortController.signal,
         remoteExecutor,
         resolveSubflowTemplate,

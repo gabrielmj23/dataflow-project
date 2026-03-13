@@ -44,7 +44,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { nodeTypesCore } from "@/flow/node-types-core";
-import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
+import {
+  computeDanglingPortsFromLookup,
+  computeOpenPortsFromLookup,
+} from "@/flow/subflow-utils";
 import {
   buildDroppedNodeData,
   editorPaletteLabelByType,
@@ -87,6 +90,7 @@ import {
   fetchMyExtensions,
   type ExtensionListItem,
 } from "@/lib/extensions";
+import { buildProhibitedTermsError } from "@/lib/content-moderation";
 import { toast } from "sonner";
 import { getDarkerColor } from "@/utils/colors";
 import { useQueryClient } from "@tanstack/react-query";
@@ -1088,6 +1092,25 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                       // ignore
                     }
 
+                    try {
+                      const dangling = computeDanglingPortsFromLookup(
+                        syncedDraftNodes,
+                        effectiveDraftEdges,
+                        lookup,
+                      );
+                      const hasDanglingPorts =
+                        dangling.ready &&
+                        (dangling.inCount > 0 || dangling.outCount > 0);
+                      if (hasDanglingPorts) {
+                        setNameError(
+                          `Hay nodos con entradas/salidas abiertas (${dangling.inCount} entrada(s), ${dangling.outCount} salida(s)). Conecta todos los puertos antes de guardar.`,
+                        );
+                        return;
+                      }
+                    } catch {
+                      // ignore
+                    }
+
                     const finalLabel = (draftLabel || label).trim() || label;
                     // Prevent saving if any subflow input labels are empty
                     const hasEmptyInputs = syncedDraftNodes.some((n) => {
@@ -1237,6 +1260,43 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             setShareSubmitError(null);
             setIsShareSubmitting(true);
 
+            const nodeNameError = buildProhibitedTermsError(
+              "El nombre del nodo personalizado",
+              name,
+            );
+            if (nodeNameError) {
+              throw new Error(nodeNameError);
+            }
+
+            const effectiveDescription =
+              description || `Subflujo compartido: ${name}`;
+
+            const nodeDescriptionError = buildProhibitedTermsError(
+              "La descripcion del nodo personalizado",
+              effectiveDescription,
+            );
+            if (nodeDescriptionError) {
+              throw new Error(nodeDescriptionError);
+            }
+
+            if (newExtension) {
+              const extensionNameError = buildProhibitedTermsError(
+                "El nombre de la extension",
+                newExtension.name,
+              );
+              if (extensionNameError) {
+                throw new Error(extensionNameError);
+              }
+
+              const extensionDescriptionError = buildProhibitedTermsError(
+                "La descripcion de la extension",
+                newExtension.description,
+              );
+              if (extensionDescriptionError) {
+                throw new Error(extensionDescriptionError);
+              }
+            }
+
             if (!newExtension && selectedExtensionIds.length === 0) {
               setShareSubmitError(
                 "Debes seleccionar al menos una extension para publicar.",
@@ -1255,7 +1315,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
             const createdNode = await createCustomNode({
               name,
-              description: description || `Subflujo compartido: ${name}`,
+              description: effectiveDescription,
               code: JSON.stringify(payload),
             });
 
