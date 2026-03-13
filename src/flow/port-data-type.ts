@@ -461,6 +461,10 @@ export function getPortTypeMask(params: {
       return isOutput ? TYPE_LIST : TYPE_ANY;
     }
 
+    if (nodeType === NODE_TYPES.FILTER_BOOLEAN_OUTPUT) {
+      return isOutput ? TYPE_ANY : TYPE_BOOLEAN;
+    }
+
     // Processing
     if (
       nodeType === "sum" ||

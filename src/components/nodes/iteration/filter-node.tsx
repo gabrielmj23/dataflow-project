@@ -44,6 +44,7 @@ import {
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { ListInputValueNode } from "@/components/nodes/iteration/list-input-value-node";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
+import { SubflowOutputNode } from "@/components/nodes/abstraction/subflow-output-node";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { validateConnection } from "@/flow/connection-validation";
@@ -56,6 +57,7 @@ import {
 } from "@/flow/connection-highlight-context";
 import { getPortTypeMask } from "@/flow/port-data-type";
 import { reconcileWriteGraph } from "@/utils/flow";
+import { NODE_TYPES } from "@/common/constants";
 
 export type FilterNodeData = {
   label?: string;
@@ -96,13 +98,23 @@ function ensureFilterBoundaryNodes(nodes: Node[]): Node[] {
     ? {
         ...outputNode,
         id: FILTER_OUTPUT_NODE_ID,
-        type: "subflowOutput",
+        type: NODE_TYPES.FILTER_BOOLEAN_OUTPUT,
+        data: {
+          ...(typeof outputNode.data === "object" && outputNode.data
+            ? outputNode.data
+            : {}),
+          label: "Valor de salida (verdadero/falso)",
+          outputType: "boolean",
+        },
       }
     : {
         id: FILTER_OUTPUT_NODE_ID,
-        type: "subflowOutput",
+        type: NODE_TYPES.FILTER_BOOLEAN_OUTPUT,
         position: { x: 260, y: 0 },
-        data: { label: "Valor de salida" },
+        data: {
+          label: "Valor de salida (verdadero/falso)",
+          outputType: "boolean",
+        },
         selected: false,
       };
 
@@ -121,21 +133,6 @@ function filterEdgesByNodeIds(edges: Edge[], nodes: Node[]): Edge[] {
     (edge) =>
       nodeIds.has(String(edge.source)) && nodeIds.has(String(edge.target)),
   );
-}
-
-function stripFilterVisualOutput(params: { nodes: Node[]; edges: Edge[] }): {
-  nodes: Node[];
-  edges: Edge[];
-} {
-  const nodes = params.nodes.filter(
-    (n) => String(n.id) !== FILTER_OUTPUT_NODE_ID,
-  );
-  const edges = params.edges.filter(
-    (e) =>
-      String(e.source) !== FILTER_OUTPUT_NODE_ID &&
-      String(e.target) !== FILTER_OUTPUT_NODE_ID,
-  );
-  return { nodes, edges };
 }
 
 export const FilterNode = memo(({ id, data }: NodeProps) => {
@@ -331,6 +328,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
       ...nodeTypesCore,
       subflow: NestedSubflowNode,
       filterInputValue: ListInputValueNode,
+      [NODE_TYPES.FILTER_BOOLEAN_OUTPUT]: SubflowOutputNode,
     }),
     [],
   );
@@ -514,10 +512,6 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
                     draftEdges,
                     ensured,
                   );
-                  const stripped = stripFilterVisualOutput({
-                    nodes: ensured,
-                    edges: normalizedEdges,
-                  });
 
                   setNodes((prev) =>
                     prev.map((n) => {
@@ -530,8 +524,8 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
                         data: {
                           ...(n.data as object),
                           label,
-                          filterNodes: stripped.nodes,
-                          filterEdges: stripped.edges,
+                          filterNodes: ensured,
+                          filterEdges: normalizedEdges,
                         },
                       };
                     }),

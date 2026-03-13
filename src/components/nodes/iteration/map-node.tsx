@@ -122,19 +122,6 @@ function filterEdgesByNodeIds(edges: Edge[], nodes: Node[]): Edge[] {
   );
 }
 
-function stripMapVisualOutput(params: { nodes: Node[]; edges: Edge[] }): {
-  nodes: Node[];
-  edges: Edge[];
-} {
-  const nodes = params.nodes.filter((n) => String(n.id) !== MAP_OUTPUT_NODE_ID);
-  const edges = params.edges.filter(
-    (e) =>
-      String(e.source) !== MAP_OUTPUT_NODE_ID &&
-      String(e.target) !== MAP_OUTPUT_NODE_ID,
-  );
-  return { nodes, edges };
-}
-
 export const MapNode = memo(({ id, data }: NodeProps) => {
   const { setNodes } = useReactFlow();
   const templateContext = useSubflowTemplateContext();
@@ -512,10 +499,6 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                     draftEdges,
                     ensured,
                   );
-                  const stripped = stripMapVisualOutput({
-                    nodes: ensured,
-                    edges: normalizedEdges,
-                  });
 
                   setNodes((prev) =>
                     prev.map((n) => {
@@ -528,8 +511,8 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                         data: {
                           ...(n.data as object),
                           label,
-                          mapNodes: stripped.nodes,
-                          mapEdges: stripped.edges,
+                          mapNodes: ensured,
+                          mapEdges: normalizedEdges,
                         },
                       };
                     }),
