@@ -96,6 +96,20 @@ function makeOneInOneOutMapper(): HandleMapper {
 
 const mapperByNodeType: Record<string, HandleMapper> = Object.create(null);
 
+const logicOperationMapper: HandleMapper = (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "input";
+    if (handleId === "in-1") return "input1";
+    if (handleId === "in-2") return "input2";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+};
+
 function register(nodeTypes: string[], mapper: HandleMapper): void {
   for (const t of nodeTypes) mapperByNodeType[t] = mapper;
 }
@@ -292,6 +306,9 @@ register(
   ],
   makeTwoInOneOutMapper(),
 );
+
+// Logic operation node (configurable)
+register([NODE_TYPES.LOGIC_OPERATION_NODE], logicOperationMapper);
 
 // NOT node
 register([NODE_TYPES.NOT_NODE], (p) => {

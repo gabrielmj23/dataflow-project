@@ -68,12 +68,13 @@ const nodeAbstractionLevelMap: Record<
   comparisonLessOrEqual: { min: 1, max: 2 },
   comparisonGreater: { min: 1, max: 2 },
   comparisonGreaterOrEqual: { min: 1, max: 2 },
-  and: 1,
-  nand: 1,
-  or: 1,
-  nor: 1,
-  xor: 1,
-  not: 1,
+  logicOperation: 2,
+  and: { min: 1, max: 2 },
+  nand: { min: 1, max: 2 },
+  or: { min: 1, max: 2 },
+  nor: { min: 1, max: 2 },
+  xor: { min: 1, max: 2 },
+  not: { min: 1, max: 2 },
   desvio: 1,
   relevo: 1,
   switch: { min: 2, max: 2 },
@@ -369,6 +370,12 @@ export const nodePalette: NodePaletteCategory[] = [
         id: "control-logic",
         title: "Lógica",
         items: [
+          {
+            type: "logicOperation",
+            label: "Operación lógica",
+            description:
+              "Nodo rápido para elegir entre AND, NAND, OR, NOR, XOR o NOT.",
+          },
           {
             type: "and",
             label: "AND",
