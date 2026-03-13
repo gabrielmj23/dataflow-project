@@ -13,11 +13,12 @@ import { PhysicalComputingSection } from "@/components/projects/PhysicalComputin
 import makecodeSubflowSource from "../../makecode/nodeland-microbit.hex?raw";
 import stickerCohete from "@/assets/landing/cohete.png";
 import stickerCompas from "@/assets/landing/compas.png";
-import stickerFlor from "@/assets/landing/flor.png";
+import stickerMath from "@/assets/landing/math.png";
 import stickerLoro from "@/assets/landing/loro.png";
 import stickerRegla from "@/assets/landing/regla.png";
 import ucabLogo from "@/assets/landing/ucab-logo.png";
 import labLogo from "@/assets/landing/lab-logo.png";
+import { DataflowParadigmSection } from "@/components/projects/DataflowParadigmSection";
 
 export default function ModeSelectPage() {
   const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
@@ -126,7 +127,7 @@ export default function ModeSelectPage() {
         />
         <StickerImage
           floating
-          src={stickerFlor}
+          src={stickerMath}
           alt="Sticker flor"
           className="left-6 bottom-6 -rotate-6 -translate-x-16 z-0 pointer-events-none"
         />
@@ -194,7 +195,7 @@ export default function ModeSelectPage() {
           <div className="grid w-full grid-cols-2 gap-2 pt-2 md:hidden">
             <StickerImage src={stickerCohete} alt="Sticker cohete" />
             <StickerImage src={stickerLoro} alt="Sticker loro" />
-            <StickerImage src={stickerFlor} alt="Sticker flor" />
+            <StickerImage src={stickerMath} alt="Sticker math" />
             <StickerImage src={stickerRegla} alt="Sticker regla" />
           </div>
         </div>
@@ -203,6 +204,7 @@ export default function ModeSelectPage() {
       <section className="mx-auto flex w-full max-w-7xl flex-col items-center gap-8 px-4 pb-8 sm:px-8">
         <MyProjectsSection />
         <RecentPublishedProjectsSection />
+        <DataflowParadigmSection />
         <DistributedProgrammingSection />
         <PhysicalComputingSection
           onDownloadFirmware={handleDownloadMicrobitFirmware}

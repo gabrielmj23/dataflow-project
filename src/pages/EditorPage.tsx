@@ -96,6 +96,7 @@ import {
 import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
 import microbitExample from "@/examples/microbit-example.json";
 import distributionExample from "@/examples/distribution-example.json";
+import dataflowExample from "@/examples/dataflow-example.json";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
@@ -708,9 +709,17 @@ export default function EditorPage() {
       const searchParams = new URLSearchParams(window.location.search);
       const demoParam = searchParams.get("demo");
 
-      if (demoParam === "microbit" || demoParam === "distribution") {
+      if (
+        demoParam === "microbit" ||
+        demoParam === "distribution" ||
+        demoParam === "dataflow"
+      ) {
         const exampleData =
-          demoParam === "microbit" ? microbitExample : distributionExample;
+          demoParam === "microbit"
+            ? microbitExample
+            : demoParam === "distribution"
+              ? distributionExample
+              : dataflowExample;
         const deserialized = deserializeProgram(
           exampleData as SerializedProgramV1,
         );
@@ -719,7 +728,11 @@ export default function EditorPage() {
         setEdges(deserialized.edges as FlowEdge[]);
         setProgramName(
           deserialized.programName ||
-            (demoParam === "microbit" ? "Demo Micro:bit" : "Demo Distribución"),
+            (demoParam === "microbit"
+              ? "Demo Micro:bit"
+              : demoParam === "distribution"
+                ? "Demo Distribución"
+                : "Demo Dataflow"),
         );
 
         resetHistory({

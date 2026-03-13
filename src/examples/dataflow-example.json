@@ -1,0 +1,1513 @@
+{
+  "version": 1,
+  "programName": "Sin título",
+  "nodes": [
+    {
+      "id": "MacEyTML9l7vl-KW",
+      "type": "sequence",
+      "position": {
+        "x": 170,
+        "y": 114
+      },
+      "data": {
+        "label": "Generar secuencia",
+        "min": 0,
+        "max": 100,
+        "step": 1
+      }
+    },
+    {
+      "id": "pl9q6saZBsvYt3H4",
+      "type": "constantNumber",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "label": "Número",
+        "value": 1
+      }
+    },
+    {
+      "id": "XDmYNFNByUBzmPg7",
+      "type": "constantNumber",
+      "position": {
+        "x": 0,
+        "y": 114
+      },
+      "data": {
+        "label": "Número",
+        "value": 10
+      }
+    },
+    {
+      "id": "sD-BKJBRsQ9gkLhK",
+      "type": "constantNumber",
+      "position": {
+        "x": 0,
+        "y": 228
+      },
+      "data": {
+        "label": "Número",
+        "value": 1
+      }
+    },
+    {
+      "id": "e-RGbZBuXRo1iSdf",
+      "type": "filter",
+      "position": {
+        "x": 340,
+        "y": 57
+      },
+      "data": {
+        "label": "Filtrar",
+        "filterNodes": [
+          {
+            "id": "filter-input-value",
+            "type": "filterInputValue",
+            "position": {
+              "x": -84.51455725575512,
+              "y": -82.65709445892533
+            },
+            "data": {
+              "label": "Valor de entrada"
+            },
+            "selected": false,
+            "measured": {
+              "width": 64,
+              "height": 64
+            },
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-e-RGbZBuXRo1iSdf-1",
+            "type": "mathOperation",
+            "position": {
+              "x": 33.742487633920575,
+              "y": -22.478283923897553
+            },
+            "data": {
+              "label": "Operación matemática",
+              "operation": "mod"
+            },
+            "measured": {
+              "width": 100,
+              "height": 72
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-e-RGbZBuXRo1iSdf-2",
+            "type": "constantNumber",
+            "position": {
+              "x": -84.20639996477064,
+              "y": 37.88925697307038
+            },
+            "data": {
+              "label": "Número",
+              "value": 2
+            },
+            "measured": {
+              "width": 64,
+              "height": 64
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-e-RGbZBuXRo1iSdf-3",
+            "type": "comparison",
+            "position": {
+              "x": 195.34175095811167,
+              "y": -2.0461931587699524
+            },
+            "data": {
+              "label": "Comparación"
+            },
+            "measured": {
+              "width": 100,
+              "height": 72
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-e-RGbZBuXRo1iSdf-4",
+            "type": "constantNumber",
+            "position": {
+              "x": 43.95853301648438,
+              "y": 72.25231871442136
+            },
+            "data": {
+              "label": "Número"
+            },
+            "measured": {
+              "width": 64,
+              "height": 64
+            }
+          }
+        ],
+        "filterEdges": [
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "filter-input-value",
+            "sourceHandle": "value",
+            "target": "inner-filter-e-RGbZBuXRo1iSdf-1",
+            "targetHandle": "in-1",
+            "id": "xy-edge__filter-input-valuevalue-inner-filter-e-RGbZBuXRo1iSdf-1in-1"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-filter-e-RGbZBuXRo1iSdf-2",
+            "target": "inner-filter-e-RGbZBuXRo1iSdf-1",
+            "targetHandle": "in-2",
+            "id": "xy-edge__inner-filter-e-RGbZBuXRo1iSdf-2-inner-filter-e-RGbZBuXRo1iSdf-1in-2"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-filter-e-RGbZBuXRo1iSdf-1",
+            "sourceHandle": "out",
+            "target": "inner-filter-e-RGbZBuXRo1iSdf-3",
+            "targetHandle": "in-1",
+            "id": "xy-edge__inner-filter-e-RGbZBuXRo1iSdf-1out-inner-filter-e-RGbZBuXRo1iSdf-3in-1"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-filter-e-RGbZBuXRo1iSdf-4",
+            "target": "inner-filter-e-RGbZBuXRo1iSdf-3",
+            "targetHandle": "in-2",
+            "id": "xy-edge__inner-filter-e-RGbZBuXRo1iSdf-4-inner-filter-e-RGbZBuXRo1iSdf-3in-2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "9t8RIIPAZspfpRtR",
+      "type": "filter",
+      "position": {
+        "x": 340,
+        "y": 171
+      },
+      "data": {
+        "label": "Filtrar",
+        "filterNodes": [
+          {
+            "id": "filter-input-value",
+            "type": "filterInputValue",
+            "position": {
+              "x": -122.01062281972324,
+              "y": -27.550785798002025
+            },
+            "data": {
+              "label": "Valor de entrada"
+            },
+            "selected": false,
+            "measured": {
+              "width": 64,
+              "height": 64
+            },
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-9t8RIIPAZspfpRtR-1",
+            "type": "mathOperation",
+            "position": {
+              "x": 18.137205910665394,
+              "y": -4.340248767128166
+            },
+            "data": {
+              "label": "Operación matemática",
+              "operation": "mod"
+            },
+            "measured": {
+              "width": 100,
+              "height": 72
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-9t8RIIPAZspfpRtR-2",
+            "type": "constantNumber",
+            "position": {
+              "x": -125.52046289320228,
+              "y": 60.600889185305164
+            },
+            "data": {
+              "label": "Número",
+              "value": 2
+            },
+            "measured": {
+              "width": 64,
+              "height": 64
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-9t8RIIPAZspfpRtR-3",
+            "type": "comparison",
+            "position": {
+              "x": 192.2975304194639,
+              "y": 12.387014038801631
+            },
+            "data": {
+              "label": "Comparación",
+              "operator": "!="
+            },
+            "measured": {
+              "width": 100,
+              "height": 72
+            },
+            "selected": false,
+            "dragging": false
+          },
+          {
+            "id": "inner-filter-9t8RIIPAZspfpRtR-4",
+            "type": "constantNumber",
+            "position": {
+              "x": 69.30295096409772,
+              "y": 69.45649890609153
+            },
+            "data": {
+              "label": "Número"
+            },
+            "measured": {
+              "width": 64,
+              "height": 64
+            }
+          }
+        ],
+        "filterEdges": [
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "filter-input-value",
+            "sourceHandle": "value",
+            "target": "inner-filter-9t8RIIPAZspfpRtR-1",
+            "targetHandle": "in-1",
+            "id": "xy-edge__filter-input-valuevalue-inner-filter-9t8RIIPAZspfpRtR-1in-1"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-filter-9t8RIIPAZspfpRtR-2",
+            "target": "inner-filter-9t8RIIPAZspfpRtR-1",
+            "targetHandle": "in-2",
+            "id": "xy-edge__inner-filter-9t8RIIPAZspfpRtR-2-inner-filter-9t8RIIPAZspfpRtR-1in-2"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-filter-9t8RIIPAZspfpRtR-1",
+            "sourceHandle": "out",
+            "target": "inner-filter-9t8RIIPAZspfpRtR-3",
+            "targetHandle": "in-1",
+            "id": "xy-edge__inner-filter-9t8RIIPAZspfpRtR-1out-inner-filter-9t8RIIPAZspfpRtR-3in-1"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-filter-9t8RIIPAZspfpRtR-4",
+            "target": "inner-filter-9t8RIIPAZspfpRtR-3",
+            "targetHandle": "in-2",
+            "id": "xy-edge__inner-filter-9t8RIIPAZspfpRtR-4-inner-filter-9t8RIIPAZspfpRtR-3in-2"
+          }
+        ]
+      }
+    },
+    {
+      "id": "kOFYvNny3WNZ7OjC",
+      "type": "map",
+      "position": {
+        "x": 510,
+        "y": 57
+      },
+      "data": {
+        "label": "Mapear",
+        "mapNodes": [
+          {
+            "id": "map-input-value",
+            "type": "mapInputValue",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "data": {
+              "label": "Valor de entrada"
+            },
+            "selected": false,
+            "measured": {
+              "width": 64,
+              "height": 64
+            }
+          },
+          {
+            "id": "map-output-value",
+            "type": "subflowOutput",
+            "position": {
+              "x": 280.5,
+              "y": 7
+            },
+            "data": {
+              "label": "Valor de salida"
+            },
+            "selected": true,
+            "measured": {
+              "width": 56,
+              "height": 56
+            },
+            "dragging": false
+          },
+          {
+            "id": "inner-map-kOFYvNny3WNZ7OjC-1",
+            "type": "subflow",
+            "position": {
+              "x": 101.9778568944335,
+              "y": 7.846219919919935
+            },
+            "data": {
+              "label": "Mi Factorial",
+              "inCount": 1,
+              "outCount": 1,
+              "subflowNodes": [
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-1",
+                  "type": "subflowInput",
+                  "position": {
+                    "x": 146.6127458455725,
+                    "y": 144.41476046116705
+                  },
+                  "data": {
+                    "label": "Entrada 1"
+                  },
+                  "measured": {
+                    "width": 56,
+                    "height": 56
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "type": "comparison",
+                  "position": {
+                    "x": 258.19340785572007,
+                    "y": 182.1899019716628
+                  },
+                  "data": {
+                    "label": "Comparación",
+                    "operator": "<="
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-3",
+                  "type": "constantNumber",
+                  "position": {
+                    "x": 141.66317007597118,
+                    "y": 240.0033532732436
+                  },
+                  "data": {
+                    "label": "Número"
+                  },
+                  "measured": {
+                    "width": 64,
+                    "height": 64
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "type": "desvio",
+                  "position": {
+                    "x": 371.11030492912016,
+                    "y": 281.5567713962549
+                  },
+                  "data": {
+                    "label": "Desvio"
+                  },
+                  "measured": {
+                    "width": 152,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "type": "relevo",
+                  "position": {
+                    "x": 587.8177598100829,
+                    "y": 226.03673552514152
+                  },
+                  "data": {
+                    "label": "Relevo"
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-6",
+                  "type": "subflowOutput",
+                  "position": {
+                    "x": 762.1937459045856,
+                    "y": 233.25539473953341
+                  },
+                  "data": {
+                    "label": "Salida"
+                  },
+                  "measured": {
+                    "width": 56,
+                    "height": 56
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-7",
+                  "type": "constantNumber",
+                  "position": {
+                    "x": 537.5564461710792,
+                    "y": 148.08041232995205
+                  },
+                  "data": {
+                    "label": "Número",
+                    "value": 1
+                  },
+                  "measured": {
+                    "width": 64,
+                    "height": 64
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "type": "mathOperation",
+                  "position": {
+                    "x": 570.3801612006325,
+                    "y": 376.8206764421528
+                  },
+                  "data": {
+                    "label": "Operación matemática",
+                    "operation": "subtract"
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-9",
+                  "type": "constantNumber",
+                  "position": {
+                    "x": 452.4199353131748,
+                    "y": 439.3908832172391
+                  },
+                  "data": {
+                    "label": "Número",
+                    "value": 1
+                  },
+                  "measured": {
+                    "width": 64,
+                    "height": 64
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-10",
+                  "type": "subflow",
+                  "position": {
+                    "x": 735.436851419591,
+                    "y": 382.58191485189116
+                  },
+                  "data": {
+                    "label": "Mi Factorial",
+                    "inCount": 1,
+                    "outCount": 1,
+                    "templateId": "sf-node-ZoBtA_gjyxMP7_FU-mmpdv3pf",
+                    "isSelfCall": true
+                  },
+                  "measured": {
+                    "width": 144,
+                    "height": 61
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "type": "mathOperation",
+                  "position": {
+                    "x": 910.9262046322498,
+                    "y": 343.9969614125993
+                  },
+                  "data": {
+                    "label": "Operación matemática",
+                    "operation": "multiply"
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-12",
+                  "type": "subflowOutput",
+                  "position": {
+                    "x": 1050.426993507852,
+                    "y": 351.2156206269912
+                  },
+                  "data": {
+                    "label": "Salida"
+                  },
+                  "measured": {
+                    "width": 56,
+                    "height": 56
+                  },
+                  "selected": true,
+                  "dragging": false
+                }
+              ],
+              "subflowEdges": [
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-1",
+                  "sourceHandle": "value",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-1value-inner-ZoBtA_gjyxMP7_FU-2in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-3",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "targetHandle": "in-2",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-3-inner-ZoBtA_gjyxMP7_FU-2in-2"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "targetHandle": "in-cond",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-2out-inner-ZoBtA_gjyxMP7_FU-4in-cond"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-1",
+                  "sourceHandle": "value",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "targetHandle": "in",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-1value-inner-ZoBtA_gjyxMP7_FU-4in"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "sourceHandle": "out-1",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "targetHandle": "in",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-4out-1-inner-ZoBtA_gjyxMP7_FU-5in"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-6",
+                  "targetHandle": "value",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-5out-inner-ZoBtA_gjyxMP7_FU-6value"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-7",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "targetHandle": "in-relay",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-7-inner-ZoBtA_gjyxMP7_FU-5in-relay"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "sourceHandle": "out-2",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-4out-2-inner-ZoBtA_gjyxMP7_FU-8in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-9",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "targetHandle": "in-2",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-9-inner-ZoBtA_gjyxMP7_FU-8in-2"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-10",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-8out-inner-ZoBtA_gjyxMP7_FU-10in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "sourceHandle": "out-2",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-4out-2-inner-ZoBtA_gjyxMP7_FU-11in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-10",
+                  "sourceHandle": "out-1",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "targetHandle": "in-2",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-10out-1-inner-ZoBtA_gjyxMP7_FU-11in-2"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-12",
+                  "targetHandle": "value",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-11out-inner-ZoBtA_gjyxMP7_FU-12value"
+                }
+              ],
+              "templateId": "sf-node-ZoBtA_gjyxMP7_FU-mmpdv3pf"
+            },
+            "measured": {
+              "width": 144,
+              "height": 61
+            },
+            "selected": false,
+            "dragging": false
+          }
+        ],
+        "mapEdges": [
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "map-input-value",
+            "sourceHandle": "value",
+            "target": "inner-map-kOFYvNny3WNZ7OjC-1",
+            "targetHandle": "in-1",
+            "id": "xy-edge__map-input-valuevalue-inner-map-kOFYvNny3WNZ7OjC-1in-1"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-map-kOFYvNny3WNZ7OjC-1",
+            "sourceHandle": "out-1",
+            "target": "map-output-value",
+            "targetHandle": "value",
+            "id": "xy-edge__inner-map-kOFYvNny3WNZ7OjC-1out-1-map-output-valuevalue"
+          }
+        ]
+      }
+    },
+    {
+      "id": "etw33BklKvU-FCWA",
+      "type": "map",
+      "position": {
+        "x": 510,
+        "y": 171
+      },
+      "data": {
+        "label": "Mapear",
+        "mapNodes": [
+          {
+            "id": "map-input-value",
+            "type": "mapInputValue",
+            "position": {
+              "x": 0,
+              "y": 0
+            },
+            "data": {
+              "label": "Valor de entrada"
+            },
+            "selected": false,
+            "measured": {
+              "width": 64,
+              "height": 64
+            }
+          },
+          {
+            "id": "map-output-value",
+            "type": "subflowOutput",
+            "position": {
+              "x": 260,
+              "y": 0
+            },
+            "data": {
+              "label": "Valor de salida"
+            },
+            "selected": false,
+            "measured": {
+              "width": 56,
+              "height": 56
+            }
+          },
+          {
+            "id": "inner-map-etw33BklKvU-FCWA-1",
+            "type": "subflow",
+            "position": {
+              "x": 91.77703396827062,
+              "y": 4.120557170729683
+            },
+            "data": {
+              "label": "Mi Factorial",
+              "inCount": 1,
+              "outCount": 1,
+              "subflowNodes": [
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-1",
+                  "type": "subflowInput",
+                  "position": {
+                    "x": 146.6127458455725,
+                    "y": 144.41476046116705
+                  },
+                  "data": {
+                    "label": "Entrada 1"
+                  },
+                  "measured": {
+                    "width": 56,
+                    "height": 56
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "type": "comparison",
+                  "position": {
+                    "x": 258.19340785572007,
+                    "y": 182.1899019716628
+                  },
+                  "data": {
+                    "label": "Comparación",
+                    "operator": "<="
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-3",
+                  "type": "constantNumber",
+                  "position": {
+                    "x": 141.66317007597118,
+                    "y": 240.0033532732436
+                  },
+                  "data": {
+                    "label": "Número"
+                  },
+                  "measured": {
+                    "width": 64,
+                    "height": 64
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "type": "desvio",
+                  "position": {
+                    "x": 371.11030492912016,
+                    "y": 281.5567713962549
+                  },
+                  "data": {
+                    "label": "Desvio"
+                  },
+                  "measured": {
+                    "width": 152,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "type": "relevo",
+                  "position": {
+                    "x": 587.8177598100829,
+                    "y": 226.03673552514152
+                  },
+                  "data": {
+                    "label": "Relevo"
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-6",
+                  "type": "subflowOutput",
+                  "position": {
+                    "x": 762.1937459045856,
+                    "y": 233.25539473953341
+                  },
+                  "data": {
+                    "label": "Salida"
+                  },
+                  "measured": {
+                    "width": 56,
+                    "height": 56
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-7",
+                  "type": "constantNumber",
+                  "position": {
+                    "x": 537.5564461710792,
+                    "y": 148.08041232995205
+                  },
+                  "data": {
+                    "label": "Número",
+                    "value": 1
+                  },
+                  "measured": {
+                    "width": 64,
+                    "height": 64
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "type": "mathOperation",
+                  "position": {
+                    "x": 570.3801612006325,
+                    "y": 376.8206764421528
+                  },
+                  "data": {
+                    "label": "Operación matemática",
+                    "operation": "subtract"
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-9",
+                  "type": "constantNumber",
+                  "position": {
+                    "x": 452.4199353131748,
+                    "y": 439.3908832172391
+                  },
+                  "data": {
+                    "label": "Número",
+                    "value": 1
+                  },
+                  "measured": {
+                    "width": 64,
+                    "height": 64
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-10",
+                  "type": "subflow",
+                  "position": {
+                    "x": 735.436851419591,
+                    "y": 382.58191485189116
+                  },
+                  "data": {
+                    "label": "Mi Factorial",
+                    "inCount": 1,
+                    "outCount": 1,
+                    "templateId": "sf-node-ZoBtA_gjyxMP7_FU-mmpdv3pf",
+                    "isSelfCall": true
+                  },
+                  "measured": {
+                    "width": 144,
+                    "height": 61
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "type": "mathOperation",
+                  "position": {
+                    "x": 910.9262046322498,
+                    "y": 343.9969614125993
+                  },
+                  "data": {
+                    "label": "Operación matemática",
+                    "operation": "multiply"
+                  },
+                  "measured": {
+                    "width": 100,
+                    "height": 72
+                  },
+                  "selected": false,
+                  "dragging": false
+                },
+                {
+                  "id": "inner-ZoBtA_gjyxMP7_FU-12",
+                  "type": "subflowOutput",
+                  "position": {
+                    "x": 1050.426993507852,
+                    "y": 351.2156206269912
+                  },
+                  "data": {
+                    "label": "Salida"
+                  },
+                  "measured": {
+                    "width": 56,
+                    "height": 56
+                  },
+                  "selected": true,
+                  "dragging": false
+                }
+              ],
+              "subflowEdges": [
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-1",
+                  "sourceHandle": "value",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-1value-inner-ZoBtA_gjyxMP7_FU-2in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-3",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "targetHandle": "in-2",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-3-inner-ZoBtA_gjyxMP7_FU-2in-2"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-2",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "targetHandle": "in-cond",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-2out-inner-ZoBtA_gjyxMP7_FU-4in-cond"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-1",
+                  "sourceHandle": "value",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "targetHandle": "in",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-1value-inner-ZoBtA_gjyxMP7_FU-4in"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "sourceHandle": "out-1",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "targetHandle": "in",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-4out-1-inner-ZoBtA_gjyxMP7_FU-5in"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-6",
+                  "targetHandle": "value",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-5out-inner-ZoBtA_gjyxMP7_FU-6value"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-7",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-5",
+                  "targetHandle": "in-relay",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-7-inner-ZoBtA_gjyxMP7_FU-5in-relay"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "sourceHandle": "out-2",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-4out-2-inner-ZoBtA_gjyxMP7_FU-8in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-9",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "targetHandle": "in-2",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-9-inner-ZoBtA_gjyxMP7_FU-8in-2"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-8",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-10",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-8out-inner-ZoBtA_gjyxMP7_FU-10in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-4",
+                  "sourceHandle": "out-2",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "targetHandle": "in-1",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-4out-2-inner-ZoBtA_gjyxMP7_FU-11in-1"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-10",
+                  "sourceHandle": "out-1",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "targetHandle": "in-2",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-10out-1-inner-ZoBtA_gjyxMP7_FU-11in-2"
+                },
+                {
+                  "markerEnd": {
+                    "type": "arrowclosed",
+                    "width": 10,
+                    "height": 10
+                  },
+                  "style": {
+                    "strokeWidth": 2.4
+                  },
+                  "source": "inner-ZoBtA_gjyxMP7_FU-11",
+                  "sourceHandle": "out",
+                  "target": "inner-ZoBtA_gjyxMP7_FU-12",
+                  "targetHandle": "value",
+                  "id": "xy-edge__inner-ZoBtA_gjyxMP7_FU-11out-inner-ZoBtA_gjyxMP7_FU-12value"
+                }
+              ],
+              "templateId": "sf-node-ZoBtA_gjyxMP7_FU-mmpdv3pf"
+            },
+            "measured": {
+              "width": 144,
+              "height": 61
+            },
+            "selected": false,
+            "dragging": false
+          }
+        ],
+        "mapEdges": [
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "map-input-value",
+            "sourceHandle": "value",
+            "target": "inner-map-etw33BklKvU-FCWA-1",
+            "targetHandle": "in-1",
+            "id": "xy-edge__map-input-valuevalue-inner-map-etw33BklKvU-FCWA-1in-1"
+          },
+          {
+            "markerEnd": {
+              "type": "arrowclosed",
+              "width": 10,
+              "height": 10
+            },
+            "style": {
+              "strokeWidth": 2.4
+            },
+            "source": "inner-map-etw33BklKvU-FCWA-1",
+            "sourceHandle": "out-1",
+            "target": "map-output-value",
+            "targetHandle": "value",
+            "id": "xy-edge__inner-map-etw33BklKvU-FCWA-1out-1-map-output-valuevalue"
+          }
+        ]
+      }
+    },
+    {
+      "id": "Hz1N2q8a1iEpVSuP",
+      "type": "write",
+      "position": {
+        "x": 680,
+        "y": 57
+      },
+      "data": {
+        "label": "Escribir",
+        "inputCount": 1,
+        "template": "{1}"
+      }
+    },
+    {
+      "id": "dyBJv_K_B-s2GN9U",
+      "type": "write",
+      "position": {
+        "x": 680,
+        "y": 171
+      },
+      "data": {
+        "label": "Escribir",
+        "inputCount": 1,
+        "template": "{1}"
+      }
+    },
+    {
+      "id": "suVq544VeA6bf3EM",
+      "type": "comment",
+      "position": {
+        "x": 409.1133105019728,
+        "y": -48.823719221924236
+      },
+      "data": {
+        "text": "Aquí se calculan los factoriales de los pares"
+      }
+    },
+    {
+      "id": "7G3IzrQkBuUjXlQl",
+      "type": "comment",
+      "position": {
+        "x": 395.6393106501082,
+        "y": 273.5158156957607
+      },
+      "data": {
+        "text": "Aquí se calculan los factoriales de los impares"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "DUEv-8Psw9xz7qya",
+      "source": "pl9q6saZBsvYt3H4",
+      "target": "MacEyTML9l7vl-KW",
+      "sourceHandle": null,
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "Wr8ds5Q9s_aoYyIP",
+      "source": "XDmYNFNByUBzmPg7",
+      "target": "MacEyTML9l7vl-KW",
+      "sourceHandle": null,
+      "targetHandle": "in-2",
+      "data": {}
+    },
+    {
+      "id": "fZdo0Qdjf87CNxgD",
+      "source": "sD-BKJBRsQ9gkLhK",
+      "target": "MacEyTML9l7vl-KW",
+      "sourceHandle": null,
+      "targetHandle": "in-3",
+      "data": {}
+    },
+    {
+      "id": "sS6loUffoNVbo9yy",
+      "source": "MacEyTML9l7vl-KW",
+      "target": "e-RGbZBuXRo1iSdf",
+      "sourceHandle": "out",
+      "targetHandle": "in",
+      "data": {}
+    },
+    {
+      "id": "veXNCqXTUMcgWmeX",
+      "source": "MacEyTML9l7vl-KW",
+      "target": "9t8RIIPAZspfpRtR",
+      "sourceHandle": "out",
+      "targetHandle": "in",
+      "data": {}
+    },
+    {
+      "id": "gzM3Wzgcm_k0TYqh",
+      "source": "e-RGbZBuXRo1iSdf",
+      "target": "kOFYvNny3WNZ7OjC",
+      "sourceHandle": "out",
+      "targetHandle": "in",
+      "data": {}
+    },
+    {
+      "id": "0W0a5HPU8iyaRH2w",
+      "source": "9t8RIIPAZspfpRtR",
+      "target": "etw33BklKvU-FCWA",
+      "sourceHandle": "out",
+      "targetHandle": "in",
+      "data": {}
+    },
+    {
+      "id": "gyaN6DDABFlDoV2J",
+      "source": "kOFYvNny3WNZ7OjC",
+      "target": "Hz1N2q8a1iEpVSuP",
+      "sourceHandle": "out",
+      "targetHandle": "in-1",
+      "data": {}
+    },
+    {
+      "id": "2UTZl0G-wyORiCGs",
+      "source": "etw33BklKvU-FCWA",
+      "target": "dyBJv_K_B-s2GN9U",
+      "sourceHandle": "out",
+      "targetHandle": "in-1",
+      "data": {}
+    }
+  ],
+  "viewport": {
+    "x": 85.21011716470207,
+    "y": 153.6968877421629,
+    "zoom": 1.1070087796439132
+  }
+}
