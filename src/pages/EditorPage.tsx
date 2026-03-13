@@ -1617,7 +1617,10 @@ export default function EditorPage() {
                                   onSetCanvasMode={setCanvasMode}
                                   soundsEnabled={soundsEnabled}
                                   onSoundsEnabledChange={setSoundsEnabledState}
-                                  onDeleteNodes={() => setNodes([])}
+                                  onDeleteNodes={() => {
+                                    setNodes([]);
+                                    onClearConsoleClick();
+                                  }}
                                   onLayout={onLayout}
                                 />
                               </div>
