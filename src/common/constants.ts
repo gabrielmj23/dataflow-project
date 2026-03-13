@@ -47,6 +47,7 @@ export const NODE_TYPES = {
   NOR_NODE: "nor",
   XOR_NODE: "xor",
   NOT_NODE: "not",
+  LOGIC_OPERATION_NODE: "logicOperation",
   DESVIO_NODE: "desvio",
   RELEVO_NODE: "relevo",
   SWITCH_NODE: "switch",

@@ -21,6 +21,7 @@ import { DivideNode } from "@/components/nodes/processing/divide-node";
 import { ModNode } from "@/components/nodes/processing/mod-node";
 import { PowerNode } from "@/components/nodes/processing/power-node";
 import { MathOperationNode } from "@/components/nodes/processing/math-operation-node";
+import { LogicOperationNode } from "@/components/nodes/processing/logic-operation-node";
 import { RootNode } from "@/components/nodes/processing/root-node";
 import { LogarithmNode } from "@/components/nodes/processing/logarithm-node";
 import { FloorNode } from "@/components/nodes/processing/floor-node";
@@ -109,6 +110,7 @@ export const nodeTypesCore: NodeTypes = {
   mod: ModNode,
   power: PowerNode,
   mathOperation: MathOperationNode,
+  logicOperation: LogicOperationNode,
   root: RootNode,
   logarithm: LogarithmNode,
   floor: FloorNode,

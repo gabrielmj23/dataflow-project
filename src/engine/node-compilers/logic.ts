@@ -374,6 +374,76 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
       }
       return new EngineNotNode();
 
+    case NODE_TYPES.LOGIC_OPERATION_NODE: {
+      const operation = data.operation as string;
+      const opNodeType =
+        operation === NODE_TYPES.AND_NODE
+          ? NODE_TYPES.AND_NODE
+          : operation === NODE_TYPES.NAND_NODE
+            ? NODE_TYPES.NAND_NODE
+            : operation === NODE_TYPES.OR_NODE
+              ? NODE_TYPES.OR_NODE
+              : operation === NODE_TYPES.NOR_NODE
+                ? NODE_TYPES.NOR_NODE
+                : operation === NODE_TYPES.XOR_NODE
+                  ? NODE_TYPES.XOR_NODE
+                  : operation === NODE_TYPES.NOT_NODE
+                    ? NODE_TYPES.NOT_NODE
+                    : NODE_TYPES.AND_NODE;
+
+      if (executionTarget === "microbit") {
+        const transport = parseTransport(data);
+        const isUnary = opNodeType === NODE_TYPES.NOT_NODE;
+        const graph = buildMicrobitLogicGraph({
+          nodeId: String(flowNode.id),
+          nodeType: opNodeType,
+          nodeData: data,
+          inputHandles: isUnary ? ["in"] : ["in-1", "in-2"],
+          outputPortId: "output",
+        });
+
+        return new NodeDefinition(
+          async (...args: unknown[]) => {
+            const connection = await ensureMicrobitConnected({ transport });
+            return await sendSubflowToMicrobit({
+              connection,
+              nodes: graph.nodes,
+              edges: graph.edges,
+              selectedInputs: graph.selectedInputs,
+              outputSources: graph.outputSources,
+              args,
+              programId: graph.programId,
+              signal: ctx.signal,
+            });
+          },
+          isUnary
+            ? [FirePatterns.EXISTS]
+            : [FirePatterns.EXISTS, FirePatterns.EXISTS],
+          isUnary ? ["input", "output"] : ["input1", "input2", "output"],
+          {
+            stickyInputPorts: isUnary ? ["input"] : ["input1", "input2"],
+          },
+        );
+      }
+
+      switch (opNodeType) {
+        case NODE_TYPES.AND_NODE:
+          return new EngineAndNode();
+        case NODE_TYPES.NAND_NODE:
+          return new EngineNandNode();
+        case NODE_TYPES.OR_NODE:
+          return new EngineOrNode();
+        case NODE_TYPES.NOR_NODE:
+          return new EngineNorNode();
+        case NODE_TYPES.XOR_NODE:
+          return new EngineXorNode();
+        case NODE_TYPES.NOT_NODE:
+          return new EngineNotNode();
+        default:
+          return new EngineAndNode();
+      }
+    }
+
     case NODE_TYPES.DESVIO_NODE:
       return new EngineDesvioNode();
 
@@ -543,10 +613,7 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
       ];
 
       return new NodeDefinition(
-        (
-          token: unknown,
-          ...args: unknown[]
-        ) => {
+        (token: unknown, ...args: unknown[]) => {
           const values = args.slice(0, inputPorts.length);
           const tokenStr = String(token ?? "");
           const matchIdx = tokens.findIndex((t) => t === tokenStr);
