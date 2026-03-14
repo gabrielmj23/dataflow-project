@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useState } from "react";
+import { memo, useCallback, useEffect, useId, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { Keyboard } from "lucide-react";
 
@@ -43,6 +43,8 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
 
   const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isInlineEditing, setIsInlineEditing] = useState(false);
+  const [inlineIdentifier, setInlineIdentifier] = useState(identifierValue);
 
   const identifierId = useId();
   const promptId = useId();
@@ -67,12 +69,65 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
     [id, setNodes],
   );
 
+  useEffect(() => {
+    if (isInlineEditing) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setInlineIdentifier(identifierValue);
+  }, [identifierValue, isInlineEditing]);
+
+  const startInlineEdit = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    setInlineIdentifier(identifierValue);
+    setIsInlineEditing(true);
+  };
+
+  const commitInlineEdit = () => {
+    setData({ identifier: inlineIdentifier });
+    setIsInlineEditing(false);
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineIdentifier(identifierValue);
+    setIsInlineEditing(false);
+  };
+
   return (
     <>
       <InputCircleNodeShell
         nodeType="runtimeInput"
         icon={<Keyboard className="h-4 w-4" />}
-        label={identifierLabelDisplay}
+        label={
+          isInlineEditing ? (
+            <Input
+              autoFocus
+              type="text"
+              value={inlineIdentifier}
+              onChange={(e) => setInlineIdentifier(e.currentTarget.value)}
+              onBlur={commitInlineEdit}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  commitInlineEdit();
+                  return;
+                }
+                if (e.key === "Escape") {
+                  e.preventDefault();
+                  cancelInlineEdit();
+                }
+              }}
+              className="nodrag nopan h-6 w-12 border-white/60 bg-white/10 px-1 text-center text-xs text-white"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={startInlineEdit}
+              className="nodrag nopan max-w-12 truncate text-[9px] leading-tight text-white outline-none hover:cursor-pointer"
+              title="Editar identificador"
+            >
+              {identifierLabelDisplay}
+            </button>
+          )
+        }
         labelClassName="text-[9px]"
         sublabel={null}
         onConfigClick={() => setIsDialogOpen(true)}

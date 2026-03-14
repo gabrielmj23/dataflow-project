@@ -71,7 +71,6 @@ export function PublishProjectDialog({
 
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProjectName(defaultName);
       setProjectDescription(defaultDescription);
       setGuestAuthorName(defaultGuestAuthorName);

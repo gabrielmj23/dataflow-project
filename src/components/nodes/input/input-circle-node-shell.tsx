@@ -13,7 +13,7 @@ import {
 type InputCircleNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
-  label: string;
+  label: ReactNode;
   /** Optional className for the label text. */
   labelClassName?: string;
   onConfigClick?: () => void;
@@ -46,9 +46,17 @@ export function InputCircleNodeShell({
   labelClassName,
   disableRuntimeStyles = true,
 }: InputCircleNodeShellProps) {
-  const inputMask = getPortTypeMask({ nodeType, handleType: "target", handleId: null });
+  const inputMask = getPortTypeMask({
+    nodeType,
+    handleType: "target",
+    handleId: null,
+  });
   const inputType = maskToVisualPortDataType(inputMask);
-  const outputMask = getPortTypeMask({ nodeType, handleType: "source", handleId: null });
+  const outputMask = getPortTypeMask({
+    nodeType,
+    handleType: "source",
+    handleId: null,
+  });
   const outputType = maskToVisualPortDataType(outputMask);
 
   return (
@@ -63,13 +71,28 @@ export function InputCircleNodeShell({
       }
     >
       <div className="flex items-center justify-center">{icon}</div>
-        <div className={["mt-1 leading-tight truncate max-w-16", "text-[9px]", "text-white", typeof labelClassName === "string" ? labelClassName : ""].join(" ")}>{label}</div>
+      <div
+        className={[
+          "mt-1 leading-tight truncate max-w-16",
+          "text-[9px]",
+          "text-white",
+          typeof labelClassName === "string" ? labelClassName : "",
+        ].join(" ")}
+      >
+        {label}
+      </div>
       {sublabel ? (
         <div
           className={
             typeof sublabelClassName === "string"
-              ? ["mt-0.5 leading-tight text-white truncate max-w-16", sublabelClassName].join(" ")
-              : ["mt-0.5 leading-tight text-white truncate max-w-16", "text-[9px]"].join(" ")
+              ? [
+                  "mt-0.5 leading-tight text-white truncate max-w-16",
+                  sublabelClassName,
+                ].join(" ")
+              : [
+                  "mt-0.5 leading-tight text-white truncate max-w-16",
+                  "text-[9px]",
+                ].join(" ")
           }
         >
           {sublabel}
