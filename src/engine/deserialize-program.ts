@@ -712,9 +712,56 @@ function computeSubflowExecutionPlan(params: {
   // Prefer explicit `subflowInput` nodes for exposed inputs. These are
   // ordered top-to-bottom (then left-to-right) to match the editor view.
   const explicitInputs = params.subflowNodes
-    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_INPUT)
+    .filter((n) => {
+      const t = String(n.type);
+      return (
+        t === NODE_TYPES.SUBFLOW_INPUT ||
+        t === NODE_TYPES.FILTER_INPUT_VALUE ||
+        t === NODE_TYPES.MAP_INPUT_VALUE ||
+        t === NODE_TYPES.REPLICATE_INPUT_VALUE
+      );
+    })
     .slice()
     .sort((a, b) => {
+      const typeRank = (node: Node): number => {
+        const t = String(node.type);
+        if (
+          t === NODE_TYPES.FILTER_INPUT_VALUE ||
+          t === NODE_TYPES.MAP_INPUT_VALUE ||
+          t === NODE_TYPES.REPLICATE_INPUT_VALUE
+        ) {
+          // Iteration subflows: item input must be first.
+          return 0;
+        }
+        if (t === NODE_TYPES.SUBFLOW_INPUT) {
+          // Context slots from outer handles should be placed right after item.
+          return 1;
+        }
+        return 2;
+      };
+
+      const ar = typeRank(a);
+      const br = typeRank(b);
+      if (ar !== br) return ar - br;
+
+      const contextSlotOf = (node: Node): number => {
+        if (String(node.type) !== NODE_TYPES.SUBFLOW_INPUT) {
+          return Number.MAX_SAFE_INTEGER;
+        }
+        const data =
+          node.data && typeof node.data === "object"
+            ? (node.data as Record<string, unknown>)
+            : {};
+        const raw = data.contextSlot;
+        return typeof raw === "number" && Number.isFinite(raw)
+          ? raw
+          : Number.MAX_SAFE_INTEGER;
+      };
+
+      const ac = contextSlotOf(a);
+      const bc = contextSlotOf(b);
+      if (ac !== bc) return ac - bc;
+
       const ay = (a.position?.y ?? 0) as number;
       const by = (b.position?.y ?? 0) as number;
       if (ay !== by) return ay - by;

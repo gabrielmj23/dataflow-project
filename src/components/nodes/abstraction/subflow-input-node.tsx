@@ -1,7 +1,7 @@
 import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 import { Position } from "@xyflow/react";
-import { X } from "lucide-react";
+import { Braces, X } from "lucide-react";
 
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,21 @@ import { useReactFlow } from "@xyflow/react";
 
 export type SubflowInputNodeData = {
   label?: string;
+  iconVariant?: "x" | "braces";
 };
 
 export const SubflowInputNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Valor de entrada" } = (data ?? {}) as SubflowInputNodeData;
+  const { label = "Valor de entrada", iconVariant = "x" } =
+    (data ?? {}) as SubflowInputNodeData;
   const { setNodes } = useReactFlow();
 
   return (
     <div className="relative flex h-14 w-14 flex-col items-center justify-center rounded-full border bg-transparent text-foreground">
-      <X className="h-5 w-5 text-muted-foreground" />
+      {iconVariant === "braces" ? (
+        <Braces className="h-5 w-5 text-muted-foreground" />
+      ) : (
+        <X className="h-5 w-5 text-muted-foreground" />
+      )}
 
       <CustomTypedHandle
         type="source"

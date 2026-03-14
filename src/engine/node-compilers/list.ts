@@ -6,7 +6,6 @@ import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import {
   EngineCountNode,
-  EngineFilterNode,
   EngineGenerateSequenceNode,
   EngineListAppendNode,
   EngineListAtPositionNode,
@@ -20,7 +19,6 @@ import {
   EngineListRemoveFirstNode,
   EngineListRemoveLastNode,
   EngineListReverseNode,
-  EngineMapNode,
   EnginePulseSequenceNode,
   EngineReduceNode,
   EngineSplitListNode,
@@ -28,8 +26,10 @@ import {
   EngineZipNode,
   EngineUnzipNode,
 } from "../nodes/list-nodes";
+import { DataflowEngine } from "../engine";
 import { EngineGatherNode, EngineScatterNode } from "../nodes/control-nodes";
 import {
+  Arc,
   DataToken,
   FirePatterns,
   NodeDefinition,
@@ -41,7 +41,7 @@ import type {
   RemoteExecutionOp,
   RemoteSubflowPayload,
 } from "../deserialize/shared-types";
-import type { NodeCompiler } from "./types";
+import type { NodeCompiler, NodeCompilerContext } from "./types";
 
 function parseTransport(data: Record<string, unknown>): "serial" | "bluetooth" {
   const transportRaw = (data.transport ?? data.connectionType) as unknown;
@@ -52,6 +52,85 @@ function parseTransport(data: Record<string, unknown>): "serial" | "bluetooth" {
 
 function sanitizeProgramId(raw: string): string {
   return raw.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 32);
+}
+
+function parseMapFilterContextInputCount(data: Record<string, unknown>): number {
+  const raw = data.contextInputCount;
+  if (typeof raw !== "number" || !Number.isFinite(raw)) return 0;
+  return Math.max(0, Math.floor(raw));
+}
+
+function mapFilterContextPortIds(contextInputCount: number): string[] {
+  return Array.from({ length: Math.max(0, contextInputCount) }, (_, i) =>
+    `context${i + 1}`,
+  );
+}
+
+function argsForMapFilterSubflow(params: {
+  item: unknown;
+  contextArgs: unknown[];
+  selectedInputs: Array<{ nodeId: string; portId: string }>;
+}): unknown[] {
+  const { item, contextArgs, selectedInputs } = params;
+  const invocation = [item, ...contextArgs];
+  return selectedInputs.map((_entry, idx) => invocation[idx] ?? null);
+}
+
+async function runSubflowPlanOnce(params: {
+  plan: {
+    engineNodes: unknown[];
+    engineArcs: unknown[];
+    selectedInputs: Array<{ nodeId: string; portId: string }>;
+    outputSources: Array<{ nodeId: string; portId: string }>;
+    hasAnyOutput: boolean;
+  };
+  args: unknown[];
+  signal?: AbortSignal;
+  onLog?: NodeCompilerContext["onLog"];
+  onPrompt?: NodeCompilerContext["onPrompt"];
+  onEdgeValue?: NodeCompilerContext["onEdgeValue"];
+}): Promise<unknown> {
+  const { plan, args, signal, onLog, onPrompt, onEdgeValue } = params;
+
+  const engine = new DataflowEngine({ stepDelayMs: 0 });
+  if (onLog || onPrompt || onEdgeValue) {
+    engine.setObserver({ onLog, onPrompt, onEdgeValue });
+  }
+
+  const baseArcs = plan.engineArcs as Arc[];
+  const augmentedArcs = [...baseArcs];
+  if (plan.hasAnyOutput) {
+    for (const out of plan.outputSources) {
+      augmentedArcs.push(
+        new Arc(
+          new PortAddress(out.nodeId, out.portId),
+          new PortAddress("", "out-1"),
+          `${out.nodeId}:${out.portId}->out-1`,
+        ),
+      );
+    }
+  }
+
+  engine.loadProgram({
+    nodes: plan.engineNodes as never[],
+    arcs: augmentedArcs,
+  });
+
+  const initialTokens = plan.selectedInputs.map(
+    (addr, idx) => new DataToken(args[idx], new PortAddress(addr.nodeId, addr.portId)),
+  );
+
+  const emitted = await engine.run({
+    initialTokens,
+    signal,
+  });
+
+  if (!plan.hasAnyOutput) return undefined;
+
+  const token = emitted.find(
+    (t) => t.location.nodeId === "" && t.location.portId === "out-1",
+  );
+  return token?.value;
 }
 
 function buildMicrobitListGraph(params: {
@@ -330,13 +409,21 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
     case NODE_TYPES.FILTER_NODE: {
       const filterNodes = data.filterNodes;
       const filterEdges = data.filterEdges;
+      const contextInputCount = parseMapFilterContextInputCount(data);
+      const contextPortIds = mapFilterContextPortIds(contextInputCount);
+      const firePatterns = [
+        FirePatterns.EXISTS,
+        ...contextPortIds.map(() => FirePatterns.EXISTS),
+      ];
+      const ports = ["inputList", ...contextPortIds, "outputList"];
+      const stickyInputPorts = ["inputList", ...contextPortIds];
 
       if (executionTarget === "controller") {
         if (isNonEmptyArray<Node>(filterNodes) && Array.isArray(filterEdges)) {
           const plan = ctx.helpers.computeSubflowExecutionPlan({
             subflowNodes: filterNodes as Node[],
             subflowEdges: filterEdges as Edge[],
-            inCount: 1,
+            inCount: contextInputCount + 1,
             outCount: 1,
             onLog: ctx.onLog,
             onPrompt: ctx.onPrompt,
@@ -354,7 +441,7 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
           };
 
           return new NodeDefinition(
-            async (inputList: unknown[]) => {
+            async (inputList: unknown[], ...contextArgs: unknown[]) => {
               const executor = ctx.remoteExecutor;
               if (!executor)
                 throw new Error("Ejecución remota no configurada.");
@@ -369,7 +456,11 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
                   nodeId: String(flowNode.id),
                   controllerId,
                   op: "subflow",
-                  args: [items[i]],
+                  args: argsForMapFilterSubflow({
+                    item: items[i],
+                    contextArgs,
+                    selectedInputs: plan.selectedInputs,
+                  }),
                   subflow: payload,
                 });
                 if (predicate) output.push(items[i]);
@@ -377,17 +468,17 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
 
               return output;
             },
-            [FirePatterns.EXISTS],
-            ["inputList", "outputList"],
-            { stickyInputPorts: ["inputList"], skipStepDelay: true },
+            firePatterns,
+            ports,
+            { stickyInputPorts, skipStepDelay: true },
           );
         }
 
         return ensureRemote(
           "filterTruthy",
-          ["inputList", "outputList"],
-          [FirePatterns.EXISTS],
-          ["inputList"],
+          ports,
+          firePatterns,
+          stickyInputPorts,
         );
       }
 
@@ -400,7 +491,7 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
         const plan = ctx.helpers.computeSubflowExecutionPlan({
           subflowNodes: filterNodes as Node[],
           subflowEdges: filterEdges as Edge[],
-          inCount: 1,
+          inCount: contextInputCount + 1,
           outCount: 1,
           onLog: ctx.onLog,
           onPrompt: ctx.onPrompt,
@@ -412,7 +503,7 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
         const programId = sanitizeProgramId(`${String(flowNode.id)}-filter`);
 
         return new NodeDefinition(
-          async (inputList: unknown[]) => {
+          async (inputList: unknown[], ...contextArgs: unknown[]) => {
             const items = Array.isArray(inputList) ? inputList : [];
             const connection = await ensureMicrobitConnected({ transport });
             const output: unknown[] = [];
@@ -424,9 +515,11 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
                 throw err;
               }
 
-              const args = plan.selectedInputs.map((_entry, idx) =>
-                idx === 0 ? items[i] : null,
-              );
+              const args = argsForMapFilterSubflow({
+                item: items[i],
+                contextArgs,
+                selectedInputs: plan.selectedInputs,
+              });
 
               const predicate = await sendSubflowToMicrobit({
                 connection,
@@ -446,42 +539,90 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
 
             return output;
           },
-          [FirePatterns.EXISTS],
-          ["inputList", "outputList"],
+          firePatterns,
+          ports,
           {
-            stickyInputPorts: ["inputList"],
+            stickyInputPorts,
           },
         );
       }
 
       if (isNonEmptyArray<Node>(filterNodes) && Array.isArray(filterEdges)) {
-        const runPredicate = ctx.helpers.compileSingleInputGraph({
-          graphNodes: filterNodes,
-          graphEdges: filterEdges as Edge[],
-          inputNodeId: "filter-input-value",
+        const plan = ctx.helpers.computeSubflowExecutionPlan({
+          subflowNodes: filterNodes as Node[],
+          subflowEdges: filterEdges as Edge[],
+          inCount: contextInputCount + 1,
+          outCount: 1,
           onLog: ctx.onLog,
           onPrompt: ctx.onPrompt,
+          onEdgeValue: ctx.onEdgeValue,
           signal: ctx.signal,
+          remoteExecutor: ctx.remoteExecutor,
+          runtimeCtx: ctx.subflowRuntimeContext,
         });
 
-        return new EngineFilterNode(async (item: unknown) =>
-          Boolean(await runPredicate(item)),
+        return new NodeDefinition(
+          async (inputList: unknown[], ...contextArgs: unknown[]) => {
+            const items = Array.isArray(inputList) ? inputList : [];
+            const output: unknown[] = [];
+
+            for (const item of items) {
+              const args = argsForMapFilterSubflow({
+                item,
+                contextArgs,
+                selectedInputs: plan.selectedInputs,
+              });
+              const predicate = await runSubflowPlanOnce({
+                plan,
+                args,
+                signal: ctx.signal,
+                onLog: ctx.onLog,
+                onPrompt: ctx.onPrompt,
+                onEdgeValue: ctx.onEdgeValue,
+              });
+
+              if (Boolean(predicate)) {
+                output.push(item);
+              }
+            }
+
+            return output;
+          },
+          firePatterns,
+          ports,
+          { stickyInputPorts, skipStepDelay: true },
         );
       }
 
-      return new EngineFilterNode((item: unknown) => Boolean(item));
+      return new NodeDefinition(
+        (inputList: unknown[]) => {
+          const items = Array.isArray(inputList) ? inputList : [];
+          return items.filter((item) => Boolean(item));
+        },
+        firePatterns,
+        ports,
+        { stickyInputPorts, skipStepDelay: true },
+      );
     }
 
     case NODE_TYPES.MAP_NODE: {
       const mapNodes = data.mapNodes;
       const mapEdges = data.mapEdges;
+      const contextInputCount = parseMapFilterContextInputCount(data);
+      const contextPortIds = mapFilterContextPortIds(contextInputCount);
+      const firePatterns = [
+        FirePatterns.EXISTS,
+        ...contextPortIds.map(() => FirePatterns.EXISTS),
+      ];
+      const ports = ["inputList", ...contextPortIds, "outputList"];
+      const stickyInputPorts = ["inputList", ...contextPortIds];
 
       if (executionTarget === "controller") {
         if (isNonEmptyArray<Node>(mapNodes) && Array.isArray(mapEdges)) {
           const plan = ctx.helpers.computeSubflowExecutionPlan({
             subflowNodes: mapNodes as Node[],
             subflowEdges: mapEdges as Edge[],
-            inCount: 1,
+            inCount: contextInputCount + 1,
             outCount: 1,
             onLog: ctx.onLog,
             onPrompt: ctx.onPrompt,
@@ -499,7 +640,7 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
           };
 
           return new NodeDefinition(
-            async (inputList: unknown[]) => {
+            async (inputList: unknown[], ...contextArgs: unknown[]) => {
               const executor = ctx.remoteExecutor;
               if (!executor)
                 throw new Error("Ejecución remota no configurada.");
@@ -514,7 +655,11 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
                   nodeId: String(flowNode.id),
                   controllerId,
                   op: "subflow",
-                  args: [items[i]],
+                  args: argsForMapFilterSubflow({
+                    item: items[i],
+                    contextArgs,
+                    selectedInputs: plan.selectedInputs,
+                  }),
                   subflow: payload,
                 });
                 output.push(mapped);
@@ -522,17 +667,17 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
 
               return output;
             },
-            [FirePatterns.EXISTS],
-            ["inputList", "outputList"],
-            { stickyInputPorts: ["inputList"], skipStepDelay: true },
+            firePatterns,
+            ports,
+            { stickyInputPorts, skipStepDelay: true },
           );
         }
 
         return ensureRemote(
           "mapIdentity",
-          ["inputList", "outputList"],
-          [FirePatterns.EXISTS],
-          ["inputList"],
+          ports,
+          firePatterns,
+          stickyInputPorts,
         );
       }
 
@@ -545,7 +690,7 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
         const plan = ctx.helpers.computeSubflowExecutionPlan({
           subflowNodes: mapNodes as Node[],
           subflowEdges: mapEdges as Edge[],
-          inCount: 1,
+          inCount: contextInputCount + 1,
           outCount: 1,
           onLog: ctx.onLog,
           onPrompt: ctx.onPrompt,
@@ -557,7 +702,7 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
         const programId = sanitizeProgramId(`${String(flowNode.id)}-map`);
 
         return new NodeDefinition(
-          async (inputList: unknown[]) => {
+          async (inputList: unknown[], ...contextArgs: unknown[]) => {
             const items = Array.isArray(inputList) ? inputList : [];
             const connection = await ensureMicrobitConnected({ transport });
             const output: unknown[] = [];
@@ -569,9 +714,11 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
                 throw err;
               }
 
-              const args = plan.selectedInputs.map((_entry, idx) =>
-                idx === 0 ? items[i] : null,
-              );
+              const args = argsForMapFilterSubflow({
+                item: items[i],
+                contextArgs,
+                selectedInputs: plan.selectedInputs,
+              });
 
               const mapped = await sendSubflowToMicrobit({
                 connection,
@@ -589,30 +736,68 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
 
             return output;
           },
-          [FirePatterns.EXISTS],
-          ["inputList", "outputList"],
+          firePatterns,
+          ports,
           {
-            stickyInputPorts: ["inputList"],
+            stickyInputPorts,
           },
         );
       }
 
       if (isNonEmptyArray<Node>(mapNodes) && Array.isArray(mapEdges)) {
-        const runMapper = ctx.helpers.compileSingleInputGraph({
-          graphNodes: mapNodes,
-          graphEdges: mapEdges as Edge[],
-          inputNodeId: "map-input-value",
+        const plan = ctx.helpers.computeSubflowExecutionPlan({
+          subflowNodes: mapNodes as Node[],
+          subflowEdges: mapEdges as Edge[],
+          inCount: contextInputCount + 1,
+          outCount: 1,
           onLog: ctx.onLog,
           onPrompt: ctx.onPrompt,
+          onEdgeValue: ctx.onEdgeValue,
           signal: ctx.signal,
+          remoteExecutor: ctx.remoteExecutor,
+          runtimeCtx: ctx.subflowRuntimeContext,
         });
 
-        return new EngineMapNode(
-          async (item: unknown) => await runMapper(item),
+        return new NodeDefinition(
+          async (inputList: unknown[], ...contextArgs: unknown[]) => {
+            const items = Array.isArray(inputList) ? inputList : [];
+            const output: unknown[] = [];
+
+            for (const item of items) {
+              const args = argsForMapFilterSubflow({
+                item,
+                contextArgs,
+                selectedInputs: plan.selectedInputs,
+              });
+              const mapped = await runSubflowPlanOnce({
+                plan,
+                args,
+                signal: ctx.signal,
+                onLog: ctx.onLog,
+                onPrompt: ctx.onPrompt,
+                onEdgeValue: ctx.onEdgeValue,
+              });
+
+              output.push(mapped ?? item);
+            }
+
+            return output;
+          },
+          firePatterns,
+          ports,
+          { stickyInputPorts, skipStepDelay: true },
         );
       }
 
-      return new EngineMapNode((item: unknown) => item);
+      return new NodeDefinition(
+        (inputList: unknown[]) => {
+          const items = Array.isArray(inputList) ? inputList : [];
+          return [...items];
+        },
+        firePatterns,
+        ports,
+        { stickyInputPorts, skipStepDelay: true },
+      );
     }
 
     case NODE_TYPES.REDUCE_NODE: {
