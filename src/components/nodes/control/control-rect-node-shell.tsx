@@ -98,12 +98,13 @@ export function ControlRectNodeShell({
 
   const outCount =
     variant === "singleInMultiOut"
-      ? outputHandleIds?.length ?? outputCount ?? 0
+      ? (outputHandleIds?.length ?? outputCount ?? 0)
       : 0;
 
   const outOffsets = variant === "singleInMultiOut" ? offsets(outCount) : [];
 
-  const baseClass = "relative flex min-h-[72px] w-25 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md";
+  const baseClass =
+    "relative flex min-h-[72px] w-25 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md";
 
   return (
     <BaseNode
@@ -119,12 +120,34 @@ export function ControlRectNodeShell({
           contentClassName ?? ""
         }`}
       >
-        <div className={`text-xl font-bold leading-none ${iconClassName ?? ""}`}>{icon}</div>
-        <div className={`text-sm leading-tight ${labelClassName ?? ""}`}>{label}</div>
-        {subtitle && (
-          <div className="text-xs leading-tight text-white/85">
-            {subtitle}
+        {onConfigClick ? (
+          <button
+            type="button"
+            className="nodrag nopan rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 hover:cursor-pointer"
+            onClick={(event) => {
+              event.stopPropagation();
+              onConfigClick();
+            }}
+            aria-label="Configurar nodo"
+          >
+            <span
+              className={`text-xl font-bold leading-none ${iconClassName ?? ""}`}
+            >
+              {icon}
+            </span>
+          </button>
+        ) : (
+          <div
+            className={`text-xl font-bold leading-none ${iconClassName ?? ""}`}
+          >
+            {icon}
           </div>
+        )}
+        <div className={`text-sm leading-tight ${labelClassName ?? ""}`}>
+          {label}
+        </div>
+        {subtitle && (
+          <div className="text-xs leading-tight text-white/85">{subtitle}</div>
         )}
       </div>
 
@@ -228,38 +251,38 @@ export function ControlRectNodeShell({
             indicatorClassName="border-orange-600"
           />
 
-          {outOffsets.map((offset, index) => (
+          {outOffsets.map((offset, index) =>
             (() => {
               const id = outputHandleIds?.[index] ?? `out-${index + 1}`;
               const mask = maskFor({ handleType: "source", handleId: id });
               const dt = maskToVisualPortDataType(mask);
               const outputLabel = outputLabels?.[index];
               return (
-            <div key={`r-${offset}`} className="contents">
-              {outputLabel && (
-                <div
-                  className={`pointer-events-none absolute right-3 -translate-y-1/2 max-w-14 truncate text-[8px] font-medium leading-none text-white/90 ${
-                    outputLabelClassName ?? ""
-                  }`}
-                  style={{ top: offset }}
-                >
-                  {outputLabel}
+                <div key={`r-${offset}`} className="contents">
+                  {outputLabel && (
+                    <div
+                      className={`pointer-events-none absolute right-3 -translate-y-1/2 max-w-14 truncate text-[8px] font-medium leading-none text-white/90 ${
+                        outputLabelClassName ?? ""
+                      }`}
+                      style={{ top: offset }}
+                    >
+                      {outputLabel}
+                    </div>
+                  )}
+                  <CustomTypedHandle
+                    type="source"
+                    position={Position.Right}
+                    style={{ top: offset }}
+                    id={id}
+                    dataType={dt}
+                    typeMask={mask}
+                    className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+                    indicatorClassName="border-orange-600"
+                  />
                 </div>
-              )}
-              <CustomTypedHandle
-                type="source"
-                position={Position.Right}
-                style={{ top: offset }}
-                id={id}
-                dataType={dt}
-                typeMask={mask}
-                className="absolute -right-1 h-2 w-2 -translate-y-1/2"
-                indicatorClassName="border-orange-600"
-              />
-            </div>
               );
-            })()
-          ))}
+            })(),
+          )}
         </>
       )}
 

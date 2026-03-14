@@ -272,9 +272,15 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
   const nextInnerIdRef = useRef(1);
 
   const createInnerNodeId = useCallback(() => {
-    const next = nextInnerIdRef.current++;
-    return `inner-filter-${id}-${next}`;
-  }, [id]);
+    const existing = new Set((draftNodes ?? []).map((n) => String(n.id)));
+    let next = nextInnerIdRef.current++;
+    let candidate = `inner-filter-${id}-${next}`;
+    while (existing.has(candidate)) {
+      next = nextInnerIdRef.current++;
+      candidate = `inner-filter-${id}-${next}`;
+    }
+    return candidate;
+  }, [draftNodes, id]);
 
   const onEditorDragOver = useCallback((event: DragEvent) => {
     event.stopPropagation();

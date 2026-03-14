@@ -260,9 +260,15 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   const nextInnerIdRef = useRef(1);
 
   const createInnerNodeId = useCallback(() => {
-    const next = nextInnerIdRef.current++;
-    return `inner-map-${id}-${next}`;
-  }, [id]);
+    const existing = new Set((draftNodes ?? []).map((n) => String(n.id)));
+    let next = nextInnerIdRef.current++;
+    let candidate = `inner-map-${id}-${next}`;
+    while (existing.has(candidate)) {
+      next = nextInnerIdRef.current++;
+      candidate = `inner-map-${id}-${next}`;
+    }
+    return candidate;
+  }, [draftNodes, id]);
 
   const onEditorDragOver = useCallback((event: DragEvent) => {
     event.stopPropagation();

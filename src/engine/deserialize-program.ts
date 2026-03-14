@@ -727,7 +727,11 @@ function computeSubflowExecutionPlan(params: {
   // Allow explicit "return" points via `subflowOutput` nodes. These can be
   // multiple, but they all feed the same single exposed salida of the subflujo.
   const explicitOutputs = params.subflowNodes
-    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_OUTPUT)
+    .filter(
+      (n) =>
+        String(n.type) === NODE_TYPES.SUBFLOW_OUTPUT ||
+        String(n.type) === NODE_TYPES.FILTER_BOOLEAN_OUTPUT,
+    )
     .slice()
     .sort((a, b) => {
       const ay = (a.position?.y ?? 0) as number;

@@ -148,7 +148,10 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
     );
   }
 
-  if (nodeType === NODE_TYPES.SUBFLOW_OUTPUT) {
+  if (
+    nodeType === NODE_TYPES.SUBFLOW_OUTPUT ||
+    nodeType === NODE_TYPES.FILTER_BOOLEAN_OUTPUT
+  ) {
     return new NodeDefinition(
       (v: unknown) => v,
       [FirePatterns.EXISTS],

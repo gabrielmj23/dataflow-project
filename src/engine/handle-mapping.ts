@@ -144,8 +144,8 @@ register([NODE_TYPES.SUBFLOW, NODE_TYPES.REPLICATE_FLOW], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-// Subflow explicit output node
-register([NODE_TYPES.SUBFLOW_OUTPUT], (p) => {
+// Subflow explicit output nodes
+register([NODE_TYPES.SUBFLOW_OUTPUT, NODE_TYPES.FILTER_BOOLEAN_OUTPUT], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
     if (handleId === "value" || handleId == null) return "input";
