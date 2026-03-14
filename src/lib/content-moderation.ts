@@ -129,13 +129,16 @@ export function findProhibitedTerms(text: string): string[] {
   return matches;
 }
 
-export function buildProhibitedTermsError(label: string, text: string): string | null {
+export function buildProhibitedTermsError(
+  label: string,
+  text: string,
+): string | null {
   const matches = findProhibitedTerms(text);
   if (!matches.length) {
     return null;
   }
 
-  return `${label} contiene lenguaje no permitido (${matches.slice(0, 3).join(", ")}).`; 
+  return `${label} contiene lenguaje no permitido.`;
 }
 
 export { PROHIBITED_TERMS };

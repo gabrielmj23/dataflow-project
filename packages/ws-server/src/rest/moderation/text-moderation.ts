@@ -131,9 +131,5 @@ export function ensureNoProhibitedTerms(label: string, text: string) {
     return;
   }
 
-  throw new Error(
-    `${label} contiene lenguaje no permitido (${matches
-      .slice(0, 3)
-      .join(", ")}).`,
-  );
+  throw new Error(`${label} contiene lenguaje no permitido.`);
 }
