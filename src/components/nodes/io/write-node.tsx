@@ -328,10 +328,6 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
   const targetHandleLabels = useMemo(() => {
     const baseEntries = targetHandleIds.map((handleId) => {
-      if (!connectedTargetHandleIds.has(handleId)) {
-        return { label: null as string | null, custom: false };
-      }
-
       const handleIndex = parseWriteInputHandleIndex(handleId);
 
       if (Object.prototype.hasOwnProperty.call(inputLabels, handleId)) {

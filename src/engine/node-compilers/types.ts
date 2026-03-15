@@ -28,6 +28,7 @@ export type NodeCompilerContext = {
 
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
   signal?: AbortSignal;
   remoteExecutor?: RemoteExecutor;
 
@@ -53,6 +54,7 @@ export type NodeCompilerContext = {
       outCount?: number;
       onLog?: EngineObserver["onLog"];
       onPrompt?: EngineObserver["onPrompt"];
+      onEdgeValue?: EngineObserver["onEdgeValue"];
       signal?: AbortSignal;
       remoteExecutor?: RemoteExecutor;
       runtimeCtx?: SubflowRuntimeContext;
@@ -71,6 +73,7 @@ export type NodeCompilerContext = {
       outCount?: number;
       onLog?: EngineObserver["onLog"];
       onPrompt?: EngineObserver["onPrompt"];
+      onEdgeValue?: EngineObserver["onEdgeValue"];
       signal?: AbortSignal;
       remoteExecutor?: RemoteExecutor;
       runtimeCtx?: SubflowRuntimeContext;

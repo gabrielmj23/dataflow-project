@@ -148,7 +148,10 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
     );
   }
 
-  if (nodeType === NODE_TYPES.SUBFLOW_OUTPUT) {
+  if (
+    nodeType === NODE_TYPES.SUBFLOW_OUTPUT ||
+    nodeType === NODE_TYPES.FILTER_BOOLEAN_OUTPUT
+  ) {
     return new NodeDefinition(
       (v: unknown) => v,
       [FirePatterns.EXISTS],
@@ -236,6 +239,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
         outCount,
         onLog: ctx.onLog,
         onPrompt: ctx.onPrompt,
+        onEdgeValue: ctx.onEdgeValue,
         signal: ctx.signal,
         remoteExecutor: ctx.remoteExecutor,
         runtimeCtx: ctx.subflowRuntimeContext,
@@ -280,6 +284,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
         outCount,
         onLog: ctx.onLog,
         onPrompt: ctx.onPrompt,
+        onEdgeValue: ctx.onEdgeValue,
         signal: ctx.signal,
         remoteExecutor: ctx.remoteExecutor,
         runtimeCtx: ctx.subflowRuntimeContext,
@@ -353,6 +358,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
             outCount: resolver.outCount,
             onLog: ctx.onLog,
             onPrompt: ctx.onPrompt,
+            onEdgeValue: ctx.onEdgeValue,
             signal: ctx.signal,
             runtimeCtx: ctxNow,
           });
@@ -378,6 +384,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
         outCount,
         onLog: ctx.onLog,
         onPrompt: ctx.onPrompt,
+        onEdgeValue: ctx.onEdgeValue,
         signal: ctx.signal,
         runtimeCtx: ctx.subflowRuntimeContext,
       });

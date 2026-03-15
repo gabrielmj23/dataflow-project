@@ -38,7 +38,10 @@ import {
   projectClientToFlowPosition,
 } from "@/flow/editor-node-factory";
 import { nodeTypesCore } from "@/flow/node-types-core";
-import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
+import {
+  computeDanglingPortsFromLookup,
+  computeOpenPortsFromLookup,
+} from "@/flow/subflow-utils";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { Input } from "@/components/ui/input";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
@@ -635,6 +638,25 @@ export const NestedSubflowNode = memo(
                           explicitOutputs === 0
                         ) {
                           nextOutCount = computed.outCount;
+                        }
+                      } catch {
+                        // ignore
+                      }
+
+                      try {
+                        const dangling = computeDanglingPortsFromLookup(
+                          draftNodes,
+                          draftEdges,
+                          lookup,
+                        );
+                        const hasDanglingPorts =
+                          dangling.ready &&
+                          (dangling.inCount > 0 || dangling.outCount > 0);
+                        if (hasDanglingPorts) {
+                          setNameError(
+                            `Hay nodos con entradas/salidas abiertas (${dangling.inCount} entrada(s), ${dangling.outCount} salida(s)). Conecta todos los puertos antes de guardar.`,
+                          );
+                          return;
                         }
                       } catch {
                         // ignore

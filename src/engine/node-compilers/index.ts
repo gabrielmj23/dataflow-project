@@ -21,6 +21,36 @@ const compilers = [
   compileSubflowNodes,
 ] as const;
 
+type NodeCompilerContextWithoutHelpers = Omit<NodeCompilerContext, "helpers">;
+
+export class NodeDefinitionCompilerBuilder {
+  private readonly context: Partial<NodeCompilerContextWithoutHelpers> = {};
+  private helpers?: NodeCompilerContext["helpers"];
+
+  withContext(context: NodeCompilerContextWithoutHelpers): this {
+    Object.assign(this.context, context);
+    return this;
+  }
+
+  withHelpers(helpers: NodeCompilerContext["helpers"]): this {
+    this.helpers = helpers;
+    return this;
+  }
+
+  build(): (flowNode: Node) => NodeDefinition {
+    if (!this.helpers) {
+      throw new Error("NodeDefinitionCompilerBuilder requires helpers.");
+    }
+
+    const compilerContext: NodeCompilerContext = {
+      ...this.context,
+      helpers: this.helpers,
+    };
+
+    return (flowNode: Node) => compileNodeDefinition(flowNode, compilerContext);
+  }
+}
+
 export function tryCompileNodeDefinition(
   flowNode: Node,
   ctx: NodeCompilerContext,

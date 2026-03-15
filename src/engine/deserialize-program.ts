@@ -18,7 +18,8 @@ import { DataflowEngine, type EngineObserver } from "./engine";
 import { mapHandleToPortId, parseIndexHandle } from "./handle-mapping";
 
 import { asRecord } from "./deserialize/utils";
-import { compileNodeDefinition } from "./node-compilers";
+import { NodeDefinitionCompilerBuilder } from "./node-compilers";
+import type { NodeCompilerContext } from "./node-compilers/types";
 
 type SubflowTemplateResolution = {
   id: string;
@@ -43,6 +44,97 @@ export type EngineProgramStores = {
   nodeStore: NodeStore;
   arcStore: ArcStore;
 };
+
+export class CycleDetectedCompileError extends Error {
+  /** Lista de IDs de nodos que participan en el ciclo (útil para resaltar). */
+  readonly cycleNodeIds: string[];
+
+  /** Lista legible de nombres/etiquetas de nodos que participan en el ciclo. */
+  readonly cycleNodeNames: string[];
+
+  constructor(cycleNodeIds: string[], cycleNodeNames: string[]) {
+    const printableCycle = cycleNodeNames.join(" -> ");
+    super(
+      `Se detectó una dependencia cíclica en el programa (${printableCycle}). El flujo no puede concluir. Rompe el ciclo para ejecutar.`,
+    );
+    this.name = "CycleDetectedCompileError";
+    this.cycleNodeIds = [...cycleNodeIds];
+    this.cycleNodeNames = [...cycleNodeNames];
+  }
+}
+
+/**
+ * Detecta ciclos en el grafo dirigido de nodos/arcos usando Depth-First Search
+ * (DFS) con una pila de recursión para detectar back-edges.
+ *
+ * Algoritmo: DFS con seguimiento de la pila de recursión (también conocido como
+ * detección de aristas hacia atrás). Cuando se encuentra un nodo que ya está
+ * en la pila de recursión se reconstruye el ciclo tomando el sub-arreglo de la
+ * pila desde la primera aparición del nodo hasta el final y añadiendo el nodo
+ * de inicio al final para mostrar el ciclo completo.
+ *
+ * Devuelve un arreglo ordenado de `nodeId`s que forman el ciclo
+ * (por ejemplo: [A, B, C, A]) o `null` si no se detecta ningún ciclo.
+ */
+function findCycleNodeIds(params: {
+  nodeStore: NodeStore;
+  arcStore: ArcStore;
+}): string[] | null {
+  const nodeIds = params.nodeStore.getNodes().map((n) => n.id);
+  const adjacency = new Map<string, string[]>();
+
+  for (const nodeId of nodeIds) {
+    adjacency.set(nodeId, []);
+  }
+
+  for (const arc of params.arcStore.getArcs()) {
+    const sourceId = arc.source.nodeId;
+    const targetId = arc.target.nodeId;
+    if (!adjacency.has(sourceId) || !adjacency.has(targetId)) continue;
+    adjacency.get(sourceId)?.push(targetId);
+  }
+
+  const visited = new Set<string>();
+  const inStack = new Set<string>();
+  const stack: string[] = [];
+
+  const buildCycleFromStack = (fromNodeId: string): string[] => {
+    const startIdx = stack.lastIndexOf(fromNodeId);
+    if (startIdx < 0) return [fromNodeId, fromNodeId];
+    const cycle = stack.slice(startIdx);
+    cycle.push(fromNodeId);
+    return cycle;
+  };
+
+  const dfs = (nodeId: string): string[] | null => {
+    visited.add(nodeId);
+    inStack.add(nodeId);
+    stack.push(nodeId);
+
+    const neighbors = adjacency.get(nodeId) ?? [];
+    for (const nextId of neighbors) {
+      if (inStack.has(nextId)) {
+        return buildCycleFromStack(nextId);
+      }
+      if (visited.has(nextId)) continue;
+
+      const cycle = dfs(nextId);
+      if (cycle) return cycle;
+    }
+
+    stack.pop();
+    inStack.delete(nodeId);
+    return null;
+  };
+
+  for (const nodeId of nodeIds) {
+    if (visited.has(nodeId)) continue;
+    const cycle = dfs(nodeId);
+    if (cycle) return cycle;
+  }
+
+  return null;
+}
 
 export type RemoteExecutionOp =
   | "sum"
@@ -102,6 +194,8 @@ export type RemoteExecutionRequest = {
 };
 
 export type RemoteExecutor = (req: RemoteExecutionRequest) => Promise<unknown>;
+
+type FlowNodeCompilerContext = Omit<NodeCompilerContext, "helpers">;
 
 /**
  * Infers the number of *input* ports for a given node definition.
@@ -163,6 +257,7 @@ export function buildEngineStoresFromFlowGraph(params: {
   edges: Edge[];
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
   signal?: AbortSignal;
   remoteExecutor?: RemoteExecutor;
   resolveSubflowTemplate?: SubflowTemplateResolver;
@@ -362,25 +457,28 @@ export function buildEngineStoresFromFlowGraph(params: {
   const nodeStore = new NodeStore();
   const arcStore = new ArcStore();
 
+  const compileFlowNodeDefinition = flowNodeToEngineDefinition({
+    writeSinkInputCountByNodeId,
+    writeSinkConnectedInputPortsByNodeId,
+    timerHasIncomingByNodeId,
+    sequenceIncomingByNodeId,
+    pulseSequenceIncomingByNodeId,
+    selectorIncomingByNodeId,
+    conditionalIncomingByNodeId,
+    scatterOutputCountByNodeId,
+    gatherInputCountByNodeId,
+    gatherIncomingByNodeId,
+    onLog: params.onLog,
+    onPrompt: params.onPrompt,
+    onEdgeValue: params.onEdgeValue,
+    signal: params.signal,
+    remoteExecutor: params.remoteExecutor,
+    subflowRuntimeContext: runtimeCtx,
+    resolveSubflowTemplate: params.resolveSubflowTemplate,
+  });
+
   for (const flowNode of uiNodes) {
-    const engineDef = flowNodeToEngineDefinition(flowNode, {
-      writeSinkInputCountByNodeId,
-      writeSinkConnectedInputPortsByNodeId,
-      timerHasIncomingByNodeId,
-      sequenceIncomingByNodeId,
-      pulseSequenceIncomingByNodeId,
-      selectorIncomingByNodeId,
-      conditionalIncomingByNodeId,
-      scatterOutputCountByNodeId,
-      gatherInputCountByNodeId,
-      gatherIncomingByNodeId,
-      onLog: params.onLog,
-      onPrompt: params.onPrompt,
-      signal: params.signal,
-      remoteExecutor: params.remoteExecutor,
-      subflowRuntimeContext: runtimeCtx,
-      resolveSubflowTemplate: params.resolveSubflowTemplate,
-    });
+    const engineDef = compileFlowNodeDefinition(flowNode);
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
 
@@ -423,6 +521,25 @@ export function buildEngineStoresFromFlowGraph(params: {
         String(edge.id),
       ),
     );
+  }
+
+  const cycleNodeIds = findCycleNodeIds({ nodeStore, arcStore });
+  if (cycleNodeIds) {
+    // Map node IDs back to the original UI node labels (if available) to
+    // present a friendlier message to the user.
+    const cycleNames = cycleNodeIds.map((id) => {
+      const flowNode = nodeById.get(id);
+      try {
+        const dt = asRecord(flowNode?.data);
+        if (dt && typeof dt.label === "string" && dt.label.trim())
+          return dt.label.trim();
+      } catch {
+        // ignore
+      }
+      // Fallback: use stringified id if no label available.
+      return String(id);
+    });
+    throw new CycleDetectedCompileError(cycleNodeIds, cycleNames);
   }
 
   return { nodeStore, arcStore };
@@ -686,6 +803,7 @@ function computeSubflowExecutionPlan(params: {
   outCount?: number;
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
   signal?: AbortSignal;
   remoteExecutor?: RemoteExecutor;
   runtimeCtx?: SubflowRuntimeContext;
@@ -695,6 +813,7 @@ function computeSubflowExecutionPlan(params: {
     edges: params.subflowEdges,
     onLog: params.onLog,
     onPrompt: params.onPrompt,
+    onEdgeValue: params.onEdgeValue,
     signal: params.signal,
     remoteExecutor: params.remoteExecutor,
     subflowRuntimeContext: params.runtimeCtx,
@@ -708,9 +827,56 @@ function computeSubflowExecutionPlan(params: {
   // Prefer explicit `subflowInput` nodes for exposed inputs. These are
   // ordered top-to-bottom (then left-to-right) to match the editor view.
   const explicitInputs = params.subflowNodes
-    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_INPUT)
+    .filter((n) => {
+      const t = String(n.type);
+      return (
+        t === NODE_TYPES.SUBFLOW_INPUT ||
+        t === NODE_TYPES.FILTER_INPUT_VALUE ||
+        t === NODE_TYPES.MAP_INPUT_VALUE ||
+        t === NODE_TYPES.REPLICATE_INPUT_VALUE
+      );
+    })
     .slice()
     .sort((a, b) => {
+      const typeRank = (node: Node): number => {
+        const t = String(node.type);
+        if (
+          t === NODE_TYPES.FILTER_INPUT_VALUE ||
+          t === NODE_TYPES.MAP_INPUT_VALUE ||
+          t === NODE_TYPES.REPLICATE_INPUT_VALUE
+        ) {
+          // Iteration subflows: item input must be first.
+          return 0;
+        }
+        if (t === NODE_TYPES.SUBFLOW_INPUT) {
+          // Context slots from outer handles should be placed right after item.
+          return 1;
+        }
+        return 2;
+      };
+
+      const ar = typeRank(a);
+      const br = typeRank(b);
+      if (ar !== br) return ar - br;
+
+      const contextSlotOf = (node: Node): number => {
+        if (String(node.type) !== NODE_TYPES.SUBFLOW_INPUT) {
+          return Number.MAX_SAFE_INTEGER;
+        }
+        const data =
+          node.data && typeof node.data === "object"
+            ? (node.data as Record<string, unknown>)
+            : {};
+        const raw = data.contextSlot;
+        return typeof raw === "number" && Number.isFinite(raw)
+          ? raw
+          : Number.MAX_SAFE_INTEGER;
+      };
+
+      const ac = contextSlotOf(a);
+      const bc = contextSlotOf(b);
+      if (ac !== bc) return ac - bc;
+
       const ay = (a.position?.y ?? 0) as number;
       const by = (b.position?.y ?? 0) as number;
       if (ay !== by) return ay - by;
@@ -723,7 +889,11 @@ function computeSubflowExecutionPlan(params: {
   // Allow explicit "return" points via `subflowOutput` nodes. These can be
   // multiple, but they all feed the same single exposed salida of the subflujo.
   const explicitOutputs = params.subflowNodes
-    .filter((n) => String(n.type) === NODE_TYPES.SUBFLOW_OUTPUT)
+    .filter(
+      (n) =>
+        String(n.type) === NODE_TYPES.SUBFLOW_OUTPUT ||
+        String(n.type) === NODE_TYPES.FILTER_BOOLEAN_OUTPUT,
+    )
     .slice()
     .sort((a, b) => {
       const ay = (a.position?.y ?? 0) as number;
@@ -797,6 +967,7 @@ function compileSubflowNodeDefinition(params: {
   outCount?: number;
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
   signal?: AbortSignal;
   remoteExecutor?: RemoteExecutor;
   runtimeCtx?: SubflowRuntimeContext;
@@ -808,6 +979,7 @@ function compileSubflowNodeDefinition(params: {
     outCount: params.outCount,
     onLog: params.onLog,
     onPrompt: params.onPrompt,
+    onEdgeValue: params.onEdgeValue,
     signal: params.signal,
     remoteExecutor: params.remoteExecutor,
     runtimeCtx: params.runtimeCtx,
@@ -860,10 +1032,11 @@ function compileSubflowNodeDefinition(params: {
       }
 
       const engine = new DataflowEngine({ stepDelayMs: 0 });
-      if (params.onLog || params.onPrompt) {
+      if (params.onLog || params.onPrompt || params.onEdgeValue) {
         engine.setObserver({
           onLog: params.onLog,
           onPrompt: params.onPrompt,
+          onEdgeValue: params.onEdgeValue,
         });
       }
 
@@ -921,56 +1094,16 @@ function compileSubflowNodeDefinition(params: {
  * The mapping is based on the node's `type` and its serialized `data`.
  */
 function flowNodeToEngineDefinition(
-  flowNode: Node,
-  context?: {
-    writeSinkInputCountByNodeId?: Map<string, number>;
-    writeSinkConnectedInputPortsByNodeId?: Map<string, Set<string>>;
-    timerHasIncomingByNodeId?: Map<string, boolean>;
-    sequenceIncomingByNodeId?: Map<
-      string,
-      { start: boolean; end: boolean; step: boolean }
-    >;
-    pulseSequenceIncomingByNodeId?: Map<
-      string,
-      { start: boolean; end: boolean; step: boolean }
-    >;
-    selectorIncomingByNodeId?: Map<string, Set<string>>;
-    conditionalIncomingByNodeId?: Map<string, Set<string>>;
-    scatterOutputCountByNodeId?: Map<string, number>;
-    gatherInputCountByNodeId?: Map<string, number>;
-    gatherIncomingByNodeId?: Map<string, Set<string>>;
-    onLog?: EngineObserver["onLog"];
-    onPrompt?: EngineObserver["onPrompt"];
-    signal?: AbortSignal;
-    remoteExecutor?: RemoteExecutor;
-    subflowRuntimeContext?: SubflowRuntimeContext;
-    resolveSubflowTemplate?: SubflowTemplateResolver;
-  },
-): NodeDefinition {
-  return compileNodeDefinition(flowNode, {
-    writeSinkInputCountByNodeId: context?.writeSinkInputCountByNodeId,
-    writeSinkConnectedInputPortsByNodeId:
-      context?.writeSinkConnectedInputPortsByNodeId,
-    timerHasIncomingByNodeId: context?.timerHasIncomingByNodeId,
-    sequenceIncomingByNodeId: context?.sequenceIncomingByNodeId,
-    pulseSequenceIncomingByNodeId: context?.pulseSequenceIncomingByNodeId,
-    selectorIncomingByNodeId: context?.selectorIncomingByNodeId,
-    conditionalIncomingByNodeId: context?.conditionalIncomingByNodeId,
-    scatterOutputCountByNodeId: context?.scatterOutputCountByNodeId,
-    gatherInputCountByNodeId: context?.gatherInputCountByNodeId,
-    gatherIncomingByNodeId: context?.gatherIncomingByNodeId,
-    onLog: context?.onLog,
-    onPrompt: context?.onPrompt,
-    signal: context?.signal,
-    remoteExecutor: context?.remoteExecutor,
-    subflowRuntimeContext: context?.subflowRuntimeContext,
-    resolveSubflowTemplate: context?.resolveSubflowTemplate,
-    helpers: {
+  context: FlowNodeCompilerContext,
+): (flowNode: Node) => NodeDefinition {
+  return new NodeDefinitionCompilerBuilder()
+    .withContext(context)
+    .withHelpers({
       compileSingleInputGraph,
       computeSubflowExecutionPlan,
       compileSubflowNodeDefinition,
-    },
-  });
+    })
+    .build();
 }
 
 /**
@@ -990,6 +1123,7 @@ export function deserializeProgramToEngineStores(
   options?: {
     onLog?: EngineObserver["onLog"];
     onPrompt?: EngineObserver["onPrompt"];
+    onEdgeValue?: EngineObserver["onEdgeValue"];
     signal?: AbortSignal;
     remoteExecutor?: RemoteExecutor;
     resolveSubflowTemplate?: SubflowTemplateResolver;
@@ -1003,6 +1137,7 @@ export function deserializeProgramToEngineStores(
     edges: edges as Edge[],
     onLog: options?.onLog,
     onPrompt: options?.onPrompt,
+    onEdgeValue: options?.onEdgeValue,
     signal: options?.signal,
     remoteExecutor: options?.remoteExecutor,
     resolveSubflowTemplate: options?.resolveSubflowTemplate,

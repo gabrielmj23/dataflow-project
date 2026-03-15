@@ -81,8 +81,34 @@ export function ProcessingRectNodeShell({
           hasInputLabels ? "ml-12" : ""
         }`}
       >
-        <div className={`${isMathOperation ? "text-2xl" : "text-xl"} font-bold leading-none`}>{icon}</div>
-        <div className={`${hasInputLabels ? "text-base" : isMathOperation ? "text-xs" : "text-sm"} leading-tight`}>{label}</div>
+        {onConfigClick ? (
+          <button
+            type="button"
+            className="nodrag nopan rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 hover:cursor-pointer"
+            onClick={(event) => {
+              event.stopPropagation();
+              onConfigClick();
+            }}
+            aria-label="Configurar nodo"
+          >
+            <span
+              className={`${isMathOperation ? "text-2xl" : "text-xl"} font-bold leading-none`}
+            >
+              {icon}
+            </span>
+          </button>
+        ) : (
+          <div
+            className={`${isMathOperation ? "text-2xl" : "text-xl"} font-bold leading-none`}
+          >
+            {icon}
+          </div>
+        )}
+        <div
+          className={`${hasInputLabels ? "text-base" : isMathOperation ? "text-xs" : "text-sm"} leading-tight`}
+        >
+          {label}
+        </div>
         {subtitle && (
           <div className="text-xs leading-tight text-white/85">{subtitle}</div>
         )}

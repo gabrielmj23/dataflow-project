@@ -78,6 +78,7 @@ import {
   publishProject,
   updatePublishedProject,
 } from "@/lib/projects";
+import { buildProhibitedTermsError } from "@/lib/content-moderation";
 import {
   deserializeProgram,
   serializeProgram,
@@ -95,6 +96,7 @@ import {
 import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
 import microbitExample from "@/examples/microbit-example.json";
 import distributionExample from "@/examples/distribution-example.json";
+import dataflowExample from "@/examples/dataflow-example.json";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
@@ -707,9 +709,17 @@ export default function EditorPage() {
       const searchParams = new URLSearchParams(window.location.search);
       const demoParam = searchParams.get("demo");
 
-      if (demoParam === "microbit" || demoParam === "distribution") {
+      if (
+        demoParam === "microbit" ||
+        demoParam === "distribution" ||
+        demoParam === "dataflow"
+      ) {
         const exampleData =
-          demoParam === "microbit" ? microbitExample : distributionExample;
+          demoParam === "microbit"
+            ? microbitExample
+            : demoParam === "distribution"
+              ? distributionExample
+              : dataflowExample;
         const deserialized = deserializeProgram(
           exampleData as SerializedProgramV1,
         );
@@ -718,7 +728,11 @@ export default function EditorPage() {
         setEdges(deserialized.edges as FlowEdge[]);
         setProgramName(
           deserialized.programName ||
-            (demoParam === "microbit" ? "Demo Micro:bit" : "Demo Distribución"),
+            (demoParam === "microbit"
+              ? "Demo Micro:bit"
+              : demoParam === "distribution"
+                ? "Demo Distribución"
+                : "Demo Dataflow"),
         );
 
         resetHistory({
@@ -894,6 +908,24 @@ export default function EditorPage() {
       const normalizedName = projectName.trim();
       if (!normalizedName) {
         setPublishError("Ingresa un nombre para el proyecto.");
+        return;
+      }
+
+      const titleError = buildProhibitedTermsError(
+        "El titulo del proyecto",
+        normalizedName,
+      );
+      if (titleError) {
+        setPublishError(titleError);
+        return;
+      }
+
+      const descriptionError = buildProhibitedTermsError(
+        "La descripcion del proyecto",
+        description,
+      );
+      if (descriptionError) {
+        setPublishError(descriptionError);
         return;
       }
 
@@ -1281,6 +1313,24 @@ export default function EditorPage() {
         return;
       }
 
+      const titleError = buildProhibitedTermsError(
+        "El titulo del proyecto",
+        normalizedName,
+      );
+      if (titleError) {
+        setPublishError(titleError);
+        return;
+      }
+
+      const descriptionError = buildProhibitedTermsError(
+        "La descripcion del proyecto",
+        description,
+      );
+      if (descriptionError) {
+        setPublishError(descriptionError);
+        return;
+      }
+
       const normalizedGuestAuthorName = nextGuestAuthorName.trim();
       if (!isAuthenticated && !normalizedGuestAuthorName) {
         setPublishError("Ingresa tu nombre para publicar sin iniciar sesión.");
@@ -1580,7 +1630,10 @@ export default function EditorPage() {
                                   onSetCanvasMode={setCanvasMode}
                                   soundsEnabled={soundsEnabled}
                                   onSoundsEnabledChange={setSoundsEnabledState}
-                                  onDeleteNodes={() => setNodes([])}
+                                  onDeleteNodes={() => {
+                                    setNodes([]);
+                                    onClearConsoleClick();
+                                  }}
                                   onLayout={onLayout}
                                 />
                               </div>

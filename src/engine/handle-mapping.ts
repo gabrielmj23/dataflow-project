@@ -144,8 +144,8 @@ register([NODE_TYPES.SUBFLOW, NODE_TYPES.REPLICATE_FLOW], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-// Subflow explicit output node
-register([NODE_TYPES.SUBFLOW_OUTPUT], (p) => {
+// Subflow explicit output nodes
+register([NODE_TYPES.SUBFLOW_OUTPUT, NODE_TYPES.FILTER_BOOLEAN_OUTPUT], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
     if (handleId === "value" || handleId == null) return "input";
@@ -461,19 +461,35 @@ register([NODE_TYPES.UNZIP_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
-register(
-  [NODE_TYPES.FILTER_NODE, NODE_TYPES.MAP_NODE, NODE_TYPES.SORT_LIST_NODE],
-  (p) => {
-    const { nodeId, nodeType, handleId, direction } = p;
-    if (direction === "target") {
-      if (handleId === "in" || handleId == null) return "inputList";
-      throw unknownInputHandle({ nodeId, nodeType, handleId });
+register([NODE_TYPES.FILTER_NODE, NODE_TYPES.MAP_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId === "in-1" || handleId == null) {
+      return "inputList";
     }
 
-    if (handleId === "out" || handleId == null) return "outputList";
-    throw unknownOutputHandle({ nodeId, nodeType, handleId });
-  },
-);
+    const idx = parseIndexHandle(handleId);
+    if (handleId?.startsWith("in-") && idx && idx >= 2) {
+      return `context${idx - 1}`;
+    }
+
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "outputList";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+register([NODE_TYPES.SORT_LIST_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputList";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "outputList";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
 
 register(
   [NODE_TYPES.COUNT_NODE, NODE_TYPES.REDUCE_NODE, NODE_TYPES.PRODUCT_NODE],

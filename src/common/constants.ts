@@ -56,6 +56,7 @@ export const NODE_TYPES = {
   SCATTER_NODE: "scatter",
   GATHER_NODE: "gather",
   FILTER_INPUT_VALUE: "filterInputValue",
+  FILTER_BOOLEAN_OUTPUT: "filterBooleanOutput",
   MAP_INPUT_VALUE: "mapInputValue",
   REPLICATE_INPUT_VALUE: "replicateInputValue",
   ZIP_NODE: "zip",

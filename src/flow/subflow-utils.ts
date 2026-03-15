@@ -2,6 +2,12 @@ import type { Edge, Node } from "@xyflow/react";
 
 type HandleKey = string | null;
 
+type OpenPortSummary = {
+  inCount: number;
+  outCount: number;
+  ready: boolean;
+};
+
 function uniqueCount<T>(values: T[]): number {
   return new Set(values).size;
 }
@@ -38,7 +44,28 @@ export function computeOpenPortsFromLookup(
   nodes: Node[],
   edges: Edge[],
   nodeLookup: unknown
-): { inCount: number; outCount: number; ready: boolean } {
+): OpenPortSummary {
+  return computePortSummary(nodes, edges, nodeLookup, {
+    includeDisconnectedWriteInputs: false,
+  });
+}
+
+export function computeDanglingPortsFromLookup(
+  nodes: Node[],
+  edges: Edge[],
+  nodeLookup: unknown
+): OpenPortSummary {
+  return computePortSummary(nodes, edges, nodeLookup, {
+    includeDisconnectedWriteInputs: false,
+  });
+}
+
+function computePortSummary(
+  nodes: Node[],
+  edges: Edge[],
+  nodeLookup: unknown,
+  options: { includeDisconnectedWriteInputs: boolean }
+): OpenPortSummary {
   const nodeIds = nodes.map((n) => n.id);
   const selectedSet = new Set(nodeIds);
 
@@ -72,7 +99,7 @@ export function computeOpenPortsFromLookup(
         // vacías (in-1, in-2, ...) son puertos dinámicos para permitir
         // múltiples conexiones, pero no deberían contar como "entradas
         // abiertas" del subflujo hacia el exterior.
-        if (nodeType === "write") {
+        if (!options.includeDisconnectedWriteInputs && nodeType === "write") {
           continue;
         }
         openInputs.push(`${nodeId}:${String(targetHandle)}`);

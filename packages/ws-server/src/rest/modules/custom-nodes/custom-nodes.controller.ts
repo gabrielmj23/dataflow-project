@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createCustomNode, findCustomNodes } from "./custom-nodes.service";
 import { authGuard } from "../auth/auth.guard";
+import { ensureNoProhibitedTerms } from "../../moderation/text-moderation";
 
 const customNodesRouter = Router();
 
@@ -87,6 +88,12 @@ customNodesRouter.get("/", async (req, res) => {
 customNodesRouter.post("/", authGuard, async (req, res) => {
   try {
     const { name, description, code } = req.body;
+    ensureNoProhibitedTerms("El nombre del nodo personalizado", String(name ?? ""));
+    ensureNoProhibitedTerms(
+      "La descripcion del nodo personalizado",
+      String(description ?? ""),
+    );
+
     const authorId = req.user?.id;
     const created = await createCustomNode({
       name,

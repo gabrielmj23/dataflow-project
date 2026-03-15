@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { moderateImageDataUrl } from "@/lib/image-moderation";
 
 type PublishProjectDialogProps = {
   open: boolean;
@@ -61,6 +62,7 @@ export function PublishProjectDialog({
   const [thumbnailOverrideError, setThumbnailOverrideError] = useState<
     string | null
   >(null);
+  const [isAnalyzingThumbnail, setIsAnalyzingThumbnail] = useState(false);
   const guestAuthorId = useId();
   const projectNameId = useId();
   const projectDescriptionId = useId();
@@ -69,13 +71,13 @@ export function PublishProjectDialog({
 
   useEffect(() => {
     if (open) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setProjectName(defaultName);
       setProjectDescription(defaultDescription);
       setGuestAuthorName(defaultGuestAuthorName);
       setGuestAuthorNameError(null);
       setThumbnailOverride(null);
       setThumbnailOverrideError(null);
+      setIsAnalyzingThumbnail(false);
     }
   }, [open, defaultName, defaultDescription, defaultGuestAuthorName]);
 
@@ -83,7 +85,7 @@ export function PublishProjectDialog({
   const effectiveThumbnailPreview = thumbnailOverride ?? thumbnailPreview;
 
   const handleUploadClick = () => {
-    if (isPublishing) {
+    if (isPublishing || isAnalyzingThumbnail) {
       return;
     }
     fileInputRef.current?.click();
@@ -109,23 +111,43 @@ export function PublishProjectDialog({
       return;
     }
 
+    setIsAnalyzingThumbnail(true);
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const result = reader.result;
       if (typeof result !== "string") {
         setThumbnailOverrideError(
           "No se pudo cargar la imagen seleccionada. Intenta de nuevo.",
         );
+        setIsAnalyzingThumbnail(false);
         return;
       }
 
-      setThumbnailOverride(result);
-      setThumbnailOverrideError(null);
+      try {
+        const moderation = await moderateImageDataUrl(result);
+        if (!moderation.isAllowed) {
+          setThumbnailOverride(null);
+          setThumbnailOverrideError(
+            moderation.reason ?? "La imagen no es apta como portada de proyecto.",
+          );
+          return;
+        }
+
+        setThumbnailOverride(result);
+        setThumbnailOverrideError(null);
+      } catch {
+        setThumbnailOverrideError(
+          "No se pudo analizar la imagen. Intenta con otra imagen.",
+        );
+      } finally {
+        setIsAnalyzingThumbnail(false);
+      }
     };
     reader.onerror = () => {
       setThumbnailOverrideError(
         "No se pudo cargar la imagen seleccionada. Intenta de nuevo.",
       );
+      setIsAnalyzingThumbnail(false);
     };
 
     reader.readAsDataURL(file);
@@ -139,6 +161,13 @@ export function PublishProjectDialog({
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (isAnalyzingThumbnail) {
+      setThumbnailOverrideError(
+        "Espera a que termine el analisis de la imagen antes de publicar.",
+      );
+      return;
+    }
 
     const normalizedGuestAuthorName = guestAuthorName.trim();
     if (!isAuthenticated && !normalizedGuestAuthorName) {
@@ -200,9 +229,13 @@ export function PublishProjectDialog({
               type="button"
               variant="outline"
               onClick={handleUploadClick}
-              disabled={isPublishing}
+              disabled={isPublishing || isAnalyzingThumbnail}
             >
-              {thumbnailOverride ? "Cambiar imagen" : "Subir imagen"}
+              {isAnalyzingThumbnail
+                ? "Analizando imagen..."
+                : thumbnailOverride
+                  ? "Cambiar imagen"
+                  : "Subir imagen"}
             </Button>
 
             {thumbnailOverride ? (
@@ -210,7 +243,7 @@ export function PublishProjectDialog({
                 type="button"
                 variant="ghost"
                 onClick={handleRemoveCustomThumbnail}
-                disabled={isPublishing}
+                disabled={isPublishing || isAnalyzingThumbnail}
               >
                 Quitar imagen
               </Button>
@@ -222,12 +255,17 @@ export function PublishProjectDialog({
               accept="image/*"
               className="hidden"
               onChange={handleCustomThumbnailChange}
-              disabled={isPublishing}
+              disabled={isPublishing || isAnalyzingThumbnail}
             />
           </div>
 
           {thumbnailOverrideError ? (
             <p className="text-sm text-red-600">{thumbnailOverrideError}</p>
+          ) : null}
+          {isAnalyzingThumbnail ? (
+            <p className="text-sm text-slate-500">
+              Procesando imagen...
+            </p>
           ) : null}
 
           {!isAuthenticated ? (
@@ -297,11 +335,11 @@ export function PublishProjectDialog({
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={isPublishing}
+              disabled={isPublishing || isAnalyzingThumbnail}
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPublishing}>
+            <Button type="submit" disabled={isPublishing || isAnalyzingThumbnail}>
               {isPublishing
                 ? isSaveMode
                   ? "Guardando..."

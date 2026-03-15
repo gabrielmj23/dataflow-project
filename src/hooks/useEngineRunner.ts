@@ -7,6 +7,7 @@ import {
 } from "@/engine/engine";
 import {
   deserializeProgramToEngineStores,
+  CycleDetectedCompileError,
   type RemoteExecutor,
 } from "@/engine/deserialize-program";
 import { serializeProgram } from "@/flow/serialization";
@@ -153,7 +154,10 @@ export function useEngineRunner({
       }
       if (Array.isArray(value)) return value.map((v) => normalizeValue(v));
       if (value && typeof value === "object") {
-        const entries = Object.entries(value).map(([k, v]) => [k, normalizeValue(v)]);
+        const entries = Object.entries(value).map(([k, v]) => [
+          k,
+          normalizeValue(v),
+        ]);
         return Object.fromEntries(entries);
       }
       return value;
@@ -278,6 +282,10 @@ export function useEngineRunner({
       const stores = deserializeProgramToEngineStores(program, {
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
+        onEdgeValue: ({ edgeId, value }) => {
+          publishEdgeValue({ edgeId, value });
+          onEngineEvent?.({ type: "edge_value", edgeId, value });
+        },
         signal: abortController.signal,
         remoteExecutor,
         resolveSubflowTemplate,
@@ -351,8 +359,42 @@ export function useEngineRunner({
         // User-triggered stop/reset.
         return;
       }
+
+      if (err instanceof CycleDetectedCompileError) {
+        appendConsoleLines([`Error: ${err.message}`], {
+          level: "error",
+        });
+
+        // Clear any previous runtime visual classes.
+        setAllNodesRuntimeState(undefined);
+
+        // Highlight the nodes that participate in the detected cycle.
+        setNodes((prev) =>
+          prev.map((n) => {
+            const matches = err.cycleNodeIds.some(
+              (id) => String(n.id) === String(id),
+            );
+            if (!matches) return n;
+
+            const base = stripRuntimeClasses(n.className);
+            const next = `${base} ${runtimeClassForStatus("error")}`.trim();
+            let data = n.data;
+            if (data && typeof data === "object") {
+              data = {
+                ...(data as Record<string, unknown>),
+                runtimeError: err.message,
+              };
+            }
+            return { ...n, className: next, data };
+          }),
+        );
+
+        return;
+      }
+
       console.error("Failed to load program into engine:", err);
       appendConsoleLines([formatLogText(err)], { level: "error" });
+      setAllNodesRuntimeState(undefined);
     } finally {
       if (runAbortControllerRef.current === abortController) {
         runAbortControllerRef.current = null;
@@ -374,8 +416,6 @@ export function useEngineRunner({
     appendConsoleLines,
     onEngineEvent,
     enqueuePrompt,
-    clearEdgeValues,
-    publishEdgeValue,
     isRuntimeUpdateRef,
     setNodes,
     stripRuntimeClasses,
