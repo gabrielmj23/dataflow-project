@@ -136,7 +136,7 @@ export function IterationRectNodeShell({
     >
       <div
         className={`flex flex-col items-center gap-0.5 ${
-          inputLabels.length > 0 ? "ml-10" : ""
+          hasDynamicTargetLabels ? "ml-14" : inputLabels.length > 0 ? "ml-10" : ""
         }`}
       >
         <div className="text-lg font-bold leading-none">{icon}</div>

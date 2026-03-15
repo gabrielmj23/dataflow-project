@@ -94,6 +94,10 @@ function filterContextNodeId(index: number): string {
   return `filter-context-value-${index}`;
 }
 
+function isFilterContextNodeId(nodeId: string): boolean {
+  return /^filter-context-value-\d+$/.test(nodeId);
+}
+
 function parseFilterContextHandleIndex(handleId: unknown): number {
   const match = /^in-(\d+)$/.exec(String(handleId ?? ""));
   const idx = match ? Number(match[1]) : NaN;
@@ -249,6 +253,7 @@ function ensureFilterBoundaryNodes(params: {
     (n) =>
       String(n.id) !== FILTER_INPUT_NODE_ID &&
       String(n.id) !== FILTER_OUTPUT_NODE_ID &&
+      !isFilterContextNodeId(String(n.id)) &&
       !contextNodeIdSet.has(String(n.id)),
   );
 
@@ -700,7 +705,7 @@ export const FilterNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="filter"
-        icon={<Funnel className="h-5 w-5" />}
+        icon={<Funnel className="h-6 w-6" />}
         label={label}
         subtitle={config.subtitle}
         variant="dynamicInSingleOut"

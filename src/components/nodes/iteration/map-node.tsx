@@ -93,6 +93,10 @@ function mapContextNodeId(index: number): string {
   return `map-context-value-${index}`;
 }
 
+function isMapContextNodeId(nodeId: string): boolean {
+  return /^map-context-value-\d+$/.test(nodeId);
+}
+
 function parseMapContextHandleIndex(handleId: unknown): number {
   const match = /^in-(\d+)$/.exec(String(handleId ?? ""));
   const idx = match ? Number(match[1]) : NaN;
@@ -238,6 +242,7 @@ function ensureMapBoundaryNodes(params: {
     (n) =>
       String(n.id) !== MAP_INPUT_NODE_ID &&
       String(n.id) !== MAP_OUTPUT_NODE_ID &&
+      !isMapContextNodeId(String(n.id)) &&
       !contextNodeIdSet.has(String(n.id)),
   );
 
@@ -689,7 +694,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="map"
-        icon={<SquareFunction className="h-5 w-5" />}
+        icon={<SquareFunction className="h-6 w-6" />}
         label={label}
         subtitle={config.subtitle}
         variant="dynamicInSingleOut"
