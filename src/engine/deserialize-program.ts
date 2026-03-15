@@ -44,6 +44,97 @@ export type EngineProgramStores = {
   arcStore: ArcStore;
 };
 
+export class CycleDetectedCompileError extends Error {
+  /** Lista de IDs de nodos que participan en el ciclo (útil para resaltar). */
+  readonly cycleNodeIds: string[];
+
+  /** Lista legible de nombres/etiquetas de nodos que participan en el ciclo. */
+  readonly cycleNodeNames: string[];
+
+  constructor(cycleNodeIds: string[], cycleNodeNames: string[]) {
+    const printableCycle = cycleNodeNames.join(" -> ");
+    super(
+      `Se detectó una dependencia cíclica en el programa (${printableCycle}). El flujo no puede concluir. Rompe el ciclo para ejecutar.`,
+    );
+    this.name = "CycleDetectedCompileError";
+    this.cycleNodeIds = [...cycleNodeIds];
+    this.cycleNodeNames = [...cycleNodeNames];
+  }
+}
+
+/**
+ * Detecta ciclos en el grafo dirigido de nodos/arcos usando Depth-First Search
+ * (DFS) con una pila de recursión para detectar back-edges.
+ *
+ * Algoritmo: DFS con seguimiento de la pila de recursión (también conocido como
+ * detección de aristas hacia atrás). Cuando se encuentra un nodo que ya está
+ * en la pila de recursión se reconstruye el ciclo tomando el sub-arreglo de la
+ * pila desde la primera aparición del nodo hasta el final y añadiendo el nodo
+ * de inicio al final para mostrar el ciclo completo.
+ *
+ * Devuelve un arreglo ordenado de `nodeId`s que forman el ciclo
+ * (por ejemplo: [A, B, C, A]) o `null` si no se detecta ningún ciclo.
+ */
+function findCycleNodeIds(params: {
+  nodeStore: NodeStore;
+  arcStore: ArcStore;
+}): string[] | null {
+  const nodeIds = params.nodeStore.getNodes().map((n) => n.id);
+  const adjacency = new Map<string, string[]>();
+
+  for (const nodeId of nodeIds) {
+    adjacency.set(nodeId, []);
+  }
+
+  for (const arc of params.arcStore.getArcs()) {
+    const sourceId = arc.source.nodeId;
+    const targetId = arc.target.nodeId;
+    if (!adjacency.has(sourceId) || !adjacency.has(targetId)) continue;
+    adjacency.get(sourceId)?.push(targetId);
+  }
+
+  const visited = new Set<string>();
+  const inStack = new Set<string>();
+  const stack: string[] = [];
+
+  const buildCycleFromStack = (fromNodeId: string): string[] => {
+    const startIdx = stack.lastIndexOf(fromNodeId);
+    if (startIdx < 0) return [fromNodeId, fromNodeId];
+    const cycle = stack.slice(startIdx);
+    cycle.push(fromNodeId);
+    return cycle;
+  };
+
+  const dfs = (nodeId: string): string[] | null => {
+    visited.add(nodeId);
+    inStack.add(nodeId);
+    stack.push(nodeId);
+
+    const neighbors = adjacency.get(nodeId) ?? [];
+    for (const nextId of neighbors) {
+      if (inStack.has(nextId)) {
+        return buildCycleFromStack(nextId);
+      }
+      if (visited.has(nextId)) continue;
+
+      const cycle = dfs(nextId);
+      if (cycle) return cycle;
+    }
+
+    stack.pop();
+    inStack.delete(nodeId);
+    return null;
+  };
+
+  for (const nodeId of nodeIds) {
+    if (visited.has(nodeId)) continue;
+    const cycle = dfs(nodeId);
+    if (cycle) return cycle;
+  }
+
+  return null;
+}
+
 export type RemoteExecutionOp =
   | "sum"
   | "subtract"
@@ -425,6 +516,25 @@ export function buildEngineStoresFromFlowGraph(params: {
         String(edge.id),
       ),
     );
+  }
+
+  const cycleNodeIds = findCycleNodeIds({ nodeStore, arcStore });
+  if (cycleNodeIds) {
+    // Map node IDs back to the original UI node labels (if available) to
+    // present a friendlier message to the user.
+    const cycleNames = cycleNodeIds.map((id) => {
+      const flowNode = nodeById.get(id);
+      try {
+        const dt = asRecord(flowNode?.data);
+        if (dt && typeof dt.label === "string" && dt.label.trim())
+          return dt.label.trim();
+      } catch {
+        // ignore
+      }
+      // Fallback: use stringified id if no label available.
+      return String(id);
+    });
+    throw new CycleDetectedCompileError(cycleNodeIds, cycleNames);
   }
 
   return { nodeStore, arcStore };
