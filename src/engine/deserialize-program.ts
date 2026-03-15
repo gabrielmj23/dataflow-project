@@ -18,7 +18,8 @@ import { DataflowEngine, type EngineObserver } from "./engine";
 import { mapHandleToPortId, parseIndexHandle } from "./handle-mapping";
 
 import { asRecord } from "./deserialize/utils";
-import { compileNodeDefinition } from "./node-compilers";
+import { NodeDefinitionCompilerBuilder } from "./node-compilers";
+import type { NodeCompilerContext } from "./node-compilers/types";
 
 type SubflowTemplateResolution = {
   id: string;
@@ -193,6 +194,8 @@ export type RemoteExecutionRequest = {
 };
 
 export type RemoteExecutor = (req: RemoteExecutionRequest) => Promise<unknown>;
+
+type FlowNodeCompilerContext = Omit<NodeCompilerContext, "helpers">;
 
 /**
  * Infers the number of *input* ports for a given node definition.
@@ -454,26 +457,28 @@ export function buildEngineStoresFromFlowGraph(params: {
   const nodeStore = new NodeStore();
   const arcStore = new ArcStore();
 
+  const compileFlowNodeDefinition = flowNodeToEngineDefinition({
+    writeSinkInputCountByNodeId,
+    writeSinkConnectedInputPortsByNodeId,
+    timerHasIncomingByNodeId,
+    sequenceIncomingByNodeId,
+    pulseSequenceIncomingByNodeId,
+    selectorIncomingByNodeId,
+    conditionalIncomingByNodeId,
+    scatterOutputCountByNodeId,
+    gatherInputCountByNodeId,
+    gatherIncomingByNodeId,
+    onLog: params.onLog,
+    onPrompt: params.onPrompt,
+    onEdgeValue: params.onEdgeValue,
+    signal: params.signal,
+    remoteExecutor: params.remoteExecutor,
+    subflowRuntimeContext: runtimeCtx,
+    resolveSubflowTemplate: params.resolveSubflowTemplate,
+  });
+
   for (const flowNode of uiNodes) {
-    const engineDef = flowNodeToEngineDefinition(flowNode, {
-      writeSinkInputCountByNodeId,
-      writeSinkConnectedInputPortsByNodeId,
-      timerHasIncomingByNodeId,
-      sequenceIncomingByNodeId,
-      pulseSequenceIncomingByNodeId,
-      selectorIncomingByNodeId,
-      conditionalIncomingByNodeId,
-      scatterOutputCountByNodeId,
-      gatherInputCountByNodeId,
-      gatherIncomingByNodeId,
-      onLog: params.onLog,
-      onPrompt: params.onPrompt,
-      onEdgeValue: params.onEdgeValue,
-      signal: params.signal,
-      remoteExecutor: params.remoteExecutor,
-      subflowRuntimeContext: runtimeCtx,
-      resolveSubflowTemplate: params.resolveSubflowTemplate,
-    });
+    const engineDef = compileFlowNodeDefinition(flowNode);
     nodeStore.addNode(new EngineNode(String(flowNode.id), engineDef.clone()));
   }
 
@@ -1089,58 +1094,16 @@ function compileSubflowNodeDefinition(params: {
  * The mapping is based on the node's `type` and its serialized `data`.
  */
 function flowNodeToEngineDefinition(
-  flowNode: Node,
-  context?: {
-    writeSinkInputCountByNodeId?: Map<string, number>;
-    writeSinkConnectedInputPortsByNodeId?: Map<string, Set<string>>;
-    timerHasIncomingByNodeId?: Map<string, boolean>;
-    sequenceIncomingByNodeId?: Map<
-      string,
-      { start: boolean; end: boolean; step: boolean }
-    >;
-    pulseSequenceIncomingByNodeId?: Map<
-      string,
-      { start: boolean; end: boolean; step: boolean }
-    >;
-    selectorIncomingByNodeId?: Map<string, Set<string>>;
-    conditionalIncomingByNodeId?: Map<string, Set<string>>;
-    scatterOutputCountByNodeId?: Map<string, number>;
-    gatherInputCountByNodeId?: Map<string, number>;
-    gatherIncomingByNodeId?: Map<string, Set<string>>;
-    onLog?: EngineObserver["onLog"];
-    onPrompt?: EngineObserver["onPrompt"];
-    onEdgeValue?: EngineObserver["onEdgeValue"];
-    signal?: AbortSignal;
-    remoteExecutor?: RemoteExecutor;
-    subflowRuntimeContext?: SubflowRuntimeContext;
-    resolveSubflowTemplate?: SubflowTemplateResolver;
-  },
-): NodeDefinition {
-  return compileNodeDefinition(flowNode, {
-    writeSinkInputCountByNodeId: context?.writeSinkInputCountByNodeId,
-    writeSinkConnectedInputPortsByNodeId:
-      context?.writeSinkConnectedInputPortsByNodeId,
-    timerHasIncomingByNodeId: context?.timerHasIncomingByNodeId,
-    sequenceIncomingByNodeId: context?.sequenceIncomingByNodeId,
-    pulseSequenceIncomingByNodeId: context?.pulseSequenceIncomingByNodeId,
-    selectorIncomingByNodeId: context?.selectorIncomingByNodeId,
-    conditionalIncomingByNodeId: context?.conditionalIncomingByNodeId,
-    scatterOutputCountByNodeId: context?.scatterOutputCountByNodeId,
-    gatherInputCountByNodeId: context?.gatherInputCountByNodeId,
-    gatherIncomingByNodeId: context?.gatherIncomingByNodeId,
-    onLog: context?.onLog,
-    onPrompt: context?.onPrompt,
-    onEdgeValue: context?.onEdgeValue,
-    signal: context?.signal,
-    remoteExecutor: context?.remoteExecutor,
-    subflowRuntimeContext: context?.subflowRuntimeContext,
-    resolveSubflowTemplate: context?.resolveSubflowTemplate,
-    helpers: {
+  context: FlowNodeCompilerContext,
+): (flowNode: Node) => NodeDefinition {
+  return new NodeDefinitionCompilerBuilder()
+    .withContext(context)
+    .withHelpers({
       compileSingleInputGraph,
       computeSubflowExecutionPlan,
       compileSubflowNodeDefinition,
-    },
-  });
+    })
+    .build();
 }
 
 /**
