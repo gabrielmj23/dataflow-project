@@ -183,6 +183,7 @@ register(
     NODE_TYPES.CHOICE_INPUT,
     NODE_TYPES.MICROBIT_READ_BUTTON_INPUT,
     NODE_TYPES.MICROBIT_READ_TEMPERATURE_INPUT,
+    NODE_TYPES.MICROBIT_READ_PIN_INPUT,
   ],
   (p) => {
     const { nodeId, nodeType, direction } = p;
@@ -216,16 +217,23 @@ register([NODE_TYPES.WRITE_SINK], (p) => {
 });
 
 // micro:bit sinks
-register([NODE_TYPES.MICROBIT_WRITE, NODE_TYPES.MICROBIT_SOUND], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId == null) return "input1";
-    const idx = parseIndexHandle(handleId);
-    if (handleId.startsWith("in-") && idx) return `input${idx}`;
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
-  throw noOutputsAllowed({ nodeId, nodeType });
-});
+register(
+  [
+    NODE_TYPES.MICROBIT_WRITE,
+    NODE_TYPES.MICROBIT_SOUND,
+    NODE_TYPES.MICROBIT_WRITE_PIN,
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId == null) return "input1";
+      const idx = parseIndexHandle(handleId);
+      if (handleId.startsWith("in-") && idx) return `input${idx}`;
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
+    throw noOutputsAllowed({ nodeId, nodeType });
+  },
+);
 
 // Formula editor (dynamic inputs)
 register([NODE_TYPES.FORMULA_EDITOR_NODE], (p) => {

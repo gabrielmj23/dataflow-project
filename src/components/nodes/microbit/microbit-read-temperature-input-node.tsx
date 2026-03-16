@@ -107,9 +107,15 @@ export const MicrobitReadTemperatureInputNode = memo(
       }
     }, []);
 
-    const icon = useMemo(() => {
+    const iconComponent = useMemo(() => {
       return (
-        <div className="flex flex-col items-center leading-none">
+        <div
+          className="flex flex-col items-center leading-none cursor-pointer hover:scale-110 transition-transform"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsDialogOpen(true);
+          }}
+        >
           <Thermometer className="h-7 w-7" />
         </div>
       );
@@ -119,7 +125,7 @@ export const MicrobitReadTemperatureInputNode = memo(
       <>
         <MicrobitInputShell
           nodeType="microbitReadTemperature"
-          icon={icon}
+          icon={iconComponent}
           label={label}
           onConfigClick={() => setIsDialogOpen(true)}
         />

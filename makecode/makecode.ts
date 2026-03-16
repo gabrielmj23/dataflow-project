@@ -111,7 +111,7 @@ function dfpAck(seq: number, ok: boolean, err?: string, msg?: string) {
 
 function dfpHello(seq: number) {
   // Capabilities are intentionally conservative for the MVP.
-  const caps = "ALU,STR,DISPLAY,SOUND,UART";
+  const caps = "ALU,STR,DISPLAY,SOUND,UART,GPIO";
   dfpSendLine(
     `${DFP1_PREFIX}HELLO_RES|${seq}|DEV=MICROBIT;FW=0.1.0;CAPS=${caps};MAX_PROG=${DFP1_MAX_PROG_BYTES};MAX_CHUNK=${DFP1_DEFAULT_MAX_CHUNK}`,
   );
@@ -608,6 +608,42 @@ function dfpHandleRun(seq: number, payloadRaw: string) {
       });
       continue;
     }
+    if (op == 0x34) {
+      stack.push(dfpValueNumber(input.temperature()));
+      continue;
+    }
+    if (op == 0x35) {
+      // READ_PIN (pop mode, pop pin)
+      const modeRaw = dfpValueToString(
+        stack.pop() || dfpValueString("digital"),
+      );
+      const pinRaw = dfpValueToString(stack.pop() || dfpValueString("P0"));
+      const pinMode = normalizePinMode(modeRaw);
+      const pinName = normalizePinName(pinRaw);
+      const readValue =
+        pinMode == "analog"
+          ? readAnalogPinByName(pinName)
+          : readDigitalPinByName(pinName);
+      stack.push(dfpValueNumber(readValue));
+      continue;
+    }
+    if (op == 0x36) {
+      // WRITE_PIN (pop mode, pop pin, pop value)
+      const modeRaw = dfpValueToString(
+        stack.pop() || dfpValueString("digital"),
+      );
+      const pinRaw = dfpValueToString(stack.pop() || dfpValueString("P0"));
+      const valueRaw = stack.pop() || dfpValueNumber(0);
+      const pinMode = normalizePinMode(modeRaw);
+      const pinName = normalizePinName(pinRaw);
+      const value = dfpRequireNumber(valueRaw);
+      if (pinMode == "analog") {
+        writeAnalogPinByName(pinName, value);
+      } else {
+        writeDigitalPinByName(pinName, value);
+      }
+      continue;
+    }
     if (op == 0x40) {
       // RETURN
       const v = stack.pop() || dfpValueNull();
@@ -719,6 +755,88 @@ function startIndicator() {
     indicatorRunning = false;
   });
 }
+
+function normalizePinName(raw: string): string {
+  return (raw || "").trim().toUpperCase();
+}
+
+function normalizePinMode(raw: string): string {
+  const mode = (raw || "").trim().toLowerCase();
+  if (mode == "analog" || mode == "a") return "analog";
+  return "digital";
+}
+
+function readDigitalPinByName(pin: string): number {
+  if (pin == "P1") return pins.digitalReadPin(DigitalPin.P1);
+  if (pin == "P2") return pins.digitalReadPin(DigitalPin.P2);
+  if (pin == "P3") return pins.digitalReadPin(DigitalPin.P3);
+  if (pin == "P4") return pins.digitalReadPin(DigitalPin.P4);
+  if (pin == "P10") return pins.digitalReadPin(DigitalPin.P10);
+  return pins.digitalReadPin(DigitalPin.P0);
+}
+
+function readAnalogPinByName(pin: string): number {
+  if (pin == "P1") return pins.analogReadPin(AnalogPin.P1);
+  if (pin == "P2") return pins.analogReadPin(AnalogPin.P2);
+  if (pin == "P3") return pins.analogReadPin(AnalogPin.P3);
+  if (pin == "P4") return pins.analogReadPin(AnalogPin.P4);
+  if (pin == "P10") return pins.analogReadPin(AnalogPin.P10);
+  return pins.analogReadPin(AnalogPin.P0);
+}
+
+function writeDigitalPinByName(pin: string, value: number) {
+  const digitalValue = value >= 0.5 ? 1 : 0;
+  if (pin == "P1") {
+    pins.digitalWritePin(DigitalPin.P1, digitalValue);
+    return;
+  }
+  if (pin == "P2") {
+    pins.digitalWritePin(DigitalPin.P2, digitalValue);
+    return;
+  }
+  if (pin == "P3") {
+    pins.digitalWritePin(DigitalPin.P3, digitalValue);
+    return;
+  }
+  if (pin == "P4") {
+    pins.digitalWritePin(DigitalPin.P4, digitalValue);
+    return;
+  }
+  if (pin == "P10") {
+    pins.digitalWritePin(DigitalPin.P10, digitalValue);
+    return;
+  }
+  pins.digitalWritePin(DigitalPin.P0, digitalValue);
+}
+
+function writeAnalogPinByName(pin: string, value: number) {
+  let analogValue = Math.round(value);
+  if (analogValue < 0) analogValue = 0;
+  if (analogValue > 1023) analogValue = 1023;
+
+  if (pin == "P1") {
+    pins.analogWritePin(AnalogPin.P1, analogValue);
+    return;
+  }
+  if (pin == "P2") {
+    pins.analogWritePin(AnalogPin.P2, analogValue);
+    return;
+  }
+  if (pin == "P3") {
+    pins.analogWritePin(AnalogPin.P3, analogValue);
+    return;
+  }
+  if (pin == "P4") {
+    pins.analogWritePin(AnalogPin.P4, analogValue);
+    return;
+  }
+  if (pin == "P10") {
+    pins.analogWritePin(AnalogPin.P10, analogValue);
+    return;
+  }
+  pins.analogWritePin(AnalogPin.P0, analogValue);
+}
+
 function handleCommand(msg: string) {
   msg = (msg || "").trim();
   if (!true) {
@@ -915,6 +1033,32 @@ function handleCommand(msg: string) {
       startIndicator();
       music.playTone(freq, ms);
       operationIndicator = false;
+    }
+    return;
+  }
+  if (msg.indexOf("PINR?:") == 0) {
+    const payload = msg.substr(6).trim();
+    parts = payload.split(",");
+    const pin = normalizePinName(parts.length > 0 ? parts[0] : "P0");
+    const mode = normalizePinMode(parts.length > 1 ? parts[1] : "digital");
+    const value =
+      mode == "analog" ? readAnalogPinByName(pin) : readDigitalPinByName(pin);
+    const out = "PINR:" + value;
+    serial.writeLine(out);
+    bluetooth.uartWriteLine(out);
+    return;
+  }
+  if (msg.indexOf("PINW:") == 0) {
+    const payload = msg.substr(5).trim();
+    parts = payload.split(",");
+    const pin = normalizePinName(parts.length > 0 ? parts[0] : "P0");
+    const mode = normalizePinMode(parts.length > 1 ? parts[1] : "digital");
+    const rawValue = parseFloat(parts.length > 2 ? parts[2] : "0");
+    const value = isNaN(rawValue) ? 0 : rawValue;
+    if (mode == "analog") {
+      writeAnalogPinByName(pin, value);
+    } else {
+      writeDigitalPinByName(pin, value);
     }
     return;
   }

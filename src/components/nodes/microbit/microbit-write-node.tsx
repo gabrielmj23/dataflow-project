@@ -111,11 +111,23 @@ export const MicrobitWriteNode = memo(({ id, data }: NodeProps) => {
 
   const subtitle = `${transport === "bluetooth" ? "Bluetooth" : "Serial"} · ${connectedInfo.ok ? "Conectado" : "No conectado"}`;
 
+  const iconComponent = (
+    <div
+      className="cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsDialogOpen(true);
+      }}
+    >
+      <MessageSquareText />
+    </div>
+  );
+
   return (
     <>
       <MicrobitOutputShell
         nodeType="microbitWrite"
-        icon={<MessageSquareText />}
+        icon={iconComponent}
         label={label}
         subtitle={subtitle}
         runtimeError={runtimeError}
