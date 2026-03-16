@@ -41,6 +41,7 @@ const nodeAbstractionLevelMap: Record<
   choiceInput: 2,
   microbitReadButton: 3,
   microbitReadTemperature: 3,
+  microbitReadPin: 3,
 
   sum: { min: 1, max: 2 },
   subtract: { min: 1, max: 2 },
@@ -113,6 +114,7 @@ const nodeAbstractionLevelMap: Record<
   write: 1,
   microbitWrite: 3,
   microbitSound: 3,
+  microbitWritePin: 3,
 };
 
 export function isNodeVisibleInLevel(
@@ -604,6 +606,12 @@ export const nodePalette: NodePaletteCategory[] = [
           "Lee la temperatura actual de la micro:bit y la emite como número (°C).",
       },
       {
+        type: "microbitReadPin",
+        label: "Leer pin",
+        description:
+          "Lee un pin de la micro:bit en modo digital o analógico y emite el valor.",
+      },
+      {
         type: "microbitWrite",
         label: "micro:bit · Escribir",
         description:
@@ -614,6 +622,12 @@ export const nodePalette: NodePaletteCategory[] = [
         label: "micro:bit · Sonido",
         description:
           "Activa un sonido en el micro:bit (configurable Bluetooth/Serial).",
+      },
+      {
+        type: "microbitWritePin",
+        label: "Escribir en pin",
+        description:
+          "Escribe un valor en un pin de la micro:bit en modo digital o analógico.",
       },
     ],
   },

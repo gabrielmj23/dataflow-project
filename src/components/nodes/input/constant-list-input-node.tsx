@@ -87,11 +87,23 @@ export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
     return count === 1 ? "1 valor" : `${count} valores`;
   }, [items.length]);
 
+    const iconComponent = (
+    <div
+      className="cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsDialogOpen(true);
+      }}
+    >
+      <List className="h-4 w-4" />
+    </div>
+  );
+
   return (
     <>
       <InputCircleNodeShell
         nodeType="constantList"
-        icon={<List className="h-4 w-4" />}
+        icon={iconComponent}
         label=""
         sublabel={summary}
         sublabelClassName="text-[8px]"

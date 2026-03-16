@@ -235,6 +235,9 @@ export function inferPortDataType(params: {
   if (nodeType === "microbitReadTemperature") {
     return "number";
   }
+  if (nodeType === "microbitReadPin") {
+    return "number";
+  }
   if (nodeType === "constantText") {
     return "text";
   }
@@ -437,6 +440,9 @@ export function getPortTypeMask(params: {
     if (nodeType === "microbitReadTemperature") {
       return isOutput ? TYPE_NUMBER : TYPE_ANY;
     }
+    if (nodeType === "microbitReadPin") {
+      return isOutput ? TYPE_NUMBER : TYPE_ANY;
+    }
     if (nodeType === "timerInput") {
       // Timer can optionally pass-through any incoming value after a delay.
       return TYPE_ANY;
@@ -544,8 +550,15 @@ export function getPortTypeMask(params: {
       return TYPE_ANY;
     }
 
-    // micro:bit sinks (accept any input for now)
-    if (nodeType === "microbitWrite" || nodeType === "microbitSound") {
+    // micro:bit write and write-pin sinks (accept any input for now)
+    if (nodeType === "microbitWrite" || nodeType === "microbitWritePin") {
+      return TYPE_ANY;
+    }
+
+    if (nodeType === "microbitSound") {
+      if (handleId === "in-1" || handleId === "in-2") {
+        return TYPE_NUMBER;
+      }
       return TYPE_ANY;
     }
 

@@ -687,9 +687,41 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   : undefined,
               }}
             >
-              <div className="text-2xl font-bold leading-none">
-                <PictureInPicture2 />
-              </div>
+              {!isSelfCall ? (
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Configurar nodo"
+                  className="nodrag nopan text-2xl font-bold leading-none cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setDraftNodes(subflowNodes ?? []);
+                    setDraftEdges(subflowEdges ?? []);
+                    setDraftLabel(label);
+                    setAddToPalette(false);
+                    setNameError(null);
+                    setIsEditorOpen(true);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDraftNodes(subflowNodes ?? []);
+                      setDraftEdges(subflowEdges ?? []);
+                      setDraftLabel(label);
+                      setAddToPalette(false);
+                      setNameError(null);
+                      setIsEditorOpen(true);
+                    }
+                  }}
+                >
+                  <PictureInPicture2 />
+                </div>
+              ) : (
+                <div className="text-2xl font-bold leading-none">
+                  <PictureInPicture2 />
+                </div>
+              )}
               <div className="text-sm leading-tight">{label}</div>
               {config.subtitle && (
                 <div className="text-xs leading-tight text-white/85">

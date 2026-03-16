@@ -59,11 +59,11 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
                   transport: nextTransport,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   const connectedInfo = (() => {
@@ -75,8 +75,8 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
         t === "bluetooth"
           ? "Conectado por Bluetooth"
           : t === "serial"
-          ? "Conectado por cable (Serial)"
-          : "Conectado",
+            ? "Conectado por cable (Serial)"
+            : "Conectado",
     };
   })();
 
@@ -106,9 +106,15 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
     }
   }, []);
 
-  const icon = useMemo(() => {
+  const iconComponent = useMemo(() => {
     return (
-      <div className="flex flex-col items-center leading-none">
+      <div
+        className="flex flex-col items-center leading-none cursor-pointer hover:scale-110 transition-transform"
+        onClick={(e) => {
+          e.stopPropagation();
+          setIsDialogOpen(true);
+        }}
+      >
         <Cpu className="h-7 w-7" />
       </div>
     );
@@ -118,7 +124,7 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
     <>
       <MicrobitInputShell
         nodeType="microbitReadButton"
-        icon={icon}
+        icon={iconComponent}
         label={label}
         onConfigClick={() => setIsDialogOpen(true)}
       />

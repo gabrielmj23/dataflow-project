@@ -2,6 +2,7 @@ import { NODE_TYPES } from "@/common/constants";
 
 import { EngineWriteNode } from "../nodes/output-nodes";
 import {
+  EngineMicrobitWritePinNode,
   EngineMicrobitSoundNode,
   EngineMicrobitWriteNode,
 } from "../nodes/microbit-nodes";
@@ -35,7 +36,21 @@ export const compileOutputNodes: NodeCompiler = (flowNode, ctx) => {
           (data as { transport?: unknown; connectionType?: unknown } | null)
             ?.transport ??
           (data as { connectionType?: unknown } | null)?.connectionType,
+        signal: ctx.signal,
       });
+
+    case NODE_TYPES.MICROBIT_WRITE_PIN: {
+      const pin = typeof data.pin === "string" ? data.pin : "P0";
+      const mode = data.mode === "analog" ? "analog" : "digital";
+      return new EngineMicrobitWritePinNode({
+        transport:
+          (data as { transport?: unknown; connectionType?: unknown } | null)
+            ?.transport ??
+          (data as { connectionType?: unknown } | null)?.connectionType,
+        pin,
+        mode,
+      });
+    }
 
     default:
       return null;

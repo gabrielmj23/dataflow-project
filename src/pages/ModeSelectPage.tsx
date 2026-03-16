@@ -188,7 +188,7 @@ export default function ModeSelectPage() {
 
           <p className="max-w-3xl pt-2 text-base text-slate-700 sm:text-lg">
             Con NodeLand, recorre de forma divertida el camino que te lleva
-            desde aprender a programar en el modelo de DataFlow, hasta la
+            desde aprender a programar en el modelo de Dataflow, hasta la
             interesante computación distribuida.
           </p>
 

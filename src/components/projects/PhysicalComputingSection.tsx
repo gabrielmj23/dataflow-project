@@ -18,7 +18,7 @@ export function PhysicalComputingSection({
   return (
     <section className="w-full rounded-2xl border border-slate-200 bg-white/80 p-5 shadow-sm backdrop-blur">
       <h2 className="text-4xl font-medium tracking-tight text-emerald-700">
-        Computación física
+        Computación Física
       </h2>
       <div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-1 items-center gap-4">

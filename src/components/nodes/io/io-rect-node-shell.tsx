@@ -108,7 +108,29 @@ export function IoRectNodeShell({
       <div
         className={`flex flex-col items-center gap-0.5 ${hasTargetLabels ? "ml-14" : ""}`}
       >
-        <div className="text-lg font-bold leading-none">{icon}</div>
+        {onConfigClick ? (
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Configurar nodo"
+            className="nodrag nopan text-lg font-bold leading-none cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            onClick={(event) => {
+              event.stopPropagation();
+              onConfigClick();
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                event.stopPropagation();
+                onConfigClick();
+              }
+            }}
+          >
+            {icon}
+          </div>
+        ) : (
+          <div className="text-lg font-bold leading-none">{icon}</div>
+        )}
         <div className="text-xs leading-tight">{label}</div>
       </div>
 

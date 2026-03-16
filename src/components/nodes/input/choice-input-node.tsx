@@ -67,11 +67,23 @@ export const ChoiceInputNode = memo(({ id, data }: NodeProps) => {
     setIsDialogOpen(true);
   }, [choices]);
 
+    const iconComponent = (
+    <div
+      className="cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsDialogOpen(true);
+      }}
+    >
+      <Dices className="h-5 w-5" />
+    </div>
+  );
+
   return (
     <>
       <InputCircleNodeShell
         nodeType="choiceInput"
-        icon={<Dices className="h-5 w-5" />}
+        icon={iconComponent}
         label=""
         sublabel={`${choices.length} opciones`}
         sublabelClassName="text-[8px]"
