@@ -33,10 +33,10 @@ export function AbstractionLevelChangeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Cambiar nivel de abstraccion</DialogTitle>
+          <DialogTitle>Cambiar nivel de abstracción</DialogTitle>
           <DialogDescription>
-            Al cambiar al nivel {targetLevel}, los siguientes nodos se eliminaran
-            del canvas porque no pertenecen a ese nivel.
+            Al cambiar al nivel {targetLevel}, los siguientes nodos se
+            eliminarán porque no pertenecen a ese nivel.
           </DialogDescription>
         </DialogHeader>
 
