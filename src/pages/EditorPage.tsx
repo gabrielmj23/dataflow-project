@@ -17,6 +17,7 @@ import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { ConnectionHighlightProvider } from "@/flow/connection-highlight-context";
 import { AppSidebar } from "@/components/app-sidebar";
+import { AbstractionLevelChangeDialog } from "@/components/AbstractionLevelChangeDialog";
 import { CanvasContextMenu } from "@/components/CanvasContextMenu";
 import { ChallengePanel } from "@/components/ChallengePanel";
 import LevelCompleteDialog from "@/components/LevelCompleteDialog";
@@ -61,8 +62,14 @@ import {
   type EdgeFeedbackMode,
 } from "@/flow/edge-feedback-mode";
 import { isSoundEnabled } from "@/lib/sound";
-import type { NodePaletteCategory, NodePaletteItem } from "@/flow/node-palette";
+import {
+  isNodeVisibleInLevel,
+  type AbstractionLevel,
+  type NodePaletteCategory,
+  type NodePaletteItem,
+} from "@/flow/node-palette";
 import { type FlowEdge, type FlowNode } from "@/utils/flow";
+import { editorPaletteLabelByType } from "@/flow/editor-node-factory";
 import { getLayoutedElements } from "@/utils/layout";
 import { CreateSubflowOverlay } from "@/components/CreateSubflowOverlay";
 import { useWindowSize } from "react-use";
@@ -119,6 +126,11 @@ type SavedExtensionReference = {
   color: string;
   authorName: string;
   templateIds: string[];
+};
+
+type AbstractionRemovalCandidate = {
+  type: string;
+  label: string;
 };
 
 function parseSavedLegacyCustomNodeReferences(): SavedCustomNodeReference[] {
@@ -316,6 +328,17 @@ export default function EditorPage() {
     x: number;
     y: number;
   } | null>(null);
+  const [isAbstractionLevelDialogOpen, setIsAbstractionLevelDialogOpen] =
+    useState(false);
+  const [abstractionRemovalCandidates, setAbstractionRemovalCandidates] =
+    useState<AbstractionRemovalCandidate[]>([]);
+  const [abstractionRemovalNodeIds, setAbstractionRemovalNodeIds] = useState<
+    string[]
+  >([]);
+  const [pendingAbstractionLevel, setPendingAbstractionLevel] =
+    useState<AbstractionLevel | null>(null);
+  const pendingAbstractionLevelResolverRef =
+    useRef<((confirmed: boolean) => void) | null>(null);
   const hasHydratedExtensionsRef = useRef(false);
 
   const {
@@ -1186,6 +1209,97 @@ export default function EditorPage() {
     [challenge.challengeAllowSet, onPaletteDragStartInternal],
   );
 
+  const resolvePendingAbstractionLevelChange = useCallback(
+    (confirmed: boolean) => {
+      const resolver = pendingAbstractionLevelResolverRef.current;
+      pendingAbstractionLevelResolverRef.current = null;
+      resolver?.(confirmed);
+    },
+    [],
+  );
+
+  const closeAbstractionLevelDialog = useCallback(() => {
+    setIsAbstractionLevelDialogOpen(false);
+    setAbstractionRemovalCandidates([]);
+    setAbstractionRemovalNodeIds([]);
+    setPendingAbstractionLevel(null);
+  }, []);
+
+  const cancelAbstractionLevelChange = useCallback(() => {
+    closeAbstractionLevelDialog();
+    resolvePendingAbstractionLevelChange(false);
+  }, [closeAbstractionLevelDialog, resolvePendingAbstractionLevelChange]);
+
+  const confirmAbstractionLevelChange = useCallback(() => {
+    const idsToRemove = new Set(abstractionRemovalNodeIds);
+
+    if (idsToRemove.size > 0) {
+      setNodes((prev) => prev.filter((node) => !idsToRemove.has(node.id)));
+      setEdges((prev) =>
+        prev.filter(
+          (edge) =>
+            !idsToRemove.has(String(edge.source)) &&
+            !idsToRemove.has(String(edge.target)),
+        ),
+      );
+    }
+
+    closeAbstractionLevelDialog();
+    resolvePendingAbstractionLevelChange(true);
+  }, [
+    abstractionRemovalNodeIds,
+    closeAbstractionLevelDialog,
+    resolvePendingAbstractionLevelChange,
+    setEdges,
+    setNodes,
+  ]);
+
+  const onAbstractionLevelChange = useCallback(
+    (nextLevel: AbstractionLevel): boolean | Promise<boolean> => {
+      const nodesToRemove = nodes.filter((node) => {
+          const nodeType = String(node.type ?? "");
+          return !isNodeVisibleInLevel(nodeType, nextLevel);
+        });
+
+      const idsToRemove = nodesToRemove.map((node) => node.id);
+      const uniqueTypes = new Map<string, AbstractionRemovalCandidate>();
+      for (const node of nodesToRemove) {
+        const nodeType = String(node.type ?? "");
+        if (uniqueTypes.has(nodeType)) {
+          continue;
+        }
+
+        uniqueTypes.set(nodeType, {
+          type: nodeType,
+          label: (editorPaletteLabelByType.get(nodeType) ?? nodeType) || "Nodo",
+        });
+      }
+
+      const candidates = Array.from(uniqueTypes.values());
+
+      if (candidates.length === 0) {
+        return true;
+      }
+
+      return new Promise<boolean>((resolve) => {
+        pendingAbstractionLevelResolverRef.current?.(false);
+        pendingAbstractionLevelResolverRef.current = resolve;
+        setAbstractionRemovalCandidates(candidates);
+        setAbstractionRemovalNodeIds(idsToRemove);
+        setPendingAbstractionLevel(nextLevel);
+        setIsAbstractionLevelDialogOpen(true);
+      });
+    },
+    [nodes],
+  );
+
+  useEffect(() => {
+    return () => {
+      pendingAbstractionLevelResolverRef.current?.(false);
+      pendingAbstractionLevelResolverRef.current = null;
+    };
+  }, []);
+
   const selectedNodes = useMemo(
     () => nodes.filter((node) => node.selected),
     [nodes],
@@ -1494,6 +1608,7 @@ export default function EditorPage() {
             <AppSidebar
               categories={paletteCategories}
               onDragStart={onPaletteDragStart}
+              onAbstractionLevelChange={onAbstractionLevelChange}
               onDeleteTemplate={subflow.requestDeleteTemplate}
               onAddExtension={handleAddExtensionToPalette}
               existingExtensionIds={existingExtensionIds}
@@ -1713,6 +1828,21 @@ export default function EditorPage() {
           onCancel={subflow.cancelDeleteTemplate}
           onConfirm={subflow.confirmDeleteTemplate}
         />
+
+        {pendingAbstractionLevel !== null ? (
+          <AbstractionLevelChangeDialog
+            open={isAbstractionLevelDialogOpen}
+            targetLevel={pendingAbstractionLevel}
+            nodesToRemove={abstractionRemovalCandidates}
+            onOpenChange={(open) => {
+              if (!open) {
+                cancelAbstractionLevelChange();
+              }
+            }}
+            onCancel={cancelAbstractionLevelChange}
+            onConfirm={confirmAbstractionLevelChange}
+          />
+        ) : null}
 
         <LevelCompleteDialog
           open={challenge.isLevelCompleteDialogOpen}

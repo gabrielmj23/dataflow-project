@@ -68,6 +68,9 @@ import { cn } from "@/lib/utils";
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
   onDragStart: (event: DragEvent | TouchEvent, item: NodePaletteItem) => void;
+  onAbstractionLevelChange?: (
+    level: AbstractionLevel,
+  ) => boolean | Promise<boolean>;
   onDeleteTemplate?: (templateId: string) => void;
   onAddExtension?: (extension: ExtensionListItem) => boolean | Promise<boolean>;
   existingExtensionIds?: string[];
@@ -78,6 +81,7 @@ type AppSidebarProps = {
 export function AppSidebar({
   categories,
   onDragStart,
+  onAbstractionLevelChange,
   onDeleteTemplate,
   onAddExtension,
   existingExtensionIds = [],
@@ -223,6 +227,22 @@ export function AppSidebar({
     requestAnimationFrame(animate);
   }
 
+  const handleAbstractionLevelChange = React.useCallback(
+    async (level: AbstractionLevel) => {
+      if (level === abstractionLevel) return;
+
+      if (onAbstractionLevelChange) {
+        const shouldApplyLevel = await onAbstractionLevelChange(level);
+        if (!shouldApplyLevel) {
+          return;
+        }
+      }
+
+      setAbstractionLevel(level);
+    },
+    [abstractionLevel, onAbstractionLevelChange],
+  );
+
   return (
     <Sidebar className={className}>
       <SidebarHeader>
@@ -246,7 +266,9 @@ export function AppSidebar({
                         <button
                           key={level}
                           type="button"
-                          onClick={() => setAbstractionLevel(level)}
+                          onClick={() => {
+                            void handleAbstractionLevelChange(level);
+                          }}
                           className={cn(
                             "h-7 text-xs font-semibold transition-colors hover:cursor-pointer",
                             index > 0 ? "border-l border-border" : "",
