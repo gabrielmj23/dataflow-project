@@ -33,7 +33,7 @@ export type MicrobitSoundNodeData = {
 
 export const MicrobitSoundNode = memo(({ id, data }: NodeProps) => {
   const {
-    label = "micro:bit · Sonido",
+    label = "Sonido",
     runtimeError,
     transport: rawTransport,
   } = (data ?? {}) as MicrobitSoundNodeData;
@@ -109,7 +109,7 @@ export const MicrobitSoundNode = memo(({ id, data }: NodeProps) => {
     }
   }, []);
 
-  const subtitle = `${transport === "bluetooth" ? "Bluetooth" : "Serial"} · ${connectedInfo.ok ? "Conectado" : "No conectado"}`;
+  const subtitle = `${connectedInfo.ok ? "Conectado" : "No conectado"}`;
 
   const iconComponent = (
     <div
@@ -132,7 +132,8 @@ export const MicrobitSoundNode = memo(({ id, data }: NodeProps) => {
         subtitle={subtitle}
         runtimeError={runtimeError}
         onConfigClick={() => setIsDialogOpen(true)}
-        targetHandleIds={["in-1"]}
+        targetHandleIds={["in-1", "in-2"]}
+        targetHandleLabels={["Frecuencia (Hz)", "Duración (ms)"]}
       />
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

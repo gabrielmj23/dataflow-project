@@ -36,6 +36,7 @@ export const compileOutputNodes: NodeCompiler = (flowNode, ctx) => {
           (data as { transport?: unknown; connectionType?: unknown } | null)
             ?.transport ??
           (data as { connectionType?: unknown } | null)?.connectionType,
+        signal: ctx.signal,
       });
 
     case NODE_TYPES.MICROBIT_WRITE_PIN: {

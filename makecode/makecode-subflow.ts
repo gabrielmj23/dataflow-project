@@ -1038,6 +1038,25 @@ function processInput(msg: string) {
 
   if (cleanMsg.indexOf("TXT:") == 0) {
     basic.showString(cleanMsg.substr(4));
+  } else if (cleanMsg.indexOf("SND:") == 0) {
+    const payload = cleanMsg.substr(4).trim();
+    let freq = NaN;
+    let durationMs = 250;
+
+    if (payload.indexOf(",") >= 0) {
+      const parts = payload.split(",");
+      freq = parseInt((parts[0] || "").trim());
+      const parsedDuration = parseInt((parts[1] || "").trim());
+      if (!isNaN(parsedDuration) && parsedDuration > 0) {
+        durationMs = parsedDuration;
+      }
+    } else {
+      freq = parseInt(payload);
+    }
+
+    if (!isNaN(freq) && freq > 0) {
+      music.playTone(freq, durationMs);
+    }
   } else if (cleanMsg == "TEMP?") {
     const out = "TEMP:" + input.temperature();
     serial.writeLine(out);

@@ -550,12 +550,15 @@ export function getPortTypeMask(params: {
       return TYPE_ANY;
     }
 
-    // micro:bit sinks (accept any input for now)
-    if (
-      nodeType === "microbitWrite" ||
-      nodeType === "microbitSound" ||
-      nodeType === "microbitWritePin"
-    ) {
+    // micro:bit write and write-pin sinks (accept any input for now)
+    if (nodeType === "microbitWrite" || nodeType === "microbitWritePin") {
+      return TYPE_ANY;
+    }
+
+    if (nodeType === "microbitSound") {
+      if (handleId === "in-1" || handleId === "in-2") {
+        return TYPE_NUMBER;
+      }
       return TYPE_ANY;
     }
 

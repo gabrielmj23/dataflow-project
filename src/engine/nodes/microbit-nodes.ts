@@ -410,30 +410,23 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
     const transport = sanitizeTransport(params.transport);
 
     super(
-      async (value: unknown) => {
+      async (frequencyValue: unknown, durationValue: unknown) => {
         const connection = await ensureMicrobitConnected({ transport });
-        // Accept either number (frequency) or "freq,duration".
-        const raw = formatValue(value).trim();
-        let freq = Number(raw);
-        let ms = 250;
-
+        const freq = Number(frequencyValue);
+        const rawFrequency = formatValue(frequencyValue).trim();
         if (!Number.isFinite(freq)) {
-          const parts = raw.split(",").map((p) => p.trim());
-          if (parts.length >= 1) {
-            const f = Number(parts[0]);
-            if (Number.isFinite(f)) freq = f;
-          }
-          if (parts.length >= 2) {
-            const d = Number(parts[1]);
-            if (Number.isFinite(d)) ms = Math.max(10, Math.floor(d));
-          }
+          throw new Error(`Frecuencia inválida: '${rawFrequency}'`);
         }
 
-        if (!Number.isFinite(freq)) {
-          throw new Error(`Frecuencia inválida: '${raw}'`);
+        const rawDuration = formatValue(durationValue).trim();
+        const parsedDuration = Number(durationValue);
+        if (!Number.isFinite(parsedDuration)) {
+          throw new Error(`Duración inválida: '${rawDuration}'`);
         }
+        const ms = Math.max(10, Math.floor(parsedDuration));
 
         const payload = `SND:${Math.floor(freq)},${ms}`;
+        console.log(`[microbit-sound] Sending payload: ${payload}`);
         await withTimeout({
           promise: connection.send(payload),
           timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
@@ -442,10 +435,11 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
         });
         return undefined;
       },
-      [FirePatterns.EXISTS],
-      ["input1"],
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2"],
       {
         kind: "microbitSound",
+        stickyInputPorts: ["input1", "input2"],
       },
     );
   }
