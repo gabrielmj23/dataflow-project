@@ -383,6 +383,14 @@ export const ReplicateFlowNode = memo(
     const [draftLabel, setDraftLabel] = useState(label);
     const [nameError] = useState<string | null>(null);
 
+    const hasDraftInternalInput = useMemo(
+      () =>
+        !!(draftNodes ?? []).find((node) =>
+          isReplicateInputNodeType(node.type),
+        ),
+      [draftNodes],
+    );
+
     const connectionTooltip = useConnectionValidationTooltip(draftNodes);
 
     // Keep Write nodes inside the subflow editor in sync with their connections
@@ -923,16 +931,18 @@ export const ReplicateFlowNode = memo(
               <p className="text-sm text-muted-foreground">
                 Modifica los nodos y conexiones de este flujo interno.
               </p>
-              <div className="flex items-center justify-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addInputValueNode}
-                >
-                  Agregar valor de entrada
-                </Button>
-              </div>
+              {!hasDraftInternalInput && (
+                <div className="flex items-center justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addInputValueNode}
+                  >
+                    Agregar entrada
+                  </Button>
+                </div>
+              )}
               {nameError && (
                 <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
                   {nameError}
