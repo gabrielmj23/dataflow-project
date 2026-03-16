@@ -9,6 +9,9 @@ import type { EngineObserver } from "../engine";
 
 const MICROBIT_SEND_TIMEOUT_MS = 50000;
 const MICROBIT_RESPONSE_TIMEOUT_MS = 50000;
+const MICROBIT_SUPPORTED_PINS = ["P0", "P1", "P2", "P3", "P4", "P10"] as const;
+
+type MicrobitPinMode = "digital" | "analog";
 
 function formatValue(value: unknown): string {
   if (value == null) return "";
@@ -25,6 +28,19 @@ function formatValue(value: unknown): string {
 
 function sanitizeTransport(value: unknown): MicrobitTransport {
   return value === "bluetooth" ? "bluetooth" : "serial";
+}
+
+function sanitizePinName(
+  value: unknown,
+): (typeof MICROBIT_SUPPORTED_PINS)[number] {
+  const raw = typeof value === "string" ? value.trim().toUpperCase() : "";
+  return (MICROBIT_SUPPORTED_PINS as readonly string[]).includes(raw)
+    ? (raw as (typeof MICROBIT_SUPPORTED_PINS)[number])
+    : "P0";
+}
+
+function sanitizePinMode(value: unknown): MicrobitPinMode {
+  return value === "analog" ? "analog" : "digital";
 }
 
 function createAbortError(): Error {
@@ -139,6 +155,104 @@ function parsePrefixedText(message: string, prefix: string): string | null {
   const regex = new RegExp(`^${prefix}\\s*:`, "i");
   if (!regex.test(trimmed)) return null;
   return trimmed.replace(regex, "");
+}
+
+function parsePinReadMessage(message: string): number | null {
+  const trimmed = message.trim();
+  if (!trimmed) return null;
+  const upper = trimmed.toUpperCase();
+  if (!upper.startsWith("PINR:")) return null;
+
+  const rawPayload = trimmed.slice(5).trim();
+  if (!rawPayload) return null;
+
+  const direct = Number(rawPayload);
+  if (Number.isFinite(direct)) return direct;
+
+  const parts = rawPayload
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return null;
+
+  const last = Number(parts[parts.length - 1]);
+  return Number.isFinite(last) ? last : null;
+}
+
+function coercePinWriteValue(value: unknown, mode: MicrobitPinMode): number {
+  const numeric = Number(value);
+  if (mode === "analog") {
+    const analog = Number.isFinite(numeric) ? numeric : 0;
+    return Math.max(0, Math.min(1023, Math.round(analog)));
+  }
+
+  if (typeof value === "boolean") {
+    return value ? 1 : 0;
+  }
+  if (typeof value === "string") {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === "true" || normalized === "on") return 1;
+    if (normalized === "false" || normalized === "off") return 0;
+  }
+  if (!Number.isFinite(numeric)) return 0;
+  return numeric >= 0.5 ? 1 : 0;
+}
+
+async function waitForPinReadValue(params: {
+  signal?: AbortSignal;
+  timeoutMs?: number;
+}): Promise<number> {
+  return await new Promise<number>((resolve, reject) => {
+    const signal = params.signal;
+    const timeoutMs =
+      typeof params.timeoutMs === "number"
+        ? params.timeoutMs
+        : MICROBIT_RESPONSE_TIMEOUT_MS;
+
+    const cleanup = (
+      onAbort?: () => void,
+      off?: () => void,
+      onTimeout?: () => void,
+    ) => {
+      if (onAbort) {
+        signal?.removeEventListener("abort", onAbort);
+      }
+      if (onTimeout) {
+        window.clearTimeout(timeoutId);
+      }
+      if (off) off();
+    };
+
+    const off = onMicrobitMessage((msg) => {
+      const parsed = parsePinReadMessage(msg);
+      if (parsed == null) return;
+      cleanup(onAbort, off, onTimeout);
+      resolve(parsed);
+    });
+
+    const onAbort = () => {
+      cleanup(onAbort, off, onTimeout);
+      reject(createAbortError());
+    };
+
+    const onTimeout = () => {
+      cleanup(onAbort, off, onTimeout);
+      reject(
+        createTimeoutError(
+          "Tiempo de espera agotado esperando respuesta de la micro:bit.",
+        ),
+      );
+    };
+
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+
+    const timeoutId = window.setTimeout(onTimeout, timeoutMs);
+  });
 }
 
 function coerceFiniteNumber(value: unknown, label: string): number {
@@ -296,30 +410,23 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
     const transport = sanitizeTransport(params.transport);
 
     super(
-      async (value: unknown) => {
+      async (frequencyValue: unknown, durationValue: unknown) => {
         const connection = await ensureMicrobitConnected({ transport });
-        // Accept either number (frequency) or "freq,duration".
-        const raw = formatValue(value).trim();
-        let freq = Number(raw);
-        let ms = 250;
-
+        const freq = Number(frequencyValue);
+        const rawFrequency = formatValue(frequencyValue).trim();
         if (!Number.isFinite(freq)) {
-          const parts = raw.split(",").map((p) => p.trim());
-          if (parts.length >= 1) {
-            const f = Number(parts[0]);
-            if (Number.isFinite(f)) freq = f;
-          }
-          if (parts.length >= 2) {
-            const d = Number(parts[1]);
-            if (Number.isFinite(d)) ms = Math.max(10, Math.floor(d));
-          }
+          throw new Error(`Frecuencia inválida: '${rawFrequency}'`);
         }
 
-        if (!Number.isFinite(freq)) {
-          throw new Error(`Frecuencia inválida: '${raw}'`);
+        const rawDuration = formatValue(durationValue).trim();
+        const parsedDuration = Number(durationValue);
+        if (!Number.isFinite(parsedDuration)) {
+          throw new Error(`Duración inválida: '${rawDuration}'`);
         }
+        const ms = Math.max(10, Math.floor(parsedDuration));
 
         const payload = `SND:${Math.floor(freq)},${ms}`;
+        console.log(`[microbit-sound] Sending payload: ${payload}`);
         await withTimeout({
           promise: connection.send(payload),
           timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
@@ -328,10 +435,98 @@ export class EngineMicrobitSoundNode extends NodeDefinition {
         });
         return undefined;
       },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS],
+      ["input1", "input2"],
+      {
+        kind: "microbitSound",
+        stickyInputPorts: ["input1", "input2"],
+      },
+    );
+  }
+}
+
+export class EngineMicrobitWritePinNode extends NodeDefinition {
+  constructor(
+    params: {
+      transport?: unknown;
+      pin?: unknown;
+      mode?: unknown;
+      signal?: AbortSignal;
+    } = {},
+  ) {
+    const transport = sanitizeTransport(params.transport);
+    const pin = sanitizePinName(params.pin);
+    const mode = sanitizePinMode(params.mode);
+
+    super(
+      async (value: unknown) => {
+        const connection = await ensureMicrobitConnected({ transport });
+        const safeValue = coercePinWriteValue(value, mode);
+        const payload = `PINW:${pin},${mode},${safeValue}`;
+
+        await withTimeout({
+          promise: connection.send(payload),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
+
+        return undefined;
+      },
       [FirePatterns.EXISTS],
       ["input1"],
       {
-        kind: "microbitSound",
+        kind: "microbitWritePin",
+      },
+    );
+  }
+}
+
+export class EngineMicrobitReadPinNode extends NodeDefinition {
+  constructor(params: {
+    nodeId: string;
+    transport: MicrobitTransport;
+    pin?: unknown;
+    mode?: unknown;
+    onLog?: EngineObserver["onLog"];
+    signal?: AbortSignal;
+  }) {
+    const pin = sanitizePinName(params.pin);
+    const mode = sanitizePinMode(params.mode);
+
+    super(
+      async () => {
+        const connection = await ensureMicrobitConnected({
+          transport: params.transport,
+        });
+
+        params.onLog?.({
+          level: "info",
+          nodeId: params.nodeId,
+          message: "microbit",
+          data:
+            params.transport === "bluetooth"
+              ? `Leyendo ${pin} (${mode}, Bluetooth)…`
+              : `Leyendo ${pin} (${mode}, Serial)…`,
+        });
+
+        await withTimeout({
+          promise: connection.send(`PINR?:${pin},${mode}`),
+          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+          signal: params.signal,
+          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+        });
+
+        return await waitForPinReadValue({
+          signal: params.signal,
+          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
+        });
+      },
+      [FirePatterns.ALWAYS],
+      ["output"],
+      {
+        kind: "microbitReadPin",
+        skipStepDelay: true,
       },
     );
   }

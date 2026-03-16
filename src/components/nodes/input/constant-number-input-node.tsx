@@ -111,6 +111,7 @@ export const ConstantNumberInputNode = memo(({ id, data }: NodeProps) => {
           )
         }
         label=""
+        iconConfigClickable={false}
         onConfigClick={() => setIsDialogOpen(true)}
       />
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

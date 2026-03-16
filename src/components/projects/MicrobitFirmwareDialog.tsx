@@ -34,7 +34,7 @@ export function MicrobitFirmwareDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 my-2">
+        <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-4 mt-2">
           <p className="text-sm text-emerald-900 font-medium">
             ¿Qué debo hacer?
           </p>
@@ -47,6 +47,15 @@ export function MicrobitFirmwareDialog({
               explorador de archivos.
             </li>
           </ul>
+        </div>
+
+        <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 mb-2">
+          <p className="text-sm text-amber-900 font-medium">Importante</p>
+          <p className="mt-1 text-sm text-amber-800">
+            Esta funcionalidad solo es compatible con tarjetas Micro:bit v2.
+            Asegúrate de tener la versión correcta para evitar problemas de
+            compatibilidad.
+          </p>
         </div>
 
         <DialogFooter className="sm:justify-end">

@@ -24,6 +24,8 @@ type InputCircleNodeShellProps = {
   sublabelClassName?: string;
   /** Optional container className override (colors/background). */
   className?: string;
+  /** Disable icon-as-config-trigger behavior for interactive icon content. */
+  iconConfigClickable?: boolean;
   /** Optional handle indicator border class override. */
   indicatorClassName?: string;
   /**
@@ -41,6 +43,7 @@ export function InputCircleNodeShell({
   variant = "inputOnly",
   sublabel,
   className,
+  iconConfigClickable = true,
   indicatorClassName,
   sublabelClassName,
   labelClassName,
@@ -70,7 +73,29 @@ export function InputCircleNodeShell({
         "relative flex h-16 w-16 flex-col items-center justify-center rounded-full border-emerald-600 bg-emerald-500 text-center text-white shadow-md"
       }
     >
-      <div className="flex items-center justify-center">{icon}</div>
+      {onConfigClick && iconConfigClickable ? (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Configurar nodo"
+          className="nodrag nopan flex items-center justify-center cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+          onClick={(event) => {
+            event.stopPropagation();
+            onConfigClick();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              onConfigClick();
+            }
+          }}
+        >
+          {icon}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center">{icon}</div>
+      )}
       <div
         className={[
           "mt-1 leading-tight truncate max-w-16",

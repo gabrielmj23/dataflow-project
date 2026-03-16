@@ -50,6 +50,8 @@ const OPCODES = {
   DISPLAY_NUMBER: 0x31,
   PLAY_TONE: 0x32,
   READ_TEMP: 0x34,
+  READ_PIN: 0x35,
+  WRITE_PIN: 0x36,
   LIST_COUNT: 0x50,
   LIST_SORT_ASC: 0x51,
   LIST_SORT_DESC: 0x52,
@@ -508,8 +510,26 @@ export function compileSubflowToDfbc1(
         pushConst({ tag: 3 });
         break;
       }
+      case NODE_TYPES.MICROBIT_WRITE_PIN: {
+        compileInputForNode(nodeId, "in-1");
+        const pinRaw = typeof data.pin === "string" ? data.pin : "P0";
+        const modeRaw = data.mode === "analog" ? "analog" : "digital";
+        pushConst({ tag: 1, value: pinRaw });
+        pushConst({ tag: 1, value: modeRaw });
+        emit(OPCODES.WRITE_PIN);
+        pushConst({ tag: 3 });
+        break;
+      }
       case NODE_TYPES.MICROBIT_READ_TEMPERATURE_INPUT: {
         emit(OPCODES.READ_TEMP);
+        break;
+      }
+      case NODE_TYPES.MICROBIT_READ_PIN_INPUT: {
+        const pinRaw = typeof data.pin === "string" ? data.pin : "P0";
+        const modeRaw = data.mode === "analog" ? "analog" : "digital";
+        pushConst({ tag: 1, value: pinRaw });
+        pushConst({ tag: 1, value: modeRaw });
+        emit(OPCODES.READ_PIN);
         break;
       }
       default:

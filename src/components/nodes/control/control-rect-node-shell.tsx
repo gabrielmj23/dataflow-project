@@ -123,7 +123,7 @@ export function ControlRectNodeShell({
         {onConfigClick ? (
           <button
             type="button"
-            className="nodrag nopan rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 hover:cursor-pointer"
+            className="nodrag nopan rounded-sm transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 hover:cursor-pointer"
             onClick={(event) => {
               event.stopPropagation();
               onConfigClick();

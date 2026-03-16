@@ -13,6 +13,7 @@ import { RuntimeInputNode } from "@/components/nodes/input/runtime-input-node";
 
 import { MicrobitReadButtonInputNode } from "@/components/nodes/microbit/microbit-read-button-input-node";
 import { MicrobitReadTemperatureInputNode } from "@/components/nodes/microbit/microbit-read-temperature-input-node";
+import { MicrobitReadPinInputNode } from "@/components/nodes/microbit/microbit-read-pin-input-node";
 
 import { SumNode } from "@/components/nodes/processing/sum-node";
 import { SubtractNode } from "@/components/nodes/processing/subtract-node";
@@ -58,6 +59,7 @@ import { WriteNode } from "@/components/nodes/io/write-node";
 
 import { MicrobitWriteNode } from "@/components/nodes/microbit/microbit-write-node";
 import { MicrobitSoundNode } from "@/components/nodes/microbit/microbit-sound-node";
+import { MicrobitWritePinNode } from "@/components/nodes/microbit/microbit-write-pin-node";
 
 import { SequenceNode } from "@/components/nodes/iteration/sequence-node";
 import { PulseSequenceNode } from "@/components/nodes/iteration/pulse-sequence-node";
@@ -103,6 +105,7 @@ export const nodeTypesCore: NodeTypes = {
   timerInput: TimerInputNode,
   microbitReadButton: MicrobitReadButtonInputNode,
   microbitReadTemperature: MicrobitReadTemperatureInputNode,
+  microbitReadPin: MicrobitReadPinInputNode,
   sum: SumNode,
   subtract: SubtractNode,
   multiply: MultiplyNode,
@@ -146,6 +149,7 @@ export const nodeTypesCore: NodeTypes = {
   write: WriteNode,
   microbitWrite: MicrobitWriteNode,
   microbitSound: MicrobitSoundNode,
+  microbitWritePin: MicrobitWritePinNode,
   sequence: SequenceNode,
   pulseSequence: PulseSequenceNode,
   zip: ZipNode,

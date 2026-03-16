@@ -331,9 +331,37 @@ export const NestedSubflowNode = memo(
         }
       >
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-2xl font-bold leading-none">
-            <PictureInPicture2 />
-          </div>
+          {!isSelfCall ? (
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Configurar nodo"
+              className="nodrag nopan text-2xl font-bold leading-none cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              onClick={(event) => {
+                event.stopPropagation();
+                setDraftNodes(subflowNodes ?? []);
+                setDraftEdges(subflowEdges ?? []);
+                setDraftLabel(label);
+                setIsEditorOpen(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setDraftNodes(subflowNodes ?? []);
+                  setDraftEdges(subflowEdges ?? []);
+                  setDraftLabel(label);
+                  setIsEditorOpen(true);
+                }
+              }}
+            >
+              <PictureInPicture2 />
+            </div>
+          ) : (
+            <div className="text-2xl font-bold leading-none">
+              <PictureInPicture2 />
+            </div>
+          )}
           <div className="text-sm leading-tight">{label}</div>
         </div>
 

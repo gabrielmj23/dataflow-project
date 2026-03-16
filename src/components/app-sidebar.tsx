@@ -548,6 +548,19 @@ function NodePreview({
           </div>
         );
       }
+      case "microbitReadPin": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-20 w-20 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 px-2 text-center text-white shadow-md"
+          >
+            <span className="mb-1 flex items-center justify-center">
+              <Cpu className="h-6 w-6" />
+            </span>
+            <span className="px-1 text-xs leading-tight">{label}</span>
+          </div>
+        );
+      }
       case "sum":
       case "subtract":
       case "multiply":
@@ -952,6 +965,19 @@ function NodePreview({
           >
             <span className="text-2xl font-bold leading-none">
               <Volume2 className="h-5 w-5" />
+            </span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "microbitWritePin": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-2xl font-bold leading-none">
+              <PenSquare className="h-5 w-5" />
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>
