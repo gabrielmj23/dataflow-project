@@ -52,7 +52,29 @@ export function MicrobitInputShell({
       onConfigClick={onConfigClick}
       className="relative flex h-24 w-24 flex-col items-center justify-center rounded-full border-sky-700 bg-sky-600 text-center text-white shadow-md"
     >
-      <div className="flex items-center justify-center">{icon}</div>
+      {onConfigClick ? (
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label="Configurar nodo"
+          className="nodrag nopan flex items-center justify-center cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+          onClick={(event) => {
+            event.stopPropagation();
+            onConfigClick();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              event.stopPropagation();
+              onConfigClick();
+            }
+          }}
+        >
+          {icon}
+        </div>
+      ) : (
+        <div className="flex items-center justify-center">{icon}</div>
+      )}
       <div className="mt-1 text-sm leading-tight">{label}</div>
 
       {variant === "inputOutput" && (

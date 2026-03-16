@@ -133,7 +133,7 @@ export const MicrobitWritePinNode = memo(({ id, data }: NodeProps) => {
     }
   }, []);
 
-  const subtitle = `${pin} · ${mode === "analog" ? "Analogico" : "Digital"} · ${transport === "bluetooth" ? "Bluetooth" : "Serial"}`;
+  const subtitle = `${pin} · ${mode === "analog" ? "Analogico" : "Digital"}`;
 
   const iconComponent = (
     <div

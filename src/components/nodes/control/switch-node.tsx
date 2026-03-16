@@ -210,11 +210,23 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
 
   const shellStyle: React.CSSProperties = { width: `${computedWidthPx}px`, minHeight: `${computedHeightPx}px` };
 
+    const iconComponent = (
+    <div
+      className="cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
+      onClick={(e) => {
+        e.stopPropagation();
+        setIsDialogOpen(true);
+      }}
+    >
+      <ToggleRight className="h-5 w-5" />
+    </div>
+  );
+
   return (
     <>
       <ControlRectNodeShell
         nodeType="switch"
-        icon={<ToggleRight className="h-5 w-5" />}
+        icon={iconComponent}
         label={label}
         className="pl-4 pr-14"
         style={shellStyle}

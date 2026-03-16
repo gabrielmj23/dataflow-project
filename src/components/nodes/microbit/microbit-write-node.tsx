@@ -109,7 +109,7 @@ export const MicrobitWriteNode = memo(({ id, data }: NodeProps) => {
     }
   }, []);
 
-  const subtitle = `${transport === "bluetooth" ? "Bluetooth" : "Serial"} · ${connectedInfo.ok ? "Conectado" : "No conectado"}`;
+  const subtitle = `${connectedInfo.ok ? "Conectado" : "No conectado"}`;
 
   const iconComponent = (
     <div

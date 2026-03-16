@@ -828,9 +828,47 @@ export const ReplicateFlowNode = memo(
         }
       >
         <div className="flex flex-col items-center gap-0.5">
-          <div className="text-2xl font-bold leading-none">
-            <Copy className="rotate-90" />
-          </div>
+          {!isSelfCall ? (
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label="Configurar nodo"
+              className="nodrag nopan text-2xl font-bold leading-none cursor-pointer transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              onClick={(event) => {
+                event.stopPropagation();
+                const normalizedNodes = ensureReplicateBoundaryNodes(
+                  normalizeReplicateInputNodes(subflowNodes ?? []),
+                );
+                setDraftNodes(normalizedNodes);
+                setDraftEdges(
+                  filterEdgesByNodeIds(subflowEdges ?? [], normalizedNodes),
+                );
+                setDraftLabel(label);
+                setIsEditorOpen(true);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  const normalizedNodes = ensureReplicateBoundaryNodes(
+                    normalizeReplicateInputNodes(subflowNodes ?? []),
+                  );
+                  setDraftNodes(normalizedNodes);
+                  setDraftEdges(
+                    filterEdgesByNodeIds(subflowEdges ?? [], normalizedNodes),
+                  );
+                  setDraftLabel(label);
+                  setIsEditorOpen(true);
+                }
+              }}
+            >
+              <Copy className="rotate-90" />
+            </div>
+          ) : (
+            <div className="text-2xl font-bold leading-none">
+              <Copy className="rotate-90" />
+            </div>
+          )}
           <div className="text-sm leading-tight">{label}</div>
           <div className="text-[10px] leading-tight text-white/90">
             {connectionSubtitle}
