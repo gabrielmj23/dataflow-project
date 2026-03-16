@@ -43,6 +43,10 @@ export function buildPaletteLabelLookup(): Map<string, string> {
       }
     }
   }
+
+  map.set("conditional", "Condicional");
+  map.set("selector", "Selector");
+
   return map;
 }
 
