@@ -52,8 +52,8 @@ export function DataflowParadigmSection() {
             <p className="text-xl font-semibold text-blue-500">
               Ejemplo de Dataflow
             </p>
-            <p className="text-sm truncate text-slate-600">
-              Calcula factoriales en paralelo
+            <p className="text-sm text-slate-600">
+              Calcula factoriales de forma concurrente
             </p>
           </div>
         </button>

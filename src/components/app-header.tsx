@@ -13,7 +13,7 @@ export default function AppHeader({ centerTitle, children }: AppHeaderProps) {
       className="sticky top-0 z-40 flex w-full items-center justify-between gap-4 border-b-[0.5px] border-(--nodi-blue-border) bg-(--nodi-blue) px-4 py-0.5"
     >
       <Link to="/" className="flex items-center gap-1.5">
-        <img src="/nodeland-white.png" className="h-12 mb-1" />
+        <img src="/nodeland-mini-white.png" className="h-12 my-1" />
         <span className="text-3xl font-semibold text-white">NodeLand</span>
       </Link>
 
