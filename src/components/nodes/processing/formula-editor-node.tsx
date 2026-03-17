@@ -16,7 +16,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
@@ -211,7 +215,10 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
             className="space-y-3"
           >
             <div>
-              <label className="mb-2 block text-sm font-medium text-gray-900" htmlFor={inputId}>
+              <label
+                className="mb-2 block text-sm font-medium text-gray-900"
+                htmlFor={inputId}
+              >
                 Fórmula:
               </label>
               <Input
@@ -221,6 +228,7 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
                 onChange={(e) => setDraftFormula(e.currentTarget.value)}
                 placeholder="Ej: a*b+c"
                 aria-invalid={!draftValidation.ok}
+                autoComplete="off"
               />
               <div className="mt-2 flex justify-start gap-2">
                 <Popover open={showFunctions} onOpenChange={setShowFunctions}>
@@ -243,13 +251,20 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
                     className="w-96 max-h-72 overflow-y-auto p-3"
                     onInteractOutside={(event) => event.preventDefault()}
                     onEscapeKeyDown={(event) => event.preventDefault()}
+                    onWheelCapture={(e) => e.stopPropagation()}
+                    onTouchMoveCapture={(e) => e.stopPropagation()}
                   >
-                    <div className="mb-2 text-sm font-semibold">Funciones permitidas</div>
+                    <div className="mb-2 text-sm font-semibold">
+                      Funciones permitidas
+                    </div>
                     <ul className="space-y-1.5 text-xs text-foreground">
                       {FORMULA_FUNCTION_GUIDE.map((fn) => (
                         <li key={fn.name} className="leading-snug">
                           <span className="font-medium">{fn.labelEs}</span>
-                          <span className="text-muted-foreground"> {"->"} </span>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            {"->"}{" "}
+                          </span>
                           <span className="font-mono">{fn.signature}</span>
                         </li>
                       ))}
@@ -277,13 +292,18 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
                     className="w-72 max-h-72 overflow-y-auto p-3"
                     onInteractOutside={(event) => event.preventDefault()}
                     onEscapeKeyDown={(event) => event.preventDefault()}
+                    onWheelCapture={(e) => e.stopPropagation()}
+                    onTouchMoveCapture={(e) => e.stopPropagation()}
                   >
                     <div className="mb-2 text-sm font-semibold">Operadores</div>
                     <ul className="space-y-1.5 text-xs text-foreground">
                       {FORMULA_OPERATOR_GUIDE.map((op) => (
                         <li key={op.symbol} className="leading-snug">
                           <span className="font-medium">{op.labelEs}</span>
-                          <span className="text-muted-foreground"> {"->"} </span>
+                          <span className="text-muted-foreground">
+                            {" "}
+                            {"->"}{" "}
+                          </span>
                           <span className="font-mono">{op.symbol}</span>
                         </li>
                       ))}
