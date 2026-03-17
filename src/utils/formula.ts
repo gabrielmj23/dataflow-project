@@ -34,14 +34,6 @@ const ALLOWED_OPERATORS = new Set([
   "*",
   "/",
   "^",
-  ">",
-  "<",
-  ">=",
-  "<=",
-  "==",
-  "!=",
-  "and",
-  "or",
 ]);
 
 export const FORMULA_FUNCTION_GUIDE: FormulaFunctionGuideItem[] = [
@@ -174,14 +166,6 @@ export const FORMULA_OPERATOR_GUIDE: FormulaOperatorGuideItem[] = [
   { symbol: "*", labelEs: "Multiplicación" },
   { symbol: "/", labelEs: "División" },
   { symbol: "^", labelEs: "Potencia" },
-  { symbol: ">", labelEs: "Mayor que" },
-  { symbol: "<", labelEs: "Menor que" },
-  { symbol: ">=", labelEs: "Mayor o igual" },
-  { symbol: "<=", labelEs: "Menor o igual" },
-  { symbol: "==", labelEs: "Igualdad" },
-  { symbol: "!=", labelEs: "Desigualdad" },
-  { symbol: "and", labelEs: "Y lógico" },
-  { symbol: "or", labelEs: "O lógico" },
 ];
 
 function isFiniteNumber(value: unknown): boolean {
@@ -268,7 +252,10 @@ function validateNode(params: {
   if ((anyNode as { isConstantNode?: boolean }).isConstantNode) {
     const value = (anyNode as { value?: unknown }).value;
     if (typeof value === "boolean") {
-      return { ok: true };
+      return {
+        ok: false,
+        error: "Solo se permiten constantes numéricas en fórmulas aritméticas.",
+      };
     }
     if (!isFiniteNumber(value)) {
       return { ok: false, error: "Constante numérica inválida." };
