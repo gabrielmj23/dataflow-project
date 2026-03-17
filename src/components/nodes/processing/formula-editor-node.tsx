@@ -16,11 +16,16 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   getPortTypeMask,
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
-import { validateFormula } from "@/utils/formula";
+import {
+  FORMULA_FUNCTION_GUIDE,
+  FORMULA_OPERATOR_GUIDE,
+  validateFormula,
+} from "@/utils/formula";
 
 export type FormulaEditorNodeData = {
   label?: string;
@@ -75,6 +80,8 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draftFormula, setDraftFormula] = useState(formula);
+  const [showFunctions, setShowFunctions] = useState(false);
+  const [showOperators, setShowOperators] = useState(false);
   const draftValidation = useMemo(
     () => validateFormula(draftFormula),
     [draftFormula],
@@ -86,6 +93,8 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
       setIsDialogOpen(open);
       if (open) {
         setDraftFormula(formula);
+        setShowFunctions(false);
+        setShowOperators(false);
       }
     },
     [formula],
@@ -202,10 +211,7 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
             className="space-y-3"
           >
             <div>
-              <label
-                className="mb-2 block text-sm font-medium text-gray-900"
-                htmlFor={inputId}
-              >
+              <label className="mb-2 block text-sm font-medium text-gray-900" htmlFor={inputId}>
                 Fórmula:
               </label>
               <Input
@@ -216,6 +222,75 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
                 placeholder="Ej: a*b+c"
                 aria-invalid={!draftValidation.ok}
               />
+              <div className="mt-2 flex justify-start gap-2">
+                <Popover open={showFunctions} onOpenChange={setShowFunctions}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      aria-expanded={showFunctions}
+                      aria-controls={`${inputId}-functions-guide`}
+                    >
+                      {showFunctions ? "Ocultar funciones" : "Ver funciones"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    id={`${inputId}-functions-guide`}
+                    align="start"
+                    side="bottom"
+                    className="w-96 max-h-72 overflow-y-auto p-3"
+                    onInteractOutside={(event) => event.preventDefault()}
+                    onEscapeKeyDown={(event) => event.preventDefault()}
+                  >
+                    <div className="mb-2 text-sm font-semibold">Funciones permitidas</div>
+                    <ul className="space-y-1.5 text-xs text-foreground">
+                      {FORMULA_FUNCTION_GUIDE.map((fn) => (
+                        <li key={fn.name} className="leading-snug">
+                          <span className="font-medium">{fn.labelEs}</span>
+                          <span className="text-muted-foreground"> {"->"} </span>
+                          <span className="font-mono">{fn.signature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+
+                <Popover open={showOperators} onOpenChange={setShowOperators}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      aria-expanded={showOperators}
+                      aria-controls={`${inputId}-operators-guide`}
+                    >
+                      {showOperators ? "Ocultar operadores" : "Ver operadores"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    id={`${inputId}-operators-guide`}
+                    align="start"
+                    side="bottom"
+                    className="w-72 max-h-72 overflow-y-auto p-3"
+                    onInteractOutside={(event) => event.preventDefault()}
+                    onEscapeKeyDown={(event) => event.preventDefault()}
+                  >
+                    <div className="mb-2 text-sm font-semibold">Operadores</div>
+                    <ul className="space-y-1.5 text-xs text-foreground">
+                      {FORMULA_OPERATOR_GUIDE.map((op) => (
+                        <li key={op.symbol} className="leading-snug">
+                          <span className="font-medium">{op.labelEs}</span>
+                          <span className="text-muted-foreground"> {"->"} </span>
+                          <span className="font-mono">{op.symbol}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             {!draftValidation.ok && (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 px-2 py-1 text-xs text-destructive">

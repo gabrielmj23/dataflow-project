@@ -13,9 +13,24 @@ export type FormulaValidationResult = {
   compiled?: FormulaCompiled;
 };
 
+export type FormulaFunctionGuideItem = {
+  name: string;
+  labelEs: string;
+  signature: string;
+  min: number;
+  max?: number;
+};
+
+export type FormulaOperatorGuideItem = {
+  symbol: string;
+  labelEs: string;
+};
+
 const ALLOWED_OPERATORS = new Set([
   "+",
   "-",
+  "unaryPlus",
+  "unaryMinus",
   "*",
   "/",
   "^",
@@ -29,25 +44,145 @@ const ALLOWED_OPERATORS = new Set([
   "or",
 ]);
 
-const ALLOWED_FUNCTIONS = new Map<string, { min: number; max?: number }>([
-  ["sqrt", { min: 1, max: 1 }],
-  ["abs", { min: 1, max: 1 }],
-  ["exp", { min: 1, max: 1 }],
-  ["log", { min: 1, max: 2 }],
-  ["ln", { min: 1, max: 1 }],
-  ["pow", { min: 2, max: 2 }],
-  ["min", { min: 2 }],
-  ["max", { min: 2 }],
-  ["round", { min: 1, max: 1 }],
-  ["floor", { min: 1, max: 1 }],
-  ["ceil", { min: 1, max: 1 }],
-  ["sin", { min: 1, max: 1 }],
-  ["cos", { min: 1, max: 1 }],
-  ["tan", { min: 1, max: 1 }],
-  ["asin", { min: 1, max: 1 }],
-  ["acos", { min: 1, max: 1 }],
-  ["atan", { min: 1, max: 1 }],
-]);
+export const FORMULA_FUNCTION_GUIDE: FormulaFunctionGuideItem[] = [
+  {
+    name: "sqrt",
+    labelEs: "Raiz cuadrada",
+    signature: "sqrt(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "abs",
+    labelEs: "Valor absoluto",
+    signature: "abs(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "exp",
+    labelEs: "Exponencial",
+    signature: "exp(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "log",
+    labelEs: "Logaritmo",
+    signature: "log(a) o log(a, b)",
+    min: 1,
+    max: 2,
+  },
+  {
+    name: "ln",
+    labelEs: "Logaritmo natural",
+    signature: "ln(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "pow",
+    labelEs: "Potencia",
+    signature: "pow(a, b)",
+    min: 2,
+    max: 2,
+  },
+  {
+    name: "min",
+    labelEs: "Minimo",
+    signature: "min(a, b, ...)",
+    min: 2,
+  },
+  {
+    name: "max",
+    labelEs: "Maximo",
+    signature: "max(a, b, ...)",
+    min: 2,
+  },
+  {
+    name: "round",
+    labelEs: "Redondeo",
+    signature: "round(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "floor",
+    labelEs: "Piso",
+    signature: "floor(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "ceil",
+    labelEs: "Techo",
+    signature: "ceil(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "sin",
+    labelEs: "Seno",
+    signature: "sin(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "cos",
+    labelEs: "Coseno",
+    signature: "cos(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "tan",
+    labelEs: "Tangente",
+    signature: "tan(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "asin",
+    labelEs: "Arcoseno",
+    signature: "asin(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "acos",
+    labelEs: "Arcocoseno",
+    signature: "acos(a)",
+    min: 1,
+    max: 1,
+  },
+  {
+    name: "atan",
+    labelEs: "Arcotangente",
+    signature: "atan(a)",
+    min: 1,
+    max: 1,
+  },
+];
+
+const ALLOWED_FUNCTIONS = new Map<string, { min: number; max?: number }>(
+  FORMULA_FUNCTION_GUIDE.map((fn) => [fn.name, { min: fn.min, max: fn.max }]),
+);
+
+export const FORMULA_OPERATOR_GUIDE: FormulaOperatorGuideItem[] = [
+  { symbol: "+", labelEs: "Suma" },
+  { symbol: "-", labelEs: "Resta" },
+  { symbol: "*", labelEs: "Multiplicación" },
+  { symbol: "/", labelEs: "División" },
+  { symbol: "^", labelEs: "Potencia" },
+  { symbol: ">", labelEs: "Mayor que" },
+  { symbol: "<", labelEs: "Menor que" },
+  { symbol: ">=", labelEs: "Mayor o igual" },
+  { symbol: "<=", labelEs: "Menor o igual" },
+  { symbol: "==", labelEs: "Igualdad" },
+  { symbol: "!=", labelEs: "Desigualdad" },
+  { symbol: "and", labelEs: "Y lógico" },
+  { symbol: "or", labelEs: "O lógico" },
+];
 
 function isFiniteNumber(value: unknown): boolean {
   const num = typeof value === "number" ? value : Number(value);
@@ -70,7 +205,9 @@ function validateNode(params: {
 
     const args = (anyNode as { args?: unknown }).args;
     const argList = Array.isArray(args) ? (args as MathNode[]) : [];
-    const expectedArity = op === "unaryMinus" || op === "unaryPlus" ? 1 : 2;
+    const fn = String((anyNode as { fn?: unknown }).fn ?? "");
+    const isUnary = fn === "unaryMinus" || fn === "unaryPlus";
+    const expectedArity = isUnary ? 1 : 2;
     if (argList.length !== expectedArity) {
       return { ok: false, error: "Expresión inválida: aridad incorrecta." };
     }

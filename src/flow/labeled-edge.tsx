@@ -7,7 +7,10 @@ import {
   useStore,
 } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
-import { subscribeEdgeValues, getEdgeLastValue } from "./edge-value-bus";
+import {
+  subscribeEdgeValues,
+  getEdgeFirstValue,
+} from "./edge-value-bus";
 import {
   getEdgeFeedbackMode,
   subscribeEdgeFeedbackMode,
@@ -362,11 +365,10 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
     hoveredEdgeId: null,
     latchedEdgeIds: new Set<string>(),
   }));
-  const lastSnapshot = useMemo(
-    () => getEdgeLastValue(String(id)),
-    [id, version, transient],
+  const firstSnapshot = useMemo(
+    () => getEdgeFirstValue(String(id)),
+    [id, version],
   );
-
   const left = Math.round(x);
   const top = Math.round(y);
 
@@ -441,12 +443,12 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
   let variant: BubbleVariant = null;
   let bubbleValue: string | null = null;
 
-  if (isLatched && lastSnapshot) {
+  if (isLatched && firstSnapshot) {
     variant = "latched";
-    bubbleValue = formatValue(lastSnapshot.value);
-  } else if (mode === "persistent" && lastSnapshot) {
+    bubbleValue = formatValue(firstSnapshot.value);
+  } else if (mode === "persistent" && firstSnapshot) {
     variant = "persistent";
-    bubbleValue = formatValue(lastSnapshot.value);
+    bubbleValue = formatValue(firstSnapshot.value);
   } else if (
     mode === "transient" &&
     transient !== null &&
@@ -455,9 +457,14 @@ function EdgeValueOverlay({ id, x, y }: { id: string; x: number; y: number }) {
   ) {
     variant = "transient";
     bubbleValue = formatValue(transient);
-  } else if (mode === "transient" && isHovered && lastSnapshot && !isLatched) {
+  } else if (
+    mode === "transient" &&
+    isHovered &&
+    firstSnapshot &&
+    !isLatched
+  ) {
     variant = "hover";
-    bubbleValue = formatValue(lastSnapshot.value);
+    bubbleValue = formatValue(firstSnapshot.value);
   }
 
   const displayBubbleValue =
