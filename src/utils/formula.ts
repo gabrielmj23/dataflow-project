@@ -26,7 +26,13 @@ export type FormulaOperatorGuideItem = {
   labelEs: string;
 };
 
-const ALLOWED_OPERATORS = new Set([
+export type FormulaValidationMode = "logic" | "arithmetic";
+
+type ValidateFormulaOptions = {
+  mode?: FormulaValidationMode;
+};
+
+const ALLOWED_ARITHMETIC_OPERATORS = new Set([
   "+",
   "-",
   "unaryPlus",
@@ -34,6 +40,18 @@ const ALLOWED_OPERATORS = new Set([
   "*",
   "/",
   "^",
+]);
+
+const ALLOWED_LOGIC_OPERATORS = new Set([
+  ...ALLOWED_ARITHMETIC_OPERATORS,
+  ">",
+  "<",
+  ">=",
+  "<=",
+  "==",
+  "!=",
+  "and",
+  "or",
 ]);
 
 export const FORMULA_FUNCTION_GUIDE: FormulaFunctionGuideItem[] = [
@@ -177,13 +195,21 @@ function validateNode(params: {
   node: MathNode;
   variables: string[];
   seen: Set<string>;
+  allowedOperators: Set<string>;
+  allowBooleanConstants: boolean;
 }): { ok: boolean; error?: string } {
-  const { node, variables, seen } = params;
+  const {
+    node,
+    variables,
+    seen,
+    allowedOperators,
+    allowBooleanConstants,
+  } = params;
   const anyNode = node as MathNode & { [key: string]: unknown };
 
   if ((anyNode as { isOperatorNode?: boolean }).isOperatorNode) {
     const op = String((anyNode as { op?: unknown }).op ?? "");
-    if (!ALLOWED_OPERATORS.has(op)) {
+    if (!allowedOperators.has(op)) {
       return { ok: false, error: `Operador no soportado: ${op}` };
     }
 
@@ -197,7 +223,13 @@ function validateNode(params: {
     }
 
     for (const child of argList) {
-      const result = validateNode({ node: child, variables, seen });
+      const result = validateNode({
+        node: child,
+        variables,
+        seen,
+        allowedOperators,
+        allowBooleanConstants,
+      });
       if (!result.ok) return result;
     }
 
@@ -209,7 +241,13 @@ function validateNode(params: {
     if (!content) {
       return { ok: false, error: "Paréntesis inválidos." };
     }
-    return validateNode({ node: content, variables, seen });
+    return validateNode({
+      node: content,
+      variables,
+      seen,
+      allowedOperators,
+      allowBooleanConstants,
+    });
   }
 
   if ((anyNode as { isFunctionNode?: boolean }).isFunctionNode) {
@@ -230,7 +268,13 @@ function validateNode(params: {
     }
 
     for (const child of argList) {
-      const result = validateNode({ node: child, variables, seen });
+      const result = validateNode({
+        node: child,
+        variables,
+        seen,
+        allowedOperators,
+        allowBooleanConstants,
+      });
       if (!result.ok) return result;
     }
 
@@ -252,6 +296,9 @@ function validateNode(params: {
   if ((anyNode as { isConstantNode?: boolean }).isConstantNode) {
     const value = (anyNode as { value?: unknown }).value;
     if (typeof value === "boolean") {
+      if (allowBooleanConstants) {
+        return { ok: true };
+      }
       return {
         ok: false,
         error: "Solo se permiten constantes numéricas en fórmulas aritméticas.",
@@ -266,17 +313,33 @@ function validateNode(params: {
   return { ok: false, error: "Expresión inválida o no soportada." };
 }
 
-export function validateFormula(formula: string): FormulaValidationResult {
+export function validateFormula(
+  formula: string,
+  options?: ValidateFormulaOptions,
+): FormulaValidationResult {
   const trimmed = formula.trim();
   if (trimmed === "") {
     return { ok: true, variables: [] };
   }
 
+  const mode = options?.mode ?? "logic";
+  const allowedOperators =
+    mode === "arithmetic"
+      ? ALLOWED_ARITHMETIC_OPERATORS
+      : ALLOWED_LOGIC_OPERATORS;
+  const allowBooleanConstants = mode !== "arithmetic";
+
   try {
     const node = math.parse(trimmed) as MathNode;
     const variables: string[] = [];
     const seen = new Set<string>();
-    const validation = validateNode({ node, variables, seen });
+    const validation = validateNode({
+      node,
+      variables,
+      seen,
+      allowedOperators,
+      allowBooleanConstants,
+    });
     if (!validation.ok) {
       return { ok: false, error: validation.error, variables: [] };
     }

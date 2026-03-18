@@ -1030,13 +1030,19 @@ function compileSubflowNodeDefinition(params: {
         }
         ctx.depth += 1;
       }
+      const runtimeDepth = ctx?.depth ?? 0;
 
       const engine = new DataflowEngine({ stepDelayMs: 0 });
       if (params.onLog || params.onPrompt || params.onEdgeValue) {
         engine.setObserver({
           onLog: params.onLog,
           onPrompt: params.onPrompt,
-          onEdgeValue: params.onEdgeValue,
+          onEdgeValue: (event) => {
+            params.onEdgeValue?.({
+              ...event,
+              runtimeDepth,
+            });
+          },
         });
       }
 

@@ -5,6 +5,7 @@ export type EdgeValueSnapshot = {
   timestamp: number;
   sourceNodeId?: string;
   targetNodeId?: string;
+  runtimeDepth?: number;
 };
 
 export type EdgeValueEvent = EdgeValueSnapshot | { kind: "reset" };
@@ -38,6 +39,7 @@ export function publishEdgeValue(event: {
   value: unknown;
   sourceNodeId?: string;
   targetNodeId?: string;
+  runtimeDepth?: number;
 }): void {
   const snapshot: EdgeValueSnapshot = {
     kind: "value",
@@ -46,8 +48,12 @@ export function publishEdgeValue(event: {
     timestamp: Date.now(),
     sourceNodeId: event.sourceNodeId,
     targetNodeId: event.targetNodeId,
+    runtimeDepth: event.runtimeDepth,
   };
-  if (!firstValueByEdge.has(event.edgeId)) {
+  const prevFirst = firstValueByEdge.get(event.edgeId);
+  const prevDepth = prevFirst?.runtimeDepth ?? Number.POSITIVE_INFINITY;
+  const nextDepth = snapshot.runtimeDepth ?? Number.POSITIVE_INFINITY;
+  if (!prevFirst || nextDepth < prevDepth) {
     firstValueByEdge.set(event.edgeId, snapshot);
   }
   lastValueByEdge.set(event.edgeId, snapshot);

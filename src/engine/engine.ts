@@ -45,6 +45,7 @@ export type EngineObserver = {
     sourcePortId: string;
     targetNodeId: string;
     targetPortId: string;
+    runtimeDepth?: number;
   }) => void;
   onNodeExecution?: (event: {
     nodeId: string;

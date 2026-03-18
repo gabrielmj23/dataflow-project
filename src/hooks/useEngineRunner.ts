@@ -41,6 +41,7 @@ export type EngineRunnerEvent =
       type: "edge_value";
       edgeId: string;
       value: unknown;
+      runtimeDepth?: number;
     }
   | {
       type: "node_execution";
@@ -282,9 +283,9 @@ export function useEngineRunner({
       const stores = deserializeProgramToEngineStores(program, {
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
-        onEdgeValue: ({ edgeId, value }) => {
-          publishEdgeValue({ edgeId, value });
-          onEngineEvent?.({ type: "edge_value", edgeId, value });
+        onEdgeValue: ({ edgeId, value, runtimeDepth }) => {
+          publishEdgeValue({ edgeId, value, runtimeDepth });
+          onEngineEvent?.({ type: "edge_value", edgeId, value, runtimeDepth });
         },
         signal: abortController.signal,
         remoteExecutor,
@@ -327,9 +328,9 @@ export function useEngineRunner({
         },
         onLog: onLogHandler,
         onPrompt: onPromptHandler,
-        onEdgeValue: ({ edgeId, value }) => {
-          publishEdgeValue({ edgeId, value });
-          onEngineEvent?.({ type: "edge_value", edgeId, value });
+        onEdgeValue: ({ edgeId, value, runtimeDepth }) => {
+          publishEdgeValue({ edgeId, value, runtimeDepth });
+          onEngineEvent?.({ type: "edge_value", edgeId, value, runtimeDepth });
         },
         onNodeExecution: ({ nodeId, operation, inputs, result }) => {
           onEngineEvent?.({

@@ -293,7 +293,7 @@ export class EngineFormulaNode extends NodeDefinition {
   constructor(params: { formula?: unknown; variables?: unknown }) {
     const rawFormula =
       typeof params.formula === "string" ? params.formula.trim() : "";
-    const validation = validateFormula(rawFormula);
+    const validation = validateFormula(rawFormula, { mode: "arithmetic" });
 
     const providedVariables = Array.isArray(params.variables)
       ? params.variables.filter(

@@ -54,7 +54,10 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
   } = (data ?? {}) as FormulaEditorNodeData;
 
   const formula = typeof rawFormula === "string" ? rawFormula : DEFAULT_FORMULA;
-  const formulaValidation = useMemo(() => validateFormula(formula), [formula]);
+  const formulaValidation = useMemo(
+    () => validateFormula(formula, { mode: "arithmetic" }),
+    [formula],
+  );
   const variables = useMemo(
     () => (formulaValidation.ok ? formulaValidation.variables : []),
     [formulaValidation],
@@ -83,7 +86,7 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
   const [showFunctions, setShowFunctions] = useState(false);
   const [showOperators, setShowOperators] = useState(false);
   const draftValidation = useMemo(
-    () => validateFormula(draftFormula),
+    () => validateFormula(draftFormula, { mode: "arithmetic" }),
     [draftFormula],
   );
   const draftVariables = draftValidation.ok ? draftValidation.variables : [];
