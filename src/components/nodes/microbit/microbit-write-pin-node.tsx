@@ -25,7 +25,25 @@ import {
   type MicrobitTransport,
 } from "@/microbit/connection-manager";
 
-const MICROBIT_PIN_OPTIONS = ["P0", "P1", "P2", "P3", "P4", "P10"] as const;
+const MICROBIT_PIN_OPTIONS = [
+  "P0",
+  "P1",
+  "P2",
+  "P3",
+  "P4",
+  "P5",
+  "P6",
+  "P7",
+  "P8",
+  "P9",
+  "P10",
+  "P11",
+  "P12",
+  "P13",
+  "P14",
+  "P15",
+  "P16",
+] as const;
 type MicrobitPinName = (typeof MICROBIT_PIN_OPTIONS)[number];
 
 type MicrobitPinMode = "digital" | "analog";

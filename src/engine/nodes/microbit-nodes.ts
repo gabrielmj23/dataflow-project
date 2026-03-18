@@ -9,7 +9,33 @@ import type { EngineObserver } from "../engine";
 
 const MICROBIT_SEND_TIMEOUT_MS = 50000;
 const MICROBIT_RESPONSE_TIMEOUT_MS = 50000;
-const MICROBIT_SUPPORTED_PINS = ["P0", "P1", "P2", "P3", "P4", "P10"] as const;
+const MICROBIT_DIGITAL_PINS = [
+  "P0",
+  "P1",
+  "P2",
+  "P3",
+  "P4",
+  "P5",
+  "P6",
+  "P7",
+  "P8",
+  "P9",
+  "P10",
+  "P11",
+  "P12",
+  "P13",
+  "P14",
+  "P15",
+  "P16",
+] as const;
+const MICROBIT_ANALOG_READ_PINS = [
+  "P0",
+  "P1",
+  "P2",
+  "P3",
+  "P4",
+  "P10",
+] as const;
 
 type MicrobitPinMode = "digital" | "analog";
 
@@ -32,10 +58,16 @@ function sanitizeTransport(value: unknown): MicrobitTransport {
 
 function sanitizePinName(
   value: unknown,
-): (typeof MICROBIT_SUPPORTED_PINS)[number] {
+  mode: MicrobitPinMode,
+  operation: "read" | "write",
+): (typeof MICROBIT_DIGITAL_PINS)[number] {
   const raw = typeof value === "string" ? value.trim().toUpperCase() : "";
-  return (MICROBIT_SUPPORTED_PINS as readonly string[]).includes(raw)
-    ? (raw as (typeof MICROBIT_SUPPORTED_PINS)[number])
+  const allowedPins =
+    mode === "analog" && operation === "read"
+      ? (MICROBIT_ANALOG_READ_PINS as readonly string[])
+      : (MICROBIT_DIGITAL_PINS as readonly string[]);
+  return allowedPins.includes(raw)
+    ? (raw as (typeof MICROBIT_DIGITAL_PINS)[number])
     : "P0";
 }
 
@@ -195,7 +227,7 @@ function coercePinWriteValue(value: unknown, mode: MicrobitPinMode): number {
     if (normalized === "false" || normalized === "off") return 0;
   }
   if (!Number.isFinite(numeric)) return 0;
-  return numeric >= 0.5 ? 1 : 0;
+  return Math.max(0, Math.min(1, Math.round(numeric)));
 }
 
 async function waitForPinReadValue(params: {
@@ -455,8 +487,8 @@ export class EngineMicrobitWritePinNode extends NodeDefinition {
     } = {},
   ) {
     const transport = sanitizeTransport(params.transport);
-    const pin = sanitizePinName(params.pin);
     const mode = sanitizePinMode(params.mode);
+    const pin = sanitizePinName(params.pin, mode, "write");
 
     super(
       async (value: unknown) => {
@@ -491,8 +523,8 @@ export class EngineMicrobitReadPinNode extends NodeDefinition {
     onLog?: EngineObserver["onLog"];
     signal?: AbortSignal;
   }) {
-    const pin = sanitizePinName(params.pin);
     const mode = sanitizePinMode(params.mode);
+    const pin = sanitizePinName(params.pin, mode, "read");
 
     super(
       async () => {

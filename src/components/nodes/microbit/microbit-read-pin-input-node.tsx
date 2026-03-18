@@ -26,16 +26,45 @@ import {
   type MicrobitTransport,
 } from "@/microbit/connection-manager";
 
-const MICROBIT_PIN_OPTIONS = ["P0", "P1", "P2", "P3", "P4", "P10"] as const;
-type MicrobitPinName = (typeof MICROBIT_PIN_OPTIONS)[number];
+const MICROBIT_DIGITAL_PIN_OPTIONS = [
+  "P0",
+  "P1",
+  "P2",
+  "P3",
+  "P4",
+  "P5",
+  "P6",
+  "P7",
+  "P8",
+  "P9",
+  "P10",
+  "P11",
+  "P12",
+  "P13",
+  "P14",
+  "P15",
+  "P16",
+] as const;
+const MICROBIT_ANALOG_READ_PIN_OPTIONS = [
+  "P0",
+  "P1",
+  "P2",
+  "P3",
+  "P4",
+  "P10",
+] as const;
+
+type MicrobitPinName = (typeof MICROBIT_DIGITAL_PIN_OPTIONS)[number];
 
 type MicrobitPinMode = "digital" | "analog";
 
-function sanitizePin(value: unknown): MicrobitPinName {
+function sanitizePin(value: unknown, mode: MicrobitPinMode): MicrobitPinName {
   const raw = typeof value === "string" ? value.trim().toUpperCase() : "";
-  return (MICROBIT_PIN_OPTIONS as readonly string[]).includes(raw)
-    ? (raw as MicrobitPinName)
-    : "P0";
+  const allowedPins =
+    mode === "analog"
+      ? (MICROBIT_ANALOG_READ_PIN_OPTIONS as readonly string[])
+      : (MICROBIT_DIGITAL_PIN_OPTIONS as readonly string[]);
+  return allowedPins.includes(raw) ? (raw as MicrobitPinName) : "P0";
 }
 
 function sanitizeMode(value: unknown): MicrobitPinMode {
@@ -61,8 +90,8 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
     rawTransport === "bluetooth" || rawTransport === "serial"
       ? rawTransport
       : "serial";
-  const pin = sanitizePin(rawPin);
   const mode = sanitizeMode(rawMode);
+  const pin = sanitizePin(rawPin, mode);
 
   const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -200,14 +229,17 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
                 <Select
                   value={pin}
                   onValueChange={(v) => {
-                    patchData({ pin: sanitizePin(v) });
+                    patchData({ pin: sanitizePin(v, mode) });
                   }}
                 >
                   <SelectTrigger id={pinSelectId}>
                     <SelectValue placeholder="Pin" />
                   </SelectTrigger>
                   <SelectContent>
-                    {MICROBIT_PIN_OPTIONS.map((item) => (
+                    {(mode === "analog"
+                      ? MICROBIT_ANALOG_READ_PIN_OPTIONS
+                      : MICROBIT_DIGITAL_PIN_OPTIONS
+                    ).map((item) => (
                       <SelectItem key={item} value={item}>
                         {item}
                       </SelectItem>
@@ -226,7 +258,11 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
                 <Select
                   value={mode}
                   onValueChange={(v) => {
-                    patchData({ mode: sanitizeMode(v) });
+                    const nextMode = sanitizeMode(v);
+                    patchData({
+                      mode: nextMode,
+                      pin: sanitizePin(pin, nextMode),
+                    });
                   }}
                 >
                   <SelectTrigger id={modeSelectId}>
