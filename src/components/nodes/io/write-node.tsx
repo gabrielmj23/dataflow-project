@@ -48,7 +48,7 @@ function buildVarChip(params: { index: number }): HTMLSpanElement {
   // Match the same visual style as the draggable variable pills in the dialog.
   span.className =
     "inline-flex h-fit items-center whitespace-nowrap select-none rounded-md border px-2 py-1 text-xs text-white bg-teal-500";
-  span.textContent = `Entrada ${index}`;
+  span.textContent = `Salida ${index}`;
   return span;
 }
 
@@ -59,7 +59,7 @@ function buildVarChipWithLabel(params: {
   const { index, label } = params;
   const span = buildVarChip({ index });
   const normalized = String(label ?? "").trim();
-  span.textContent = normalized || `Entrada ${index}`;
+  span.textContent = normalized || `Salida ${index}`;
   return span;
 }
 
@@ -338,7 +338,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
       }
 
       return {
-        label: `Entrada ${handleIndex}`,
+        label: `Salida ${handleIndex}`,
         custom: false,
       };
     });
@@ -361,7 +361,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
       const handleIndex = parseWriteInputHandleIndex(handleId);
 
       if (isEntradaLikeLabel(normalized)) {
-        return `Entrada ${handleIndex}`;
+        return `Salida ${handleIndex}`;
       }
 
       const key = normalized.toLowerCase();
@@ -370,13 +370,13 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
       return `${normalized} ${handleIndex}`;
     });
-  }, [connectedTargetHandleIds, inputLabels, targetHandleIds]);
+  }, [inputLabels, targetHandleIds]);
 
   const targetHandlePlaceholders = useMemo(
     () =>
       targetHandleIds.map((handleId) => {
         const idx = parseWriteInputHandleIndex(handleId);
-        return `Entrada ${idx}`;
+        return `Salida ${idx}`;
       }),
     [targetHandleIds],
   );
@@ -431,7 +431,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
         if (typeof label === "string" && label.trim().length > 0) {
           return label.trim();
         }
-        return targetHandlePlaceholders[index] ?? `Entrada ${index + 1}`;
+        return targetHandlePlaceholders[index] ?? `Salida ${index + 1}`;
       }),
     [inputCount, targetHandleLabels, targetHandlePlaceholders],
   );
@@ -587,7 +587,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
       editor,
       template: draftTemplate,
       resolveLabel: (index) =>
-        variableDisplayLabels[index - 1] ?? `Entrada ${index}`,
+        variableDisplayLabels[index - 1] ?? `Salida ${index}`,
     });
 
     editor.focus();
@@ -727,7 +727,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
       insertVarAtSelectionWithLabel({
         editor,
         index: idx,
-        label: variableDisplayLabels[idx - 1] ?? `Entrada ${idx}`,
+        label: variableDisplayLabels[idx - 1] ?? `Salida ${idx}`,
       });
       onEditorInput();
     },
@@ -756,7 +756,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                   type="button"
                   size="sm"
                   variant="node"
-                  aria-label="Agregar entrada"
+                  aria-label="Agregar salida"
                   className="pointer-events-auto rounded-sm bg-transparent p-0 text-(--node-action-color) transition-colors flex h-5 w-5 items-center justify-center"
                   onClick={(event) => {
                     event.stopPropagation();
@@ -767,7 +767,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={4}>
-                Agregar entrada
+                Agregar salida
               </TooltipContent>
             </Tooltip>
             <Tooltip>
@@ -776,7 +776,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                   type="button"
                   size="sm"
                   variant="node"
-                  aria-label="Eliminar entrada"
+                  aria-label="Eliminar salida"
                   className="pointer-events-auto rounded-sm bg-transparent p-0 text-(--node-action-color) disabled:opacity-30 transition-colors flex h-5 w-5 items-center justify-center"
                   onClick={(event) => {
                     event.stopPropagation();
@@ -788,7 +788,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="bottom" sideOffset={4}>
-                Eliminar entrada
+                Eliminar salida
               </TooltipContent>
             </Tooltip>
           </>
@@ -870,7 +870,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
 
           <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
-              Escribe un texto y arrastra variables (Entrada 1, Entrada 2, ...)
+              Escribe un texto y arrastra parámetros (Salida 1, Salida 2, ...)
               al editor.
             </p>
 
@@ -900,7 +900,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
               />
 
               <div className="mt-4 flex items-center justify-between">
-                <span className="font-medium text-sm">Variables</span>
+                <span className="font-medium text-sm">Parámetros</span>
                 <div className="text-xs text-muted-foreground">
                   Arrastra y suelta al editor
                 </div>
@@ -939,7 +939,7 @@ export const WriteNode = memo(({ id, data }: NodeProps) => {
                       }}
                       className="cursor-grab select-none rounded-md border px-2 py-1 text-sm text-white bg-teal-500 w-fit"
                     >
-                      {variableDisplayLabels[idx - 1] ?? `Entrada ${idx}`}
+                      {variableDisplayLabels[idx - 1] ?? `Salida ${idx}`}
                     </div>
                   ),
                 )}
