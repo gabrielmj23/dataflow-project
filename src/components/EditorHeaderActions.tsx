@@ -90,7 +90,7 @@ export function EditorHeaderActions({
         type="button"
         onClick={onLoadClick}
       >
-        Cargar
+        Subir
         <Upload className="text-white" />
       </Button>
       <Tooltip>

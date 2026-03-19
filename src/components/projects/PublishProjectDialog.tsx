@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -13,7 +12,7 @@ import { moderateImageDataUrl } from "@/lib/image-moderation";
 
 type PublishProjectDialogProps = {
   open: boolean;
-  mode?: "publish" | "save";
+  mode?: "create-private" | "save-private" | "publish";
   isAuthenticated: boolean;
   defaultName: string;
   defaultDescription?: string;
@@ -29,12 +28,13 @@ type PublishProjectDialogProps = {
     projectDescription: string,
     thumbnailOverride: string | null,
     guestAuthorName: string,
+    shouldPublishNow: boolean,
   ) => void;
 };
 
 export function PublishProjectDialog({
   open,
-  mode = "publish",
+  mode = "create-private",
   isAuthenticated,
   defaultName,
   defaultDescription = "",
@@ -63,6 +63,7 @@ export function PublishProjectDialog({
     string | null
   >(null);
   const [isAnalyzingThumbnail, setIsAnalyzingThumbnail] = useState(false);
+  const [publishImmediately, setPublishImmediately] = useState(false);
   const guestAuthorId = useId();
   const projectNameId = useId();
   const projectDescriptionId = useId();
@@ -78,10 +79,16 @@ export function PublishProjectDialog({
       setThumbnailOverride(null);
       setThumbnailOverrideError(null);
       setIsAnalyzingThumbnail(false);
+      setPublishImmediately(false);
     }
   }, [open, defaultName, defaultDescription, defaultGuestAuthorName]);
 
-  const isSaveMode = mode === "save";
+  const isCreatePrivateMode = mode === "create-private";
+  const isSavePrivateMode = mode === "save-private";
+  const isPublishMode = mode === "publish";
+  const shouldRequireGuestAuthorName =
+    !isAuthenticated &&
+    (isPublishMode || (isCreatePrivateMode && publishImmediately));
   const effectiveThumbnailPreview = thumbnailOverride ?? thumbnailPreview;
 
   const handleUploadClick = () => {
@@ -128,7 +135,8 @@ export function PublishProjectDialog({
         if (!moderation.isAllowed) {
           setThumbnailOverride(null);
           setThumbnailOverrideError(
-            moderation.reason ?? "La imagen no es apta como portada de proyecto.",
+            moderation.reason ??
+              "La imagen no es apta como portada de proyecto.",
           );
           return;
         }
@@ -170,9 +178,9 @@ export function PublishProjectDialog({
     }
 
     const normalizedGuestAuthorName = guestAuthorName.trim();
-    if (!isAuthenticated && !normalizedGuestAuthorName) {
+    if (shouldRequireGuestAuthorName && !normalizedGuestAuthorName) {
       setGuestAuthorNameError(
-        "Ingresa tu nombre para publicar o guardar sin iniciar sesión.",
+        "Ingresa tu nombre para publicar sin iniciar sesión.",
       );
       return;
     }
@@ -183,6 +191,7 @@ export function PublishProjectDialog({
       projectDescription.trim(),
       thumbnailOverride,
       normalizedGuestAuthorName,
+      publishImmediately,
     );
   };
 
@@ -191,19 +200,23 @@ export function PublishProjectDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isSaveMode ? "Guardar cambios" : "Publicar proyecto"}
+            {isCreatePrivateMode
+              ? "Guardar proyecto"
+              : isSavePrivateMode
+                ? "Guardar cambios"
+                : "Publicar proyecto"}
           </DialogTitle>
-          <DialogDescription>
-            {isSaveMode
-              ? "Edita el título y la descripción para actualizar tu proyecto."
-              : "Confirma el nombre y la descripción antes de publicar tu proyecto."}
-          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4 overflow-y-auto max-h-[90vh]"
+        >
           {remixSourceName ? (
             <p className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-700">
-              Se publicará como remix de{" "}
+              {isPublishMode
+                ? "Se publicará como remix de "
+                : "Se guardará como remix de "}
               <span className="font-medium">{remixSourceName}</span>.
             </p>
           ) : null}
@@ -263,9 +276,7 @@ export function PublishProjectDialog({
             <p className="text-sm text-red-600">{thumbnailOverrideError}</p>
           ) : null}
           {isAnalyzingThumbnail ? (
-            <p className="text-sm text-slate-500">
-              Procesando imagen...
-            </p>
+            <p className="text-sm text-slate-500">Procesando imagen...</p>
           ) : null}
 
           {!isAuthenticated ? (
@@ -274,7 +285,7 @@ export function PublishProjectDialog({
                 htmlFor={guestAuthorId}
                 className="text-sm font-medium text-slate-700"
               >
-                Autor
+                Autor {shouldRequireGuestAuthorName ? "*" : "(opcional)"}
               </label>
               <Input
                 id={guestAuthorId}
@@ -292,6 +303,27 @@ export function PublishProjectDialog({
                 <p className="text-sm text-red-600">{guestAuthorNameError}</p>
               ) : null}
             </div>
+          ) : null}
+
+          {isCreatePrivateMode ? (
+            <label className="flex items-start hover:cursor-pointer gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={publishImmediately}
+                onChange={(event) =>
+                  setPublishImmediately(event.target.checked)
+                }
+                disabled={isPublishing}
+                className="mt-0.5"
+              />
+              <span>
+                Hacer público
+                <span className="block text-xs text-slate-500">
+                  Si lo marcas, el proyecto estará disponible para todos en la
+                  comunidad
+                </span>
+              </span>
+            </label>
           ) : null}
 
           <div className="space-y-1">
@@ -339,14 +371,21 @@ export function PublishProjectDialog({
             >
               Cancelar
             </Button>
-            <Button type="submit" disabled={isPublishing || isAnalyzingThumbnail}>
+            <Button
+              type="submit"
+              disabled={isPublishing || isAnalyzingThumbnail}
+            >
               {isPublishing
-                ? isSaveMode
-                  ? "Guardando..."
-                  : "Publicando..."
-                : isSaveMode
-                  ? "Guardar cambios"
-                  : "Publicar"}
+                ? isPublishMode
+                  ? "Publicando..."
+                  : "Guardando..."
+                : isCreatePrivateMode
+                  ? publishImmediately
+                    ? "Guardar y publicar"
+                    : "Guardar proyecto"
+                  : isSavePrivateMode
+                    ? "Guardar cambios"
+                    : "Publicar"}
             </Button>
           </DialogFooter>
         </form>

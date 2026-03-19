@@ -1,4 +1,5 @@
 import {
+  boolean,
   foreignKey,
   json,
   pgTable,
@@ -18,6 +19,7 @@ export const projectsTable = pgTable(
     guestOwnerId: text("guest_owner_id"),
     guestAuthorName: text("guest_author_name"),
     remixedFrom: uuid("remixed_from"),
+    isPublic: boolean("is_public").notNull().default(true),
     thumbnail: text("thumbnail"),
     program: json("program").notNull(),
     createdAt: timestamp("created_at").notNull().defaultNow(),

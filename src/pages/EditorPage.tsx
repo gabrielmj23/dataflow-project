@@ -92,6 +92,10 @@ import {
   type SerializedProgramV1,
 } from "@/flow/serialization";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
+import {
+  buildUnsavedChangesSignature,
+  useUnsavedChangesGuard,
+} from "@/hooks/useUnsavedChangesGuard";
 import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -259,6 +263,16 @@ function extractTemplateId(customNode: {
   }
 }
 
+const INITIAL_PROJECT_SAVE_SIGNATURE = buildUnsavedChangesSignature({
+  name: "Sin título",
+  description: "",
+  program: serializeProgram({
+    nodes: initialNodes,
+    edges: initialEdges,
+    programName: "Sin título",
+  }),
+});
+
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
   const navigate = useNavigate();
@@ -271,8 +285,8 @@ export default function EditorPage() {
   const [isRemoteDialogOpen, setIsRemoteDialogOpen] = useState(false);
   const [isPublishDialogOpen, setIsPublishDialogOpen] = useState(false);
   const [publishDialogMode, setPublishDialogMode] = useState<
-    "publish" | "save"
-  >("publish");
+    "create-private" | "save-private" | "publish"
+  >("create-private");
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const [isGeneratingThumbnailPreview, setIsGeneratingThumbnailPreview] =
     useState(false);
@@ -337,8 +351,9 @@ export default function EditorPage() {
   >([]);
   const [pendingAbstractionLevel, setPendingAbstractionLevel] =
     useState<AbstractionLevel | null>(null);
-  const pendingAbstractionLevelResolverRef =
-    useRef<((confirmed: boolean) => void) | null>(null);
+  const pendingAbstractionLevelResolverRef = useRef<
+    ((confirmed: boolean) => void) | null
+  >(null);
   const hasHydratedExtensionsRef = useRef(false);
 
   const {
@@ -915,6 +930,33 @@ export default function EditorPage() {
   const canEditPublishedProject = Boolean(
     publishedProjectQuery.data?.viewerCanEdit,
   );
+  const currentProgramSnapshot = useMemo(
+    () =>
+      serializeProgram({
+        nodes,
+        edges,
+        viewport: reactFlowInstance?.getViewport(),
+        programName,
+      }),
+    [nodes, edges, reactFlowInstance, programName],
+  );
+  const currentSaveSignature = useMemo(
+    () =>
+      buildUnsavedChangesSignature({
+        name: programName,
+        description: projectDescription,
+        program: currentProgramSnapshot,
+      }),
+    [currentProgramSnapshot, programName, projectDescription],
+  );
+  const leaveWarningMessage =
+    "Tienes cambios sin guardar. Si sales de esta vista, se perderán.";
+  const { confirmLeaveIfNeeded, markAsSaved } = useUnsavedChangesGuard({
+    enabled: !challenge.challengeDefinition,
+    currentSignature: currentSaveSignature,
+    initialSavedSignature: INITIAL_PROJECT_SAVE_SIGNATURE,
+    warningMessage: leaveWarningMessage,
+  });
 
   const handleSaveChanges = useCallback(
     async (
@@ -953,13 +995,6 @@ export default function EditorPage() {
       }
 
       const normalizedGuestAuthorName = nextGuestAuthorName.trim();
-      if (!isAuthenticated && !normalizedGuestAuthorName) {
-        setPublishError(
-          "Ingresa tu nombre para guardar este proyecto sin iniciar sesión.",
-        );
-        return;
-      }
-
       if (!reactFlowInstance) {
         setPublishError("El editor aún no está listo. Intenta de nuevo.");
         return;
@@ -991,9 +1026,10 @@ export default function EditorPage() {
           description,
           thumbnail,
           program,
+          isPublic: false,
           guestAuthorName: isAuthenticated
             ? undefined
-            : normalizedGuestAuthorName,
+            : normalizedGuestAuthorName || undefined,
         });
 
         setProgramName(normalizedName);
@@ -1011,8 +1047,15 @@ export default function EditorPage() {
 
         // keep thumbnail preview in UI
         setThumbnailPreview(thumbnail);
+        markAsSaved(
+          buildUnsavedChangesSignature({
+            name: normalizedName,
+            description,
+            program,
+          }),
+        );
         setIsPublishDialogOpen(false);
-        toast.success("Proyecto guardado correctamente.");
+        toast.success("Proyecto guardado en privado.");
       } catch (error: unknown) {
         const message =
           error instanceof Error
@@ -1023,14 +1066,15 @@ export default function EditorPage() {
       }
     },
     [
-      edges,
+      publishedProjectQuery,
+      reactFlowInstance,
+      thumbnailPreview,
       generateThumbnailPreview,
       nodes,
-      reactFlowInstance,
-      isAuthenticated,
-      publishedProjectQuery,
-      thumbnailPreview,
+      edges,
       updatePublishedProjectMutation,
+      isAuthenticated,
+      markAsSaved,
     ],
   );
 
@@ -1052,6 +1096,13 @@ export default function EditorPage() {
     setEdges(deserialized.edges as FlowEdge[]);
     setProgramName(project.name || project.program.programName || "Sin título");
     setProjectDescription(project.description ?? "");
+    markAsSaved(
+      buildUnsavedChangesSignature({
+        name: project.name || project.program.programName || "Sin título",
+        description: project.description ?? "",
+        program: project.program,
+      }),
+    );
     if (
       !isAuthenticated &&
       project.authorKind === "guest" &&
@@ -1077,6 +1128,7 @@ export default function EditorPage() {
     setNodes,
     setProgramName,
     isAuthenticated,
+    markAsSaved,
   ]);
 
   useEffect(() => {
@@ -1257,9 +1309,9 @@ export default function EditorPage() {
   const onAbstractionLevelChange = useCallback(
     (nextLevel: AbstractionLevel): boolean | Promise<boolean> => {
       const nodesToRemove = nodes.filter((node) => {
-          const nodeType = String(node.type ?? "");
-          return !isNodeVisibleInLevel(nodeType, nextLevel);
-        });
+        const nodeType = String(node.type ?? "");
+        return !isNodeVisibleInLevel(nodeType, nextLevel);
+      });
 
       const idsToRemove = nodesToRemove.map((node) => node.id);
       const uniqueTypes = new Map<string, AbstractionRemovalCandidate>();
@@ -1414,12 +1466,13 @@ export default function EditorPage() {
       });
   }, [generateThumbnailPreview, isPublishDialogOpen, nodes, edges]);
 
-  const handlePublishProject = useCallback(
+  const handleCreatePrivateProject = useCallback(
     async (
       projectName: string,
       description: string,
       thumbnailOverride: string | null,
       nextGuestAuthorName: string,
+      shouldPublishNow: boolean,
     ) => {
       const normalizedName = projectName.trim();
       if (!normalizedName) {
@@ -1446,7 +1499,7 @@ export default function EditorPage() {
       }
 
       const normalizedGuestAuthorName = nextGuestAuthorName.trim();
-      if (!isAuthenticated && !normalizedGuestAuthorName) {
+      if (!isAuthenticated && shouldPublishNow && !normalizedGuestAuthorName) {
         setPublishError("Ingresa tu nombre para publicar sin iniciar sesión.");
         return;
       }
@@ -1480,11 +1533,12 @@ export default function EditorPage() {
           name: normalizedName,
           description,
           thumbnail,
+          isPublic: shouldPublishNow,
           remixedFrom: remixSourceProject?.id,
           program,
           guestAuthorName: isAuthenticated
             ? undefined
-            : normalizedGuestAuthorName,
+            : normalizedGuestAuthorName || undefined,
         });
 
         setProgramName(normalizedName);
@@ -1498,17 +1552,28 @@ export default function EditorPage() {
           typeof createdProject?.id === "string" &&
           createdProject.id.length > 0;
 
+        markAsSaved(
+          buildUnsavedChangesSignature({
+            name: normalizedName,
+            description,
+            program,
+          }),
+        );
+
         if (shouldNavigateToCreatedRemix) {
           navigate(`/editor/${createdProject.id}`);
         }
-
         setIsPublishDialogOpen(false);
-        toast.success("Proyecto publicado correctamente.");
+        toast.success(
+          shouldPublishNow
+            ? "Proyecto guardado y publicado."
+            : "Proyecto guardado en privado.",
+        );
       } catch (error: unknown) {
         const message =
           error instanceof Error
             ? error.message
-            : "No se pudo publicar el proyecto.";
+            : "No se pudo guardar el proyecto.";
         setPublishError(message);
         toast.error(message);
       }
@@ -1523,6 +1588,103 @@ export default function EditorPage() {
       remixSourceProject,
       thumbnailPreview,
       navigate,
+      markAsSaved,
+    ],
+  );
+
+  const handlePublishProject = useCallback(
+    async (
+      projectName: string,
+      description: string,
+      thumbnailOverride: string | null,
+      nextGuestAuthorName: string,
+    ) => {
+      if (!publishedProjectQuery.data || !canEditPublishedProject) {
+        setPublishError("No hay un proyecto editable para publicar.");
+        return;
+      }
+
+      const normalizedName = projectName.trim();
+      if (!normalizedName) {
+        setPublishError("Ingresa un nombre para el proyecto.");
+        return;
+      }
+
+      const normalizedGuestAuthorName = nextGuestAuthorName.trim();
+      if (!isAuthenticated && !normalizedGuestAuthorName) {
+        setPublishError("Ingresa tu nombre para publicar sin iniciar sesión.");
+        return;
+      }
+
+      if (!reactFlowInstance) {
+        setPublishError("El editor aún no está listo. Intenta de nuevo.");
+        return;
+      }
+
+      setPublishError(null);
+
+      try {
+        const thumbnail =
+          thumbnailOverride ??
+          thumbnailPreview ??
+          (await generateThumbnailPreview());
+
+        const program = serializeProgram({
+          nodes,
+          edges,
+          viewport: reactFlowInstance.getViewport(),
+          programName: normalizedName,
+        });
+
+        await updatePublishedProjectMutation.mutateAsync({
+          id: publishedProjectQuery.data.id,
+          name: normalizedName,
+          description,
+          thumbnail: thumbnail ?? undefined,
+          isPublic: true,
+          program,
+          guestAuthorName: isAuthenticated
+            ? undefined
+            : normalizedGuestAuthorName,
+        });
+
+        setProgramName(normalizedName);
+        setProjectDescription(description);
+        if (!isAuthenticated) {
+          persistGuestProjectAuthorName(normalizedGuestAuthorName);
+          setGuestAuthorName(normalizedGuestAuthorName);
+        }
+        setThumbnailPreview(thumbnail ?? null);
+        markAsSaved(
+          buildUnsavedChangesSignature({
+            name: normalizedName,
+            description,
+            program,
+          }),
+        );
+        setIsPublishDialogOpen(false);
+        await publishedProjectQuery.refetch();
+        toast.success("Proyecto publicado correctamente.");
+      } catch (error: unknown) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "No se pudo publicar el proyecto.";
+        setPublishError(message);
+        toast.error(message);
+      }
+    },
+    [
+      canEditPublishedProject,
+      edges,
+      generateThumbnailPreview,
+      isAuthenticated,
+      nodes,
+      publishedProjectQuery,
+      reactFlowInstance,
+      thumbnailPreview,
+      updatePublishedProjectMutation,
+      markAsSaved,
     ],
   );
 
@@ -1565,32 +1727,50 @@ export default function EditorPage() {
             ) : null}
             {!challenge.challengeDefinition &&
               (canEditPublishedProject ? (
-                <Button
-                  variant="ghost"
-                  className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
-                  onClick={() => {
-                    setPublishError(null);
-                    setPublishDialogMode("save");
-                    setThumbnailPreview(null);
-                    setIsPublishDialogOpen(true);
-                  }}
-                >
-                  <UploadCloud size={16} />
-                  Guardar cambios
-                </Button>
+                <>
+                  <Button
+                    variant="ghost"
+                    className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
+                    onClick={() => {
+                      setPublishError(null);
+                      setPublishDialogMode("save-private");
+                      setThumbnailPreview(null);
+                      setIsPublishDialogOpen(true);
+                    }}
+                  >
+                    <UploadCloud size={16} />
+                    Guardar cambios
+                  </Button>
+
+                  {!publishedProjectQuery.data?.isPublic ? (
+                    <Button
+                      variant="ghost"
+                      className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
+                      onClick={() => {
+                        setPublishError(null);
+                        setPublishDialogMode("publish");
+                        setThumbnailPreview(null);
+                        setIsPublishDialogOpen(true);
+                      }}
+                    >
+                      <UploadCloud size={16} />
+                      Publicar proyecto
+                    </Button>
+                  ) : null}
+                </>
               ) : (
                 <Button
                   variant="ghost"
                   className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 hover:text-white"
                   onClick={() => {
                     setPublishError(null);
-                    setPublishDialogMode("publish");
+                    setPublishDialogMode("create-private");
                     setThumbnailPreview(null);
                     setIsPublishDialogOpen(true);
                   }}
                 >
                   <UploadCloud size={16} />
-                  Publicar proyecto
+                  Guardar proyecto
                 </Button>
               ))}
             <EditorHeaderActions
@@ -1847,8 +2027,16 @@ export default function EditorPage() {
         <LevelCompleteDialog
           open={challenge.isLevelCompleteDialogOpen}
           onOpenChange={challenge.setIsLevelCompleteDialogOpen}
-          onGoHome={() => challenge.navigate("/")}
+          onGoHome={() => {
+            if (!confirmLeaveIfNeeded()) {
+              return;
+            }
+            challenge.navigate("/");
+          }}
           onGoEditor={() => {
+            if (!confirmLeaveIfNeeded()) {
+              return;
+            }
             setNodes([]);
             setEdges([]);
             setProgramName("Sin título");
@@ -1868,14 +2056,14 @@ export default function EditorPage() {
           thumbnailPreview={thumbnailPreview}
           isGeneratingPreview={isGeneratingThumbnailPreview}
           remixSourceName={
-            publishDialogMode === "publish"
+            publishDialogMode === "create-private"
               ? (remixSourceProject?.name ?? null)
               : null
           }
           isPublishing={
-            publishDialogMode === "save"
-              ? updatePublishedProjectMutation.isPending
-              : publishProjectMutation.isPending
+            publishDialogMode === "create-private"
+              ? publishProjectMutation.isPending
+              : updatePublishedProjectMutation.isPending
           }
           error={publishError}
           onOpenChange={(open) => {
@@ -1890,8 +2078,9 @@ export default function EditorPage() {
             description,
             thumbnailOverride,
             nextGuestAuthorName,
+            shouldPublishNow,
           ) => {
-            if (publishDialogMode === "save") {
+            if (publishDialogMode === "save-private") {
               void handleSaveChanges(
                 name,
                 description,
@@ -1900,11 +2089,23 @@ export default function EditorPage() {
               );
               return;
             }
-            void handlePublishProject(
+
+            if (publishDialogMode === "publish") {
+              void handlePublishProject(
+                name,
+                description,
+                thumbnailOverride,
+                nextGuestAuthorName,
+              );
+              return;
+            }
+
+            void handleCreatePrivateProject(
               name,
               description,
               thumbnailOverride,
               nextGuestAuthorName,
+              shouldPublishNow,
             );
           }}
         />
