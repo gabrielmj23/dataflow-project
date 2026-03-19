@@ -33,6 +33,8 @@ function getProjectCreateBody(body: unknown) {
       typeof payload.remixedFrom === "string" ? payload.remixedFrom : undefined,
     thumbnail:
       typeof payload.thumbnail === "string" ? payload.thumbnail : undefined,
+    isPublic:
+      typeof payload.isPublic === "boolean" ? payload.isPublic : undefined,
     program: payload.program,
   };
 }
@@ -55,6 +57,10 @@ function getProjectUpdateBody(body: unknown): ProjectUpdate {
 
   if (typeof payload.thumbnail === "string") {
     updateData.thumbnail = payload.thumbnail;
+  }
+
+  if (typeof payload.isPublic === "boolean") {
+    updateData.isPublic = payload.isPublic;
   }
 
   if (payload.program !== undefined) {
@@ -221,6 +227,7 @@ projectsRouter.post("/", async (req, res) => {
             name: normalizedName,
             description: createBody.description ?? "",
             remixedFrom: createBody.remixedFrom,
+            isPublic: createBody.isPublic ?? true,
             thumbnail: createBody.thumbnail,
             program: createBody.program as ProjectCreate["program"],
             author: viewer.user.id,
@@ -231,6 +238,7 @@ projectsRouter.post("/", async (req, res) => {
             name: normalizedName,
             description: createBody.description ?? "",
             remixedFrom: createBody.remixedFrom,
+            isPublic: createBody.isPublic ?? true,
             thumbnail: createBody.thumbnail,
             program: createBody.program as ProjectCreate["program"],
             author: null,
@@ -238,7 +246,11 @@ projectsRouter.post("/", async (req, res) => {
             guestAuthorName,
           };
 
-    if (projectData.author === null && !projectData.guestAuthorName) {
+    if (
+      projectData.author === null &&
+      projectData.isPublic &&
+      !projectData.guestAuthorName
+    ) {
       return res.status(400).json({
         error: "Debes indicar tu nombre para publicar sin iniciar sesión.",
       });

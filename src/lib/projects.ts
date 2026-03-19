@@ -17,6 +17,7 @@ export type PublicProjectSummary = {
   authorId: string | null;
   authorKind: ProjectAuthorKind;
   authorName: string;
+  isPublic: boolean;
   thumbnail: string | null;
   remixedFromId: string | null;
   remixedFromName: string | null;
@@ -57,7 +58,7 @@ async function readApiError(response: Response): Promise<string> {
     // no-op
   }
 
-  return `No se pudo publicar el proyecto (${response.status}).`;
+  return `No se pudo completar la solicitud (${response.status}).`;
 }
 
 export async function publishProject(params: {
@@ -65,6 +66,7 @@ export async function publishProject(params: {
   description?: string;
   program: SerializedProgramV1;
   thumbnail: string;
+  isPublic?: boolean;
   remixedFrom?: string;
   guestAuthorName?: string;
 }) {
@@ -76,6 +78,7 @@ export async function publishProject(params: {
       name: params.name,
       description: params.description,
       thumbnail: params.thumbnail,
+      isPublic: params.isPublic,
       remixedFrom: params.remixedFrom,
       program: params.program,
       guestAuthorName: params.guestAuthorName,
@@ -153,6 +156,7 @@ export async function fetchMyProjects(limit: number = 12) {
 export async function fetchPublishedProjectById(projectId: string) {
   const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
     credentials: "include",
+    headers: buildProjectRequestHeaders(),
   });
 
   if (!response.ok) {
@@ -168,6 +172,7 @@ export async function updatePublishedProject(params: {
   description?: string;
   program: SerializedProgramV1;
   thumbnail?: string;
+  isPublic?: boolean;
   guestAuthorName?: string;
 }) {
   const response = await fetch(`${getApiBaseUrl()}/projects/${params.id}`, {
@@ -178,6 +183,7 @@ export async function updatePublishedProject(params: {
       name: params.name,
       description: params.description,
       thumbnail: params.thumbnail,
+      isPublic: params.isPublic,
       program: params.program,
       guestAuthorName: params.guestAuthorName,
     }),

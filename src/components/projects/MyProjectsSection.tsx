@@ -143,11 +143,18 @@ export function MyProjectsSection() {
                   )}
 
                   <div className="p-3">
-                    {project.remixedFromId ? (
-                      <p className="mb-1 inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-500">
-                        Remix
+                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                      <p
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${project.isPublic ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}`}
+                      >
+                        {project.isPublic ? "Público" : "Privado"}
                       </p>
-                    ) : null}
+                      {project.remixedFromId ? (
+                        <p className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-500">
+                          Remix
+                        </p>
+                      ) : null}
+                    </div>
 
                     <p className="truncate text-xl font-semibold text-blue-500">
                       {project.name}

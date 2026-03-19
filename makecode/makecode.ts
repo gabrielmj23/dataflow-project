@@ -767,11 +767,22 @@ function normalizePinMode(raw: string): string {
 }
 
 function readDigitalPinByName(pin: string): number {
+  if (pin == "P16") return pins.digitalReadPin(DigitalPin.P16);
+  if (pin == "P15") return pins.digitalReadPin(DigitalPin.P15);
+  if (pin == "P14") return pins.digitalReadPin(DigitalPin.P14);
+  if (pin == "P13") return pins.digitalReadPin(DigitalPin.P13);
+  if (pin == "P12") return pins.digitalReadPin(DigitalPin.P12);
+  if (pin == "P11") return pins.digitalReadPin(DigitalPin.P11);
+  if (pin == "P10") return pins.digitalReadPin(DigitalPin.P10);
+  if (pin == "P9") return pins.digitalReadPin(DigitalPin.P9);
+  if (pin == "P8") return pins.digitalReadPin(DigitalPin.P8);
+  if (pin == "P7") return pins.digitalReadPin(DigitalPin.P7);
+  if (pin == "P6") return pins.digitalReadPin(DigitalPin.P6);
+  if (pin == "P5") return pins.digitalReadPin(DigitalPin.P5);
   if (pin == "P1") return pins.digitalReadPin(DigitalPin.P1);
   if (pin == "P2") return pins.digitalReadPin(DigitalPin.P2);
   if (pin == "P3") return pins.digitalReadPin(DigitalPin.P3);
   if (pin == "P4") return pins.digitalReadPin(DigitalPin.P4);
-  if (pin == "P10") return pins.digitalReadPin(DigitalPin.P10);
   return pins.digitalReadPin(DigitalPin.P0);
 }
 
@@ -785,7 +796,57 @@ function readAnalogPinByName(pin: string): number {
 }
 
 function writeDigitalPinByName(pin: string, value: number) {
-  const digitalValue = value >= 0.5 ? 1 : 0;
+  let digitalValue = Math.round(value);
+  if (digitalValue < 0) digitalValue = 0;
+  if (digitalValue > 1) digitalValue = 1;
+  if (pin == "P16") {
+    pins.digitalWritePin(DigitalPin.P16, digitalValue);
+    return;
+  }
+  if (pin == "P15") {
+    pins.digitalWritePin(DigitalPin.P15, digitalValue);
+    return;
+  }
+  if (pin == "P14") {
+    pins.digitalWritePin(DigitalPin.P14, digitalValue);
+    return;
+  }
+  if (pin == "P13") {
+    pins.digitalWritePin(DigitalPin.P13, digitalValue);
+    return;
+  }
+  if (pin == "P12") {
+    pins.digitalWritePin(DigitalPin.P12, digitalValue);
+    return;
+  }
+  if (pin == "P11") {
+    pins.digitalWritePin(DigitalPin.P11, digitalValue);
+    return;
+  }
+  if (pin == "P10") {
+    pins.digitalWritePin(DigitalPin.P10, digitalValue);
+    return;
+  }
+  if (pin == "P9") {
+    pins.digitalWritePin(DigitalPin.P9, digitalValue);
+    return;
+  }
+  if (pin == "P8") {
+    pins.digitalWritePin(DigitalPin.P8, digitalValue);
+    return;
+  }
+  if (pin == "P7") {
+    pins.digitalWritePin(DigitalPin.P7, digitalValue);
+    return;
+  }
+  if (pin == "P6") {
+    pins.digitalWritePin(DigitalPin.P6, digitalValue);
+    return;
+  }
+  if (pin == "P5") {
+    pins.digitalWritePin(DigitalPin.P5, digitalValue);
+    return;
+  }
   if (pin == "P1") {
     pins.digitalWritePin(DigitalPin.P1, digitalValue);
     return;
@@ -802,10 +863,6 @@ function writeDigitalPinByName(pin: string, value: number) {
     pins.digitalWritePin(DigitalPin.P4, digitalValue);
     return;
   }
-  if (pin == "P10") {
-    pins.digitalWritePin(DigitalPin.P10, digitalValue);
-    return;
-  }
   pins.digitalWritePin(DigitalPin.P0, digitalValue);
 }
 
@@ -814,6 +871,54 @@ function writeAnalogPinByName(pin: string, value: number) {
   if (analogValue < 0) analogValue = 0;
   if (analogValue > 1023) analogValue = 1023;
 
+  if (pin == "P16") {
+    pins.analogWritePin(AnalogPin.P16, analogValue);
+    return;
+  }
+  if (pin == "P15") {
+    pins.analogWritePin(AnalogPin.P15, analogValue);
+    return;
+  }
+  if (pin == "P14") {
+    pins.analogWritePin(AnalogPin.P14, analogValue);
+    return;
+  }
+  if (pin == "P13") {
+    pins.analogWritePin(AnalogPin.P13, analogValue);
+    return;
+  }
+  if (pin == "P12") {
+    pins.analogWritePin(AnalogPin.P12, analogValue);
+    return;
+  }
+  if (pin == "P11") {
+    pins.analogWritePin(AnalogPin.P11, analogValue);
+    return;
+  }
+  if (pin == "P10") {
+    pins.analogWritePin(AnalogPin.P10, analogValue);
+    return;
+  }
+  if (pin == "P9") {
+    pins.analogWritePin(AnalogPin.P9, analogValue);
+    return;
+  }
+  if (pin == "P8") {
+    pins.analogWritePin(AnalogPin.P8, analogValue);
+    return;
+  }
+  if (pin == "P7") {
+    pins.analogWritePin(AnalogPin.P7, analogValue);
+    return;
+  }
+  if (pin == "P6") {
+    pins.analogWritePin(AnalogPin.P6, analogValue);
+    return;
+  }
+  if (pin == "P5") {
+    pins.analogWritePin(AnalogPin.P5, analogValue);
+    return;
+  }
   if (pin == "P1") {
     pins.analogWritePin(AnalogPin.P1, analogValue);
     return;
@@ -828,10 +933,6 @@ function writeAnalogPinByName(pin: string, value: number) {
   }
   if (pin == "P4") {
     pins.analogWritePin(AnalogPin.P4, analogValue);
-    return;
-  }
-  if (pin == "P10") {
-    pins.analogWritePin(AnalogPin.P10, analogValue);
     return;
   }
   pins.analogWritePin(AnalogPin.P0, analogValue);

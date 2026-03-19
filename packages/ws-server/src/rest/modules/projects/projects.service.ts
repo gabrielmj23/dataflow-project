@@ -23,6 +23,7 @@ type ProjectRow = {
   guestAuthorName: string | null;
   remixedFromId: string | null;
   remixedFromName: string | null;
+  isPublic: boolean;
   thumbnail: string | null;
   program: ProjectGet["program"];
   createdAt: Date;
@@ -52,6 +53,7 @@ function mapProjectRow(
     authorName,
     remixedFromId: row.remixedFromId,
     remixedFromName: row.remixedFromName,
+    isPublic: row.isPublic,
     thumbnail: row.thumbnail,
     program: row.program,
     createdAt: row.createdAt,
@@ -72,6 +74,7 @@ function buildProjectBaseQuery() {
       guestAuthorName: projectsTable.guestAuthorName,
       remixedFromId: projectsTable.remixedFrom,
       remixedFromName: remixedProjectsTable.name,
+      isPublic: projectsTable.isPublic,
       thumbnail: projectsTable.thumbnail,
       program: projectsTable.program,
       createdAt: projectsTable.createdAt,
@@ -117,6 +120,9 @@ export async function findProjectById(
   viewer: ProjectViewerIdentity = { kind: "anonymous" },
 ): Promise<ProjectGet> {
   const project = await findProjectRowById(id);
+  if (!project.isPublic && !isProjectOwnedByViewer(project, viewer)) {
+    throw new Error("Proyecto no encontrado");
+  }
   return mapProjectRow(project, viewer);
 }
 
@@ -148,7 +154,7 @@ export async function findProjects(
             : viewer.kind === "guest"
               ? eq(projectsTable.guestOwnerId, viewer.guestOwnerId)
               : eq(projectsTable.id, "00000000-0000-0000-0000-000000000000") // Impossible match
-          : undefined,
+          : eq(projectsTable.isPublic, true),
       ),
     )
     .orderBy(desc(projectsTable.updatedAt))
