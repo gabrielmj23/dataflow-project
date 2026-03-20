@@ -44,7 +44,7 @@ export function validateConnection(
   const sourceIsConditionalOut =
     sourceType === "conditional" && sourceHandle === "out";
   const targetIsSelectorToken =
-    targetType === "selector" && targetHandle === "token";
+    targetType === "conditionalSelector" && targetHandle === "token";
 
   if (sourceIsConditionalOut || targetIsSelectorToken) {
     if (!(sourceIsConditionalOut && targetIsSelectorToken)) {

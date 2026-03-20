@@ -577,6 +577,28 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
     }
 
     case NODE_TYPES.SELECTOR_NODE: {
+      const incoming = ctx.selectorIncomingByNodeId?.get(String(flowNode.id));
+      const firePatterns = [
+        FirePatterns.EXISTS,
+        incoming?.has("trueValue")
+          ? FirePatterns.EXISTS
+          : FirePatterns.DONT_CARE,
+        incoming?.has("falseValue")
+          ? FirePatterns.EXISTS
+          : FirePatterns.DONT_CARE,
+      ];
+
+      return new NodeDefinition(
+        (condition: unknown, trueValue: unknown, falseValue: unknown) => {
+          const selected = Boolean(condition) ? trueValue : falseValue;
+          return [new DataToken(selected, new PortAddress("", "output"))];
+        },
+        firePatterns,
+        ["condition", "trueValue", "falseValue", "output"],
+      );
+    }
+
+    case NODE_TYPES.CONDITIONAL_SELECTOR_NODE: {
       const optionsRaw = Array.isArray(data.options) ? data.options : [];
       const options =
         optionsRaw.length > 0

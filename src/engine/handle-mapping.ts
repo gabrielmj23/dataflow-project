@@ -393,6 +393,20 @@ register([NODE_TYPES.CONDITIONAL_NODE], (p) => {
 register([NODE_TYPES.SELECTOR_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
+    if (handleId === "in-cond") return "condition";
+    if (handleId === "in-1") return "trueValue";
+    if (handleId === "in-2") return "falseValue";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+// Conditional selector node (used by Condicional + Selector pair)
+register([NODE_TYPES.CONDITIONAL_SELECTOR_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
     if (handleId === "token") return "token";
     const idx = parseIndexHandle(handleId);
     if (handleId?.startsWith("in-") && idx) return `input${idx}`;

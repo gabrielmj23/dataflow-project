@@ -360,7 +360,10 @@ export function buildEngineStoresFromFlowGraph(params: {
       pulseSequenceIncomingByNodeId.set(targetId, next);
     }
 
-    if (targetNode.type === NODE_TYPES.SELECTOR_NODE) {
+    if (
+      targetNode.type === NODE_TYPES.SELECTOR_NODE ||
+      targetNode.type === NODE_TYPES.CONDITIONAL_SELECTOR_NODE
+    ) {
       const portId = mapHandleToPortId({
         nodeId: targetId,
         nodeType: targetNode.type,
