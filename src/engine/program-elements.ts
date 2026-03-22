@@ -20,6 +20,11 @@ export type NodeMeta = {
   /** Skip the global step delay for this node. */
   skipStepDelay?: boolean;
   /**
+   * Allow scheduling multiple concurrent executions for the same node within
+   * a single batch, as long as each execution consumes at least one input token.
+   */
+  allowParallelTokenExecutions?: boolean;
+  /**
    * Optional list of input port IDs that keep the last received value
    * ("sticky" inputs). If no new token arrives on that port, the last
    * value is reused on subsequent executions.
