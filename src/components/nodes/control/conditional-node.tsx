@@ -196,7 +196,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
       setNodes((prev) =>
         prev.map((node) => {
           const isPairedSelector =
-            node.type === "selector" &&
+            node.type === "conditionalSelector" &&
             (node.data as { pairId?: string | null })?.pairId === pairId;
           if (!isPairedSelector) return node;
           const currentY = node.position?.y ?? 0;

@@ -54,6 +54,7 @@ export const NODE_TYPES = {
   RELEVO_NODE: "relevo",
   SWITCH_NODE: "switch",
   CONDITIONAL_NODE: "conditional",
+  CONDITIONAL_SELECTOR_NODE: "conditionalSelector",
   SELECTOR_NODE: "selector",
   SCATTER_NODE: "scatter",
   GATHER_NODE: "gather",

@@ -79,7 +79,7 @@ const nodeAbstractionLevelMap: Record<
   desvio: 1,
   relevo: 1,
   switch: { min: 2, max: 2 },
-  selector: 3,
+  selector: 1,
   conditional: 3,
   conditionalPair: 3,
 
@@ -433,6 +433,12 @@ export const nodePalette: NodePaletteCategory[] = [
             type: "switch",
             label: "Switch",
             description: "Activa una de varias salidas según una condición.",
+          },
+          {
+            type: "selector",
+            label: "Selector",
+            description:
+              "Elige entre entrada Verdadero o Falso según una condición booleana.",
           },
           {
             type: "conditionalPair",

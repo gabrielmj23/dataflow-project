@@ -202,7 +202,7 @@ export function createConditionalPair(options: CreateConditionalPairOptions): {
 
   const selectorNode: Node = {
     id: selectorId,
-    type: "selector",
+    type: "conditionalSelector",
     position: { x: position.x, y: position.y + offsetY },
     data: {
       label: "Selector",

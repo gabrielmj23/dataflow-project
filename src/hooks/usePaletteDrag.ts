@@ -230,7 +230,7 @@ export function usePaletteDrag({
 
         const selectorNode: FlowNode = {
           id: selectorId,
-          type: "selector",
+          type: "conditionalSelector",
           position: { x: position.x, y: position.y + 160 },
           data: {
             label: "Selector",

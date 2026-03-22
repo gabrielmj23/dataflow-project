@@ -33,6 +33,7 @@ import {
   Search,
   Scissors,
   Dices,
+  Merge,
   Split,
   Flag,
 } from "lucide-react";
@@ -699,6 +700,7 @@ function NodePreview({
       case "desvio":
       case "relevo":
       case "switch":
+      case "selector":
       case "conditionalPair": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
@@ -718,6 +720,7 @@ function NodePreview({
           desvio: "desvio",
           relevo: "relevo",
           switch: "switch",
+          selector: "selector",
           conditionalPair: "conditionalPair",
         };
 
@@ -778,6 +781,9 @@ function NodePreview({
               {symbolMap[type] === "relevo" && <Flag className="h-4 w-4" />}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />
+              )}
+              {symbolMap[type] === "selector" && (
+                <Merge className="h-4 w-4 rotate-90" />
               )}
               {symbolMap[type] === "conditionalPair" && (
                 <span className="flex items-center gap-1">

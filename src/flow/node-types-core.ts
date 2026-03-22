@@ -53,6 +53,7 @@ import { DesvioNode } from "@/components/nodes/control/desvio-node";
 import { RelevoNode } from "@/components/nodes/control/relevo-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
+import { ConditionalSelectorNode } from "@/components/nodes/control/conditional-selector-node";
 import { SelectorNode } from "@/components/nodes/control/selector-node";
 
 import { WriteNode } from "@/components/nodes/io/write-node";
@@ -141,6 +142,7 @@ export const nodeTypesCore: NodeTypes = {
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,
+  conditionalSelector: ConditionalSelectorNode,
   selector: SelectorNode,
   scatter: ScatterNode,
   gather: GatherNode,

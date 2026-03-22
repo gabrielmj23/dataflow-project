@@ -299,7 +299,12 @@ export function inferPortDataType(params: {
     return handleType === "source" ? "number" : "any";
   }
   if (nodeType === "selector") {
-    // Selector passes through the selected value; accept/emit any type.
+    if (handleType === "target" && params.handleId === "in-cond") {
+      return "boolean";
+    }
+    return "any";
+  }
+  if (nodeType === "conditionalSelector") {
     return "any";
   }
 
@@ -524,7 +529,10 @@ export function getPortTypeMask(params: {
       return isOutput ? TYPE_NUMBER : TYPE_ANY;
     }
     if (nodeType === "selector") {
-      // Selector inputs and output accept any type (token + routed value).
+      if (!isOutput && handleId === "in-cond") return TYPE_BOOLEAN;
+      return TYPE_ANY;
+    }
+    if (nodeType === "conditionalSelector") {
       return TYPE_ANY;
     }
     if (nodeType === NODE_TYPES.DESVIO_NODE) {
