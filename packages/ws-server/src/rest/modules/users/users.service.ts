@@ -45,3 +45,13 @@ export async function createUser(data: UserInsert): Promise<UserSelect> {
 
   return user;
 }
+
+export async function updateUserPassword(
+  userId: string,
+  hashedPassword: string,
+): Promise<void> {
+  await db
+    .update(usersTable)
+    .set({ password: hashedPassword })
+    .where(eq(usersTable.id, userId));
+}

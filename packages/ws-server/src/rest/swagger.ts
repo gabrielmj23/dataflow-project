@@ -93,6 +93,22 @@ const openApiDefinition = {
         },
         required: ["email", "password"],
       },
+      RequestPasswordResetBody: {
+        type: "object",
+        properties: {
+          email: { type: "string", format: "email" },
+        },
+        required: ["email"],
+      },
+      ResetPasswordBody: {
+        type: "object",
+        properties: {
+          email: { type: "string", format: "email" },
+          code: { type: "string" },
+          newPassword: { type: "string" },
+        },
+        required: ["email", "code", "newPassword"],
+      },
       ProjectGet: {
         type: "object",
         properties: {

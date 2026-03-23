@@ -153,6 +153,9 @@ importers:
 
   packages/ws-server:
     dependencies:
+      '@types/nodemailer':
+        specifier: ^7.0.11
+        version: 7.0.11
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -168,6 +171,9 @@ importers:
       jsonwebtoken:
         specifier: ^9.0.3
         version: 9.0.3
+      nodemailer:
+        specifier: ^8.0.3
+        version: 8.0.3
       pg:
         specifier: ^8.18.0
         version: 8.18.0
@@ -1948,6 +1954,9 @@ packages:
   '@types/node@24.10.9':
     resolution: {integrity: sha512-ne4A0IpG3+2ETuREInjPNhUGis1SFjv1d5asp8MzEAGtOZeTeHVDOYqOgqfhvseqg/iXty2hjBf1zAOb7RNiNw==}
 
+  '@types/nodemailer@7.0.11':
+    resolution: {integrity: sha512-E+U4RzR2dKrx+u3N4DlsmLaDC6mMZOM/TPROxA0UAPiTgI0y4CEFBmZE+coGWTjakDriRsXG368lNk1u9Q0a2g==}
+
   '@types/offscreencanvas@2019.3.0':
     resolution: {integrity: sha512-esIJx9bQg+QYF0ra8GnvfianIY8qWB0GBx54PK5Eps6m+xTj86KLavHv6qDhzKcu5UUOgNfJ2pWaIIV7TRUd9Q==}
 
@@ -3054,6 +3063,10 @@ packages:
 
   node-releases@2.0.27:
     resolution: {integrity: sha512-nmh3lCkYZ3grZvqcCH+fjmQ7X+H0OeZgP40OierEaAptX4XofMh5kwNbWh7lBduUzCcV/8kZ+NDLCwm2iorIlA==}
+
+  nodemailer@8.0.3:
+    resolution: {integrity: sha512-JQNBqvK+bj3NMhUFR3wmCl3SYcOeMotDiwDBvIoCuQdF0PvlIY0BH+FJ2CG7u4cXKPChplE78oowlH/Otsc4ZQ==}
+    engines: {node: '>=6.0.0'}
 
   nsfwjs@4.2.1:
     resolution: {integrity: sha512-8ixL8Uk7+9Ir67yUxwtbLFZv6NgmsXsgP2oX5zNxmyTIXUfNdj6FLLVS+YI0pYlMEOExLp69ocfQznzTU9ATGw==}
@@ -5281,6 +5294,10 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
+  '@types/nodemailer@7.0.11':
+    dependencies:
+      '@types/node': 24.10.9
+
   '@types/offscreencanvas@2019.3.0': {}
 
   '@types/offscreencanvas@2019.7.3': {}
@@ -6384,6 +6401,8 @@ snapshots:
       whatwg-url: 5.0.0
 
   node-releases@2.0.27: {}
+
+  nodemailer@8.0.3: {}
 
   nsfwjs@4.2.1(@tensorflow/tfjs@4.22.0(seedrandom@3.0.5))(buffer@6.0.3):
     dependencies:
