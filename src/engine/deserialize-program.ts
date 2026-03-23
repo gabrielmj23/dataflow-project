@@ -63,6 +63,173 @@ export class CycleDetectedCompileError extends Error {
   }
 }
 
+function isInternalWhileArcId(id: string | null): boolean {
+  return typeof id === "string" && id.startsWith("__internal:while:");
+}
+
+function buildWhileFlowEvaluators(params: {
+  uiNodes: Node[];
+  edges: Edge[];
+  nodeById: Map<string, Node>;
+  onLog?: EngineObserver["onLog"];
+  onPrompt?: EngineObserver["onPrompt"];
+  onEdgeValue?: EngineObserver["onEdgeValue"];
+  signal?: AbortSignal;
+  remoteExecutor?: RemoteExecutor;
+  resolveSubflowTemplate?: SubflowTemplateResolver;
+  maxSubflowDepth?: number;
+  subflowRuntimeContext: SubflowRuntimeContext;
+}): Map<string, () => Promise<unknown>> {
+  const evaluators = new Map<string, () => Promise<unknown>>();
+
+  const incomingByTarget = new Map<string, Edge[]>();
+  for (const edge of params.edges) {
+    const targetId = String(edge.target);
+    const incoming = incomingByTarget.get(targetId) ?? [];
+    incoming.push(edge);
+    incomingByTarget.set(targetId, incoming);
+  }
+
+  const whileNodes = params.uiNodes.filter(
+    (node) => String(node.type) === NODE_TYPES.WHILE_NODE,
+  );
+
+  for (const whileNode of whileNodes) {
+    const whileNodeId = String(whileNode.id);
+
+    const incomingEdges = params.edges.filter(
+      (edge) => String(edge.target) === whileNodeId,
+    );
+
+    const flowEdge = incomingEdges.find((edge) => {
+      try {
+        return (
+          mapHandleToPortId({
+            nodeId: whileNodeId,
+            nodeType: whileNode.type,
+            handleId: edge.targetHandle ?? null,
+            direction: "target",
+          }) === "flow"
+        );
+      } catch {
+        return false;
+      }
+    });
+
+    if (!flowEdge) continue;
+
+    const sourceNodeId = String(flowEdge.source);
+    const sourceNode = params.nodeById.get(sourceNodeId);
+    if (!sourceNode) continue;
+
+    let sourcePortId: string;
+    try {
+      sourcePortId = mapHandleToPortId({
+        nodeId: sourceNodeId,
+        nodeType: sourceNode.type,
+        handleId: flowEdge.sourceHandle ?? null,
+        direction: "source",
+      });
+    } catch {
+      continue;
+    }
+
+    const upstreamNodeIds = new Set<string>([sourceNodeId]);
+    const queue: string[] = [sourceNodeId];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) continue;
+
+      const incoming = incomingByTarget.get(current) ?? [];
+      for (const edge of incoming) {
+        const parentId = String(edge.source);
+        if (parentId === whileNodeId) continue;
+        if (!params.nodeById.has(parentId)) continue;
+        if (upstreamNodeIds.has(parentId)) continue;
+        upstreamNodeIds.add(parentId);
+        queue.push(parentId);
+      }
+    }
+
+    const upstreamNodes = params.uiNodes.filter((node) =>
+      upstreamNodeIds.has(String(node.id)),
+    );
+    const upstreamEdges = params.edges.filter(
+      (edge) =>
+        upstreamNodeIds.has(String(edge.source)) &&
+        upstreamNodeIds.has(String(edge.target)),
+    );
+
+    if (upstreamNodes.length === 0) continue;
+
+    const stores = buildEngineStoresFromFlowGraph({
+      nodes: upstreamNodes,
+      edges: upstreamEdges,
+      onLog: params.onLog,
+      onPrompt: params.onPrompt,
+      onEdgeValue: params.onEdgeValue,
+      signal: params.signal,
+      remoteExecutor: params.remoteExecutor,
+      resolveSubflowTemplate: params.resolveSubflowTemplate,
+      maxSubflowDepth: params.maxSubflowDepth,
+      subflowRuntimeContext: params.subflowRuntimeContext,
+    });
+
+    const templateNodes = stores.nodeStore
+      .getNodes()
+      .map((node) => new EngineNode(node.id, node.nodeDefinition.clone()));
+    const templateArcs = stores.arcStore
+      .getArcs()
+      .map(
+        (arc) =>
+          new Arc(
+            new PortAddress(arc.source.nodeId, arc.source.portId),
+            new PortAddress(arc.target.nodeId, arc.target.portId),
+            arc.id,
+          ),
+      );
+
+    evaluators.set(whileNodeId, async () => {
+      const runNodes = templateNodes.map(
+        (node) => new EngineNode(node.id, node.nodeDefinition.clone()),
+      );
+      const runArcs = templateArcs.map(
+        (arc) =>
+          new Arc(
+            new PortAddress(arc.source.nodeId, arc.source.portId),
+            new PortAddress(arc.target.nodeId, arc.target.portId),
+            arc.id,
+          ),
+      );
+
+      const probePortId = `__while_flow_probe:${whileNodeId}`;
+      runArcs.push(
+        new Arc(
+          new PortAddress(sourceNodeId, sourcePortId),
+          new PortAddress("", probePortId),
+          `__internal:while-probe:${whileNodeId}`,
+        ),
+      );
+
+      const engine = new DataflowEngine({ stepDelayMs: 0 });
+      engine.loadProgram({ nodes: runNodes, arcs: runArcs });
+
+      const emitted = await engine.run({
+        initialTokens: [],
+        signal: params.signal,
+      });
+
+      const token = emitted.find(
+        (t) => t.location.nodeId === "" && t.location.portId === probePortId,
+      );
+      return token?.value;
+    });
+  }
+
+  return evaluators;
+}
+
 /**
  * Detecta ciclos en el grafo dirigido de nodos/arcos usando Depth-First Search
  * (DFS) con una pila de recursión para detectar back-edges.
@@ -88,6 +255,8 @@ function findCycleNodeIds(params: {
   }
 
   for (const arc of params.arcStore.getArcs()) {
+    if (isInternalWhileArcId(arc.id)) continue;
+
     const sourceId = arc.source.nodeId;
     const targetId = arc.target.nodeId;
     if (!adjacency.has(sourceId) || !adjacency.has(targetId)) continue;
@@ -420,6 +589,20 @@ export function buildEngineStoresFromFlowGraph(params: {
     runtimeCtx.resolveTemplate = params.resolveSubflowTemplate;
   }
 
+  const whileFlowEvaluatorByNodeId = buildWhileFlowEvaluators({
+    uiNodes,
+    edges: params.edges,
+    nodeById,
+    onLog: params.onLog,
+    onPrompt: params.onPrompt,
+    onEdgeValue: params.onEdgeValue,
+    signal: params.signal,
+    remoteExecutor: params.remoteExecutor,
+    resolveSubflowTemplate: params.resolveSubflowTemplate,
+    maxSubflowDepth: params.maxSubflowDepth,
+    subflowRuntimeContext: runtimeCtx,
+  });
+
   // Pre-register any subflow definitions that are embedded directly on UI
   // nodes into `inlineTemplates`. Doing this before compiling node
   // definitions ensures self-references (nodes that call the same template
@@ -471,6 +654,7 @@ export function buildEngineStoresFromFlowGraph(params: {
     scatterOutputCountByNodeId,
     gatherInputCountByNodeId,
     gatherIncomingByNodeId,
+    whileFlowEvaluatorByNodeId,
     onLog: params.onLog,
     onPrompt: params.onPrompt,
     onEdgeValue: params.onEdgeValue,
@@ -522,6 +706,33 @@ export function buildEngineStoresFromFlowGraph(params: {
         new PortAddress(sourceId, sourcePortId),
         new PortAddress(targetId, targetPortId),
         String(edge.id),
+      ),
+    );
+  }
+
+  for (const flowNode of uiNodes) {
+    if (String(flowNode.type) !== NODE_TYPES.WHILE_NODE) continue;
+    const nodeId = String(flowNode.id);
+
+    arcStore.addArc(
+      new Arc(
+        new PortAddress(nodeId, "loopFlowOut"),
+        new PortAddress(nodeId, "flow"),
+        `__internal:while:${nodeId}:flow`,
+      ),
+    );
+    arcStore.addArc(
+      new Arc(
+        new PortAddress(nodeId, "loopConditionOut"),
+        new PortAddress(nodeId, "condition"),
+        `__internal:while:${nodeId}:condition`,
+      ),
+    );
+    arcStore.addArc(
+      new Arc(
+        new PortAddress(nodeId, "loopIntervalOut"),
+        new PortAddress(nodeId, "interval"),
+        `__internal:while:${nodeId}:interval`,
       ),
     );
   }

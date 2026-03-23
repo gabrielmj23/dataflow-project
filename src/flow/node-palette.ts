@@ -78,6 +78,7 @@ const nodeAbstractionLevelMap: Record<
   not: { min: 1, max: 2 },
   desvio: 1,
   relevo: 1,
+  while: 2,
   switch: { min: 2, max: 2 },
   selector: 1,
   conditional: 3,
@@ -428,6 +429,12 @@ export const nodePalette: NodePaletteCategory[] = [
             label: "Relevo",
             description:
               "Recibe una entrada por la izquierda y emite siempre el valor conectado en la entrada superior.",
+          },
+          {
+            type: "while",
+            label: "Mientras",
+            description:
+              "Cada cierto tiempo evalúa una condición booleana; si es verdadera, reenvía la entrada y repite.",
           },
           {
             type: "switch",

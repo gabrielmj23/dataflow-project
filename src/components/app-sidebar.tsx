@@ -36,6 +36,7 @@ import {
   Merge,
   Split,
   Flag,
+  RefreshCw,
 } from "lucide-react";
 
 import {
@@ -699,6 +700,7 @@ function NodePreview({
       case "logicOperation":
       case "desvio":
       case "relevo":
+      case "while":
       case "switch":
       case "selector":
       case "conditionalPair": {
@@ -719,6 +721,7 @@ function NodePreview({
           logicOperation: "logicOperation",
           desvio: "desvio",
           relevo: "relevo",
+          while: "while",
           switch: "switch",
           selector: "selector",
           conditionalPair: "conditionalPair",
@@ -779,6 +782,7 @@ function NodePreview({
                 </span>
               )}
               {symbolMap[type] === "relevo" && <Flag className="h-4 w-4" />}
+              {symbolMap[type] === "while" && <RefreshCw className="h-4 w-4" />}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />
               )}

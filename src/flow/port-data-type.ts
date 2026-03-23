@@ -319,6 +319,14 @@ export function inferPortDataType(params: {
     return "any";
   }
 
+  if (nodeType === NODE_TYPES.WHILE_NODE) {
+    if (handleType === "target") {
+      if (params.handleId === "in-cond") return "boolean";
+      if (params.handleId === "in-time") return "number";
+    }
+    return "any";
+  }
+
   // IO
   if (nodeType === "write") {
     return "any";
@@ -540,6 +548,12 @@ export function getPortTypeMask(params: {
       return handleId === "in-cond" ? TYPE_BOOLEAN : TYPE_ANY;
     }
     if (nodeType === NODE_TYPES.RELEVO_NODE) {
+      return TYPE_ANY;
+    }
+    if (nodeType === NODE_TYPES.WHILE_NODE) {
+      if (isOutput) return TYPE_ANY;
+      if (handleId === "in-cond") return TYPE_BOOLEAN;
+      if (handleId === "in-time") return TYPE_NUMBER;
       return TYPE_ANY;
     }
     if (nodeType === NODE_TYPES.SCATTER_NODE) {

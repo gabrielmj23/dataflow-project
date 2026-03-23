@@ -15,6 +15,7 @@ import {
   EngineSwitchNode,
   EngineDesvioNode,
   EngineRelevoNode,
+  EngineWhileNode,
 } from "../nodes/logic-nodes";
 import type { SwitchCondition, SwitchOperator } from "../nodes/logic-nodes";
 import {
@@ -475,6 +476,11 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
 
     case NODE_TYPES.RELEVO_NODE:
       return new EngineRelevoNode();
+
+    case NODE_TYPES.WHILE_NODE:
+      return new EngineWhileNode(
+        ctx.whileFlowEvaluatorByNodeId?.get(String(flowNode.id)),
+      );
 
     case NODE_TYPES.SWITCH_NODE: {
       const raw = data.conditions;
