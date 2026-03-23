@@ -1264,13 +1264,13 @@ export const ReplicateFlowNode = memo(
                                       implicitSlot,
                                     );
                                   if (slotState.status !== "connected") {
-                                    return `Slot ${slotState.slot}: No conectado`;
+                                    return `micro:bit #${slotState.slot}: No conectado`;
                                   }
                                   const transportLabel =
                                     slotState.connectionType === "bluetooth"
                                       ? "Bluetooth"
                                       : "Serial";
-                                  return `Slot ${slotState.slot}: Conectado (${transportLabel})`;
+                                  return `micro:bit #${slotState.slot}: Conectado (${transportLabel})`;
                                 })()}
                               </div>
                               <div className="flex items-center gap-2">

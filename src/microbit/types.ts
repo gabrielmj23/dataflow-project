@@ -1,4 +1,7 @@
-export type MessageHandler = (message: string) => void;
+export type MessageHandler = (
+  message: string,
+  context?: { slot: number },
+) => void;
 
 export interface MicrobitConnection {
   connect(): Promise<void>;

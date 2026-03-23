@@ -1,4 +1,5 @@
 import { NODE_TYPES } from "@/common/constants";
+import { parseMicrobitSlot } from "@/microbit/slot-utils";
 
 import { EngineWriteNode } from "../nodes/output-nodes";
 import {
@@ -13,6 +14,7 @@ import type { NodeCompiler } from "./types";
 export const compileOutputNodes: NodeCompiler = (flowNode, ctx) => {
   const nodeType = String(flowNode.type);
   const data = asRecord(flowNode.data);
+  const microbitSlot = parseMicrobitSlot(data);
 
   switch (nodeType) {
     case NODE_TYPES.WRITE_SINK:
@@ -24,6 +26,7 @@ export const compileOutputNodes: NodeCompiler = (flowNode, ctx) => {
 
     case NODE_TYPES.MICROBIT_WRITE:
       return new EngineMicrobitWriteNode({
+        slot: microbitSlot,
         transport:
           (data as { transport?: unknown; connectionType?: unknown } | null)
             ?.transport ??
@@ -32,6 +35,7 @@ export const compileOutputNodes: NodeCompiler = (flowNode, ctx) => {
 
     case NODE_TYPES.MICROBIT_SOUND:
       return new EngineMicrobitSoundNode({
+        slot: microbitSlot,
         transport:
           (data as { transport?: unknown; connectionType?: unknown } | null)
             ?.transport ??
@@ -43,6 +47,7 @@ export const compileOutputNodes: NodeCompiler = (flowNode, ctx) => {
       const pin = typeof data.pin === "string" ? data.pin : "P0";
       const mode = data.mode === "analog" ? "analog" : "digital";
       return new EngineMicrobitWritePinNode({
+        slot: microbitSlot,
         transport:
           (data as { transport?: unknown; connectionType?: unknown } | null)
             ?.transport ??

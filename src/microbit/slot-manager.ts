@@ -12,10 +12,16 @@ export type MicrobitSlotStatus =
 
 export type MicrobitSlotState = {
   slot: number;
+  slotName?: string;
   status: MicrobitSlotStatus;
   connectionType: MicrobitConnectionType;
   deviceLabel?: string;
   lastError?: string;
+};
+
+export type MicrobitKnownSlot = {
+  slot: number;
+  slotName?: string;
 };
 
 type InternalSlotState = MicrobitSlotState & {
@@ -26,8 +32,10 @@ type InternalSlotState = MicrobitSlotState & {
 
 function sanitizeSlot(slot: number): number {
   const safe = Number.isFinite(slot) ? Math.floor(slot) : 1;
-  return Math.min(8, Math.max(1, safe));
+  return Math.min(9999, Math.max(1, safe));
 }
+
+const SLOT_NAMES_STORAGE_KEY = "df:microbit-slot-names:v1";
 
 function stringifyError(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -45,6 +53,7 @@ function createConnection(type: MicrobitConnectionType): MicrobitConnection {
 function buildSnapshot(state: MicrobitSlotState): MicrobitSlotState {
   return {
     slot: state.slot,
+    slotName: state.slotName,
     status: state.status,
     connectionType: state.connectionType,
     deviceLabel: state.deviceLabel,
@@ -62,12 +71,76 @@ class MicrobitSlotManager {
   private listeners = new Set<() => void>();
   private slots = new Map<number, InternalSlotState>();
   private connectedSnapshots: MicrobitSlotState[] = [];
+  private knownSlotsSnapshots: MicrobitKnownSlot[] = [{ slot: 1 }];
+  private slotNames = new Map<number, string>();
+
+  constructor() {
+    this.loadSlotNames();
+    this.refreshKnownSlotsSnapshots();
+  }
+
+  private loadSlotNames(): void {
+    if (typeof window === "undefined") return;
+
+    try {
+      const raw = window.localStorage.getItem(SLOT_NAMES_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as unknown;
+      if (!Array.isArray(parsed)) return;
+
+      for (const item of parsed) {
+        if (!item || typeof item !== "object") continue;
+        const slot = sanitizeSlot((item as { slot?: number }).slot ?? 1);
+        const rawName = (item as { name?: string }).name;
+        const name = typeof rawName === "string" ? rawName.trim() : "";
+        if (name.length > 0) {
+          this.slotNames.set(slot, name);
+        }
+      }
+    } catch {
+      // Ignore malformed persisted data.
+    }
+  }
+
+  private persistSlotNames(): void {
+    if (typeof window === "undefined") return;
+
+    try {
+      const payload = Array.from(this.slotNames.entries())
+        .sort((a, b) => a[0] - b[0])
+        .map(([slot, name]) => ({ slot, name }));
+      window.localStorage.setItem(
+        SLOT_NAMES_STORAGE_KEY,
+        JSON.stringify(payload),
+      );
+    } catch {
+      // Persistence errors should not break runtime behavior.
+    }
+  }
 
   private refreshConnectedSnapshots(): void {
     this.connectedSnapshots = Array.from(this.slots.values())
       .filter((slot) => slot.status === "connected")
       .sort((a, b) => a.slot - b.slot)
       .map((slot) => slot.snapshot);
+  }
+
+  private refreshKnownSlotsSnapshots(): void {
+    const known = new Set<number>();
+    known.add(1);
+    for (const slot of this.slotNames.keys()) {
+      known.add(slot);
+    }
+    for (const slot of this.slots.keys()) {
+      known.add(slot);
+    }
+
+    this.knownSlotsSnapshots = Array.from(known)
+      .sort((a, b) => a - b)
+      .map((slot) => ({
+        slot,
+        slotName: this.slotNames.get(slot),
+      }));
   }
 
   subscribe(listener: () => void): () => void {
@@ -79,6 +152,7 @@ class MicrobitSlotManager {
 
   private emit(): void {
     this.refreshConnectedSnapshots();
+    this.refreshKnownSlotsSnapshots();
     for (const listener of this.listeners) listener();
   }
 
@@ -89,12 +163,14 @@ class MicrobitSlotManager {
 
     const next: InternalSlotState = {
       slot: safeSlot,
+      slotName: this.slotNames.get(safeSlot),
       status: "disconnected",
       connectionType: "bluetooth",
       connection: null,
       connectToken: 0,
       snapshot: {
         slot: safeSlot,
+        slotName: this.slotNames.get(safeSlot),
         status: "disconnected",
         connectionType: "bluetooth",
       },
@@ -110,6 +186,33 @@ class MicrobitSlotManager {
 
   getConnectedSnapshots(): MicrobitSlotState[] {
     return this.connectedSnapshots;
+  }
+
+  getKnownSlots(): MicrobitKnownSlot[] {
+    return this.knownSlotsSnapshots;
+  }
+
+  setSlotName(params: { slot: number; name?: string }): void {
+    const safeSlot = sanitizeSlot(params.slot);
+    const trimmedName =
+      typeof params.name === "string" ? params.name.trim() : "";
+
+    if (trimmedName.length > 0) {
+      this.slotNames.set(safeSlot, trimmedName);
+    } else {
+      this.slotNames.delete(safeSlot);
+    }
+    this.persistSlotNames();
+
+    const state = this.ensure(safeSlot);
+    state.slotName = this.slotNames.get(safeSlot);
+    refreshSnapshot(state);
+    this.emit();
+  }
+
+  getSlotName(slot: number): string | undefined {
+    const safeSlot = sanitizeSlot(slot);
+    return this.slotNames.get(safeSlot);
   }
 
   getConnection(slot: number): MicrobitConnection | null {
@@ -166,6 +269,7 @@ class MicrobitSlotManager {
 
       latest.connection = connection;
       latest.status = "connected";
+      latest.slotName = this.slotNames.get(safeSlot);
       latest.lastError = undefined;
       // Best-effort: ask the connection for a human-readable label
       try {

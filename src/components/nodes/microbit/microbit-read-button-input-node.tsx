@@ -25,20 +25,29 @@ import {
   isMicrobitConnected,
   type MicrobitTransport,
 } from "@/microbit/connection-manager";
+import {
+  getMicrobitSlotOptions,
+  sanitizeMicrobitSlot,
+} from "@/microbit/slot-utils";
 
 export type MicrobitReadButtonNodeData = {
   label?: string;
   transport?: MicrobitTransport;
+  microbitSlot?: number;
 };
 
 export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Leer botón", transport: rawTransport } = (data ??
-    {}) as MicrobitReadButtonNodeData;
+  const {
+    label = "Leer botón",
+    transport: rawTransport,
+    microbitSlot: rawMicrobitSlot,
+  } = (data ?? {}) as MicrobitReadButtonNodeData;
 
   const transport: MicrobitTransport =
     rawTransport === "bluetooth" || rawTransport === "serial"
       ? rawTransport
       : "serial";
+  const microbitSlot = sanitizeMicrobitSlot(rawMicrobitSlot);
 
   const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -46,6 +55,7 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const selectId = useId();
+  const slotSelectId = useId();
 
   const setTransport = useCallback(
     (nextTransport: MicrobitTransport) => {
@@ -66,17 +76,39 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
     [id, setNodes],
   );
 
+  const setMicrobitSlot = useCallback(
+    (nextSlot: number) => {
+      const safeSlot = sanitizeMicrobitSlot(nextSlot);
+      setNodes((prev) =>
+        prev.map((node) =>
+          node.id === id
+            ? {
+                ...node,
+                data: {
+                  ...(node.data ?? {}),
+                  microbitSlot: safeSlot,
+                },
+              }
+            : node,
+        ),
+      );
+    },
+    [id, setNodes],
+  );
+
   const connectedInfo = (() => {
-    if (!isMicrobitConnected()) return { ok: false as const, text: "" };
-    const t = getMicrobitTransport();
+    if (!isMicrobitConnected({ slot: microbitSlot })) {
+      return { ok: false as const, text: "" };
+    }
+    const t = getMicrobitTransport({ slot: microbitSlot });
     return {
       ok: true as const,
       text:
         t === "bluetooth"
-          ? "Conectado por Bluetooth"
+          ? `Conectado por Bluetooth (micro:bit #${microbitSlot})`
           : t === "serial"
-            ? "Conectado por cable (Serial)"
-            : "Conectado",
+            ? `Conectado por cable (Serial, micro:bit #${microbitSlot})`
+            : `Conectado (micro:bit #${microbitSlot})`,
     };
   })();
 
@@ -84,27 +116,27 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
     setIsConnecting(true);
     setErrorMessage(null);
     try {
-      await connectMicrobit({ transport });
+      await connectMicrobit({ transport, slot: microbitSlot });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
     } finally {
       setIsConnecting(false);
     }
-  }, [transport]);
+  }, [microbitSlot, transport]);
 
   const disconnect = useCallback(async () => {
     setIsConnecting(true);
     setErrorMessage(null);
     try {
-      await disconnectMicrobit();
+      await disconnectMicrobit({ slot: microbitSlot });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [microbitSlot]);
 
   const iconComponent = useMemo(() => {
     return (
@@ -136,6 +168,35 @@ export const MicrobitReadButtonInputNode = memo(({ id, data }: NodeProps) => {
           </DialogHeader>
 
           <div className="space-y-4">
+            <div>
+              <label
+                htmlFor={slotSelectId}
+                className="mb-2 block text-sm font-medium text-gray-900"
+              >
+                Dispositivo micro:bit
+              </label>
+              <Select
+                value={String(microbitSlot)}
+                onValueChange={(value) => {
+                  setMicrobitSlot(Number.parseInt(value, 10));
+                }}
+              >
+                <SelectTrigger id={slotSelectId}>
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getMicrobitSlotOptions().map((slot) => (
+                    <SelectItem key={slot} value={String(slot)}>
+                      Microbit #{slot}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Selecciona uno de los 8 dispositivos disponibles.
+              </p>
+            </div>
+
             <div>
               <label
                 htmlFor={selectId}

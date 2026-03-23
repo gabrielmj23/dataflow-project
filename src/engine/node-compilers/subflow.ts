@@ -6,6 +6,7 @@ import { FirePatterns, NodeDefinition } from "../program-elements";
 import { asRecord } from "../deserialize/utils";
 import type { RemoteSubflowPayload } from "../deserialize/shared-types";
 import { ensureMicrobitConnected } from "@/microbit/connection-manager";
+import { parseMicrobitSlot } from "@/microbit/slot-utils";
 import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import type { NodeCompiler } from "./types";
@@ -276,6 +277,7 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
 
     if (executionTarget === "microbit") {
       const transport = data.transport === "bluetooth" ? "bluetooth" : "serial";
+      const microbitSlot = parseMicrobitSlot(data);
 
       const plan = ctx.helpers.computeSubflowExecutionPlan({
         subflowNodes: subflowNodes as Node[],
@@ -299,7 +301,10 @@ export const compileSubflowNodes: NodeCompiler = (flowNode, ctx) => {
 
       return new NodeDefinition(
         async (...args: unknown[]) => {
-          const connection = await ensureMicrobitConnected({ transport });
+          const connection = await ensureMicrobitConnected({
+            transport,
+            slot: microbitSlot,
+          });
 
           return await sendSubflowToMicrobit({
             connection,

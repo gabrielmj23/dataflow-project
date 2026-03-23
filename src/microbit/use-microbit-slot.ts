@@ -3,6 +3,7 @@ import { useSyncExternalStore } from "react";
 import {
   microbitSlotManager,
   type MicrobitConnectionType,
+  type MicrobitKnownSlot,
   type MicrobitSlotState,
 } from "@/microbit/slot-manager";
 
@@ -19,6 +20,14 @@ export function useConnectedMicrobitDevices(): MicrobitSlotState[] {
     (listener) => microbitSlotManager.subscribe(listener),
     () => microbitSlotManager.getConnectedSnapshots(),
     () => microbitSlotManager.getConnectedSnapshots(),
+  );
+}
+
+export function useKnownMicrobitSlots(): MicrobitKnownSlot[] {
+  return useSyncExternalStore(
+    (listener) => microbitSlotManager.subscribe(listener),
+    () => microbitSlotManager.getKnownSlots(),
+    () => microbitSlotManager.getKnownSlots(),
   );
 }
 
@@ -40,4 +49,15 @@ export async function sendMicrobitSlot(params: {
   data: string;
 }): Promise<void> {
   return microbitSlotManager.send(params);
+}
+
+export function setMicrobitSlotName(params: {
+  slot: number;
+  name?: string;
+}): void {
+  microbitSlotManager.setSlotName(params);
+}
+
+export function getMicrobitSlotName(slot: number): string | undefined {
+  return microbitSlotManager.getSlotName(slot);
 }
