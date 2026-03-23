@@ -1,4 +1,5 @@
 import { NODE_TYPES } from "@/common/constants";
+import { parseMicrobitSlot } from "@/microbit/slot-utils";
 
 import { EngineTimerNode } from "../nodes/event-nodes";
 import {
@@ -116,9 +117,11 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
         transportRaw === "bluetooth" || transportRaw === "serial"
           ? transportRaw
           : "serial";
+      const slot = parseMicrobitSlot(data);
       return new EngineMicrobitReadButtonNode({
         nodeId: String(flowNode.id),
         transport,
+        slot,
         onLog: ctx.onLog,
         signal: ctx.signal,
       });
@@ -129,9 +132,11 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
         transportRaw === "bluetooth" || transportRaw === "serial"
           ? transportRaw
           : "serial";
+      const slot = parseMicrobitSlot(data);
       return new EngineMicrobitReadTemperatureNode({
         nodeId: String(flowNode.id),
         transport,
+        slot,
         onLog: ctx.onLog,
         signal: ctx.signal,
       });
@@ -142,11 +147,13 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
         transportRaw === "bluetooth" || transportRaw === "serial"
           ? transportRaw
           : "serial";
+      const slot = parseMicrobitSlot(data);
       const pin = typeof data.pin === "string" ? data.pin : "P0";
       const mode = data.mode === "analog" ? "analog" : "digital";
       return new EngineMicrobitReadPinNode({
         nodeId: String(flowNode.id),
         transport,
+        slot,
         pin,
         mode,
         onLog: ctx.onLog,

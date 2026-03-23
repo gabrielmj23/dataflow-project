@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useMemo, useState } from "react";
+﻿import { memo, useCallback, useId, useMemo, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { Cpu } from "lucide-react";
 
@@ -25,6 +25,10 @@ import {
   isMicrobitConnected,
   type MicrobitTransport,
 } from "@/microbit/connection-manager";
+import {
+  getMicrobitSlotOptions,
+  sanitizeMicrobitSlot,
+} from "@/microbit/slot-utils";
 
 const MICROBIT_DIGITAL_PIN_OPTIONS = [
   "P0",
@@ -74,6 +78,7 @@ function sanitizeMode(value: unknown): MicrobitPinMode {
 export type MicrobitReadPinNodeData = {
   label?: string;
   transport?: MicrobitTransport;
+  microbitSlot?: number;
   pin?: MicrobitPinName;
   mode?: MicrobitPinMode;
 };
@@ -82,6 +87,7 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
   const {
     label = "Leer pin",
     transport: rawTransport,
+    microbitSlot: rawMicrobitSlot,
     pin: rawPin,
     mode: rawMode,
   } = (data ?? {}) as MicrobitReadPinNodeData;
@@ -90,6 +96,7 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
     rawTransport === "bluetooth" || rawTransport === "serial"
       ? rawTransport
       : "serial";
+  const microbitSlot = sanitizeMicrobitSlot(rawMicrobitSlot);
   const mode = sanitizeMode(rawMode);
   const pin = sanitizePin(rawPin, mode);
 
@@ -99,6 +106,7 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const transportSelectId = useId();
+  const slotSelectId = useId();
   const pinSelectId = useId();
   const modeSelectId = useId();
 
@@ -122,16 +130,18 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
   );
 
   const connectedInfo = (() => {
-    if (!isMicrobitConnected()) return { ok: false as const, text: "" };
-    const t = getMicrobitTransport();
+    if (!isMicrobitConnected({ slot: microbitSlot })) {
+      return { ok: false as const, text: "" };
+    }
+    const t = getMicrobitTransport({ slot: microbitSlot });
     return {
       ok: true as const,
       text:
         t === "bluetooth"
-          ? "Conectado por Bluetooth"
+          ? `Conectado por Bluetooth (micro:bit #${microbitSlot})`
           : t === "serial"
-            ? "Conectado por cable (Serial)"
-            : "Conectado",
+            ? `Conectado por cable (Serial, micro:bit #${microbitSlot})`
+            : `Conectado (micro:bit #${microbitSlot})`,
     };
   })();
 
@@ -139,27 +149,27 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
     setIsConnecting(true);
     setErrorMessage(null);
     try {
-      await connectMicrobit({ transport });
+      await connectMicrobit({ transport, slot: microbitSlot });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
     } finally {
       setIsConnecting(false);
     }
-  }, [transport]);
+  }, [microbitSlot, transport]);
 
   const disconnect = useCallback(async () => {
     setIsConnecting(true);
     setErrorMessage(null);
     try {
-      await disconnectMicrobit();
+      await disconnectMicrobit({ slot: microbitSlot });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [microbitSlot]);
 
   const iconComponent = useMemo(() => {
     return (
@@ -191,6 +201,35 @@ export const MicrobitReadPinInputNode = memo(({ id, data }: NodeProps) => {
           </DialogHeader>
 
           <div className="space-y-4">
+            <div>
+              <label
+                htmlFor={slotSelectId}
+                className="mb-2 block text-sm font-medium text-gray-900"
+              >
+                Dispositivo micro:bit
+              </label>
+              <Select
+                value={String(microbitSlot)}
+                onValueChange={(v) => {
+                  patchData({ microbitSlot: sanitizeMicrobitSlot(v) });
+                }}
+              >
+                <SelectTrigger id={slotSelectId}>
+                  <SelectValue placeholder="Selecciona" />
+                </SelectTrigger>
+                <SelectContent>
+                  {getMicrobitSlotOptions().map((slot) => (
+                    <SelectItem key={slot} value={String(slot)}>
+                      Microbit #{slot}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Selecciona uno de los 8 dispositivos disponibles.
+              </p>
+            </div>
+
             <div>
               <label
                 htmlFor={transportSelectId}

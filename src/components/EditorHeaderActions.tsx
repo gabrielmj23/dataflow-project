@@ -131,6 +131,7 @@ export function EditorHeaderActions({
               {connectedDevices.map((device) => {
                 const kind = detectDeviceKind(device);
                 const visual = getDeviceVisual(kind);
+
                 return (
                   <li
                     key={device.id}

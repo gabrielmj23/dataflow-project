@@ -1,6 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import { NODE_TYPES } from "@/common/constants";
 import { ensureMicrobitConnected } from "@/microbit/connection-manager";
+import { parseMicrobitSlot } from "@/microbit/slot-utils";
 import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import {
@@ -122,6 +123,7 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
   const data = asRecord(flowNode.data);
 
   const executionTarget = data.executionTarget;
+  const microbitSlot = parseMicrobitSlot(data);
   const controllerId =
     typeof data.controllerId === "string" ? data.controllerId : "";
 
@@ -166,7 +168,10 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
 
     return new NodeDefinition(
       async (...args: unknown[]) => {
-        const connection = await ensureMicrobitConnected({ transport });
+        const connection = await ensureMicrobitConnected({
+          transport,
+          slot: microbitSlot,
+        });
         return await sendSubflowToMicrobit({
           connection,
           nodes: graph.nodes,
@@ -502,7 +507,10 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
 
         return new NodeDefinition(
           async (text: unknown, search: unknown, replacement: unknown) => {
-            const connection = await ensureMicrobitConnected({ transport });
+            const connection = await ensureMicrobitConnected({
+              transport,
+              slot: microbitSlot,
+            });
             return await sendSubflowToMicrobit({
               connection,
               nodes: graph.nodes,
@@ -542,7 +550,10 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
 
         return new NodeDefinition(
           async (text: unknown, search: unknown) => {
-            const connection = await ensureMicrobitConnected({ transport });
+            const connection = await ensureMicrobitConnected({
+              transport,
+              slot: microbitSlot,
+            });
             return await sendSubflowToMicrobit({
               connection,
               nodes: graph.nodes,
@@ -582,7 +593,10 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
 
         return new NodeDefinition(
           async (text: unknown, start: unknown, end: unknown) => {
-            const connection = await ensureMicrobitConnected({ transport });
+            const connection = await ensureMicrobitConnected({
+              transport,
+              slot: microbitSlot,
+            });
             return await sendSubflowToMicrobit({
               connection,
               nodes: graph.nodes,

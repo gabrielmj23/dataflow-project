@@ -5,6 +5,7 @@ import {
   onMicrobitMessage,
   type MicrobitTransport,
 } from "@/microbit/connection-manager";
+import { sanitizeMicrobitSlot } from "@/microbit/slot-utils";
 import type { EngineObserver } from "../engine";
 
 const MICROBIT_SEND_TIMEOUT_MS = 50000;
@@ -231,6 +232,7 @@ function coercePinWriteValue(value: unknown, mode: MicrobitPinMode): number {
 }
 
 async function waitForPinReadValue(params: {
+  slot?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
 }): Promise<number> {
@@ -255,7 +257,8 @@ async function waitForPinReadValue(params: {
       if (off) off();
     };
 
-    const off = onMicrobitMessage((msg) => {
+    const off = onMicrobitMessage((msg, context) => {
+      if (params.slot != null && context?.slot !== params.slot) return;
       const parsed = parsePinReadMessage(msg);
       if (parsed == null) return;
       cleanup(onAbort, off, onTimeout);
@@ -297,6 +300,7 @@ function coerceFiniteNumber(value: unknown, label: string): number {
 
 async function waitForPrefixedNumber(params: {
   prefix: string;
+  slot?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
 }): Promise<number> {
@@ -321,7 +325,8 @@ async function waitForPrefixedNumber(params: {
       if (off) off();
     };
 
-    const off = onMicrobitMessage((msg) => {
+    const off = onMicrobitMessage((msg, context) => {
+      if (params.slot != null && context?.slot !== params.slot) return;
       const parsed = parsePrefixedNumber(msg, params.prefix);
       if (parsed == null) return;
       cleanup(onAbort, off, onTimeout);
@@ -355,6 +360,7 @@ async function waitForPrefixedNumber(params: {
 
 async function waitForPrefixedText(params: {
   prefix: string;
+  slot?: number;
   signal?: AbortSignal;
   timeoutMs?: number;
 }): Promise<string> {
@@ -379,7 +385,8 @@ async function waitForPrefixedText(params: {
       if (off) off();
     };
 
-    const off = onMicrobitMessage((msg) => {
+    const off = onMicrobitMessage((msg, context) => {
+      if (params.slot != null && context?.slot !== params.slot) return;
       const parsed = parsePrefixedText(msg, params.prefix);
       if (parsed == null) return;
       cleanup(onAbort, off, onTimeout);
@@ -412,12 +419,15 @@ async function waitForPrefixedText(params: {
 }
 
 export class EngineMicrobitWriteNode extends NodeDefinition {
-  constructor(params: { transport?: unknown; signal?: AbortSignal } = {}) {
+  constructor(
+    params: { transport?: unknown; slot?: unknown; signal?: AbortSignal } = {},
+  ) {
     const transport = sanitizeTransport(params.transport);
+    const slot = sanitizeMicrobitSlot(params.slot);
 
     super(
       async (value: unknown) => {
-        const connection = await ensureMicrobitConnected({ transport });
+        const connection = await ensureMicrobitConnected({ transport, slot });
         const text = formatValue(value).trim();
         const payload = `TXT:${text}`;
         await withTimeout({
@@ -438,12 +448,15 @@ export class EngineMicrobitWriteNode extends NodeDefinition {
 }
 
 export class EngineMicrobitSoundNode extends NodeDefinition {
-  constructor(params: { transport?: unknown; signal?: AbortSignal } = {}) {
+  constructor(
+    params: { transport?: unknown; slot?: unknown; signal?: AbortSignal } = {},
+  ) {
     const transport = sanitizeTransport(params.transport);
+    const slot = sanitizeMicrobitSlot(params.slot);
 
     super(
       async (frequencyValue: unknown, durationValue: unknown) => {
-        const connection = await ensureMicrobitConnected({ transport });
+        const connection = await ensureMicrobitConnected({ transport, slot });
         const freq = Number(frequencyValue);
         const rawFrequency = formatValue(frequencyValue).trim();
         if (!Number.isFinite(freq)) {
@@ -481,18 +494,20 @@ export class EngineMicrobitWritePinNode extends NodeDefinition {
   constructor(
     params: {
       transport?: unknown;
+      slot?: unknown;
       pin?: unknown;
       mode?: unknown;
       signal?: AbortSignal;
     } = {},
   ) {
     const transport = sanitizeTransport(params.transport);
+    const slot = sanitizeMicrobitSlot(params.slot);
     const mode = sanitizePinMode(params.mode);
     const pin = sanitizePinName(params.pin, mode, "write");
 
     super(
       async (value: unknown) => {
-        const connection = await ensureMicrobitConnected({ transport });
+        const connection = await ensureMicrobitConnected({ transport, slot });
         const safeValue = coercePinWriteValue(value, mode);
         const payload = `PINW:${pin},${mode},${safeValue}`;
 
@@ -518,11 +533,13 @@ export class EngineMicrobitReadPinNode extends NodeDefinition {
   constructor(params: {
     nodeId: string;
     transport: MicrobitTransport;
+    slot?: unknown;
     pin?: unknown;
     mode?: unknown;
     onLog?: EngineObserver["onLog"];
     signal?: AbortSignal;
   }) {
+    const slot = sanitizeMicrobitSlot(params.slot);
     const mode = sanitizePinMode(params.mode);
     const pin = sanitizePinName(params.pin, mode, "read");
 
@@ -530,6 +547,7 @@ export class EngineMicrobitReadPinNode extends NodeDefinition {
       async () => {
         const connection = await ensureMicrobitConnected({
           transport: params.transport,
+          slot,
         });
 
         params.onLog?.({
@@ -550,6 +568,7 @@ export class EngineMicrobitReadPinNode extends NodeDefinition {
         });
 
         return await waitForPinReadValue({
+          slot,
           signal: params.signal,
           timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });
@@ -1085,13 +1104,16 @@ export class EngineMicrobitReadButtonNode extends NodeDefinition {
   constructor(params: {
     nodeId: string;
     transport: MicrobitTransport;
+    slot?: unknown;
     onLog?: EngineObserver["onLog"];
     signal?: AbortSignal;
   }) {
+    const slot = sanitizeMicrobitSlot(params.slot);
     super(
       async () => {
         const connection = await ensureMicrobitConnected({
           transport: params.transport,
+          slot,
         });
 
         params.onLog?.({
@@ -1114,7 +1136,8 @@ export class EngineMicrobitReadButtonNode extends NodeDefinition {
             if (off) off();
           };
 
-          const off = onMicrobitMessage((msg) => {
+          const off = onMicrobitMessage((msg, context) => {
+            if (context?.slot !== slot) return;
             const parsed = parseButtonMessage(msg);
             if (!parsed) return;
             cleanup(onAbort, off);
@@ -1148,13 +1171,16 @@ export class EngineMicrobitReadTemperatureNode extends NodeDefinition {
   constructor(params: {
     nodeId: string;
     transport: MicrobitTransport;
+    slot?: unknown;
     onLog?: EngineObserver["onLog"];
     signal?: AbortSignal;
   }) {
+    const slot = sanitizeMicrobitSlot(params.slot);
     super(
       async () => {
         const connection = await ensureMicrobitConnected({
           transport: params.transport,
+          slot,
         });
 
         params.onLog?.({
@@ -1176,6 +1202,7 @@ export class EngineMicrobitReadTemperatureNode extends NodeDefinition {
 
         const result = await waitForPrefixedNumber({
           prefix: "TEMP",
+          slot,
           signal: params.signal,
           timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
         });

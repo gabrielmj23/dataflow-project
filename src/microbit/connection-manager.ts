@@ -2,27 +2,23 @@
 /// <reference types="web-bluetooth" />
 
 import type { MicrobitConnection, MessageHandler } from "./types";
-
-import { BluetoothConnection } from "./bluetooth-connector";
-import { SerialConnection } from "./serial-connector";
+import { microbitSlotManager } from "./slot-manager";
+import { sanitizeMicrobitSlot } from "./slot-utils";
 
 export type MicrobitTransport = "serial" | "bluetooth";
 
-type ConnectionState = {
-  transport: MicrobitTransport;
-  connection: MicrobitConnection;
-};
-
-let state: ConnectionState | null = null;
-
 const listeners = new Set<MessageHandler>();
+const wiredConnections = new WeakSet<MicrobitConnection>();
 
-function wireDispatch(conn: MicrobitConnection) {
+function wireDispatch(slot: number, conn: MicrobitConnection) {
+  if (wiredConnections.has(conn)) return;
+  wiredConnections.add(conn);
+
   conn.onMessage((msg) => {
     console.log(msg);
     for (const listener of listeners) {
       try {
-        listener(msg);
+        listener(msg, { slot });
       } catch (err) {
         console.error("Microbit message listener error:", err);
       }
@@ -35,75 +31,73 @@ export function onMicrobitMessage(handler: MessageHandler): () => void {
   return () => listeners.delete(handler);
 }
 
-export function getMicrobitTransport(): MicrobitTransport | null {
-  return state?.transport ?? null;
+function getConnectedConnection(slot: number): MicrobitConnection | null {
+  const connection = microbitSlotManager.getConnection(slot);
+  if (connection) {
+    wireDispatch(slot, connection);
+  }
+  return connection;
 }
 
-export function isMicrobitConnected(): boolean {
-  // We don't have a reliable cross-transport "connected" flag.
-  // If we have state, we consider it connected.
-  return state != null;
+export function getMicrobitTransport(params?: {
+  slot?: number;
+}): MicrobitTransport | null {
+  const slot = sanitizeMicrobitSlot(params?.slot);
+  const snapshot = microbitSlotManager.getSnapshot(slot);
+  if (snapshot.status !== "connected") return null;
+  return snapshot.connectionType;
+}
+
+export function isMicrobitConnected(params?: { slot?: number }): boolean {
+  const slot = sanitizeMicrobitSlot(params?.slot);
+  return microbitSlotManager.getSnapshot(slot).status === "connected";
 }
 
 export async function connectMicrobit(params: {
   transport: MicrobitTransport;
+  slot?: number;
 }): Promise<void> {
-  // This should be called from a user gesture (button click), because it may
-  // open the Chrome device picker (Web Serial / Web Bluetooth).
-  await disconnectMicrobit();
-
-  if (params.transport === "serial") {
-    const conn = new SerialConnection();
-    wireDispatch(conn);
-    await conn.connect();
-    state = { transport: "serial", connection: conn };
-    return;
-  }
-
-  const conn = new BluetoothConnection();
-  wireDispatch(conn);
-  await conn.connect();
-  // NOTE: we can't persist the device across reloads; keep only in-memory.
-  state = { transport: "bluetooth", connection: conn };
+  const slot = sanitizeMicrobitSlot(params.slot);
+  await microbitSlotManager.connect({
+    slot,
+    connectionType: params.transport,
+  });
+  getConnectedConnection(slot);
 }
 
 export async function ensureMicrobitConnected(params: {
   transport: MicrobitTransport;
+  slot?: number;
 }): Promise<MicrobitConnection> {
-  if (state && state.transport === params.transport) {
-    return state.connection;
+  const slot = sanitizeMicrobitSlot(params.slot);
+  const snapshot = microbitSlotManager.getSnapshot(slot);
+  const connected = getConnectedConnection(slot);
+
+  if (
+    snapshot.status === "connected" &&
+    snapshot.connectionType === params.transport &&
+    connected
+  ) {
+    return connected;
   }
 
-  // Try to reconnect without prompting when possible.
-  if (params.transport === "serial") {
-    // If the user already granted permission, Chrome can return ports here.
-    const ports = await navigator.serial.getPorts();
-    const port = ports[0];
-    if (!port) {
-      throw new Error(
-        "No hay un puerto serial autorizado. Abre la configuración del nodo y selecciona el puerto de la micro:bit."
-      );
-    }
-
-    const conn = new SerialConnection(port);
-    wireDispatch(conn);
-    await conn.connect();
-    state = { transport: "serial", connection: conn };
-    return conn;
+  if (
+    snapshot.status === "connected" &&
+    snapshot.connectionType !== params.transport
+  ) {
+    throw new Error(
+      `La micro:bit del slot ${slot} está conectada por ${snapshot.connectionType}. Cambia el método de conexión o reconecta ese slot.`,
+    );
   }
 
-  // Web Bluetooth cannot reliably reconnect without a previously obtained
-  // BluetoothDevice reference. Require the user to connect via the config dialog.
   throw new Error(
-    "Micro:bit por Bluetooth requiere autorización. Abre la configuración del nodo y conecta por Bluetooth antes de ejecutar."
+    `Slot ${slot} no conectado. Abre la configuración del nodo y conecta la micro:bit en ese slot antes de ejecutar.`,
   );
 }
 
-export async function disconnectMicrobit(): Promise<void> {
-  if (!state) return;
-  try {
-    await state.connection.disconnect();
-  } finally {
-    state = null;
-  }
+export async function disconnectMicrobit(params?: {
+  slot?: number;
+}): Promise<void> {
+  const slot = sanitizeMicrobitSlot(params?.slot);
+  await microbitSlotManager.disconnect({ slot });
 }

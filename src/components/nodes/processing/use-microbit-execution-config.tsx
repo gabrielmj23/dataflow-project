@@ -22,6 +22,10 @@ import {
   isMicrobitConnected,
   type MicrobitTransport,
 } from "@/microbit/connection-manager";
+import {
+  getMicrobitSlotOptions,
+  sanitizeMicrobitSlot,
+} from "@/microbit/slot-utils";
 import { useRemoteControllers } from "@/ws/remote-controllers-context";
 
 type ExecutionTarget = "local" | "microbit" | "controller";
@@ -31,6 +35,7 @@ type UseMicrobitExecutionConfigParams = {
   title: string;
   executionTarget?: unknown;
   transport?: unknown;
+  microbitSlot?: unknown;
   controllerId?: unknown;
   controllerName?: unknown;
 };
@@ -48,7 +53,7 @@ type UseMicrobitExecutionConfigResult = {
 export function useMicrobitExecutionConfig(
   params: UseMicrobitExecutionConfigParams,
 ): UseMicrobitExecutionConfigResult {
-  const { setNodes } = useReactFlow();
+  const { setNodes, getNode } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -64,6 +69,15 @@ export function useMicrobitExecutionConfig(
     params.transport === "bluetooth" || params.transport === "serial"
       ? params.transport
       : "serial";
+  const fallbackNodeData = (getNode(params.nodeId)?.data ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const microbitSlot = sanitizeMicrobitSlot(
+    params.microbitSlot ??
+      fallbackNodeData.microbitSlot ??
+      fallbackNodeData.slot,
+  );
 
   const controllerId =
     typeof params.controllerId === "string" ? params.controllerId : "";
@@ -72,6 +86,7 @@ export function useMicrobitExecutionConfig(
 
   const targetSelectId = useId();
   const transportSelectId = useId();
+  const slotSelectId = useId();
 
   const setExecutionTarget = useCallback(
     (nextTarget: ExecutionTarget) => {
@@ -102,6 +117,26 @@ export function useMicrobitExecutionConfig(
                 data: {
                   ...(node.data ?? {}),
                   transport: nextTransport,
+                },
+              }
+            : node,
+        ),
+      );
+    },
+    [params.nodeId, setNodes],
+  );
+
+  const setMicrobitSlot = useCallback(
+    (nextSlot: number) => {
+      const safeSlot = sanitizeMicrobitSlot(nextSlot);
+      setNodes((prev) =>
+        prev.map((node) =>
+          node.id === params.nodeId
+            ? {
+                ...node,
+                data: {
+                  ...(node.data ?? {}),
+                  microbitSlot: safeSlot,
                 },
               }
             : node,
@@ -168,16 +203,18 @@ export function useMicrobitExecutionConfig(
   ]);
 
   const connectedInfo = (() => {
-    if (!isMicrobitConnected()) return { ok: false as const, text: "" };
-    const t = getMicrobitTransport();
+    if (!isMicrobitConnected({ slot: microbitSlot })) {
+      return { ok: false as const, text: "" };
+    }
+    const t = getMicrobitTransport({ slot: microbitSlot });
     return {
       ok: true as const,
       text:
         t === "bluetooth"
-          ? "Conectado por Bluetooth"
+          ? `Conectado por Bluetooth (micro:bit #${microbitSlot})`
           : t === "serial"
-            ? "Conectado por cable (Serial)"
-            : "Conectado",
+            ? `Conectado por cable (Serial, micro:bit #${microbitSlot})`
+            : `Conectado (micro:bit #${microbitSlot})`,
     };
   })();
 
@@ -185,31 +222,31 @@ export function useMicrobitExecutionConfig(
     setIsConnecting(true);
     setErrorMessage(null);
     try {
-      await connectMicrobit({ transport });
+      await connectMicrobit({ transport, slot: microbitSlot });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
     } finally {
       setIsConnecting(false);
     }
-  }, [transport]);
+  }, [microbitSlot, transport]);
 
   const disconnect = useCallback(async () => {
     setIsConnecting(true);
     setErrorMessage(null);
     try {
-      await disconnectMicrobit();
+      await disconnectMicrobit({ slot: microbitSlot });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       setErrorMessage(msg);
     } finally {
       setIsConnecting(false);
     }
-  }, []);
+  }, [microbitSlot]);
 
   const subtitle =
     executionTarget === "microbit"
-      ? `micro:bit`
+      ? `micro:bit #${microbitSlot}`
       : executionTarget === "controller"
         ? `${
             (controllers.find((c) => c.id === controllerId)?.name ??
@@ -293,6 +330,36 @@ export function useMicrobitExecutionConfig(
 
           {executionTarget === "microbit" && (
             <>
+              <div>
+                <label
+                  htmlFor={slotSelectId}
+                  className="mb-2 block text-sm font-medium text-gray-900"
+                >
+                  Dispositivo micro:bit
+                </label>
+                <Select
+                  value={String(microbitSlot)}
+                  onValueChange={(value) => {
+                    setMicrobitSlot(Number.parseInt(value, 10));
+                  }}
+                >
+                  <SelectTrigger id={slotSelectId}>
+                    <SelectValue placeholder="Selecciona" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {getMicrobitSlotOptions().map((slot) => (
+                      <SelectItem key={slot} value={String(slot)}>
+                        Microbit #{slot}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Usa un dispositivo distinto por nodo si quieres conectar
+                  varias micro:bit a la vez.
+                </p>
+              </div>
+
               <div>
                 <label
                   htmlFor={transportSelectId}
