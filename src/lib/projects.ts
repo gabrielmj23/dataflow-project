@@ -196,6 +196,18 @@ export async function updatePublishedProject(params: {
   return (await response.json()) as { id: string; name?: string };
 }
 
+export async function deletePublishedProject(projectId: string) {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: buildProjectRequestHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+}
+
 export function getStoredGuestProjectAuthorName(): string {
   const storedValue = localStorage.getItem(GUEST_PROJECT_AUTHOR_NAME_KEY);
   return storedValue?.trim() ?? "";
