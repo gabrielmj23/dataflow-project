@@ -51,6 +51,7 @@ import { NorNode } from "@/components/nodes/control/nor-node";
 import { XorNode } from "@/components/nodes/control/xor-node";
 import { DesvioNode } from "@/components/nodes/control/desvio-node";
 import { RelevoNode } from "@/components/nodes/control/relevo-node";
+import { WhileNode } from "@/components/nodes/control/while-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
 import { ConditionalSelectorNode } from "@/components/nodes/control/conditional-selector-node";
@@ -139,6 +140,7 @@ export const nodeTypesCore: NodeTypes = {
   xor: XorNode,
   desvio: DesvioNode,
   relevo: RelevoNode,
+  while: WhileNode,
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,
