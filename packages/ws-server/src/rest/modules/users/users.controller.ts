@@ -41,7 +41,10 @@ usersRouter.get("/:id", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error fetching user:", error);
     return res.status(404).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -87,7 +90,10 @@ usersRouter.get("/me/extensions", authGuard, async (req, res) => {
   } catch (error: unknown) {
     console.error("Error fetching user's extensions:", error);
     return res.status(401).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });

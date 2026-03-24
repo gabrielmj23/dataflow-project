@@ -1927,6 +1927,7 @@ export default function EditorPage() {
                                   onSoundsEnabledChange={setSoundsEnabledState}
                                   onDeleteNodes={() => {
                                     setNodes([]);
+                                    setEdges([]);
                                     onClearConsoleClick();
                                   }}
                                   onLayout={onLayout}

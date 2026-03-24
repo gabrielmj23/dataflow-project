@@ -20,7 +20,7 @@ export async function signUp(data: UserInsert) {
   const normalizedEmail = data.email.trim().toLowerCase();
   const existingUser = await findUserByEmail(normalizedEmail);
   if (existingUser) {
-    throw new Error("Ya existe una cuenta con ese correo");
+    throw new Error("Ya existe una cuenta con este correo, por favor utiliza otro");
   }
 
   try {
@@ -33,19 +33,19 @@ export async function signUp(data: UserInsert) {
     const token = await generateToken(newUser);
     return { user: newUser, token };
   } catch {
-    throw new Error("No se pudo crear la cuenta");
+    throw new Error("Ocurrió un error al crear la cuenta, por favor intenta de nuevo");
   }
 }
 
 export async function logIn(email: string, password: string) {
   const dbUser = await findUserByEmail(email);
   if (!dbUser) {
-    throw new Error("Credenciales inválidas");
+    throw new Error("Correo o contraseña incorrectos");
   }
 
   const isPasswordValid = await bcrypt.compare(password, dbUser.password);
   if (!isPasswordValid) {
-    throw new Error("Credenciales inválidas");
+    throw new Error("Correo o contraseña incorrectos");
   }
 
   const token = await generateToken(dbUser);

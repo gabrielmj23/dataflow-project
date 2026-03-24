@@ -107,7 +107,7 @@ const projectsRouter = Router();
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/ProjectGet'
+ *                 $ref: '#/components/schemas/ProjectListItem'
  *       500:
  *         $ref: '#/components/schemas/ErrorResponse'
  */
@@ -131,7 +131,10 @@ projectsRouter.get("/", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error fetching projects:", error);
     return res.status(500).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -167,7 +170,10 @@ projectsRouter.get("/:id", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error fetching project:", error);
     return res.status(404).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -269,7 +275,10 @@ projectsRouter.post("/", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error creating project:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -343,7 +352,10 @@ projectsRouter.patch("/:id", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error updating project:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -385,7 +397,10 @@ projectsRouter.delete("/:id", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error deleting project:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });

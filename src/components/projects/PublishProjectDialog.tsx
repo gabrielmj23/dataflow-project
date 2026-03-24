@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { moderateImageDataUrl } from "@/lib/image-moderation";
+import { optimizeImageFileToDataUrl } from "@/lib/image-optimization";
 
 type PublishProjectDialogProps = {
   open: boolean;
@@ -68,7 +69,7 @@ export function PublishProjectDialog({
   const projectNameId = useId();
   const projectDescriptionId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const MAX_THUMBNAIL_BYTES = 3 * 1024 * 1024;
+  const MAX_UPLOAD_BYTES = 12 * 1024 * 1024;
 
   useEffect(() => {
     if (open) {
@@ -112,26 +113,24 @@ export function PublishProjectDialog({
       return;
     }
 
-    if (file.size > MAX_THUMBNAIL_BYTES) {
-      setThumbnailOverrideError("La imagen no puede superar los 3 MB.");
+    if (file.size > MAX_UPLOAD_BYTES) {
+      setThumbnailOverrideError("La imagen no puede superar los 12 MB.");
       event.target.value = "";
       return;
     }
 
     setIsAnalyzingThumbnail(true);
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const result = reader.result;
-      if (typeof result !== "string") {
-        setThumbnailOverrideError(
-          "No se pudo cargar la imagen seleccionada. Intenta de nuevo.",
-        );
-        setIsAnalyzingThumbnail(false);
-        return;
-      }
-
+    (async () => {
       try {
-        const moderation = await moderateImageDataUrl(result);
+        const optimizedThumbnail = await optimizeImageFileToDataUrl(file, {
+          maxWidth: 1280,
+          maxHeight: 720,
+          maxBytes: 900 * 1024,
+          initialQuality: 0.84,
+          minQuality: 0.52,
+        });
+
+        const moderation = await moderateImageDataUrl(optimizedThumbnail);
         if (!moderation.isAllowed) {
           setThumbnailOverride(null);
           setThumbnailOverrideError(
@@ -141,7 +140,7 @@ export function PublishProjectDialog({
           return;
         }
 
-        setThumbnailOverride(result);
+        setThumbnailOverride(optimizedThumbnail);
         setThumbnailOverrideError(null);
       } catch {
         setThumbnailOverrideError(
@@ -150,15 +149,8 @@ export function PublishProjectDialog({
       } finally {
         setIsAnalyzingThumbnail(false);
       }
-    };
-    reader.onerror = () => {
-      setThumbnailOverrideError(
-        "No se pudo cargar la imagen seleccionada. Intenta de nuevo.",
-      );
-      setIsAnalyzingThumbnail(false);
-    };
+    })();
 
-    reader.readAsDataURL(file);
     event.target.value = "";
   };
 

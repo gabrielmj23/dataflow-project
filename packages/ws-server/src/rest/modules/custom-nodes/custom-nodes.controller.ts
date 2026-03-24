@@ -88,9 +88,12 @@ customNodesRouter.get("/", async (req, res) => {
 customNodesRouter.post("/", authGuard, async (req, res) => {
   try {
     const { name, description, code } = req.body;
-    ensureNoProhibitedTerms("El nombre del nodo personalizado", String(name ?? ""));
     ensureNoProhibitedTerms(
-      "La descripcion del nodo personalizado",
+      "El nombre del nodo personalizado",
+      String(name ?? ""),
+    );
+    ensureNoProhibitedTerms(
+      "La descripción del nodo personalizado",
       String(description ?? ""),
     );
 
@@ -104,7 +107,9 @@ customNodesRouter.post("/", authGuard, async (req, res) => {
     res.status(201).json(created);
   } catch (error) {
     console.error("Error creating custom node:", error);
-    res.status(500).json({ error: "Error creating custom node" });
+    res
+      .status(500)
+      .json({ error: "Error creando nodo personalizado, intenta de nuevo" });
   }
 });
 
