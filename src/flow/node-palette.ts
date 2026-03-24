@@ -434,7 +434,7 @@ export const nodePalette: NodePaletteCategory[] = [
             type: "while",
             label: "Mientras",
             description:
-              "Cada cierto tiempo evalúa una condición booleana; si es verdadera, reenvía la entrada y repite.",
+              "Cada cierto tiempo evalúa una condición booleana; si es verdadera, evalúa la entrada y repite.",
           },
           {
             type: "switch",
