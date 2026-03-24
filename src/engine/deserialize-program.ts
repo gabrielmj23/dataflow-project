@@ -213,6 +213,11 @@ function buildWhileFlowEvaluators(params: {
       );
 
       const engine = new DataflowEngine({ stepDelayMs: 0 });
+      engine.setObserver({
+        onLog: params.onLog,
+        onPrompt: params.onPrompt,
+        onEdgeValue: params.onEdgeValue,
+      });
       engine.loadProgram({ nodes: runNodes, arcs: runArcs });
 
       const emitted = await engine.run({

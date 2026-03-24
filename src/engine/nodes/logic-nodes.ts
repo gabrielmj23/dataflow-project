@@ -202,7 +202,7 @@ export class EngineDesvioNode extends NodeDefinition {
   constructor() {
     super(
       (value: unknown, condition: unknown) => {
-        const targetPort = Boolean(condition) ? "output1" : "output2";
+        const targetPort = condition ? "output1" : "output2";
         return [new DataToken(value, new PortAddress("", targetPort))];
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
@@ -231,23 +231,31 @@ export class EngineRelevoNode extends NodeDefinition {
 
 export class EngineWhileNode extends NodeDefinition {
   constructor(refreshFlow?: () => Promise<unknown>) {
+    let loopStarted = false;
+
     super(
       async (flow: unknown, condition: unknown, interval: unknown) => {
+        const shouldContinue = Boolean(condition);
+        const isContinuingIteration = loopStarted && shouldContinue;
+
         const numericInterval = Number(interval);
         const intervalMs = Number.isFinite(numericInterval)
           ? Math.max(0, Math.round(numericInterval * 1000))
           : 0;
 
-        await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        // First true condition should pass immediately; delay starts on next loop turns.
+        if (isContinuingIteration) {
+          await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
 
         const emitted: DataToken<unknown>[] = [
           new DataToken(condition, new PortAddress("", "loopConditionOut")),
           new DataToken(interval, new PortAddress("", "loopIntervalOut")),
         ];
 
-        if (Boolean(condition)) {
+        if (shouldContinue) {
           let nextFlow = flow;
-          if (refreshFlow) {
+          if (isContinuingIteration && refreshFlow) {
             const refreshed = await refreshFlow();
             if (refreshed !== undefined) {
               nextFlow = refreshed;
@@ -258,6 +266,11 @@ export class EngineWhileNode extends NodeDefinition {
           emitted.push(
             new DataToken(nextFlow, new PortAddress("", "loopFlowOut")),
           );
+
+          loopStarted = true;
+        } else {
+          // Reset the loop state
+          loopStarted = false;
         }
 
         return emitted;
