@@ -93,7 +93,7 @@ const openApiDefinition = {
         },
         required: ["email", "password"],
       },
-      ProjectGet: {
+      ProjectListItem: {
         type: "object",
         properties: {
           id: { type: "string" },
@@ -106,8 +106,6 @@ const openApiDefinition = {
           remixedFromName: { type: ["string", "null"] },
           thumbnail: { type: ["string", "null"] },
           viewerCanEdit: { type: "boolean" },
-          createdAt: { type: "string", format: "date-time" },
-          updatedAt: { type: "string", format: "date-time" },
         },
         required: [
           "id",
@@ -120,8 +118,18 @@ const openApiDefinition = {
           "remixedFromName",
           "thumbnail",
           "viewerCanEdit",
-          "createdAt",
-          "updatedAt",
+        ],
+      },
+      ProjectGet: {
+        allOf: [
+          { $ref: "#/components/schemas/ProjectListItem" },
+          {
+            type: "object",
+            properties: {
+              program: { type: "object" },
+            },
+            required: ["program"],
+          },
         ],
       },
       ProjectCreate: {

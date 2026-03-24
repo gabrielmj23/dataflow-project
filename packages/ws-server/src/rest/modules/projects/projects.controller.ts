@@ -107,7 +107,7 @@ const projectsRouter = Router();
  *             schema:
  *               type: array
  *               items:
- *                 $ref: '#/components/schemas/ProjectGet'
+ *                 $ref: '#/components/schemas/ProjectListItem'
  *       500:
  *         $ref: '#/components/schemas/ErrorResponse'
  */

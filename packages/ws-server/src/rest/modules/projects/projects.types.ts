@@ -21,9 +21,15 @@ export type ProjectUpdate = Omit<
 
 export type ProjectAuthorKind = "user" | "guest";
 
-export type ProjectGet = Omit<
+export type ProjectListItem = Omit<
   typeof projectsTable.$inferSelect,
-  "author" | "guestOwnerId" | "guestAuthorName" | "remixedFrom"
+  | "author"
+  | "guestOwnerId"
+  | "guestAuthorName"
+  | "remixedFrom"
+  | "program"
+  | "createdAt"
+  | "updatedAt"
 > & {
   authorId: string | null;
   authorKind: ProjectAuthorKind;
@@ -31,4 +37,8 @@ export type ProjectGet = Omit<
   remixedFromId: string | null;
   remixedFromName: string | null;
   viewerCanEdit: boolean;
+};
+
+export type ProjectGet = ProjectListItem & {
+  program: (typeof projectsTable.$inferSelect)["program"];
 };
