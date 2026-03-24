@@ -80,9 +80,9 @@ export async function moderateImageDataUrl(dataUrl: string): Promise<NsfwResult>
   const predictions = await model.classify(image);
   const scores = toScoreMap(predictions);
 
-  const hardUnsafe = scores.porn >= 0.2 || scores.hentai >= 0.2;
+  const hardUnsafe = scores.porn >= 0.4 || scores.hentai >= 0.4;
   const weightedUnsafeScore = scores.porn + scores.hentai + scores.sexy * 0.6;
-  const softUnsafe = weightedUnsafeScore >= 0.5;
+  const softUnsafe = weightedUnsafeScore >= 0.6;
 
   if (hardUnsafe || softUnsafe) {
     return {
