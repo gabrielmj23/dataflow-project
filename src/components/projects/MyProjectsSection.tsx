@@ -1,17 +1,44 @@
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Plus, Search } from "lucide-react";
-import { fetchMyProjects, fetchPublishedProjectById } from "@/lib/projects";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ChevronLeft,
+  ChevronRight,
+  MoreHorizontal,
+  Plus,
+  Search,
+  Trash2,
+} from "lucide-react";
+import { toast } from "sonner";
+import {
+  deletePublishedProject,
+  fetchMyProjects,
+  fetchPublishedProjectById,
+} from "@/lib/projects";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { ProjectPreviewDialog } from "@/components/projects/ProjectPreviewDialog";
 
 export function MyProjectsSection() {
+  const queryClient = useQueryClient();
+  const projectsQueryKey = ["projects", "mine", 12] as const;
+
   const {
     data: projects = [],
     isLoading,
     error,
   } = useQuery({
-    queryKey: ["projects", "mine", 12],
+    queryKey: projectsQueryKey,
     queryFn: () => fetchMyProjects(12),
   });
 
@@ -20,6 +47,28 @@ export function MyProjectsSection() {
     null,
   );
   const [searchTerm, setSearchTerm] = useState("");
+  const [projectToDelete, setProjectToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+
+  const deleteProjectMutation = useMutation({
+    mutationFn: deletePublishedProject,
+    onSuccess: async (_, deletedProjectId) => {
+      if (selectedProjectId === deletedProjectId) {
+        setSelectedProjectId(null);
+      }
+      await queryClient.invalidateQueries({ queryKey: projectsQueryKey });
+      toast.success("Proyecto eliminado.");
+    },
+    onError: (error) => {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar el proyecto.";
+      toast.error(message);
+    },
+  });
 
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -61,9 +110,17 @@ export function MyProjectsSection() {
     });
   };
 
-  if (!isLoading && !error && !hasProjects) {
-    return null; // Ocultar si el usuario no tiene proyectos
-  }
+  const handleDeleteProject = () => {
+    if (!projectToDelete) {
+      return;
+    }
+
+    deleteProjectMutation.mutate(projectToDelete.id, {
+      onSuccess: () => {
+        setProjectToDelete(null);
+      },
+    });
+  };
 
   return (
     <>
@@ -124,51 +181,84 @@ export function MyProjectsSection() {
               </Link>
 
               {filteredProjects.map((project) => (
-                <button
-                  key={project.id}
-                  type="button"
-                  className="w-56 shrink-0 rounded-lg border border-slate-300 bg-slate-50 text-left transition-all hover:cursor-pointer hover:border-blue-400 hover:shadow"
-                  onClick={() => setSelectedProjectId(project.id)}
-                >
-                  {project.thumbnail ? (
-                    <img
-                      src={project.thumbnail}
-                      alt={`Miniatura de ${project.name}`}
-                      className="h-32 w-full rounded-t-lg object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-32 w-full items-center justify-center rounded-t-lg bg-slate-100 text-xs font-medium text-slate-500">
-                      Sin miniatura
-                    </div>
-                  )}
+                <div key={project.id} className="relative w-56 shrink-0">
+                  <button
+                    type="button"
+                    className="w-full rounded-lg border border-slate-300 bg-slate-50 text-left transition-all hover:cursor-pointer hover:border-blue-400 hover:shadow"
+                    onClick={() => setSelectedProjectId(project.id)}
+                  >
+                    {project.thumbnail ? (
+                      <img
+                        src={project.thumbnail}
+                        alt={`Miniatura de ${project.name}`}
+                        className="h-32 w-full rounded-t-lg object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-32 w-full items-center justify-center rounded-t-lg bg-slate-100 text-xs font-medium text-slate-500">
+                        Sin miniatura
+                      </div>
+                    )}
 
-                  <div className="p-3">
-                    <div className="mb-1 flex flex-wrap items-center gap-1.5">
-                      <p
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${project.isPublic ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}`}
-                      >
-                        {project.isPublic ? "Público" : "Privado"}
+                    <div className="p-3">
+                      <div className="mb-1 flex flex-wrap items-center gap-1.5">
+                        <p
+                          className={`inline-flex rounded-full px-2 py-0.5 text-xs font-semibold ${project.isPublic ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-700"}`}
+                        >
+                          {project.isPublic ? "Público" : "Privado"}
+                        </p>
+                        {project.remixedFromId ? (
+                          <p className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-500">
+                            Remix
+                          </p>
+                        ) : null}
+                      </div>
+
+                      <p className="truncate text-xl font-semibold text-blue-500">
+                        {project.name}
                       </p>
-                      {project.remixedFromId ? (
-                        <p className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-500">
-                          Remix
+                      <p className="truncate text-slate-600">
+                        {project.authorName}
+                      </p>
+                      {project.remixedFromName ? (
+                        <p className="truncate text-xs text-slate-500">
+                          Remix de {project.remixedFromName}
                         </p>
                       ) : null}
                     </div>
+                  </button>
 
-                    <p className="truncate text-xl font-semibold text-blue-500">
-                      {project.name}
-                    </p>
-                    <p className="truncate text-slate-600">
-                      {project.authorName}
-                    </p>
-                    {project.remixedFromName ? (
-                      <p className="truncate text-xs text-slate-500">
-                        Remix de {project.remixedFromName}
-                      </p>
-                    ) : null}
-                  </div>
-                </button>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 z-20 rounded-full border border-slate-200 bg-white/95 p-1 text-slate-600 shadow-sm hover:bg-slate-100"
+                        aria-label={`Opciones para ${project.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                        }}
+                      >
+                        <MoreHorizontal size={16} />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-44 p-1">
+                      <button
+                        type="button"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-red-600 hover:bg-red-50"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setProjectToDelete({
+                            id: project.id,
+                            name: project.name,
+                          });
+                        }}
+                        disabled={deleteProjectMutation.isPending}
+                      >
+                        <Trash2 size={15} />
+                        Eliminar proyecto
+                      </button>
+                    </PopoverContent>
+                  </Popover>
+                </div>
               ))}
             </div>
 
@@ -181,7 +271,44 @@ export function MyProjectsSection() {
               <ChevronRight size={18} />
             </button>
           </div>
-        ) : null}
+        ) : (
+          <div className="relative mt-4 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+            <button
+              type="button"
+              aria-label="Desplazar proyectos a la izquierda"
+              className="absolute left-1 top-1/2 z-10 -translate-y-1/2 rounded-full border border-slate-300 bg-white/95 p-1.5 text-slate-600 shadow hover:bg-slate-50"
+              onClick={() => scrollRail("left")}
+            >
+              <ChevronLeft size={18} />
+            </button>
+
+            <div
+              ref={railRef}
+              className="mx-9 flex gap-4 overflow-x-auto scroll-smooth pt-1 pb-2 scrollbar-none"
+            >
+              <Link
+                to="/editor"
+                className="group flex w-56 h-48 shrink-0 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-slate-300 bg-white transition-all hover:border-blue-400 hover:bg-blue-50/30"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition-transform group-hover:scale-110">
+                  <Plus size={24} />
+                </div>
+                <span className="text-lg font-medium text-slate-700">
+                  Nuevo proyecto
+                </span>
+              </Link>
+            </div>
+
+            <button
+              type="button"
+              aria-label="Desplazar proyectos a la derecha"
+              className="absolute right-1 top-1/2 z-10 -translate-y-1/2 rounded-full border border-slate-300 bg-white/95 p-1.5 text-slate-600 shadow hover:bg-slate-50"
+              onClick={() => scrollRail("right")}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        )}
 
         {!isLoading && !error && hasProjects && !hasFilteredProjects ? (
           <p className="mt-4 text-slate-600">
@@ -202,6 +329,48 @@ export function MyProjectsSection() {
         isLoadingDetail={selectedProjectDetailQuery.isLoading}
         isDetailError={selectedProjectDetailQuery.isError}
       />
+
+      <Dialog
+        open={Boolean(projectToDelete)}
+        onOpenChange={(open) => {
+          if (!open && !deleteProjectMutation.isPending) {
+            setProjectToDelete(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Eliminar proyecto</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              ¿Seguro que quieres eliminar{" "}
+              {projectToDelete ? `"${projectToDelete.name}"` : "este proyecto"}?
+              Esta acción no se puede deshacer.
+            </p>
+
+            <div className="flex items-center justify-end gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => setProjectToDelete(null)}
+                disabled={deleteProjectMutation.isPending}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDeleteProject}
+                disabled={deleteProjectMutation.isPending}
+              >
+                Eliminar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
