@@ -36,7 +36,10 @@ authRouter.post("/sign-up", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error signing up:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -75,7 +78,10 @@ authRouter.post("/log-in", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error logging in:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });

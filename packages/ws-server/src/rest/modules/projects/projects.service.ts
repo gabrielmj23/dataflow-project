@@ -88,7 +88,7 @@ async function findProjectRowById(id: string): Promise<ProjectRow> {
     .limit(1);
 
   if (!project.length) {
-    throw new Error("Proyecto no encontrado");
+    throw new Error("No se encontró el proyecto");
   }
 
   return project[0];
@@ -115,7 +115,7 @@ export async function findProjectById(
 ): Promise<ProjectGet> {
   const project = await findProjectRowById(id);
   if (!project.isPublic && !isProjectOwnedByViewer(project, viewer)) {
-    throw new Error("Proyecto no encontrado");
+    throw new Error("No se encontró el proyecto");
   }
   return {
     ...mapProjectRow(project, viewer),
@@ -177,7 +177,7 @@ export async function updateProject(
 ) {
   const existingProject = await findProjectRowById(id);
   if (!isProjectOwnedByViewer(existingProject, viewer)) {
-    throw new Error("Acceso denegado");
+    throw new Error("No tienes acceso a este proyecto");
   }
 
   await db
@@ -192,7 +192,7 @@ export async function updateProject(
 export async function deleteProject(id: string, viewer: ProjectViewerIdentity) {
   const project = await findProjectRowById(id);
   if (!isProjectOwnedByViewer(project, viewer)) {
-    throw new Error("Acceso denegado");
+    throw new Error("No tienes acceso a este proyecto");
   }
   await db.delete(projectsTable).where(eq(projectsTable.id, id));
 }
