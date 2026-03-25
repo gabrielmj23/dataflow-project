@@ -20,6 +20,17 @@ Variables de entorno (opcionales):
 - `WS_MAX_JSON_BODY_BYTES` (default: `8000000`)
 - `REST_ALLOWED_ORIGIN` (si se define, limita CORS al origen indicado y habilita credenciales para cookies)
 
+Variables de entorno para miniaturas de proyectos:
+
+- `STORAGE_URL` (connection string de Azure Blob Storage; requerida para subida de miniaturas)
+- `AZURE_STORAGE_CONTAINER` (default: `project-thumbnails`)
+
+Migración de miniaturas base64 existentes a Azure:
+
+- `pnpm --filter @dataflow/ws-server migrate:project-thumbnails:dry` (simulación sin actualizar BD)
+- `pnpm --filter @dataflow/ws-server migrate:project-thumbnails` (ejecución real)
+- `pnpm --filter @dataflow/ws-server migrate:project-thumbnails -- --limit=50` (procesa en lotes)
+
 ## Endpoints HTTP (Express)
 
 - `GET /health` → estado básico del servicio.
@@ -27,6 +38,7 @@ Variables de entorno (opcionales):
 - `GET /sessions/:sessionKey` → detalle de una sala activa específica.
 - `GET /docs` → UI de Swagger/OpenAPI.
 - `GET /docs-json` → especificación OpenAPI en JSON.
+- `POST /projects/thumbnail-upload` → recibe `multipart/form-data` con el campo `thumbnail` y retorna `{ "url": "https://..." }`.
 
 ## Protocolo (v1)
 

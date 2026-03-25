@@ -83,6 +83,7 @@ import {
   getStoredGuestProjectAuthorName,
   persistGuestProjectAuthorName,
   publishProject,
+  uploadProjectThumbnail,
   updatePublishedProject,
 } from "@/lib/projects";
 import { buildProhibitedTermsError } from "@/lib/content-moderation";
@@ -1014,6 +1015,8 @@ export default function EditorPage() {
           );
         }
 
+        const thumbnailUrl = await uploadProjectThumbnail(thumbnail);
+
         const program = serializeProgram({
           nodes,
           edges,
@@ -1025,7 +1028,7 @@ export default function EditorPage() {
           id: publishedProjectQuery.data.id,
           name: normalizedName,
           description,
-          thumbnail,
+          thumbnail: thumbnailUrl,
           program,
           isPublic: false,
           guestAuthorName: isAuthenticated
@@ -1047,7 +1050,7 @@ export default function EditorPage() {
         }
 
         // keep thumbnail preview in UI
-        setThumbnailPreview(thumbnail);
+        setThumbnailPreview(thumbnailUrl);
         markAsSaved(
           buildUnsavedChangesSignature({
             name: normalizedName,
@@ -1531,6 +1534,8 @@ export default function EditorPage() {
           );
         }
 
+        const thumbnailUrl = await uploadProjectThumbnail(thumbnail);
+
         const program = serializeProgram({
           nodes,
           edges,
@@ -1541,7 +1546,7 @@ export default function EditorPage() {
         const createdProject = await publishProjectMutation.mutateAsync({
           name: normalizedName,
           description,
-          thumbnail,
+          thumbnail: thumbnailUrl,
           isPublic: shouldPublishNow,
           remixedFrom: remixSourceProject?.id,
           program,
@@ -1637,6 +1642,13 @@ export default function EditorPage() {
           thumbnailOverride ??
           thumbnailPreview ??
           (await generateThumbnailPreview());
+        if (!thumbnail) {
+          throw new Error(
+            "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
+          );
+        }
+
+        const thumbnailUrl = await uploadProjectThumbnail(thumbnail);
 
         const program = serializeProgram({
           nodes,
@@ -1649,7 +1661,7 @@ export default function EditorPage() {
           id: publishedProjectQuery.data.id,
           name: normalizedName,
           description,
-          thumbnail: thumbnail ?? undefined,
+          thumbnail: thumbnailUrl,
           isPublic: true,
           program,
           guestAuthorName: isAuthenticated
@@ -1663,7 +1675,7 @@ export default function EditorPage() {
           persistGuestProjectAuthorName(normalizedGuestAuthorName);
           setGuestAuthorName(normalizedGuestAuthorName);
         }
-        setThumbnailPreview(thumbnail ?? null);
+        setThumbnailPreview(thumbnailUrl);
         markAsSaved(
           buildUnsavedChangesSignature({
             name: normalizedName,
