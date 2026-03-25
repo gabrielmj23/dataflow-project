@@ -419,41 +419,47 @@ export const nodePalette: NodePaletteCategory[] = [
         title: "Flujo",
         items: [
           {
-            type: "desvio",
-            label: "Desvio",
-            description:
-              "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
-          },
-          {
-            type: "relevo",
-            label: "Relevo",
-            description:
-              "Recibe una entrada por la izquierda y emite siempre el valor conectado en la entrada superior.",
-          },
-          {
-            type: "while",
-            label: "Mientras",
-            description:
-              "Cada cierto tiempo evalúa una condición booleana; si es verdadera, evalúa la entrada y repite.",
-          },
-          {
             type: "switch",
             label: "Switch",
             description: "Activa una de varias salidas según una condición.",
           },
-          {
-            type: "selector",
-            label: "Selector",
-            description:
-              "Elige entre entrada Verdadero o Falso según una condición booleana.",
-          },
-          {
-            type: "conditionalPair",
-            label: "Condicional",
-            description:
-              "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
-          },
         ],
+      },
+    ],
+  },
+  {
+    id: "flowControl",
+    title: "Control de Flujo",
+    items: [
+      {
+        type: "desvio",
+        label: "Desvio",
+        description:
+          "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
+      },
+      {
+        type: "relevo",
+        label: "Relevo",
+        description:
+          "Recibe una entrada por la izquierda y emite siempre el valor conectado en la entrada superior.",
+      },
+      {
+        type: "while",
+        label: "Mientras",
+        description:
+          "Cada cierto tiempo evalúa una condición booleana; si es verdadera, evalúa la entrada y repite.",
+      },
+      {
+        type: "selector",
+        label: "Selector",
+        description:
+          "Elige entre entrada Verdadero o Falso según una condición booleana.",
+      },
+      {
+        type: "conditionalPair",
+        label: "Condicional",
+        description:
+          "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
       },
     ],
   },

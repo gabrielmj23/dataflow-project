@@ -37,7 +37,7 @@ export const WhileNode = memo(({ data }: NodeProps) => {
     <BaseNode
       runtimeError={runtimeError}
       infoDescription={getNodeDescription("while") ?? undefined}
-      className="relative flex min-h-18 w-30 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-6 text-center text-white shadow-md"
+      className="relative flex min-h-18 w-30 flex-col items-center justify-center rounded-2xl border-lime-700 bg-lime-600 px-6 text-center text-white shadow-md"
     >
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">
@@ -53,7 +53,7 @@ export const WhileNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "target", handleId: "in" })}
         typeMask={maskFor({ handleType: "target", handleId: "in" })}
         className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
       <div className="pointer-events-none absolute left-1 top-1 text-[9px] font-medium leading-none text-white/90">
         Condición
@@ -66,7 +66,7 @@ export const WhileNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "target", handleId: "in-cond" })}
         typeMask={maskFor({ handleType: "target", handleId: "in-cond" })}
         className="absolute -top-1 h-2 w-2 -translate-x-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
       <div className="pointer-events-none absolute right-1 top-1 text-[9px] font-medium leading-none text-white/90">
         Espera
@@ -79,7 +79,7 @@ export const WhileNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "target", handleId: "in-time" })}
         typeMask={maskFor({ handleType: "target", handleId: "in-time" })}
         className="absolute -top-1 h-2 w-2 -translate-x-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
 
       <CustomTypedHandle
@@ -89,7 +89,7 @@ export const WhileNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "source", handleId: "out" })}
         typeMask={maskFor({ handleType: "source", handleId: "out" })}
         className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
     </BaseNode>
   );

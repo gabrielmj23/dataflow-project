@@ -103,6 +103,7 @@ export function AppSidebar({
       inputs: "bg-emerald-500",
       math: "bg-sky-500",
       control: "bg-orange-500",
+      flowControl: "bg-lime-600",
       distribution: "bg-yellow-500",
       text: "bg-fuchsia-600",
       iteration: "bg-teal-600",
@@ -118,6 +119,7 @@ export function AppSidebar({
       inputs: "border-emerald-600",
       math: "border-sky-700",
       control: "border-orange-600",
+      flowControl: "border-lime-700",
       distribution: "border-yellow-600",
       text: "border-fuchsia-700",
       iteration: "border-teal-800",
@@ -698,12 +700,7 @@ function NodePreview({
       case "xor":
       case "not":
       case "logicOperation":
-      case "desvio":
-      case "relevo":
-      case "while":
-      case "switch":
-      case "selector":
-      case "conditionalPair": {
+      case "switch": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           comparisonEqual: "comparisonEqual",
@@ -719,12 +716,7 @@ function NodePreview({
           xor: "xor",
           not: "not",
           logicOperation: "logicOperation",
-          desvio: "desvio",
-          relevo: "relevo",
-          while: "while",
           switch: "switch",
-          selector: "selector",
-          conditionalPair: "conditionalPair",
         };
 
         return (
@@ -776,6 +768,33 @@ function NodePreview({
                   {"| ¬"}
                 </span>
               )}
+              {symbolMap[type] === "switch" && (
+                <ToggleRight className="h-4 w-4" />
+              )}
+            </span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "desvio":
+      case "relevo":
+      case "while":
+      case "selector":
+      case "conditionalPair": {
+        const symbolMap: Record<string, string> = {
+          desvio: "desvio",
+          relevo: "relevo",
+          while: "while",
+          selector: "selector",
+          conditionalPair: "conditionalPair",
+        };
+
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl bg-lime-600 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-2xl font-bold leading-none">
               {symbolMap[type] === "desvio" && (
                 <span className="text-lg font-medium leading-none">
                   <Split className="rotate-90" />
@@ -783,9 +802,6 @@ function NodePreview({
               )}
               {symbolMap[type] === "relevo" && <Flag className="h-4 w-4" />}
               {symbolMap[type] === "while" && <RefreshCw className="h-4 w-4" />}
-              {symbolMap[type] === "switch" && (
-                <ToggleRight className="h-4 w-4" />
-              )}
               {symbolMap[type] === "selector" && (
                 <Merge className="h-4 w-4 rotate-90" />
               )}
