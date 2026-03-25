@@ -138,7 +138,11 @@ const openApiDefinition = {
           name: { type: "string" },
           description: { type: "string" },
           remixedFrom: { type: "string" },
-          thumbnail: { type: "string" },
+          thumbnail: {
+            type: "string",
+            format: "uri",
+            description: "URL de la miniatura subida a storage",
+          },
           program: { type: "object" },
           guestAuthorName: { type: "string" },
         },
@@ -149,10 +153,21 @@ const openApiDefinition = {
         properties: {
           name: { type: "string" },
           description: { type: "string" },
-          thumbnail: { type: "string" },
+          thumbnail: {
+            type: "string",
+            format: "uri",
+            description: "URL de la miniatura subida a storage",
+          },
           program: { type: "object" },
           guestAuthorName: { type: "string" },
         },
+      },
+      ProjectThumbnailUploadResponse: {
+        type: "object",
+        properties: {
+          url: { type: "string", format: "uri" },
+        },
+        required: ["url"],
       },
       CustomNodeGet: {
         type: "object",

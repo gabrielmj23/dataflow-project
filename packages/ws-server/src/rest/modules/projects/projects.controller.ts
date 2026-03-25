@@ -1,4 +1,5 @@
 import { Router } from "express";
+import multer from "multer";
 import {
   createProject,
   deleteProject,
@@ -12,6 +13,14 @@ import {
 } from "./project-identity";
 import type { ProjectCreate, ProjectUpdate } from "./projects.types";
 import { ensureNoProhibitedTerms } from "../../moderation/text-moderation";
+import { uploadProjectThumbnailToStorage } from "./project-thumbnail-storage";
+
+const MAX_THUMBNAIL_UPLOAD_BYTES = 12 * 1024 * 1024;
+
+const thumbnailUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: MAX_THUMBNAIL_UPLOAD_BYTES },
+});
 
 function normalizeGuestAuthorName(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -31,8 +40,7 @@ function getProjectCreateBody(body: unknown) {
       typeof payload.description === "string" ? payload.description : undefined,
     remixedFrom:
       typeof payload.remixedFrom === "string" ? payload.remixedFrom : undefined,
-    thumbnail:
-      typeof payload.thumbnail === "string" ? payload.thumbnail : undefined,
+    thumbnail: normalizeProjectThumbnailUrl(payload.thumbnail),
     isPublic:
       typeof payload.isPublic === "boolean" ? payload.isPublic : undefined,
     program: payload.program,
@@ -55,8 +63,8 @@ function getProjectUpdateBody(body: unknown): ProjectUpdate {
     updateData.description = payload.description;
   }
 
-  if (typeof payload.thumbnail === "string") {
-    updateData.thumbnail = payload.thumbnail;
+  if (payload.thumbnail !== undefined) {
+    updateData.thumbnail = normalizeProjectThumbnailUrl(payload.thumbnail);
   }
 
   if (typeof payload.isPublic === "boolean") {
@@ -70,7 +78,111 @@ function getProjectUpdateBody(body: unknown): ProjectUpdate {
   return updateData;
 }
 
+function normalizeProjectThumbnailUrl(value: unknown): string | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return undefined;
+  }
+
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(trimmedValue);
+  } catch {
+    throw new Error("La miniatura del proyecto debe ser una URL válida.");
+  }
+
+  if (parsedUrl.protocol !== "http:" && parsedUrl.protocol !== "https:") {
+    throw new Error("La miniatura del proyecto debe usar http o https.");
+  }
+
+  return trimmedValue;
+}
+
 const projectsRouter = Router();
+
+/**
+ * @openapi
+ * /projects/thumbnail-upload:
+ *   post:
+ *     tags: [Projects]
+ *     summary: Sube una miniatura de proyecto y devuelve su URL.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               thumbnail:
+ *                 type: string
+ *                 format: binary
+ *             required: [thumbnail]
+ *     responses:
+ *       201:
+ *         description: Miniatura subida.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ProjectThumbnailUploadResponse'
+ *       400:
+ *         $ref: '#/components/schemas/ErrorResponse'
+ */
+projectsRouter.post("/thumbnail-upload", async (req, res) => {
+  try {
+    await new Promise<void>((resolve, reject) => {
+      thumbnailUpload.single("thumbnail")(req, res, (error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      });
+    });
+
+    if (!req.file) {
+      return res.status(400).json({ error: "Debes adjuntar una imagen." });
+    }
+
+    const fileMimeType = req.file.mimetype?.toLowerCase() ?? "";
+    if (
+      fileMimeType !== "image/jpeg" &&
+      fileMimeType !== "image/png" &&
+      fileMimeType !== "image/webp"
+    ) {
+      return res.status(400).json({
+        error: "Solo se permiten imágenes JPG, PNG o WEBP.",
+      });
+    }
+
+    const thumbnailUrl = await uploadProjectThumbnailToStorage({
+      fileBuffer: req.file.buffer,
+      contentType: fileMimeType,
+    });
+
+    return res.status(201).json({ url: thumbnailUrl });
+  } catch (error: unknown) {
+    if (
+      error instanceof multer.MulterError &&
+      error.code === "LIMIT_FILE_SIZE"
+    ) {
+      return res.status(400).json({
+        error: "La imagen no puede superar los 12 MB.",
+      });
+    }
+
+    console.error("Error uploading project thumbnail:", error);
+    return res.status(400).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
+    });
+  }
+});
 
 /**
  * @openapi
