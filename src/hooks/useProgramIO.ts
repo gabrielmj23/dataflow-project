@@ -56,6 +56,8 @@ type UseProgramIOParams = {
   setNodes: React.Dispatch<React.SetStateAction<FlowNode[]>>;
   setEdges: React.Dispatch<React.SetStateAction<FlowEdge[]>>;
   setProgramName: React.Dispatch<React.SetStateAction<string>>;
+  onProgramLoadStart: () => void;
+  onProgramLoadEnd: () => void;
 };
 
 export function useProgramIO({
@@ -64,6 +66,8 @@ export function useProgramIO({
   setNodes,
   setEdges,
   setProgramName,
+  onProgramLoadStart,
+  onProgramLoadEnd,
 }: UseProgramIOParams) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -97,6 +101,8 @@ export function useProgramIO({
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
+
+      onProgramLoadStart();
 
       const reader = new FileReader();
       reader.onload = () => {
@@ -141,14 +147,30 @@ export function useProgramIO({
             "No se pudo cargar el programa: el archivo no contiene un JSON válido.",
           );
         } finally {
+          onProgramLoadEnd();
           // Permite volver a seleccionar el mismo archivo si se desea
           event.target.value = "";
         }
       };
 
+      reader.onerror = () => {
+        onProgramLoadEnd();
+        window.alert(
+          "No se pudo cargar el programa: ocurrió un error al leer el archivo.",
+        );
+        event.target.value = "";
+      };
+
       reader.readAsText(file, "utf-8");
     },
-    [reactFlowInstance, setEdges, setNodes, setProgramName],
+    [
+      onProgramLoadEnd,
+      onProgramLoadStart,
+      reactFlowInstance,
+      setEdges,
+      setNodes,
+      setProgramName,
+    ],
   );
 
   return {
