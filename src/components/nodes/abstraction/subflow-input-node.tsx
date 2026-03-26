@@ -5,17 +5,25 @@ import { Braces, X } from "lucide-react";
 
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Input } from "@/components/ui/input";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/components/ui/tooltip";
 import { useReactFlow } from "@xyflow/react";
 
 export type SubflowInputNodeData = {
   label?: string;
   iconVariant?: "x" | "braces";
+  onLabelChange?: (nextLabel: string) => void;
 };
 
 export const SubflowInputNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Valor de entrada", iconVariant = "x" } =
-    (data ?? {}) as SubflowInputNodeData;
+  const {
+    label = "Valor de entrada",
+    iconVariant = "x",
+    onLabelChange,
+  } = (data ?? {}) as SubflowInputNodeData;
   const { setNodes } = useReactFlow();
 
   return (
@@ -35,19 +43,34 @@ export const SubflowInputNode = memo(({ id, data }: NodeProps) => {
         indicatorClassName="border"
       />
 
-      <div className="pointer-events-auto absolute top-full mt-1 w-32 text-center text-[10px] leading-tight text-muted-foreground bg-transparent shadow-none">
+      <div
+        className="pointer-events-auto absolute top-full mt-1 w-32 text-center text-[10px] leading-tight text-muted-foreground bg-transparent shadow-none nodrag nopan"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         {(() => {
-          const isEmpty = !(String(label ?? "").trim());
-          const containerClass = isEmpty ? "rounded border border-destructive/60" : "";
+          const isEmpty = !String(label ?? "").trim();
+          const containerClass = isEmpty
+            ? "rounded border border-destructive/60"
+            : "";
 
           return (
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className={`${containerClass}`}> 
+                <div
+                  className={`${containerClass} nodrag nopan`}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
                   <Input
                     value={label}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => e.stopPropagation()}
                     onChange={(e) => {
-                      const next = String(e.currentTarget.value || "").trim();
+                      const next = String(e.currentTarget.value || "");
+                      if (typeof onLabelChange === "function") {
+                        onLabelChange(next);
+                        return;
+                      }
                       setNodes((prev) =>
                         prev.map((n) =>
                           n.id === id
@@ -62,12 +85,15 @@ export const SubflowInputNode = memo(({ id, data }: NodeProps) => {
                         ),
                       );
                     }}
-                    className="h-6 w-full text-[11px] text-center border-0 bg-transparent px-2 placeholder:text-muted-foreground focus:ring-1 focus:ring-primary/50 focus:bg-white/10 focus:outline-none rounded shadow-none"
+                    className="h-6 w-full text-[11px] text-center border-0 bg-transparent px-2 placeholder:text-muted-foreground focus:ring-1 focus:ring-primary/50 focus:bg-white/10 focus:outline-none rounded shadow-none nodrag nopan"
                   />
                 </div>
               </TooltipTrigger>
               {isEmpty ? (
-                <TooltipContent sideOffset={6} className="border-destructive/30 bg-destructive/10 text-destructive">
+                <TooltipContent
+                  sideOffset={6}
+                  className="border-destructive/30 bg-destructive/10 text-destructive"
+                >
                   No se puede dejar vacío
                 </TooltipContent>
               ) : null}

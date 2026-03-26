@@ -7,6 +7,7 @@ import type {
 } from "@/utils/flow";
 import type { CreateSubflowRequest } from "@/components/CreateSubflowOverlay";
 import { buildProhibitedTermsError } from "@/lib/content-moderation";
+import { createNodeId } from "@/utils/id";
 
 type SubflowPorts = { inCount: number; outCount: number };
 
@@ -118,6 +119,50 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
 
     setCreateSubflowNameError(null);
 
+    const nextInCount = Math.max(
+      1,
+      Number.isFinite(pendingSubflowPorts.inCount)
+        ? pendingSubflowPorts.inCount
+        : 1,
+    );
+    const nextOutCount = Math.max(
+      1,
+      Number.isFinite(pendingSubflowPorts.outCount)
+        ? pendingSubflowPorts.outCount
+        : 1,
+    );
+
+    const snapshotNodes = Array.isArray(pendingSubflowSnapshot.nodes)
+      ? pendingSubflowSnapshot.nodes.slice()
+      : [];
+    const snapshotEdges = Array.isArray(pendingSubflowSnapshot.edges)
+      ? pendingSubflowSnapshot.edges.slice()
+      : [];
+
+    const hasInputNode = snapshotNodes.some(
+      (n) => String(n.type) === "subflowInput",
+    );
+    const hasOutputNode = snapshotNodes.some(
+      (n) => String(n.type) === "subflowOutput",
+    );
+
+    if (!hasInputNode) {
+      snapshotNodes.push({
+        id: createNodeId(),
+        type: "subflowInput",
+        position: { x: 40, y: 40 },
+        data: { label: "Entrada 1" },
+      } as FlowNode);
+    }
+    if (!hasOutputNode) {
+      snapshotNodes.push({
+        id: createNodeId(),
+        type: "subflowOutput",
+        position: { x: 260, y: 40 },
+        data: { label: "Salida" },
+      } as FlowNode);
+    }
+
     const maxIndex = nodes.reduce((max, n) => {
       const match = String(n.id).match(/^sf-(\d+)$/);
       const idx = match ? parseInt(match[1] ?? "0", 10) : 0;
@@ -139,18 +184,16 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
         },
         data: {
           label: name,
-          inCount: pendingSubflowPorts.inCount,
-          outCount: pendingSubflowPorts.outCount,
-          subflowNodes: pendingSubflowSnapshot.nodes,
-          subflowEdges: pendingSubflowSnapshot.edges,
+          inCount: nextInCount,
+          outCount: nextOutCount,
+          subflowNodes: snapshotNodes,
+          subflowEdges: snapshotEdges,
           templateId,
         },
         type: "subflow",
       };
 
-      const removedIds = new Set(
-        pendingSubflowSnapshot.nodes.map((n) => String(n.id)),
-      );
+      const removedIds = new Set(snapshotNodes.map((n) => String(n.id)));
       const remaining = prev.filter((n) => !removedIds.has(String(n.id)));
       return [...remaining, newNode];
     });
@@ -159,10 +202,10 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
       addOrUpdateTemplate({
         id: templateId,
         name,
-        inCount: pendingSubflowPorts.inCount,
-        outCount: pendingSubflowPorts.outCount,
-        nodes: pendingSubflowSnapshot.nodes,
-        edges: pendingSubflowSnapshot.edges,
+        inCount: nextInCount,
+        outCount: nextOutCount,
+        nodes: snapshotNodes,
+        edges: snapshotEdges,
       });
     }
 
@@ -171,8 +214,8 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
         const src = String(e.source);
         const tgt = String(e.target);
         return (
-          !pendingSubflowSnapshot.nodes.some((n) => String(n.id) === src) &&
-          !pendingSubflowSnapshot.nodes.some((n) => String(n.id) === tgt)
+          !snapshotNodes.some((n) => String(n.id) === src) &&
+          !snapshotNodes.some((n) => String(n.id) === tgt)
         );
       }),
     );

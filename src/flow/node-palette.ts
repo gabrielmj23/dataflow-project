@@ -95,7 +95,7 @@ const nodeAbstractionLevelMap: Record<
   map: 2,
   sortList: 3,
   accumulate: 2,
-  product: 2,
+  product: 3,
   count: 3,
   listFirst: 1,
   listLast: 1,
