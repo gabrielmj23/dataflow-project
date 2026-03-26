@@ -13,7 +13,7 @@ export const ListInputValueNode = memo(({ data }: NodeProps) => {
   const { label = "Valor de entrada" } = (data ?? {}) as ListInputValueNodeData;
 
   return (
-    <div className="relative flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-transparent text-foreground">
+    <div className="relative flex h-16 w-16 flex-col items-center justify-center rounded-full border bg-white text-foreground">
       <X className="h-4 w-4 text-muted-foreground" />
 
       <CustomTypedHandle
