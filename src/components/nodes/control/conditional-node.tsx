@@ -363,7 +363,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
       <BaseNode
         runtimeError={runtimeError}
         onConfigClick={openDialog}
-        className="relative flex w-72 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+        className="relative flex w-72 flex-col items-center justify-center rounded-2xl border-lime-700 bg-lime-600 px-5 text-center text-white shadow-md"
         style={{ minHeight: `${minHeight}px` }}
       >
         <div className="flex flex-col items-center gap-0.5">
@@ -415,7 +415,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
               dataType={dt}
               typeMask={mask}
               className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-              indicatorClassName="border-orange-600"
+              indicatorClassName="border-lime-700"
             />
           );
         })}
@@ -427,7 +427,7 @@ export const ConditionalNode = memo(({ id, data }: NodeProps) => {
           dataType={typeFor({ handleType: "source", handleId: "out" })}
           typeMask={maskFor({ handleType: "source", handleId: "out" })}
           className="absolute bottom-0 left-1/2 h-2 w-2 -translate-x-1/2"
-          indicatorClassName="border-orange-600"
+          indicatorClassName="border-lime-700"
         />
       </BaseNode>
 

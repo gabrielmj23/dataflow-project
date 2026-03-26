@@ -10,7 +10,7 @@
         "y": 114
       },
       "data": {
-        "label": "Generar secuencia",
+        "label": "Generar lista",
         "min": 0,
         "max": 100,
         "step": 1

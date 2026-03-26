@@ -204,7 +204,7 @@ export function usePaletteDrag({
             min: 0,
             max: 100,
             step: 1,
-            label: (data.label as string) ?? "Generar Secuencia",
+            label: (data.label as string) ?? "Generar lista",
           };
         }
       }

@@ -75,6 +75,9 @@ import { CountNode } from "@/components/nodes/iteration/count-node";
 import { SortListNode } from "@/components/nodes/iteration/sort-list-node";
 import { ListFirstNode } from "@/components/nodes/iteration/list-first-node";
 import { ListLastNode } from "@/components/nodes/iteration/list-last-node";
+import { ListMinNode } from "@/components/nodes/iteration/list-min-node";
+import { ListMaxNode } from "@/components/nodes/iteration/list-max-node";
+import { ListFrequencyNode } from "@/components/nodes/iteration/list-frequency-node";
 import { ListAtPositionNode } from "@/components/nodes/iteration/list-at-position-node";
 import { ListFindElementNode } from "@/components/nodes/iteration/list-find-element-node";
 import { ListRemoveFirstNode } from "@/components/nodes/iteration/list-remove-first-node";
@@ -166,6 +169,9 @@ export const nodeTypesCore: NodeTypes = {
   sortList: SortListNode,
   listFirst: ListFirstNode,
   listLast: ListLastNode,
+  listMin: ListMinNode,
+  listMax: ListMaxNode,
+  listFrequency: ListFrequencyNode,
   listAtPosition: ListAtPositionNode,
   listFindElement: ListFindElementNode,
   listRemoveFirst: ListRemoveFirstNode,

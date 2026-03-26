@@ -269,7 +269,7 @@ Todas siguen la misma estructura: dos entradas booleanas (sticky), una salida bo
 
 ## 5. Nodos de Listas y Colecciones
 
-### 5.1 Generar Secuencia (`sequence`)
+### 5.1 Generar lista (`sequence`)
 
 - **Función:** Genera un arreglo `[start, start+step, ..., end]`.
 - **Entradas:** `start`, `end`, `step` (todas opcionales; usan defaults 1, 10, 1).
@@ -279,8 +279,8 @@ Todas siguen la misma estructura: dos entradas booleanas (sticky), una salida bo
 
 ### 5.2 Secuencia por Pulsos (`pulseSequence`)
 
-- **Función:** Igual que Generar Secuencia, pero en vez de emitir un solo array, emite cada elemento como un DataToken individual (múltiples tokens de salida en una sola activación).
-- **Entradas/Salidas/Activación:** Igual que Generar Secuencia.
+- **Función:** Igual que Generar lista, pero en vez de emitir un solo array, emite cada elemento como un DataToken individual (múltiples tokens de salida en una sola activación).
+- **Entradas/Salidas/Activación:** Igual que Generar lista.
 - **Distribución:** Solo local.
 
 > **Nota:** `sequence` emite la lista completa como un solo valor; `pulseSequence` emite cada elemento individualmente, permitiendo procesamiento elemento-a-elemento downstream.

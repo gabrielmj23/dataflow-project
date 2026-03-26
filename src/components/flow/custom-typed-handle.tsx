@@ -101,6 +101,7 @@ export function CustomTypedHandle({
         "relative border-0! bg-transparent!",
         // If callers pass width/height via classes (e.g. h-2 w-2), keep them.
         className,
+        "h-[0.4rem]! w-[0.4rem]!"
       )}
       style={{
         ...style,

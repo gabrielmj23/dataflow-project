@@ -37,7 +37,7 @@ export const SelectorNode = memo(({ data }: NodeProps) => {
     <BaseNode
       runtimeError={runtimeError}
       infoDescription={getNodeDescription("selector") ?? undefined}
-      className="relative flex h-18 w-38 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 pl-14 pr-4 text-center text-white shadow-md"
+      className="relative flex h-18 w-38 flex-col items-center justify-center rounded-2xl border-lime-700 bg-lime-600 pl-14 pr-4 text-center text-white shadow-md"
     >
       <div className="ml-auto flex flex-col items-center gap-0.5 text-right">
         <div className="text-2xl font-bold leading-none">
@@ -53,7 +53,7 @@ export const SelectorNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "target", handleId: "in-cond" })}
         typeMask={maskFor({ handleType: "target", handleId: "in-cond" })}
         className="absolute -top-1 left-1/2 h-2 w-2 -translate-x-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
 
       <CustomTypedHandle
@@ -64,7 +64,7 @@ export const SelectorNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "target", handleId: "in-1" })}
         typeMask={maskFor({ handleType: "target", handleId: "in-1" })}
         className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
       <div
         className="pointer-events-none absolute left-3 -translate-y-1/2 max-w-20 truncate text-[10px] font-medium leading-none text-white/90"
@@ -81,7 +81,7 @@ export const SelectorNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "target", handleId: "in-2" })}
         typeMask={maskFor({ handleType: "target", handleId: "in-2" })}
         className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
       <div
         className="pointer-events-none absolute left-3 -translate-y-1/2 max-w-20 truncate text-[10px] font-medium leading-none text-white/90"
@@ -97,7 +97,7 @@ export const SelectorNode = memo(({ data }: NodeProps) => {
         dataType={typeFor({ handleType: "source", handleId: "out" })}
         typeMask={maskFor({ handleType: "source", handleId: "out" })}
         className="absolute -right-1 top-1/2 h-2 w-2 -translate-y-1/2"
-        indicatorClassName="border-orange-600"
+        indicatorClassName="border-lime-700"
       />
     </BaseNode>
   );

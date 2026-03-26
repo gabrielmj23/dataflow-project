@@ -415,6 +415,26 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const editorLookupRef = useRef<unknown>(null);
 
+  const onDraftInputLabelChange = useCallback(
+    (nodeId: string, nextLabel: string) => {
+      setDraftNodes((prev) =>
+        prev.map((node) => {
+          if (String(node.id) !== nodeId) {
+            return node;
+          }
+          return {
+            ...node,
+            data: {
+              ...(node.data ?? {}),
+              label: nextLabel,
+            },
+          };
+        }),
+      );
+    },
+    [],
+  );
+
   const onEditorNodesChange = useCallback(
     (changes: NodeChange[]) => {
       setDraftNodes((snapshot) => {
@@ -1003,6 +1023,17 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                       nodes={syncedDraftNodes.map((n) => ({
                         ...n,
                         type: normalizeNodeType(n.type),
+                        data:
+                          String(n.type) === "subflowInput"
+                            ? {
+                                ...(n.data ?? {}),
+                                onLabelChange: (nextLabel: string) =>
+                                  onDraftInputLabelChange(
+                                    String(n.id),
+                                    nextLabel,
+                                  ),
+                              }
+                            : n.data,
                       }))}
                       edges={effectiveDraftEdges}
                       {...sharedEdgeConfig}

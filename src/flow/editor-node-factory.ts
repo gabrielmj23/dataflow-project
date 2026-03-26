@@ -2,6 +2,7 @@ import type { Edge, Node } from "@xyflow/react";
 
 import { NODE_TYPES } from "@/common/constants";
 import { nodePalette } from "@/flow/node-palette";
+import { createNodeId } from "@/utils/id";
 
 export type ResolvedEditorSubflowTemplate = {
   id: string;
@@ -79,6 +80,30 @@ function buildDefaultReplicateFlowGraph() {
   };
 }
 
+function buildDefaultSubflowGraph() {
+  const nodes: Node[] = [
+    {
+      id: createNodeId(),
+      type: "subflowInput",
+      position: { x: 40, y: 40 },
+      data: { label: "Entrada 1" },
+    },
+    {
+      id: createNodeId(),
+      type: "subflowOutput",
+      position: { x: 260, y: 40 },
+      data: { label: "Salida" },
+    },
+  ];
+
+  return {
+    nodes,
+    edges: [] as Edge[],
+    inCount: 1,
+    outCount: 1,
+  };
+}
+
 export function projectClientToFlowPosition(
   instance: FlowPositionProjector | null | undefined,
   clientX: number,
@@ -113,14 +138,40 @@ export function buildDroppedNodeData(params: {
   if (type === "subflow" && templateId && resolveSubflowTemplate) {
     const resolved = resolveSubflowTemplate(templateId);
     if (resolved) {
+      const nodes = Array.isArray(resolved.nodes) ? [...resolved.nodes] : [];
+      const hasInput = nodes.some((n) => String(n.type) === "subflowInput");
+      const hasOutput = nodes.some((n) => String(n.type) === "subflowOutput");
+      if (!hasInput) {
+        nodes.push({
+          id: createNodeId(),
+          type: "subflowInput",
+          position: { x: 40, y: 40 },
+          data: { label: "Entrada 1" },
+        } as Node);
+      }
+      if (!hasOutput) {
+        nodes.push({
+          id: createNodeId(),
+          type: "subflowOutput",
+          position: { x: 260, y: 40 },
+          data: { label: "Salida" },
+        } as Node);
+      }
+
       return {
         label: resolved.name,
         ...(includeTemplateAuthorName
           ? { templateAuthorName: resolved.authorName }
           : {}),
-        inCount: resolved.inCount,
-        outCount: resolved.outCount,
-        subflowNodes: resolved.nodes,
+        inCount: Math.max(
+          1,
+          Number.isFinite(resolved.inCount) ? resolved.inCount : 1,
+        ),
+        outCount: Math.max(
+          1,
+          Number.isFinite(resolved.outCount) ? resolved.outCount : 1,
+        ),
+        subflowNodes: nodes,
         subflowEdges: resolved.edges,
         templateId: resolved.id,
         accentColor: accentColor || resolved.accentColor,
@@ -130,6 +181,18 @@ export function buildDroppedNodeData(params: {
 
   if (type === NODE_TYPES.REPLICATE_FLOW) {
     const defaults = buildDefaultReplicateFlowGraph();
+    return {
+      ...(nodeLabel ? { label: nodeLabel } : {}),
+      accentColor,
+      subflowNodes: defaults.nodes,
+      subflowEdges: defaults.edges,
+      inCount: defaults.inCount,
+      outCount: defaults.outCount,
+    };
+  }
+
+  if (type === "subflow") {
+    const defaults = buildDefaultSubflowGraph();
     return {
       ...(nodeLabel ? { label: nodeLabel } : {}),
       accentColor,
