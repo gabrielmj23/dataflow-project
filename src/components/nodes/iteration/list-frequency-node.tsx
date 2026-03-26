@@ -1,6 +1,6 @@
 import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
-import { AudioLines } from "lucide-react";
+import { ChartNoAxesCombined } from "lucide-react";
 
 import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
@@ -35,7 +35,7 @@ export const ListFrequencyNode = memo(({ id, data }: NodeProps) => {
     <>
       <IterationRectNodeShell
         nodeType="listFrequency"
-        icon={<AudioLines className="h-4 w-4" />}
+        icon={<ChartNoAxesCombined className="h-4 w-4" />}
         label={label}
         subtitle={config.subtitle}
         variant="singleInSingleOut"

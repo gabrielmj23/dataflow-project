@@ -26,7 +26,6 @@ import {
   Volume2,
   Thermometer,
   PictureInPicture2,
-  AudioLines,
   Copy,
   GitFork,
   Replace as ReplaceIcon,
@@ -38,6 +37,7 @@ import {
   Split,
   Flag,
   RefreshCw,
+  ChartNoAxesCombined,
 } from "lucide-react";
 
 import {
@@ -563,12 +563,26 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
     // Sinks
     case "write":
     case "microbitWrite":
-    case "timerInput":
       return createHandleSpecs({
         direction: "target",
         ids: ["in"],
         positions: [...HANDLE_POSITIONS.single],
       });
+
+    case "timerInput":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
     case "microbitSound":
     case "microbitWritePin":
       return createHandleSpecs({
@@ -999,11 +1013,7 @@ function getPreviewHandleBorderClass(type: string): string {
     return "border-teal-800";
   }
 
-  if (
-    type === "scatter" ||
-    type === "gather" ||
-    type === "replicateFlow"
-  ) {
+  if (type === "scatter" || type === "gather" || type === "replicateFlow") {
     return "border-yellow-600";
   }
 
@@ -1532,7 +1542,7 @@ function NodePreview({
               ) : type === "map" ? (
                 <SquareFunction className="h-5 w-5" />
               ) : type === "listFrequency" ? (
-                <AudioLines className="h-5 w-5" />
+                <ChartNoAxesCombined className="h-5 w-5" />
               ) : symbolMap[type] === "1..N" ? (
                 <span className="font-semibold">1..N</span>
               ) : type === "splitList" ||
