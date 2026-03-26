@@ -159,13 +159,12 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "runtimeInput",
         label: "Leer",
-        description:
-          "Pausa la ejecución y solicita un número al usuario en tiempo real.",
+        description: "Pausa el programa y solicita un valor al usuario.",
       },
       {
         type: "constantNumber",
         label: "Número",
-        description: "Emite siempre el mismo número configurado.",
+        description: "Emite siempre el mismo número.",
       },
       {
         type: "constantBoolean",
@@ -175,17 +174,17 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "constantText",
         label: "Texto",
-        description: "Emite siempre el mismo texto configurado.",
+        description: "Emite siempre el mismo texto.",
       },
       {
         type: "constantList",
         label: "Lista fija",
-        description: "Crea una lista fija de números o textos.",
+        description: "Crea una lista de números o textos.",
       },
       {
         type: "timerInput",
         label: "Temporizador",
-        description: "Detiene la ejecución por un tiempo definido.",
+        description: "Detiene la ejecución por un tiempo establecido.",
       },
       {
         type: "randomInput",
@@ -195,8 +194,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "choiceInput",
         label: "Selección aleatoria",
-        description:
-          "Elige un elemento aleatorio de una lista de opciones configurables.",
+        description: "Elige un elemento aleatorio de una lista de opciones.",
       },
       {
         type: "pulseSequence",
@@ -213,7 +211,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "write",
         label: "Escribir",
-        description: "Muestra valores para inspeccionarlos o imprimirlos.",
+        description: "Muestra valores en la consola.",
       },
     ],
   },
@@ -224,27 +222,27 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "sum",
         label: "Sumar",
-        description: "Suma dos valores numéricos.",
+        description: "Suma dos números.",
       },
       {
         type: "subtract",
         label: "Restar",
-        description: "Resta el segundo valor del primero.",
+        description: "Resta el segundo número del primero.",
       },
       {
         type: "multiply",
         label: "Multiplicar",
-        description: "Multiplica dos valores numéricos.",
+        description: "Multiplica dos números.",
       },
       {
         type: "divide",
         label: "Dividir",
-        description: "Divide el primer valor entre el segundo.",
+        description: "Divide el primer número entre el segundo.",
       },
       {
         type: "mod",
         label: "Resto",
-        description: "Calcula el resto de la división entre dos valores.",
+        description: "Calcula el resto de la división entre dos números.",
       },
       {
         type: "power",
@@ -255,7 +253,7 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "mathOperation",
         label: "Operación matemática",
         description:
-          "Nodo rápido para elegir entre sumar, restar, multiplicar, dividir, resto o potencia.",
+          "Elige entre sumar, restar, multiplicar, dividir, resto o potencia.",
       },
       {
         type: "root",
@@ -296,7 +294,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "concat",
         label: "Concatenar",
-        description: "Une dos cadenas o listas en una sola.",
+        description: "Une dos textos o listas en una sola.",
       },
       {
         type: "replaceText",
@@ -329,43 +327,43 @@ export const nodePalette: NodePaletteCategory[] = [
           {
             type: "comparison",
             label: "Comparación",
-            description: "Compara dos valores con un operador.",
+            description: "Compara dos números con un operador.",
           },
           {
             type: "comparisonEqual",
             label: "Igual",
             description:
-              "Compara dos valores y devuelve verdadero si son iguales.",
+              "Compara dos números y devuelve verdadero si son iguales.",
           },
           {
             type: "comparisonNotEqual",
             label: "Distinto",
             description:
-              "Compara dos valores y devuelve verdadero si son distintos.",
+              "Compara dos números y devuelve verdadero si son distintos.",
           },
           {
             type: "comparisonLess",
             label: "Menor",
             description:
-              "Compara dos valores y devuelve verdadero si el primero es menor.",
+              "Compara dos números y devuelve verdadero si el primero es menor.",
           },
           {
             type: "comparisonLessOrEqual",
             label: "Menor o igual",
             description:
-              "Compara dos valores y devuelve verdadero si el primero es menor o igual.",
+              "Compara dos números y devuelve verdadero si el primero es menor o igual.",
           },
           {
             type: "comparisonGreater",
             label: "Mayor",
             description:
-              "Compara dos valores y devuelve verdadero si el primero es mayor.",
+              "Compara dos números y devuelve verdadero si el primero es mayor.",
           },
           {
             type: "comparisonGreaterOrEqual",
             label: "Mayor o igual",
             description:
-              "Compara dos valores y devuelve verdadero si el primero es mayor o igual.",
+              "Compara dos números y devuelve verdadero si el primero es mayor o igual.",
           },
         ],
       },
@@ -376,52 +374,38 @@ export const nodePalette: NodePaletteCategory[] = [
           {
             type: "logicOperation",
             label: "Operación lógica",
-            description:
-              "Nodo rápido para elegir entre AND, NAND, OR, NOR, XOR o NOT.",
+            description: "Elige entre AND, NAND, OR, NOR, XOR o NOT.",
           },
           {
             type: "and",
             label: "AND",
-            description:
-              "Devuelve verdadero si todas las entradas son verdaderas.",
+            description: "Es verdadero si ambos valores son verdaderos.",
           },
           {
             type: "nand",
             label: "NAND",
             description:
-              "Verdadero salvo que todas las entradas sean verdaderas.",
+              "Verdadero salvo que todos los valores sean verdaderos.",
           },
           {
             type: "or",
             label: "OR",
-            description:
-              "Devuelve verdadero si al menos una entrada es verdadera.",
+            description: "Verdadero si al menos un valor es verdadero.",
           },
           {
             type: "nor",
             label: "NOR",
-            description: "Verdadero solo cuando todas las entradas son falsas.",
+            description: "Verdadero solo cuando todos los valores son falsos.",
           },
           {
             type: "xor",
             label: "XOR",
-            description: "Verdadero si exactamente una entrada es verdadera.",
+            description: "Verdadero si exactamente un valor es verdadero.",
           },
           {
             type: "not",
             label: "NOT",
-            description: "Niega un valor booleano de entrada.",
-          },
-        ],
-      },
-      {
-        id: "control-flow",
-        title: "Flujo",
-        items: [
-          {
-            type: "switch",
-            label: "Switch",
-            description: "Activa una de varias salidas según una condición.",
+            description: "Niega un valor lógico de entrada.",
           },
         ],
       },
@@ -441,25 +425,29 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "relevo",
         label: "Relevo",
         description:
-          "Recibe una entrada por la izquierda y emite siempre el valor conectado en la entrada superior.",
+          "Recibe una entrada por la izquierda y emite siempre el valor conectado por arriba.",
       },
       {
         type: "while",
         label: "Mientras",
         description:
-          "Cada cierto tiempo evalúa una condición booleana; si es verdadera, evalúa la entrada y repite.",
+          "Cada cierto tiempo evalúa una condición; si es verdadera, evalúa la entrada y repite.",
       },
       {
         type: "selector",
         label: "Selector",
         description:
-          "Elige entre entrada Verdadero o Falso según una condición booleana.",
+          "Elige entre entrada Verdadero o Falso según una condición.",
+      },
+      {
+        type: "switch",
+        label: "Switch",
+        description: "Activa una salida según una condición que definas.",
       },
       {
         type: "conditionalPair",
         label: "Condicional",
-        description:
-          "Condicional + Selector: evalúa reglas y entrega un valor según el token.",
+        description: "Evalúa reglas y entrega un valor según el resultado.",
       },
     ],
   },
@@ -469,8 +457,8 @@ export const nodePalette: NodePaletteCategory[] = [
     items: [
       {
         type: "sequence",
-        label: "Generar secuencia",
-        description: "Genera una secuencia de números (ej. 0..N).",
+        label: "Generar lista",
+        description: "Genera una lista de números (ej. 0..N).",
       },
       {
         type: "zip",
@@ -480,8 +468,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "unzip",
         label: "Separar lista",
-        description:
-          "Separa una lista de pares en dos listas (inverso de Zip).",
+        description: "Separa una lista de pares en dos listas.",
       },
       {
         type: "filter",
@@ -497,8 +484,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "sortList",
         label: "Ordenar lista",
-        description:
-          "Ordena una lista ascendente o descendente, numérica o alfabética.",
+        description: "Ordena una lista ascendente o descendente.",
       },
       {
         type: "accumulate",
@@ -518,12 +504,12 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "listFirst",
         label: "Primer elemento",
-        description: "Extrae el primer elemento de una lista.",
+        description: "Devuelve el primer elemento de una lista.",
       },
       {
         type: "listLast",
         label: "Último elemento",
-        description: "Extrae el último elemento de una lista.",
+        description: "Devuelve el último elemento de una lista.",
       },
       {
         type: "listAtPosition",
@@ -535,7 +521,7 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "listFindElement",
         label: "Buscar elemento",
         description:
-          "Devuelve la primera posición (desde 1) donde aparece un elemento; 0 si no aparece.",
+          "Devuelve la primera posición donde aparece un elemento; 0 si no aparece.",
       },
       {
         type: "listRemoveFirst",
@@ -550,28 +536,28 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "listPrepend",
         label: "Añadir al inicio",
-        description: "Inserta un elemento al inicio de la lista.",
+        description: "Agrega un elemento al inicio de la lista.",
       },
       {
         type: "listAppend",
         label: "Añadir al final",
-        description: "Inserta un elemento al final de la lista.",
+        description: "Agrega un elemento al final de la lista.",
       },
       {
         type: "listIsEmpty",
         label: "Lista vacía",
-        description: "Devuelve verdadero si la lista no tiene elementos.",
+        description: "Verifica si una lista no tiene elementos.",
       },
       {
         type: "listReverse",
         label: "Voltear",
-        description: "Invierte el orden de los elementos de una lista.",
+        description: "Invierte los elementos de una lista.",
       },
       {
         type: "splitList",
         label: "Separar",
         description:
-          "Convierte un número o texto en una lista de sus caracteres/elementos.",
+          "Convierte un número o texto en una lista de sus elementos.",
       },
       {
         type: "listEvenPositions",
@@ -593,8 +579,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "replicateFlow",
         label: "Replicar flujo",
-        description:
-          "Configura y almacena un flujo interno reutilizable dentro del nodo.",
+        description: "Define un flujo reutilizable para varios dispositivos.",
       },
       {
         type: "scatter",
@@ -622,31 +607,27 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "microbitReadTemperature",
         label: "Temperatura",
         description:
-          "Lee la temperatura actual de la micro:bit y la emite como número (°C).",
+          "Lee la temperatura actual de la micro:bit y la emite (°C).",
       },
       {
         type: "microbitReadPin",
         label: "Leer pin",
-        description:
-          "Lee un pin de la micro:bit en modo digital o analógico y emite el valor.",
+        description: "Lee un pin de la micro:bit emite el valor.",
       },
       {
         type: "microbitWrite",
         label: "micro:bit · Escribir",
-        description:
-          "Envía texto/comandos al micro:bit (configurable Bluetooth/Serial).",
+        description: "Escribe texto en la micro:bit.",
       },
       {
         type: "microbitSound",
         label: "micro:bit · Sonido",
-        description:
-          "Activa un sonido en el micro:bit (configurable Bluetooth/Serial).",
+        description: "Activa un sonido en el micro:bit.",
       },
       {
         type: "microbitWritePin",
         label: "Escribir en pin",
-        description:
-          "Escribe un valor en un pin de la micro:bit en modo digital o analógico.",
+        description: "Escribe un valor en un pin de la micro:bit.",
       },
     ],
   },
@@ -657,8 +638,7 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "subflow",
         label: "Subflujo",
-        description:
-          "Encapsula parte del diagrama como un bloque reutilizable.",
+        description: "Encapsula parte del código como un bloque reutilizable.",
       },
     ],
   },

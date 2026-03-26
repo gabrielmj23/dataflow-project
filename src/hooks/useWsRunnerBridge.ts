@@ -31,7 +31,7 @@ const OP_LABEL_BY_KEY: Record<string, string> = {
   replacetext: "Reemplazar texto",
   subtracttext: "Sustraer texto",
   slicetext: "Recortar texto",
-  generatesequence: "Generar secuencia",
+  generatesequence: "Generar lista",
   pulsesequence: "Pulso de secuencia",
   zip: "Unir en pares",
   unzip: "Separar pares",
