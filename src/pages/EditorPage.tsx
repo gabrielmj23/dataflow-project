@@ -84,6 +84,7 @@ import {
   getStoredGuestProjectAuthorName,
   persistGuestProjectAuthorName,
   publishProject,
+  uploadProjectThumbnail,
   updatePublishedProject,
 } from "@/lib/projects";
 import { buildProhibitedTermsError } from "@/lib/content-moderation";
@@ -306,6 +307,7 @@ export default function EditorPage() {
   const [authToken] = useState<string | null>(() => getStoredAuthToken());
   const isAuthenticated = Boolean(authUser && authToken);
   const [projectDescription, setProjectDescription] = useState<string>("");
+  const [isProgramLoading, setIsProgramLoading] = useState(false);
   const [guestAuthorName, setGuestAuthorName] = useState<string>(() =>
     getStoredGuestProjectAuthorName(),
   );
@@ -1014,6 +1016,8 @@ export default function EditorPage() {
           );
         }
 
+        const thumbnailUrl = await uploadProjectThumbnail(thumbnail);
+
         const program = serializeProgram({
           nodes,
           edges,
@@ -1025,7 +1029,7 @@ export default function EditorPage() {
           id: publishedProjectQuery.data.id,
           name: normalizedName,
           description,
-          thumbnail,
+          thumbnail: thumbnailUrl,
           program,
           isPublic: false,
           guestAuthorName: isAuthenticated
@@ -1047,7 +1051,7 @@ export default function EditorPage() {
         }
 
         // keep thumbnail preview in UI
-        setThumbnailPreview(thumbnail);
+        setThumbnailPreview(thumbnailUrl);
         markAsSaved(
           buildUnsavedChangesSignature({
             name: normalizedName,
@@ -1375,7 +1379,15 @@ export default function EditorPage() {
       setNodes,
       setEdges,
       setProgramName,
+      onProgramLoadStart: () => setIsProgramLoading(true),
+      onProgramLoadEnd: () => setIsProgramLoading(false),
     });
+
+  const isEditorLoading =
+    isProgramLoading ||
+    challenge.isChallengeLoading ||
+    (shouldLoadPublishedProject &&
+      (publishedProjectQuery.isLoading || publishedProjectQuery.isFetching));
 
   const { onNodesChange, onEdgesChange } = useNodeEdgeHandlers({
     setNodes,
@@ -1532,6 +1544,8 @@ export default function EditorPage() {
           );
         }
 
+        const thumbnailUrl = await uploadProjectThumbnail(thumbnail);
+
         const program = serializeProgram({
           nodes,
           edges,
@@ -1542,7 +1556,7 @@ export default function EditorPage() {
         const createdProject = await publishProjectMutation.mutateAsync({
           name: normalizedName,
           description,
-          thumbnail,
+          thumbnail: thumbnailUrl,
           isPublic: shouldPublishNow,
           remixedFrom: remixSourceProject?.id,
           program,
@@ -1638,6 +1652,13 @@ export default function EditorPage() {
           thumbnailOverride ??
           thumbnailPreview ??
           (await generateThumbnailPreview());
+        if (!thumbnail) {
+          throw new Error(
+            "No se pudo generar la miniatura del proyecto. Intenta de nuevo.",
+          );
+        }
+
+        const thumbnailUrl = await uploadProjectThumbnail(thumbnail);
 
         const program = serializeProgram({
           nodes,
@@ -1650,7 +1671,7 @@ export default function EditorPage() {
           id: publishedProjectQuery.data.id,
           name: normalizedName,
           description,
-          thumbnail: thumbnail ?? undefined,
+          thumbnail: thumbnailUrl,
           isPublic: true,
           program,
           guestAuthorName: isAuthenticated
@@ -1664,7 +1685,7 @@ export default function EditorPage() {
           persistGuestProjectAuthorName(normalizedGuestAuthorName);
           setGuestAuthorName(normalizedGuestAuthorName);
         }
-        setThumbnailPreview(thumbnail ?? null);
+        setThumbnailPreview(thumbnailUrl);
         markAsSaved(
           buildUnsavedChangesSignature({
             name: normalizedName,
@@ -1807,6 +1828,19 @@ export default function EditorPage() {
 
             <SidebarInset>
               <div className="relative flex h-full w-full flex-col">
+                {isEditorLoading ? (
+                  <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/35 backdrop-blur-[1px]">
+                    <div className="rounded-xl border border-slate-200/70 bg-white/95 px-5 py-4 shadow-lg">
+                      <div className="flex items-center gap-3 text-slate-700">
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-slate-700" />
+                        <span className="text-sm font-medium">
+                          Cargando programa...
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+
                 <TopBar
                   programName={programName}
                   onProgramNameChange={setProgramName}
@@ -1937,6 +1971,7 @@ export default function EditorPage() {
                                   onSoundsEnabledChange={setSoundsEnabledState}
                                   onDeleteNodes={() => {
                                     setNodes([]);
+                                    setEdges([]);
                                     onClearConsoleClick();
                                   }}
                                   onLayout={onLayout}

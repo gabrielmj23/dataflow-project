@@ -260,6 +260,71 @@ function computeOperation(op: string, args: unknown[]): unknown {
       if (inputList.length === 0) throw new Error("La lista está vacía.");
       return inputList[inputList.length - 1];
     }
+    case "listMin": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      if (inputList.length === 0) return 0;
+
+      const numeric = inputList.map((item) => {
+        const value = typeof item === "number" ? item : Number(item);
+        if (!Number.isFinite(value)) {
+          throw new Error("Mínimo solo acepta listas con valores numéricos.");
+        }
+        return value;
+      });
+
+      return Math.min(...numeric);
+    }
+    case "listMax": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      if (inputList.length === 0) return 0;
+
+      const numeric = inputList.map((item) => {
+        const value = typeof item === "number" ? item : Number(item);
+        if (!Number.isFinite(value)) {
+          throw new Error("Máximo solo acepta listas con valores numéricos.");
+        }
+        return value;
+      });
+
+      return Math.max(...numeric);
+    }
+    case "listFrequency": {
+      const inputList = Array.isArray(args[0]) ? args[0] : [];
+      const counts = new Map<string, { value: unknown; count: number }>();
+
+      const toKey = (value: unknown): string => {
+        if (value === null) return "null";
+        const valueType = typeof value;
+        if (
+          valueType === "number" ||
+          valueType === "string" ||
+          valueType === "boolean"
+        ) {
+          return `${valueType}:${String(value)}`;
+        }
+
+        try {
+          return `${valueType}:${JSON.stringify(value)}`;
+        } catch {
+          return `${valueType}:${String(value)}`;
+        }
+      };
+
+      for (const item of inputList) {
+        const key = toKey(item);
+        const existing = counts.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          counts.set(key, { value: item, count: 1 });
+        }
+      }
+
+      return Array.from(counts.values()).map((entry) => [
+        entry.value,
+        entry.count,
+      ]);
+    }
     case "listAtPosition": {
       const inputList = Array.isArray(args[0]) ? args[0] : [];
       if (inputList.length === 0) throw new Error("La lista está vacía.");

@@ -56,7 +56,10 @@ extensionsRouter.get("/", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error fetching extensions:", error);
     return res.status(500).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -97,7 +100,10 @@ extensionsRouter.get("/:id", async (req, res) => {
   } catch (error: unknown) {
     console.error("Error fetching extension:", error);
     return res.status(404).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -128,9 +134,12 @@ extensionsRouter.get("/:id", async (req, res) => {
  */
 extensionsRouter.post("/", authGuard, async (req, res) => {
   try {
-    ensureNoProhibitedTerms("El nombre de la extension", String(req.body?.name ?? ""));
     ensureNoProhibitedTerms(
-      "La descripcion de la extension",
+      "El nombre de la extensión",
+      String(req.body?.name ?? ""),
+    );
+    ensureNoProhibitedTerms(
+      "La descripción de la extensión",
       String(req.body?.description ?? ""),
     );
 
@@ -142,7 +151,10 @@ extensionsRouter.post("/", authGuard, async (req, res) => {
   } catch (error: unknown) {
     console.error("Error creating extension:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -182,18 +194,21 @@ extensionsRouter.post("/:id/nodes", authGuard, async (req, res) => {
   try {
     const extensionId = req.params.id;
     if (Array.isArray(extensionId)) {
-      return res.status(400).json({ error: "Invalid extension ID" });
+      return res.status(400).json({ error: "La extensión no es válida" });
     }
     const nodeIds = Array.isArray(req.body.nodeIds) ? req.body.nodeIds : [];
     if (nodeIds.length === 0) {
-      return res.status(400).json({ error: "nodeIds is required" });
+      return res.status(400).json({ error: "Los IDs de los nodos son requeridos" });
     }
     const inserted = await addNodesToExtension(extensionId, nodeIds);
     return res.status(201).json(inserted);
   } catch (error: unknown) {
     console.error("Error adding nodes to extension:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });
@@ -239,12 +254,12 @@ extensionsRouter.post("/:id/nodes/upload", authGuard, async (req, res) => {
     if (!name || !description || !code) {
       return res
         .status(400)
-        .json({ error: "name, description and code are required" });
+        .json({ error: "Los campos de nombre, descripción y código son requeridos" });
     }
 
     ensureNoProhibitedTerms("El nombre del nodo personalizado", String(name));
     ensureNoProhibitedTerms(
-      "La descripcion del nodo personalizado",
+      "La descripción del nodo personalizado",
       String(description),
     );
 
@@ -262,7 +277,10 @@ extensionsRouter.post("/:id/nodes/upload", authGuard, async (req, res) => {
   } catch (error: unknown) {
     console.error("Error creating node and adding to extension:", error);
     return res.status(400).json({
-      error: error instanceof Error ? error.message : "Internal server error",
+      error:
+        error instanceof Error
+          ? error.message
+          : "Ocurrió un error, por favor intenta de nuevo",
     });
   }
 });

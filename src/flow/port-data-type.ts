@@ -36,6 +36,9 @@ const LIST_NODE_TYPES = new Set<string>([
   NODE_TYPES.SORT_LIST_NODE,
   NODE_TYPES.REDUCE_NODE,
   NODE_TYPES.PRODUCT_NODE,
+  NODE_TYPES.LIST_MIN_NODE,
+  NODE_TYPES.LIST_MAX_NODE,
+  NODE_TYPES.LIST_FREQUENCY_NODE,
   NODE_TYPES.SCATTER_NODE,
   NODE_TYPES.GATHER_NODE,
 ]);
@@ -319,6 +322,14 @@ export function inferPortDataType(params: {
     return "any";
   }
 
+  if (nodeType === NODE_TYPES.WHILE_NODE) {
+    if (handleType === "target") {
+      if (params.handleId === "in-cond") return "boolean";
+      if (params.handleId === "in-time") return "number";
+    }
+    return "any";
+  }
+
   // IO
   if (nodeType === "write") {
     return "any";
@@ -348,6 +359,17 @@ export function inferPortDataType(params: {
     nodeType === NODE_TYPES.PRODUCT_NODE
   ) {
     return handleType === "source" ? "number" : "list";
+  }
+
+  if (
+    nodeType === NODE_TYPES.LIST_MIN_NODE ||
+    nodeType === NODE_TYPES.LIST_MAX_NODE
+  ) {
+    return handleType === "source" ? "number" : "list";
+  }
+
+  if (nodeType === NODE_TYPES.LIST_FREQUENCY_NODE) {
+    return "list";
   }
 
   if (nodeType === NODE_TYPES.GATHER_NODE) {
@@ -542,6 +564,12 @@ export function getPortTypeMask(params: {
     if (nodeType === NODE_TYPES.RELEVO_NODE) {
       return TYPE_ANY;
     }
+    if (nodeType === NODE_TYPES.WHILE_NODE) {
+      if (isOutput) return TYPE_ANY;
+      if (handleId === "in-cond") return TYPE_BOOLEAN;
+      if (handleId === "in-time") return TYPE_NUMBER;
+      return TYPE_ANY;
+    }
     if (nodeType === NODE_TYPES.SCATTER_NODE) {
       return isOutput ? TYPE_ANY : TYPE_LIST;
     }
@@ -588,9 +616,15 @@ export function getPortTypeMask(params: {
     if (
       nodeType === "accumulate" ||
       nodeType === "count" ||
-      nodeType === "product"
+      nodeType === "product" ||
+      nodeType === NODE_TYPES.LIST_MIN_NODE ||
+      nodeType === NODE_TYPES.LIST_MAX_NODE
     ) {
       return isOutput ? TYPE_NUMBER : TYPE_LIST;
+    }
+
+    if (nodeType === NODE_TYPES.LIST_FREQUENCY_NODE) {
+      return TYPE_LIST;
     }
 
     if (nodeType === "sequence") {

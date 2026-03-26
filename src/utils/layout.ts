@@ -6,7 +6,7 @@ const dagreGraph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
 export function isSelectionConnected(
   nodeIds: string[],
-  edges: FlowEdge[]
+  edges: FlowEdge[],
 ): boolean {
   if (nodeIds.length <= 1) {
     return true;
@@ -61,10 +61,30 @@ export function isSelectionConnected(
 export function getLayoutedElements(nodes: FlowNode[], edges: FlowEdge[]) {
   dagreGraph.setGraph({ rankdir: "LR" });
 
-  const NODE_WIDTH = 120;
+  const DEFAULT_NODE_WIDTH = 120;
+  const LARGE_NODE_WIDTH = 180;
   const NODE_HEIGHT = 64;
+
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
+    const isListNode =
+      node.type?.startsWith("list") ||
+      node.type === "sortList" ||
+      node.type === "splitList" ||
+      node.type === "filter" ||
+      node.type === "map" ||
+      node.type === "zip" ||
+      node.type === "unzip" ||
+      node.type === "accumulate";
+
+    const isWriteNode = node.type === "write" || node.type === "microbitWrite";
+    const isFormulaNode = node.type === "formulaEditor";
+
+    const width =
+      isListNode || isWriteNode || isFormulaNode
+        ? LARGE_NODE_WIDTH
+        : DEFAULT_NODE_WIDTH;
+
+    dagreGraph.setNode(node.id, { width, height: NODE_HEIGHT });
   });
 
   edges.forEach((edge) => {
@@ -80,7 +100,7 @@ export function getLayoutedElements(nodes: FlowNode[], edges: FlowEdge[]) {
       targetPosition: Position.Left,
       sourcePosition: Position.Right,
       position: {
-        x: nodeWithPosition.x - NODE_WIDTH / 2,
+        x: nodeWithPosition.x - nodeWithPosition.width / 2,
         y: nodeWithPosition.y - NODE_HEIGHT / 2,
       },
     };

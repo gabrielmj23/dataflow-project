@@ -35,7 +35,7 @@ export class EngineComparisonNode extends NodeDefinition {
     super(
       comparisonFunction,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
     );
   }
 }
@@ -51,7 +51,7 @@ export class EngineAndNode extends NodeDefinition {
     super(
       (a: boolean, b: boolean) => a && b,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
     );
   }
 }
@@ -61,7 +61,7 @@ export class EngineNandNode extends NodeDefinition {
     super(
       (a: boolean, b: boolean) => !(a && b),
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
     );
   }
 }
@@ -71,7 +71,7 @@ export class EngineOrNode extends NodeDefinition {
     super(
       (a: boolean, b: boolean) => a || b,
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
     );
   }
 }
@@ -81,7 +81,7 @@ export class EngineNorNode extends NodeDefinition {
     super(
       (a: boolean, b: boolean) => !(a || b),
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
     );
   }
 }
@@ -91,7 +91,7 @@ export class EngineXorNode extends NodeDefinition {
     super(
       (a: boolean, b: boolean) => Boolean(a) !== Boolean(b),
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
-      ["input1", "input2", "output"]
+      ["input1", "input2", "output"],
     );
   }
 }
@@ -193,7 +193,7 @@ export class EngineSwitchNode extends NodeDefinition {
         return [];
       },
       [FirePatterns.EXISTS],
-      ["value", ...outputPorts]
+      ["value", ...outputPorts],
     );
   }
 }
@@ -202,7 +202,7 @@ export class EngineDesvioNode extends NodeDefinition {
   constructor() {
     super(
       (value: unknown, condition: unknown) => {
-        const targetPort = Boolean(condition) ? "output1" : "output2";
+        const targetPort = condition ? "output1" : "output2";
         return [new DataToken(value, new PortAddress("", targetPort))];
       },
       [FirePatterns.EXISTS, FirePatterns.EXISTS],
@@ -224,6 +224,70 @@ export class EngineRelevoNode extends NodeDefinition {
       ["value", "relay", "output"],
       {
         stickyInputPorts: ["value", "relay"],
+      },
+    );
+  }
+}
+
+export class EngineWhileNode extends NodeDefinition {
+  constructor(refreshFlow?: () => Promise<unknown>) {
+    let loopStarted = false;
+
+    super(
+      async (flow: unknown, condition: unknown, interval: unknown) => {
+        const shouldContinue = Boolean(condition);
+        const isContinuingIteration = loopStarted && shouldContinue;
+
+        const numericInterval = Number(interval);
+        const intervalMs = Number.isFinite(numericInterval)
+          ? Math.max(0, Math.round(numericInterval * 1000))
+          : 0;
+
+        // First true condition should pass immediately; delay starts on next loop turns.
+        if (isContinuingIteration) {
+          await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
+
+        const emitted: DataToken<unknown>[] = [
+          new DataToken(condition, new PortAddress("", "loopConditionOut")),
+          new DataToken(interval, new PortAddress("", "loopIntervalOut")),
+        ];
+
+        if (shouldContinue) {
+          let nextFlow = flow;
+          if (isContinuingIteration && refreshFlow) {
+            const refreshed = await refreshFlow();
+            if (refreshed !== undefined) {
+              nextFlow = refreshed;
+            }
+          }
+
+          emitted.push(new DataToken(nextFlow, new PortAddress("", "output")));
+          emitted.push(
+            new DataToken(nextFlow, new PortAddress("", "loopFlowOut")),
+          );
+
+          loopStarted = true;
+        } else {
+          // Reset the loop state
+          loopStarted = false;
+        }
+
+        return emitted;
+      },
+      [FirePatterns.EXISTS, FirePatterns.EXISTS, FirePatterns.EXISTS],
+      [
+        "flow",
+        "condition",
+        "interval",
+        "output",
+        "loopFlowOut",
+        "loopConditionOut",
+        "loopIntervalOut",
+      ],
+      {
+        skipStepDelay: true,
+        allowParallelTokenExecutions: false,
       },
     );
   }

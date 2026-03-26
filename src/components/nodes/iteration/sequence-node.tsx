@@ -8,7 +8,7 @@ export type SequenceNodeData = {
 };
 
 export const SequenceNode = memo(({ data }: NodeProps) => {
-  const { label = "Generar Secuencia" } = (data ?? {}) as SequenceNodeData;
+  const { label = "Generar lista" } = (data ?? {}) as SequenceNodeData;
 
   return (
     <>

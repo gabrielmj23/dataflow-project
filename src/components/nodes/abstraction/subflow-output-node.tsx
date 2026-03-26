@@ -16,7 +16,7 @@ export const SubflowOutputNode = memo(({ data }: NodeProps) => {
     {}) as SubflowOutputNodeData;
 
   return (
-    <div className="relative flex h-14 w-14 flex-col items-center justify-center rounded-full border bg-transparent text-foreground">
+    <div className="relative flex h-14 w-14 flex-col items-center justify-center rounded-full border bg-white text-foreground">
       <Split className="h-5 w-5 text-muted-foreground rotate-90" />
 
       <CustomTypedHandle

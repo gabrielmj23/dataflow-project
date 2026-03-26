@@ -281,7 +281,7 @@ export const ConditionalSelectorNode = memo(
       <BaseNode
         selected={selected}
         runtimeError={runtimeError}
-        className="relative flex w-56 flex-col items-center justify-center rounded-2xl border-orange-600 bg-orange-500 px-5 text-center text-white shadow-md"
+        className="relative flex w-56 flex-col items-center justify-center rounded-2xl border-lime-700 bg-lime-600 px-5 text-center text-white shadow-md"
         style={{ minHeight: `${minHeight}px` }}
       >
         <CustomTypedHandle
@@ -291,7 +291,7 @@ export const ConditionalSelectorNode = memo(
           dataType={typeFor({ handleType: "target", handleId: "token" })}
           typeMask={maskFor({ handleType: "target", handleId: "token" })}
           className="h-2 w-2"
-          indicatorClassName="border-orange-600"
+          indicatorClassName="border-lime-700"
         />
 
         {runtimeError ? (
@@ -312,7 +312,7 @@ export const ConditionalSelectorNode = memo(
               dataType={typeFor({ handleType: "target", handleId: targetHandleId })}
               typeMask={maskFor({ handleType: "target", handleId: targetHandleId })}
               className="absolute -left-1 h-2 w-2 -translate-y-1/2"
-              indicatorClassName="border-orange-600"
+              indicatorClassName="border-lime-700"
             />
           );
         })}
@@ -352,7 +352,7 @@ export const ConditionalSelectorNode = memo(
               dataType={typeFor({ handleType: "source", handleId: sourceHandleId })}
               typeMask={maskFor({ handleType: "source", handleId: sourceHandleId })}
               className="absolute -right-1 h-2 w-2 -translate-y-1/2"
-              indicatorClassName="border-orange-600"
+              indicatorClassName="border-lime-700"
             />
           );
         })}

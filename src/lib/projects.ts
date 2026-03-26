@@ -48,6 +48,33 @@ function buildProjectRequestHeaders(): Record<string, string> {
       };
 }
 
+function buildProjectAuthHeaders(): Record<string, string> {
+  const token = getStoredAuthToken();
+  return token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+}
+
+function isHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
+  const response = await fetch(dataUrl);
+  if (!response.ok) {
+    throw new Error("No se pudo procesar la imagen seleccionada.");
+  }
+
+  return response.blob();
+}
+
 async function readApiError(response: Response): Promise<string> {
   try {
     const data = (await response.json()) as ApiErrorResponse;
@@ -110,6 +137,44 @@ export async function captureProjectThumbnail(
     backgroundColor: "#f8fafc",
     filter: options?.filter,
   });
+}
+
+export async function uploadProjectThumbnail(
+  thumbnail: string | Blob,
+): Promise<string> {
+  if (typeof thumbnail === "string") {
+    const trimmedThumbnail = thumbnail.trim();
+    if (!trimmedThumbnail) {
+      throw new Error("Debes seleccionar una miniatura válida.");
+    }
+
+    if (isHttpUrl(trimmedThumbnail)) {
+      return trimmedThumbnail;
+    }
+
+    thumbnail = await dataUrlToBlob(trimmedThumbnail);
+  }
+
+  const formData = new FormData();
+  formData.append("thumbnail", thumbnail, "project-thumbnail.jpg");
+
+  const response = await fetch(`${getApiBaseUrl()}/projects/thumbnail-upload`, {
+    method: "POST",
+    credentials: "include",
+    headers: buildProjectAuthHeaders(),
+    body: formData,
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
+
+  const payload = (await response.json()) as { url?: unknown };
+  if (typeof payload.url !== "string" || !payload.url.trim()) {
+    throw new Error("El servidor no devolvió una URL de miniatura válida.");
+  }
+
+  return payload.url;
 }
 
 export async function fetchLatestPublishedProjects(limit: number = 12) {
@@ -194,6 +259,18 @@ export async function updatePublishedProject(params: {
   }
 
   return (await response.json()) as { id: string; name?: string };
+}
+
+export async function deletePublishedProject(projectId: string) {
+  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers: buildProjectRequestHeaders(),
+  });
+
+  if (!response.ok) {
+    throw new Error(await readApiError(response));
+  }
 }
 
 export function getStoredGuestProjectAuthorName(): string {

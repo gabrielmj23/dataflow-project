@@ -51,6 +51,7 @@ import { NorNode } from "@/components/nodes/control/nor-node";
 import { XorNode } from "@/components/nodes/control/xor-node";
 import { DesvioNode } from "@/components/nodes/control/desvio-node";
 import { RelevoNode } from "@/components/nodes/control/relevo-node";
+import { WhileNode } from "@/components/nodes/control/while-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
 import { ConditionalSelectorNode } from "@/components/nodes/control/conditional-selector-node";
@@ -74,6 +75,9 @@ import { CountNode } from "@/components/nodes/iteration/count-node";
 import { SortListNode } from "@/components/nodes/iteration/sort-list-node";
 import { ListFirstNode } from "@/components/nodes/iteration/list-first-node";
 import { ListLastNode } from "@/components/nodes/iteration/list-last-node";
+import { ListMinNode } from "@/components/nodes/iteration/list-min-node";
+import { ListMaxNode } from "@/components/nodes/iteration/list-max-node";
+import { ListFrequencyNode } from "@/components/nodes/iteration/list-frequency-node";
 import { ListAtPositionNode } from "@/components/nodes/iteration/list-at-position-node";
 import { ListFindElementNode } from "@/components/nodes/iteration/list-find-element-node";
 import { ListRemoveFirstNode } from "@/components/nodes/iteration/list-remove-first-node";
@@ -139,6 +143,7 @@ export const nodeTypesCore: NodeTypes = {
   xor: XorNode,
   desvio: DesvioNode,
   relevo: RelevoNode,
+  while: WhileNode,
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,
@@ -164,6 +169,9 @@ export const nodeTypesCore: NodeTypes = {
   sortList: SortListNode,
   listFirst: ListFirstNode,
   listLast: ListLastNode,
+  listMin: ListMinNode,
+  listMax: ListMaxNode,
+  listFrequency: ListFrequencyNode,
   listAtPosition: ListAtPositionNode,
   listFindElement: ListFindElementNode,
   listRemoveFirst: ListRemoveFirstNode,

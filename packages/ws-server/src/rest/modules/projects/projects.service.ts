@@ -6,6 +6,7 @@ import { projectsTable } from "./projects.model";
 import {
   ProjectCreate,
   ProjectGet,
+  ProjectListItem,
   ProjectSearchParams,
   ProjectUpdate,
 } from "./projects.types";
@@ -26,14 +27,12 @@ type ProjectRow = {
   isPublic: boolean;
   thumbnail: string | null;
   program: ProjectGet["program"];
-  createdAt: Date;
-  updatedAt: Date;
 };
 
 function mapProjectRow(
   row: ProjectRow,
   viewer: ProjectViewerIdentity = { kind: "anonymous" },
-): ProjectGet {
+): ProjectListItem {
   const authorKind = row.authorId ? "user" : "guest";
   const authorName =
     row.registeredAuthorName ?? row.guestAuthorName ?? "Autor desconocido";
@@ -55,9 +54,6 @@ function mapProjectRow(
     remixedFromName: row.remixedFromName,
     isPublic: row.isPublic,
     thumbnail: row.thumbnail,
-    program: row.program,
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
     viewerCanEdit,
   };
 }
@@ -77,8 +73,6 @@ function buildProjectBaseQuery() {
       isPublic: projectsTable.isPublic,
       thumbnail: projectsTable.thumbnail,
       program: projectsTable.program,
-      createdAt: projectsTable.createdAt,
-      updatedAt: projectsTable.updatedAt,
     })
     .from(projectsTable)
     .leftJoin(usersTable, eq(projectsTable.author, usersTable.id))
@@ -94,7 +88,7 @@ async function findProjectRowById(id: string): Promise<ProjectRow> {
     .limit(1);
 
   if (!project.length) {
-    throw new Error("Proyecto no encontrado");
+    throw new Error("No se encontró el proyecto");
   }
 
   return project[0];
@@ -121,15 +115,18 @@ export async function findProjectById(
 ): Promise<ProjectGet> {
   const project = await findProjectRowById(id);
   if (!project.isPublic && !isProjectOwnedByViewer(project, viewer)) {
-    throw new Error("Proyecto no encontrado");
+    throw new Error("No se encontró el proyecto");
   }
-  return mapProjectRow(project, viewer);
+  return {
+    ...mapProjectRow(project, viewer),
+    program: project.program,
+  };
 }
 
 export async function findProjects(
   searchData: ProjectSearchParams,
   viewer: ProjectViewerIdentity = { kind: "anonymous" },
-): Promise<ProjectGet[]> {
+): Promise<ProjectListItem[]> {
   const {
     name,
     authorId,
@@ -180,7 +177,7 @@ export async function updateProject(
 ) {
   const existingProject = await findProjectRowById(id);
   if (!isProjectOwnedByViewer(existingProject, viewer)) {
-    throw new Error("Acceso denegado");
+    throw new Error("No tienes acceso a este proyecto");
   }
 
   await db
@@ -195,7 +192,7 @@ export async function updateProject(
 export async function deleteProject(id: string, viewer: ProjectViewerIdentity) {
   const project = await findProjectRowById(id);
   if (!isProjectOwnedByViewer(project, viewer)) {
-    throw new Error("Acceso denegado");
+    throw new Error("No tienes acceso a este proyecto");
   }
   await db.delete(projectsTable).where(eq(projectsTable.id, id));
 }

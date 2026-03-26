@@ -374,6 +374,20 @@ register([NODE_TYPES.RELEVO_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
+// While node
+register([NODE_TYPES.WHILE_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "flow";
+    if (handleId === "in-cond") return "condition";
+    if (handleId === "in-time") return "interval";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
 // Conditional node
 register([NODE_TYPES.CONDITIONAL_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
@@ -527,7 +541,14 @@ register(
   },
 );
 
-register([NODE_TYPES.LIST_FIRST_NODE, NODE_TYPES.LIST_LAST_NODE], (p) => {
+register(
+  [
+    NODE_TYPES.LIST_FIRST_NODE,
+    NODE_TYPES.LIST_LAST_NODE,
+    NODE_TYPES.LIST_MIN_NODE,
+    NODE_TYPES.LIST_MAX_NODE,
+  ],
+  (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
     if (handleId === "in" || handleId == null) return "inputList";
@@ -536,7 +557,8 @@ register([NODE_TYPES.LIST_FIRST_NODE, NODE_TYPES.LIST_LAST_NODE], (p) => {
 
   if (handleId === "out" || handleId == null) return "output";
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+  },
+);
 
 register([NODE_TYPES.LIST_AT_POSITION_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
@@ -600,6 +622,17 @@ register([NODE_TYPES.LIST_IS_EMPTY_NODE], (p) => {
   }
 
   if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+register([NODE_TYPES.LIST_FREQUENCY_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputList";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "outputList";
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 

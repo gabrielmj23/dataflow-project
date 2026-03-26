@@ -28,7 +28,7 @@ export function getAuthUserFromRequest(req: Request) {
 export function authGuard(req: Request, res: Response, next: NextFunction) {
   const user = getAuthUserFromRequest(req);
   if (!user) {
-    res.status(401).json({ error: "Unauthorized" });
+    res.status(401).json({ error: "Debes iniciar sesión" });
     return;
   }
 
