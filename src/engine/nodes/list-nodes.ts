@@ -196,6 +196,94 @@ export class EngineCountNode extends NodeDefinition {
   }
 }
 
+export class EngineListMinNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        if (list.length === 0) return 0;
+
+        const numeric = list.map((item) => {
+          const value = typeof item === "number" ? item : Number(item);
+          if (!Number.isFinite(value)) {
+            throw new Error("Mínimo solo acepta listas con valores numéricos.");
+          }
+          return value;
+        });
+
+        return Math.min(...numeric);
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "output"],
+    );
+  }
+}
+
+export class EngineListMaxNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        if (list.length === 0) return 0;
+
+        const numeric = list.map((item) => {
+          const value = typeof item === "number" ? item : Number(item);
+          if (!Number.isFinite(value)) {
+            throw new Error("Máximo solo acepta listas con valores numéricos.");
+          }
+          return value;
+        });
+
+        return Math.max(...numeric);
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "output"],
+    );
+  }
+}
+
+function toFrequencyKey(value: unknown): string {
+  if (value === null) return "null";
+  const valueType = typeof value;
+  if (valueType === "number" || valueType === "string" || valueType === "boolean") {
+    return `${valueType}:${String(value)}`;
+  }
+
+  try {
+    return `${valueType}:${JSON.stringify(value)}`;
+  } catch {
+    return `${valueType}:${String(value)}`;
+  }
+}
+
+export class EngineListFrequencyNode extends NodeDefinition {
+  constructor() {
+    super(
+      (inputList: unknown[]) => {
+        const list = Array.isArray(inputList) ? inputList : [];
+        const counts = new Map<string, { value: unknown; count: number }>();
+
+        for (const item of list) {
+          const key = toFrequencyKey(item);
+          const existing = counts.get(key);
+          if (existing) {
+            existing.count += 1;
+          } else {
+            counts.set(key, { value: item, count: 1 });
+          }
+        }
+
+        return Array.from(counts.values()).map((entry) => [
+          entry.value,
+          entry.count,
+        ]);
+      },
+      [FirePatterns.EXISTS],
+      ["inputList", "outputList"],
+    );
+  }
+}
+
 export class EngineListFirstNode extends NodeDefinition {
   constructor() {
     super(

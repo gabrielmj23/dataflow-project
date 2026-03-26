@@ -36,6 +36,9 @@ const LIST_NODE_TYPES = new Set<string>([
   NODE_TYPES.SORT_LIST_NODE,
   NODE_TYPES.REDUCE_NODE,
   NODE_TYPES.PRODUCT_NODE,
+  NODE_TYPES.LIST_MIN_NODE,
+  NODE_TYPES.LIST_MAX_NODE,
+  NODE_TYPES.LIST_FREQUENCY_NODE,
   NODE_TYPES.SCATTER_NODE,
   NODE_TYPES.GATHER_NODE,
 ]);
@@ -358,6 +361,17 @@ export function inferPortDataType(params: {
     return handleType === "source" ? "number" : "list";
   }
 
+  if (
+    nodeType === NODE_TYPES.LIST_MIN_NODE ||
+    nodeType === NODE_TYPES.LIST_MAX_NODE
+  ) {
+    return handleType === "source" ? "number" : "list";
+  }
+
+  if (nodeType === NODE_TYPES.LIST_FREQUENCY_NODE) {
+    return "list";
+  }
+
   if (nodeType === NODE_TYPES.GATHER_NODE) {
     return handleType === "source" ? "list" : "any";
   }
@@ -602,9 +616,15 @@ export function getPortTypeMask(params: {
     if (
       nodeType === "accumulate" ||
       nodeType === "count" ||
-      nodeType === "product"
+      nodeType === "product" ||
+      nodeType === NODE_TYPES.LIST_MIN_NODE ||
+      nodeType === NODE_TYPES.LIST_MAX_NODE
     ) {
       return isOutput ? TYPE_NUMBER : TYPE_LIST;
+    }
+
+    if (nodeType === NODE_TYPES.LIST_FREQUENCY_NODE) {
+      return TYPE_LIST;
     }
 
     if (nodeType === "sequence") {

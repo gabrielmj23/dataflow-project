@@ -26,6 +26,7 @@ import {
   Volume2,
   Thermometer,
   PictureInPicture2,
+  AudioLines,
   Copy,
   GitFork,
   Replace as ReplaceIcon,
@@ -66,6 +67,11 @@ import { NODE_TYPES } from "@/common/constants";
 import { CustomNodeSearchDialog } from "@/components/custom-nodes/CustomNodeSearchDialog";
 import type { ExtensionListItem } from "@/lib/extensions";
 import { cn } from "@/lib/utils";
+import {
+  getHandleShapeClasses,
+  getPortTypeMask,
+  maskToVisualPortDataType,
+} from "@/flow/port-data-type";
 
 type AppSidebarProps = {
   categories: NodePaletteCategory[];
@@ -503,6 +509,568 @@ type NodePreviewProps = {
   onDelete?: () => void;
 };
 
+type PreviewHandleDirection = "target" | "source";
+
+type PreviewHandleSpec = {
+  id: string;
+  top: number;
+  direction: PreviewHandleDirection;
+  edge?: "left" | "right" | "top";
+};
+
+const HANDLE_POSITIONS = {
+  single: [50],
+  double: [35, 65],
+  triple: [25, 50, 75],
+  quad: [20, 40, 60, 80],
+} as const;
+
+function createHandleSpecs(params: {
+  direction: PreviewHandleDirection;
+  ids: string[];
+  positions: number[];
+  edge?: "left" | "right" | "top";
+}): PreviewHandleSpec[] {
+  const { direction, ids, positions, edge } = params;
+  return ids.map((id, index) => ({
+    id,
+    direction,
+    top: positions[index] ?? 50,
+    edge,
+  }));
+}
+
+function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
+  switch (type) {
+    // Source-only inputs
+    case "constantInput":
+    case "constantNumber":
+    case "constantBoolean":
+    case "constantText":
+    case "constantList":
+    case "runtimeInput":
+    case "randomInput":
+    case "choiceInput":
+    case "microbitReadButton":
+    case "microbitReadTemperature":
+    case "microbitReadPin":
+      return createHandleSpecs({
+        direction: "source",
+        ids: ["out"],
+        positions: [...HANDLE_POSITIONS.single],
+      });
+
+    // Sinks
+    case "write":
+    case "microbitWrite":
+    case "timerInput":
+      return createHandleSpecs({
+        direction: "target",
+        ids: ["in"],
+        positions: [...HANDLE_POSITIONS.single],
+      });
+    case "microbitSound":
+    case "microbitWritePin":
+      return createHandleSpecs({
+        direction: "target",
+        ids: ["in-1", "in-2"],
+        positions: [...HANDLE_POSITIONS.double],
+      });
+
+    // Sequence/list style nodes
+    case "sequence":
+    case "pulseSequence":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2", "in-3"],
+          positions: [...HANDLE_POSITIONS.triple],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+    case "zip":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+    case "unzip":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out-1", "out-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+      ];
+    case "listAtPosition":
+    case "listFindElement":
+    case "listPrepend":
+    case "listAppend":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
+    // Binary transforms/logics
+    case "sum":
+    case "subtract":
+    case "multiply":
+    case "divide":
+    case "mod":
+    case "power":
+    case "mathOperation":
+    case "root":
+    case "logarithm":
+    case "concat":
+    case "comparison":
+    case "comparisonEqual":
+    case "comparisonNotEqual":
+    case "comparisonLess":
+    case "comparisonLessOrEqual":
+    case "comparisonGreater":
+    case "comparisonGreaterOrEqual":
+    case "and":
+    case "nand":
+    case "or":
+    case "nor":
+    case "xor":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
+    case "switch":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out-1", "out-2", "out-3", "out-4"],
+          positions: [...HANDLE_POSITIONS.quad],
+        }),
+      ];
+
+    // Multi outputs
+    case "conditionalPair":
+      return [];
+
+    case "scatter":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out-1", "out-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+      ];
+
+    case "desvio":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "left",
+        }),
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-cond"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "top",
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out-1", "out-2"],
+          positions: [...HANDLE_POSITIONS.double],
+          edge: "right",
+        }),
+      ];
+
+    // Gather + common one-in-one-out
+    case "gather":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
+    case "replaceText":
+    case "sliceText":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2", "in-3"],
+          positions: [...HANDLE_POSITIONS.triple],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
+    case "subtractText":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
+    case "selector":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-cond"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "top",
+        }),
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+          edge: "left",
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "right",
+        }),
+      ];
+
+    case "while":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "left",
+        }),
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-cond", "in-time"],
+          positions: [...HANDLE_POSITIONS.double],
+          edge: "top",
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "right",
+        }),
+      ];
+
+    case "relevo":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "left",
+        }),
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-relay"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "top",
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+          edge: "right",
+        }),
+      ];
+
+    case "floor":
+    case "ceiling":
+    case "round":
+    case "formulaEditor":
+    case "not":
+    case "logicOperation":
+    case "filter":
+    case "map":
+    case "sortList":
+    case "accumulate":
+    case "product":
+    case "count":
+    case "listFirst":
+    case "listLast":
+    case "listMin":
+    case "listMax":
+    case "listFrequency":
+    case "listRemoveFirst":
+    case "listRemoveLast":
+    case "listIsEmpty":
+    case "listReverse":
+    case "splitList":
+    case "listEvenPositions":
+    case "listOddPositions":
+    case "subflow":
+    case "replicateFlow":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
+    default:
+      return createHandleSpecs({
+        direction: "target",
+        ids: ["in"],
+        positions: [...HANDLE_POSITIONS.single],
+      });
+  }
+}
+
+function getPreviewHandleBorderClass(type: string): string {
+  if (
+    type === "constantInput" ||
+    type === "constantNumber" ||
+    type === "constantBoolean" ||
+    type === "constantText" ||
+    type === "constantList" ||
+    type === "runtimeInput" ||
+    type === "timerInput" ||
+    type === "randomInput" ||
+    type === "choiceInput"
+  ) {
+    return "border-emerald-600";
+  }
+
+  if (type === "write") return "border-rose-700";
+
+  if (
+    type === "microbitReadButton" ||
+    type === "microbitReadTemperature" ||
+    type === "microbitReadPin" ||
+    type === "microbitWrite" ||
+    type === "microbitSound" ||
+    type === "microbitWritePin"
+  ) {
+    return "border-sky-700";
+  }
+
+  if (
+    type === "sum" ||
+    type === "subtract" ||
+    type === "multiply" ||
+    type === "divide" ||
+    type === "mod" ||
+    type === "power" ||
+    type === "mathOperation" ||
+    type === "root" ||
+    type === "logarithm" ||
+    type === "floor" ||
+    type === "ceiling" ||
+    type === "round" ||
+    type === "formulaEditor"
+  ) {
+    return "border-sky-700";
+  }
+
+  if (
+    type === "concat" ||
+    type === "replaceText" ||
+    type === "subtractText" ||
+    type === "sliceText"
+  ) {
+    return "border-fuchsia-700";
+  }
+
+  if (
+    type === "comparison" ||
+    type === "comparisonEqual" ||
+    type === "comparisonNotEqual" ||
+    type === "comparisonLess" ||
+    type === "comparisonLessOrEqual" ||
+    type === "comparisonGreater" ||
+    type === "comparisonGreaterOrEqual" ||
+    type === "and" ||
+    type === "nand" ||
+    type === "or" ||
+    type === "nor" ||
+    type === "xor" ||
+    type === "not" ||
+    type === "logicOperation" ||
+    type === "switch"
+  ) {
+    return "border-orange-600";
+  }
+
+  if (
+    type === "selector" ||
+    type === "while" ||
+    type === "desvio" ||
+    type === "relevo" ||
+    type === "conditionalPair"
+  ) {
+    return "border-lime-700";
+  }
+
+  if (
+    type === "sequence" ||
+    type === "pulseSequence" ||
+    type === "zip" ||
+    type === "unzip" ||
+    type === "filter" ||
+    type === "map" ||
+    type === "sortList" ||
+    type === "accumulate" ||
+    type === "product" ||
+    type === "count" ||
+    type === "listFirst" ||
+    type === "listLast" ||
+    type === "listMin" ||
+    type === "listMax" ||
+    type === "listFrequency" ||
+    type === "listAtPosition" ||
+    type === "listFindElement" ||
+    type === "listRemoveFirst" ||
+    type === "listRemoveLast" ||
+    type === "listPrepend" ||
+    type === "listAppend" ||
+    type === "listIsEmpty" ||
+    type === "listReverse" ||
+    type === "splitList" ||
+    type === "listEvenPositions" ||
+    type === "listOddPositions"
+  ) {
+    return "border-teal-800";
+  }
+
+  if (
+    type === "scatter" ||
+    type === "gather" ||
+    type === "replicateFlow"
+  ) {
+    return "border-yellow-600";
+  }
+
+  if (type === "subflow") {
+    return "border-violet-700";
+  }
+
+  return "border-slate-700";
+}
+
+function PreviewHandles({ type }: { type: string }) {
+  const handleSpecs = getPreviewHandleSpecs(type);
+  if (handleSpecs.length === 0) return null;
+  const borderClass = getPreviewHandleBorderClass(type);
+
+  return (
+    <div className="pointer-events-none absolute inset-0 z-[1]">
+      {handleSpecs.map((spec, index) => {
+        const mask = getPortTypeMask({
+          nodeType: type,
+          handleType: spec.direction,
+          handleId: spec.id,
+        });
+        const dataType = maskToVisualPortDataType(mask);
+        const shapeClass = getHandleShapeClasses(dataType);
+        const edge =
+          spec.edge ??
+          (spec.direction === "target"
+            ? ("left" as const)
+            : ("right" as const));
+
+        const sideClass =
+          edge === "top"
+            ? "-top-0.5 left-1/2 -translate-x-1/2"
+            : edge === "left"
+              ? "-left-0.5"
+              : "-right-0.5";
+
+        const positionStyle =
+          edge === "top"
+            ? ({ left: `${spec.top}%` } as const)
+            : ({ top: `${spec.top}%` } as const);
+
+        return (
+          <span
+            key={`handle-${type}-${spec.direction}-${spec.id}-${index}`}
+            className={cn(
+              "absolute h-[0.4rem] w-[0.4rem]",
+              edge === "top" ? "translate-y-0" : "-translate-y-1/2",
+              sideClass,
+            )}
+            style={positionStyle}
+          >
+            <span
+              className={cn(
+                "absolute left-0 top-0 h-full w-full scale-150 border bg-background",
+                shapeClass,
+                borderClass,
+              )}
+            />
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function NodePreview({
   type,
   label,
@@ -887,6 +1455,9 @@ function NodePreview({
       case "count":
       case "listFirst":
       case "listLast":
+      case "listMin":
+      case "listMax":
+      case "listFrequency":
       case "listAtPosition":
       case "listFindElement":
       case "listRemoveFirst":
@@ -911,6 +1482,9 @@ function NodePreview({
           count: "#",
           listFirst: "1°",
           listLast: "N°",
+          listMin: "min",
+          listMax: "max",
+          listFrequency: "freq",
           listRemoveLast: "N°−",
           listReverse: "⇄",
           splitList: "A→[]",
@@ -957,6 +1531,8 @@ function NodePreview({
                 <Funnel className="h-5 w-5" />
               ) : type === "map" ? (
                 <SquareFunction className="h-5 w-5" />
+              ) : type === "listFrequency" ? (
+                <AudioLines className="h-5 w-5" />
               ) : symbolMap[type] === "1..N" ? (
                 <span className="font-semibold">1..N</span>
               ) : type === "splitList" ||
@@ -967,7 +1543,9 @@ function NodePreview({
                 </span>
               ) : symbolMap[type] === "#" ||
                 symbolMap[type] === "1°" ||
-                symbolMap[type] === "N°" ? (
+                symbolMap[type] === "N°" ||
+                symbolMap[type] === "min" ||
+                symbolMap[type] === "max" ? (
                 <span className="text-xl font-medium leading-none">
                   {symbolMap[type]}
                 </span>
@@ -1088,6 +1666,7 @@ function NodePreview({
       onBlurCapture={() => setIsInfoVisible(false)}
     >
       {core}
+      <PreviewHandles type={type} />
       <Tooltip>
         <TooltipTrigger asChild>
           <span

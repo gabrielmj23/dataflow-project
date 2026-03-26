@@ -541,7 +541,14 @@ register(
   },
 );
 
-register([NODE_TYPES.LIST_FIRST_NODE, NODE_TYPES.LIST_LAST_NODE], (p) => {
+register(
+  [
+    NODE_TYPES.LIST_FIRST_NODE,
+    NODE_TYPES.LIST_LAST_NODE,
+    NODE_TYPES.LIST_MIN_NODE,
+    NODE_TYPES.LIST_MAX_NODE,
+  ],
+  (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
   if (direction === "target") {
     if (handleId === "in" || handleId == null) return "inputList";
@@ -550,7 +557,8 @@ register([NODE_TYPES.LIST_FIRST_NODE, NODE_TYPES.LIST_LAST_NODE], (p) => {
 
   if (handleId === "out" || handleId == null) return "output";
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+  },
+);
 
 register([NODE_TYPES.LIST_AT_POSITION_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
@@ -614,6 +622,17 @@ register([NODE_TYPES.LIST_IS_EMPTY_NODE], (p) => {
   }
 
   if (handleId === "out" || handleId == null) return "output";
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
+register([NODE_TYPES.LIST_FREQUENCY_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  if (direction === "target") {
+    if (handleId === "in" || handleId == null) return "inputList";
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if (handleId === "out" || handleId == null) return "outputList";
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 

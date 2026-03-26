@@ -99,6 +99,9 @@ const nodeAbstractionLevelMap: Record<
   count: 3,
   listFirst: 1,
   listLast: 1,
+  listMin: 2,
+  listMax: 2,
+  listFrequency: 3,
   listAtPosition: 2,
   listFindElement: 2,
   listRemoveFirst: 1,
@@ -510,6 +513,24 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "listLast",
         label: "Último elemento",
         description: "Devuelve el último elemento de una lista.",
+      },
+      {
+        type: "listMin",
+        label: "Mínimo",
+        description:
+          "Devuelve el valor más pequeño de la lista; si está vacía devuelve 0.",
+      },
+      {
+        type: "listMax",
+        label: "Máximo",
+        description:
+          "Devuelve el valor más grande de la lista; si está vacía devuelve 0.",
+      },
+      {
+        type: "listFrequency",
+        label: "Frecuencia",
+        description:
+          "Cuenta ocurrencias y devuelve una lista de tuplas (elemento, cantidad).",
       },
       {
         type: "listAtPosition",
