@@ -694,8 +694,8 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
         }),
         ...createHandleSpecs({
           direction: "source",
-          ids: ["out-1", "out-2", "out-3", "out-4"],
-          positions: [...HANDLE_POSITIONS.quad],
+          ids: ["out-1", "out-2"],
+          positions: [...HANDLE_POSITIONS.double],
         }),
       ];
 
@@ -966,8 +966,7 @@ function getPreviewHandleBorderClass(type: string): string {
     type === "nor" ||
     type === "xor" ||
     type === "not" ||
-    type === "logicOperation" ||
-    type === "switch"
+    type === "logicOperation"
   ) {
     return "border-orange-600";
   }
@@ -977,7 +976,8 @@ function getPreviewHandleBorderClass(type: string): string {
     type === "while" ||
     type === "desvio" ||
     type === "relevo" ||
-    type === "conditionalPair"
+    type === "conditionalPair" ||
+    type === "switch"
   ) {
     return "border-lime-700";
   }
@@ -1030,7 +1030,7 @@ function PreviewHandles({ type }: { type: string }) {
   const borderClass = getPreviewHandleBorderClass(type);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[1]">
+    <div className="pointer-events-none absolute inset-0 z-1">
       {handleSpecs.map((spec, index) => {
         const mask = getPortTypeMask({
           nodeType: type,
@@ -1277,8 +1277,7 @@ function NodePreview({
       case "nor":
       case "xor":
       case "not":
-      case "logicOperation":
-      case "switch": {
+      case "logicOperation": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           comparisonEqual: "comparisonEqual",
@@ -1358,13 +1357,15 @@ function NodePreview({
       case "relevo":
       case "while":
       case "selector":
-      case "conditionalPair": {
+      case "conditionalPair":
+      case "switch": {
         const symbolMap: Record<string, string> = {
           desvio: "desvio",
           relevo: "relevo",
           while: "while",
           selector: "selector",
           conditionalPair: "conditionalPair",
+          switch: "switch",
         };
 
         return (
@@ -1388,6 +1389,9 @@ function NodePreview({
                   <ListChecks className="h-4 w-4" />
                   <Shuffle className="h-4 w-4" />
                 </span>
+              )}
+              {symbolMap[type] === "switch" && (
+                <ToggleRight className="h-4 w-4" />
               )}
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>

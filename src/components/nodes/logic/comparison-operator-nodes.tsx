@@ -2,7 +2,7 @@ import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 
 import { NODE_TYPES } from "@/common/constants";
-import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { LogicRectNodeShell } from "@/components/nodes/logic/logic-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 
 type FixedComparisonNodeData = {
@@ -41,7 +41,7 @@ function createFixedComparisonNode(config: {
 
     return (
       <>
-        <ControlRectNodeShell
+        <LogicRectNodeShell
           nodeType={config.nodeType}
           icon={<span className="text-2xl font-bold">{config.icon}</span>}
           label={label}

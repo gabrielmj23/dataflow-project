@@ -1,10 +1,10 @@
 import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 
-import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { LogicRectNodeShell } from "@/components/nodes/logic/logic-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 
-export type XorNodeData = {
+export type NorNodeData = {
   label?: string;
   runtimeError?: string | null;
   executionTarget?: "local" | "microbit" | "controller";
@@ -13,15 +13,15 @@ export type XorNodeData = {
   controllerName?: string;
 };
 
-export const XorNode = memo(({ id, data }: NodeProps) => {
+export const NorNode = memo(({ id, data }: NodeProps) => {
   const {
-    label = "XOR",
+    label = "NOR",
     runtimeError,
     executionTarget,
     transport,
     controllerId,
     controllerName,
-  } = (data ?? {}) as XorNodeData;
+  } = (data ?? {}) as NorNodeData;
 
   const config = useMicrobitExecutionConfig({
     nodeId: id,
@@ -34,9 +34,9 @@ export const XorNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <ControlRectNodeShell
-        nodeType="xor"
-        icon={<span className="text-xl font-medium leading-none">⊕</span>}
+      <LogicRectNodeShell
+        nodeType="nor"
+        icon={<span className="text-xl font-medium leading-none">⊽</span>}
         label={label}
         subtitle={config.subtitle}
         runtimeError={runtimeError}
@@ -47,4 +47,4 @@ export const XorNode = memo(({ id, data }: NodeProps) => {
   );
 });
 
-XorNode.displayName = "XorNode";
+NorNode.displayName = "NorNode";
