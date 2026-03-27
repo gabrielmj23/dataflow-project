@@ -48,6 +48,7 @@ import {
   projectClientToFlowPosition,
 } from "@/flow/editor-node-factory";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
+import { useSubcanvasNodeCreationLock } from "@/hooks/useSubcanvasNodeCreationLock";
 import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-node";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
@@ -322,6 +323,7 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   });
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  useSubcanvasNodeCreationLock(isEditorOpen);
   const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
     "pan",
   );

@@ -10,6 +10,7 @@ import {
   editorPaletteLabelByType,
   projectClientToFlowPosition,
 } from "@/flow/editor-node-factory";
+import { isMainCanvasNodeCreationLocked } from "@/hooks/useSubcanvasNodeCreationLock";
 import { createNodeId } from "@/utils/id";
 import { playPop } from "@/lib/sound";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
@@ -103,6 +104,12 @@ export function usePaletteDrag({
         : draggingTypeRef.current;
 
       if (!type) {
+        return;
+      }
+
+      if (isMainCanvasNodeCreationLocked()) {
+        draggingTypeRef.current = null;
+        draggingItemRef.current = null;
         return;
       }
 

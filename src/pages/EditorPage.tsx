@@ -46,6 +46,7 @@ import { useSubflowManager } from "@/hooks/useSubflowManager";
 import { useNodeEdgeHandlers } from "@/hooks/useNodeEdgeHandlers";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { useEditorViewport } from "@/hooks/useEditorViewport";
+import { isMainCanvasNodeCreationLocked } from "@/hooks/useSubcanvasNodeCreationLock";
 import { RemoteControllerPanel } from "@/components/RemoteControllerPanel";
 import { RemoteSettingsDialog } from "@/components/RemoteSettingsDialog";
 import type { EngineRunnerEvent } from "@/hooks/useEngineRunner";
@@ -1410,16 +1411,25 @@ export default function EditorPage() {
     isDraggingRef,
   });
 
+  const pasteSelectionOnMainCanvas = useCallback(() => {
+    if (isMainCanvasNodeCreationLocked()) {
+      return;
+    }
+
+    pasteSelection();
+  }, [pasteSelection]);
+
   useKeyboardShortcuts({
     undo,
     redo,
     copySelection,
-    pasteSelection,
+    pasteSelection: pasteSelectionOnMainCanvas,
     setNodes,
     setEdges,
   });
 
   const addCommentAtContext = useCallback(() => {
+    if (isMainCanvasNodeCreationLocked()) return;
     if (!reactFlowInstance) return;
     if (!contextPoint) return;
 
@@ -1865,7 +1875,7 @@ export default function EditorPage() {
                           }}
                           onAddComment={addCommentAtContext}
                           copySelection={copySelection}
-                          pasteSelection={pasteSelection}
+                          pasteSelection={pasteSelectionOnMainCanvas}
                         >
                           <div
                             ref={editorContainerRef}

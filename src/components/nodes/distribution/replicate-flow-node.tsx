@@ -61,6 +61,7 @@ import {
 } from "@/flow/editor-node-factory";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
+import { useSubcanvasNodeCreationLock } from "@/hooks/useSubcanvasNodeCreationLock";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-node";
@@ -354,6 +355,7 @@ export const ReplicateFlowNode = memo(
     }, [id, connectionCount, hasInternalInput, updateNodeInternals]);
 
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    useSubcanvasNodeCreationLock(isEditorOpen);
     const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
     const [connectingMicrobitConnectionId, setConnectingMicrobitConnectionId] =
       useState<string | null>(null);

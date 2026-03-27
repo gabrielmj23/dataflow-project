@@ -59,6 +59,7 @@ import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
+import { useSubcanvasNodeCreationLock } from "@/hooks/useSubcanvasNodeCreationLock";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
@@ -243,6 +244,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   })();
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  useSubcanvasNodeCreationLock(isEditorOpen);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isShareSubmitting, setIsShareSubmitting] = useState(false);
   const [shareSubmitError, setShareSubmitError] = useState<string | null>(null);

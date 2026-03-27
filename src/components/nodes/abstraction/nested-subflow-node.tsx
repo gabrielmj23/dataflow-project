@@ -46,6 +46,7 @@ import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { Input } from "@/components/ui/input";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
+import { useSubcanvasNodeCreationLock } from "@/hooks/useSubcanvasNodeCreationLock";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
@@ -117,6 +118,7 @@ export const NestedSubflowNode = memo(
     const outOffsets = offsets(outCount);
 
     const [isEditorOpen, setIsEditorOpen] = useState(false);
+    useSubcanvasNodeCreationLock(isEditorOpen);
     const [editorCanvasMode, setEditorCanvasMode] = useState<"pan" | "select">(
       "pan",
     );

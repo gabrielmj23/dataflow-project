@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import type { Edge } from "@xyflow/react";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
+import { isMainCanvasNodeCreationLocked } from "@/hooks/useSubcanvasNodeCreationLock";
 
 interface UseKeyboardShortcutsParams {
   undo: () => void;
@@ -65,6 +66,9 @@ export function useKeyboardShortcuts({
 
       if (hasCtrlOrMeta && key === "v") {
         e.preventDefault();
+        if (isMainCanvasNodeCreationLocked()) {
+          return;
+        }
         pasteSelection();
         return;
       }

@@ -30,9 +30,13 @@ async function readApiError(response: Response): Promise<string> {
 }
 
 async function postAuth<TBody>(
-  endpoint: "/auth/log-in" | "/auth/sign-up",
+  endpoint:
+    | "/auth/log-in"
+    | "/auth/sign-up"
+    | "/auth/request-password-reset"
+    | "/auth/reset-password",
   body: TBody,
-): Promise<AuthResponse> {
+): Promise<AuthResponse | { message: string }> {
   const response = await fetch(`${getAuthApiBaseUrl()}${endpoint}`, {
     method: "POST",
     headers: {
@@ -45,14 +49,14 @@ async function postAuth<TBody>(
     throw new Error(await readApiError(response));
   }
 
-  return (await response.json()) as AuthResponse;
+  return (await response.json()) as AuthResponse | { message: string };
 }
 
 export async function logIn(params: {
   email: string;
   password: string;
 }): Promise<AuthResponse> {
-  return postAuth("/auth/log-in", params);
+  return (await postAuth("/auth/log-in", params)) as AuthResponse;
 }
 
 export async function signUp(params: {
@@ -60,7 +64,25 @@ export async function signUp(params: {
   email: string;
   password: string;
 }): Promise<AuthResponse> {
-  return postAuth("/auth/sign-up", params);
+  return (await postAuth("/auth/sign-up", params)) as AuthResponse;
+}
+
+export async function requestPasswordReset(params: {
+  email: string;
+}): Promise<{ message: string }> {
+  return (await postAuth("/auth/request-password-reset", params)) as {
+    message: string;
+  };
+}
+
+export async function resetPasswordWithCode(params: {
+  email: string;
+  code: string;
+  newPassword: string;
+}): Promise<{ message: string }> {
+  return (await postAuth("/auth/reset-password", params)) as {
+    message: string;
+  };
 }
 
 export function getStoredAuthUser(): AuthSessionUser | null {
