@@ -34,6 +34,9 @@ function getTransporter(): nodemailer.Transporter | null {
     port,
     secure,
     auth: user && pass ? { user, pass } : undefined,
+    tls: {
+      ciphers: "SSLv3",
+    },
   });
 
   return cachedTransporter;
