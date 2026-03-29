@@ -468,17 +468,29 @@ export function buildEngineStoresFromFlowGraph(params: {
   const scatterOutputCountByNodeId = new Map<string, number>();
   const gatherInputCountByNodeId = new Map<string, number>();
   const gatherIncomingByNodeId = new Map<string, Set<string>>();
+  const barrierPortCountByNodeId = new Map<string, number>();
+  const barrierIncomingByNodeId = new Map<string, Set<string>>();
   for (const node of uiNodes) {
-    if (node.type !== NODE_TYPES.WRITE_SINK) continue;
-
     const data = asRecord(node.data);
-    const rawInputCount = data.inputCount;
-    const safeInputCount =
-      typeof rawInputCount === "number" && Number.isFinite(rawInputCount)
-        ? Math.max(1, Math.floor(rawInputCount))
-        : 1;
 
-    writeSinkInputCountByNodeId.set(String(node.id), safeInputCount);
+    if (node.type === NODE_TYPES.WRITE_SINK) {
+      const rawInputCount = data.inputCount;
+      const safeInputCount =
+        typeof rawInputCount === "number" && Number.isFinite(rawInputCount)
+          ? Math.max(1, Math.floor(rawInputCount))
+          : 1;
+
+      writeSinkInputCountByNodeId.set(String(node.id), safeInputCount);
+    }
+
+    if (node.type === NODE_TYPES.BARRIER_NODE) {
+      const rawPortCount = data.portCount;
+      const safePortCount =
+        typeof rawPortCount === "number" && Number.isFinite(rawPortCount)
+          ? Math.max(1, Math.floor(rawPortCount))
+          : 1;
+      barrierPortCountByNodeId.set(String(node.id), safePortCount);
+    }
   }
 
   for (const edge of params.edges) {
@@ -490,6 +502,14 @@ export function buildEngineStoresFromFlowGraph(params: {
       if (idx) {
         const current = scatterOutputCountByNodeId.get(sourceId) ?? 0;
         scatterOutputCountByNodeId.set(sourceId, Math.max(current, idx));
+      }
+    }
+    if (sourceNode?.type === NODE_TYPES.BARRIER_NODE) {
+      const handleId = edge.sourceHandle ?? null;
+      const idx = parseIndexHandle(handleId) ?? (handleId == null ? 1 : null);
+      if (idx) {
+        const current = barrierPortCountByNodeId.get(sourceId) ?? 1;
+        barrierPortCountByNodeId.set(sourceId, Math.max(current, idx));
       }
     }
 
@@ -506,6 +526,18 @@ export function buildEngineStoresFromFlowGraph(params: {
         const set = gatherIncomingByNodeId.get(targetId) ?? new Set<string>();
         set.add(`input${idx}`);
         gatherIncomingByNodeId.set(targetId, set);
+      }
+    }
+
+    if (targetNode.type === NODE_TYPES.BARRIER_NODE) {
+      const handleId = edge.targetHandle ?? null;
+      const idx = parseIndexHandle(handleId) ?? (handleId == null ? 1 : null);
+      if (idx) {
+        const current = barrierPortCountByNodeId.get(targetId) ?? 1;
+        barrierPortCountByNodeId.set(targetId, Math.max(current, idx));
+        const set = barrierIncomingByNodeId.get(targetId) ?? new Set<string>();
+        set.add(`input${idx}`);
+        barrierIncomingByNodeId.set(targetId, set);
       }
     }
 
@@ -662,6 +694,8 @@ export function buildEngineStoresFromFlowGraph(params: {
     scatterOutputCountByNodeId,
     gatherInputCountByNodeId,
     gatherIncomingByNodeId,
+    barrierPortCountByNodeId,
+    barrierIncomingByNodeId,
     whileFlowEvaluatorByNodeId,
     onLog: params.onLog,
     onPrompt: params.onPrompt,

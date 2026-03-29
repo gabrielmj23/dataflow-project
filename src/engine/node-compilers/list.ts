@@ -31,7 +31,11 @@ import {
   EngineUnzipNode,
 } from "../nodes/list-nodes";
 import { DataflowEngine } from "../engine";
-import { EngineGatherNode, EngineScatterNode } from "../nodes/control-nodes";
+import {
+  EngineBarrierNode,
+  EngineGatherNode,
+  EngineScatterNode,
+} from "../nodes/control-nodes";
 import {
   Arc,
   DataToken,
@@ -1627,6 +1631,23 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
       }
 
       return new EngineGatherNode({ inputCount, firePatterns });
+    }
+
+    case NODE_TYPES.BARRIER_NODE: {
+      const rawCount = typeof data.portCount === "number" ? data.portCount : 1;
+      const inferredCount =
+        ctx.barrierPortCountByNodeId?.get(String(flowNode.id)) ?? 1;
+      const portCount = Math.max(rawCount, inferredCount, 1);
+
+      const incoming = ctx.barrierIncomingByNodeId?.get(String(flowNode.id));
+      const firePatterns = Array.from({ length: portCount }, (_v, idx) => {
+        const portId = `input${idx + 1}`;
+        return incoming?.has(portId)
+          ? FirePatterns.EXISTS
+          : FirePatterns.DONT_CARE;
+      });
+
+      return new EngineBarrierNode({ portCount, firePatterns });
     }
 
     case NODE_TYPES.SORT_LIST_NODE: {

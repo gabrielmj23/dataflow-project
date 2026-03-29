@@ -70,3 +70,32 @@ export class EngineGatherNode extends NodeDefinition {
     );
   }
 }
+
+export class EngineBarrierNode extends NodeDefinition {
+  constructor(params?: { portCount?: number; firePatterns?: FirePatterns[] }) {
+    const safeCount = Math.max(1, Math.floor(params?.portCount ?? 1));
+    const inputPorts = Array.from(
+      { length: safeCount },
+      (_v, index) => `input${index + 1}`,
+    );
+    const outputPorts = Array.from(
+      { length: safeCount },
+      (_v, index) => `output${index + 1}`,
+    );
+
+    const patterns =
+      params?.firePatterns && params.firePatterns.length === inputPorts.length
+        ? params.firePatterns
+        : inputPorts.map(() => FirePatterns.EXISTS);
+
+    super(
+      (...args: unknown[]) =>
+        args.map(
+          (value, index) =>
+            new DataToken(value, new PortAddress("", outputPorts[index] ?? "")),
+        ),
+      patterns,
+      [...inputPorts, ...outputPorts],
+    );
+  }
+}

@@ -95,6 +95,7 @@ import { SubflowInputNode } from "@/components/nodes/abstraction/subflow-input-n
 import { SubflowOutputNode } from "@/components/nodes/abstraction/subflow-output-node";
 import { ScatterNode } from "@/components/nodes/control/scatter-node";
 import { GatherNode } from "@/components/nodes/control/gather-node";
+import { BarrierNode } from "@/components/nodes/distribution/barrier-node";
 // NOTE: This is intentionally the nodeTypes map WITHOUT the `subflow` entry.
 // We use this inside the Subflow editor to avoid circular imports.
 export const nodeTypesCore: NodeTypes = {
@@ -151,6 +152,7 @@ export const nodeTypesCore: NodeTypes = {
   selector: SelectorNode,
   scatter: ScatterNode,
   gather: GatherNode,
+  barrier: BarrierNode,
   subflowInput: SubflowInputNode, // Registering SubflowInputNode in nodeTypesCore
   subflowOutput: SubflowOutputNode,
   write: WriteNode,
