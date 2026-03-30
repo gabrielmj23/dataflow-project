@@ -336,16 +336,6 @@ Nodos: `and`, `nand`, `or`, `nor`, `xor`, `not`, `logicOperation`.
 - Sticky: si (`value`, `relay`).
 - Distribucion: local.
 
-### 4.9 `while`
-
-- Funcion: lazo controlado por condicion con intervalo.
-- Entradas: `flow`, `condition`, `interval` (segundos).
-- Salidas: `output`, `loopFlowOut`, `loopConditionOut`, `loopIntervalOut`.
-- Activacion: `EXISTS`, `EXISTS`, `EXISTS`.
-- Sticky: no.
-- Distribucion: local.
-- Nota: la primera iteracion en condicion verdadera pasa sin esperar; siguientes aplican delay.
-
 ---
 
 ## 5. Nodos de Listas
@@ -754,7 +744,7 @@ Alias legacy:
 | `sum`, `subtract`, `multiply`, `divide`, `mod`, `power`, `mathOperation`, `root`, `logarithm`, `floor`, `ceiling`, `round`, `concat`, `replaceText`, `subtractText`, `sliceText` | Si | Si | Si |
 | `formulaEditor` | Si | No | No |
 | `comparison*`, `and`, `nand`, `or`, `nor`, `xor`, `not`, `logicOperation` | Si | No | Si |
-| `switch`, `conditional`, `selector`, `conditionalSelector`, `desvio`, `relevo`, `while` | Si | No | No |
+| `switch`, `conditional`, `selector`, `conditionalSelector`, `desvio`, `relevo` | Si | No | No |
 | `sequence`, `pulseSequence` | Si | Si | No |
 | `zip`, `unzip`, `filter`, `map`, `accumulate`, `count`, `sortList`, `listFirst`, `listLast`, `listMin`, `listMax`, `listFrequency`, `listAtPosition`, `listFindElement`, `listRemoveFirst`, `listRemoveLast`, `listPrepend`, `listAppend`, `listIsEmpty`, `listReverse` | Si | Si | Si |
 | `product` | Si | Si | No |
@@ -771,7 +761,7 @@ Alias legacy:
 
 1. Entrada de datos: constantes tipadas, entrada en runtime, aleatoriedad, temporizacion y sensores micro:bit.
 2. Calculo: aritmetica binaria/unaria, formulas, texto y operadores configurables.
-3. Logica y control: comparacion, compuertas, switch multicondicion, par condicional-selector, desvio/relevo/while.
+3. Logica y control: comparacion, compuertas, switch multicondicion, par condicional-selector, desvio/relevo.
 4. Colecciones: secuencias, map/filter con subflujo, agregados, transformaciones e indexacion.
 5. Paralelismo de datos: scatter/gather.
 6. Salidas: consola local y actuadores micro:bit.

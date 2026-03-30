@@ -36,7 +36,6 @@ import {
   Merge,
   Split,
   Flag,
-  RefreshCw,
   ChartNoAxesCombined,
 } from "lucide-react";
 
@@ -805,28 +804,6 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
         }),
       ];
 
-    case "while":
-      return [
-        ...createHandleSpecs({
-          direction: "target",
-          ids: ["in"],
-          positions: [...HANDLE_POSITIONS.single],
-          edge: "left",
-        }),
-        ...createHandleSpecs({
-          direction: "target",
-          ids: ["in-cond", "in-time"],
-          positions: [...HANDLE_POSITIONS.double],
-          edge: "top",
-        }),
-        ...createHandleSpecs({
-          direction: "source",
-          ids: ["out"],
-          positions: [...HANDLE_POSITIONS.single],
-          edge: "right",
-        }),
-      ];
-
     case "relevo":
       return [
         ...createHandleSpecs({
@@ -973,7 +950,6 @@ function getPreviewHandleBorderClass(type: string): string {
 
   if (
     type === "selector" ||
-    type === "while" ||
     type === "desvio" ||
     type === "relevo" ||
     type === "conditionalPair" ||
@@ -1355,14 +1331,12 @@ function NodePreview({
       }
       case "desvio":
       case "relevo":
-      case "while":
       case "selector":
       case "conditionalPair":
       case "switch": {
         const symbolMap: Record<string, string> = {
           desvio: "desvio",
           relevo: "relevo",
-          while: "while",
           selector: "selector",
           conditionalPair: "conditionalPair",
           switch: "switch",
@@ -1380,7 +1354,6 @@ function NodePreview({
                 </span>
               )}
               {symbolMap[type] === "relevo" && <Flag className="h-4 w-4" />}
-              {symbolMap[type] === "while" && <RefreshCw className="h-4 w-4" />}
               {symbolMap[type] === "selector" && (
                 <Merge className="h-4 w-4 rotate-90" />
               )}
