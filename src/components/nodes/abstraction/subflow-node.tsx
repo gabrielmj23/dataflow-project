@@ -4,6 +4,7 @@ import type {
   Edge,
   Node,
   NodeProps,
+  OnNodeDrag,
   OnConnectStartParams,
 } from "@xyflow/react";
 import {
@@ -58,6 +59,7 @@ import { cn } from "@/lib/utils";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { deleteDraggedNodesOutsideViewport } from "@/flow/drag-delete";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { useSubcanvasNodeCreationLock } from "@/hooks/useSubcanvasNodeCreationLock";
 import { validateConnection } from "@/flow/connection-validation";
@@ -645,6 +647,25 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     setDraftNodes((prev) => [...prev, newNode]);
   };
 
+  const onEditorNodeDragStop = useCallback<OnNodeDrag<Node>>(
+    (event, node, draggedNodes) => {
+      const nodesToEvaluate =
+        Array.isArray(draggedNodes) && draggedNodes.length > 0
+          ? draggedNodes
+          : [node];
+
+      deleteDraggedNodesOutsideViewport({
+        event,
+        draggedNodes: nodesToEvaluate,
+        reactFlowInstance: editorInstanceRef.current,
+        setNodes: setDraftNodes,
+        setEdges: setDraftEdges,
+        viewportElement: document.getElementById(editorFlowId),
+      });
+    },
+    [editorFlowId],
+  );
+
   return (
     <>
       <BaseNode
@@ -1058,6 +1079,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                       }}
                       onDrop={onEditorDrop}
                       onDragOver={onEditorDragOver}
+                      onNodeDragStop={onEditorNodeDragStop}
+                      autoPanOnNodeDrag={false}
                       panOnDrag={editorCanvasMode === "pan"}
                       selectionOnDrag={editorCanvasMode === "select"}
                       selectionMode={SelectionMode.Partial}

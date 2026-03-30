@@ -6,6 +6,7 @@ import {
   Background,
   BackgroundVariant,
   SelectionMode,
+  type OnNodeDrag,
   type ReactFlowInstance,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
@@ -93,6 +94,7 @@ import {
   serializeProgram,
   type SerializedProgramV1,
 } from "@/flow/serialization";
+import { deleteDraggedNodesOutsideViewport } from "@/flow/drag-delete";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import {
   buildUnsavedChangesSignature,
@@ -1428,6 +1430,33 @@ export default function EditorPage() {
     setEdges,
   });
 
+  const onMainCanvasNodeDragStop = useCallback<OnNodeDrag<FlowNode>>(
+    (event, node, draggedNodes) => {
+      const nodesToEvaluate =
+        Array.isArray(draggedNodes) && draggedNodes.length > 0
+          ? draggedNodes
+          : [node];
+
+      deleteDraggedNodesOutsideViewport({
+        event,
+        draggedNodes: nodesToEvaluate,
+        reactFlowInstance,
+        setNodes,
+        setEdges,
+        viewportElement:
+          editorContainerRef.current?.querySelector(".react-flow") instanceof
+          HTMLElement
+            ? (editorContainerRef.current.querySelector(
+                ".react-flow",
+              ) as HTMLElement)
+            : null,
+      });
+
+      onNodeDragStop();
+    },
+    [editorContainerRef, onNodeDragStop, reactFlowInstance, setEdges, setNodes],
+  );
+
   const addCommentAtContext = useCallback(() => {
     if (isMainCanvasNodeCreationLocked()) return;
     if (!reactFlowInstance) return;
@@ -1907,7 +1936,8 @@ export default function EditorPage() {
                               onDrop={onDrop}
                               onDragOver={onDragOver}
                               onNodeDragStart={onNodeDragStart}
-                              onNodeDragStop={onNodeDragStop}
+                              onNodeDragStop={onMainCanvasNodeDragStop}
+                              autoPanOnNodeDrag={false}
                               onPaneMouseMove={onPaneMouseMove}
                               panOnDrag={canvasMode === "pan"}
                               selectionOnDrag={canvasMode === "select"}

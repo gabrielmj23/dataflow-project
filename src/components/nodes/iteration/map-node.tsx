@@ -4,6 +4,7 @@ import type {
   Edge,
   Node,
   NodeProps,
+  OnNodeDrag,
   OnConnectStartParams,
 } from "@xyflow/react";
 import {
@@ -53,6 +54,7 @@ import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { deleteDraggedNodesOutsideViewport } from "@/flow/drag-delete";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
 import { useConnectionValidationTooltip } from "@/flow/use-connection-validation-tooltip";
@@ -135,7 +137,9 @@ function clampContextInputLabels(
   );
 }
 
-function extractContextInputLabelsFromNodes(nodes: Node[]): Record<string, string> {
+function extractContextInputLabelsFromNodes(
+  nodes: Node[],
+): Record<string, string> {
   const result: Record<string, string> = {};
 
   for (let i = 1; ; i += 1) {
@@ -201,41 +205,44 @@ function ensureMapBoundaryNodes(params: {
         selected: false,
       };
 
-  const contextNodes: Node[] = Array.from({ length: safeContextCount }, (_, i) => {
-    const contextIndex = i + 1;
-    const contextNodeId = mapContextNodeId(contextIndex);
-    const existing = list.find((n) => String(n.id) === contextNodeId);
-    const handleId = mapContextHandleId(contextIndex);
-    const savedLabel = normalizedLabels[handleId];
-    const defaultLabel = `Valor ${contextIndex}`;
-    const label =
-      typeof savedLabel === "string" && savedLabel.trim().length > 0
-        ? savedLabel
-        : defaultLabel;
+  const contextNodes: Node[] = Array.from(
+    { length: safeContextCount },
+    (_, i) => {
+      const contextIndex = i + 1;
+      const contextNodeId = mapContextNodeId(contextIndex);
+      const existing = list.find((n) => String(n.id) === contextNodeId);
+      const handleId = mapContextHandleId(contextIndex);
+      const savedLabel = normalizedLabels[handleId];
+      const defaultLabel = `Valor ${contextIndex}`;
+      const label =
+        typeof savedLabel === "string" && savedLabel.trim().length > 0
+          ? savedLabel
+          : defaultLabel;
 
-    const existingData =
-      existing && existing.data && typeof existing.data === "object"
-        ? (existing.data as Record<string, unknown>)
-        : {};
+      const existingData =
+        existing && existing.data && typeof existing.data === "object"
+          ? (existing.data as Record<string, unknown>)
+          : {};
 
-    return {
-      ...(existing ?? {
+      return {
+        ...(existing ?? {
+          id: contextNodeId,
+          type: NODE_TYPES.SUBFLOW_INPUT,
+          position: { x: 0, y: contextIndex * 120 },
+          selected: false,
+        }),
         id: contextNodeId,
         type: NODE_TYPES.SUBFLOW_INPUT,
-        position: { x: 0, y: contextIndex * 120 },
+        data: {
+          ...existingData,
+          label,
+          iconVariant: "braces",
+          contextSlot: contextIndex,
+        },
         selected: false,
-      }),
-      id: contextNodeId,
-      type: NODE_TYPES.SUBFLOW_INPUT,
-      data: {
-        ...existingData,
-        label,
-        iconVariant: "braces",
-        contextSlot: contextIndex,
-      },
-      selected: false,
-    };
-  });
+      };
+    },
+  );
 
   const contextNodeIdSet = new Set(contextNodes.map((node) => String(node.id)));
 
@@ -286,7 +293,10 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   );
 
   const targetHandleIds = useMemo(
-    () => ["in", ...Array.from({ length: contextInputCount }, (_, i) => `in-${i + 2}`)],
+    () => [
+      "in",
+      ...Array.from({ length: contextInputCount }, (_, i) => `in-${i + 2}`),
+    ],
     [contextInputCount],
   );
 
@@ -385,37 +395,40 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
   const [connectionHighlight, setConnectionHighlight] =
     useState<ConnectionHighlightState>(null);
 
-  const onEditorNodesChange = useCallback((changes: NodeChange[]) => {
-    const removingMandatoryInput = changes.some(
-      (change) =>
-        change.type === "remove" &&
-        "id" in change &&
-        change.id === MAP_INPUT_NODE_ID,
-    );
-    const removingMandatoryOutput = changes.some(
-      (change) =>
-        change.type === "remove" &&
-        "id" in change &&
-        change.id === MAP_OUTPUT_NODE_ID,
-    );
+  const onEditorNodesChange = useCallback(
+    (changes: NodeChange[]) => {
+      const removingMandatoryInput = changes.some(
+        (change) =>
+          change.type === "remove" &&
+          "id" in change &&
+          change.id === MAP_INPUT_NODE_ID,
+      );
+      const removingMandatoryOutput = changes.some(
+        (change) =>
+          change.type === "remove" &&
+          "id" in change &&
+          change.id === MAP_OUTPUT_NODE_ID,
+      );
 
-    setDraftNodes((snapshot) => {
-      const next = applyNodeChanges(changes, snapshot);
-      if (removingMandatoryInput || removingMandatoryOutput) {
-        return ensureMapBoundaryNodes({
-          nodes: next,
-          contextInputCount,
-          contextInputLabels,
-        }).map((node) =>
-          String(node.id) === MAP_INPUT_NODE_ID ||
-          String(node.id) === MAP_OUTPUT_NODE_ID
-            ? { ...node, selected: false }
-            : node,
-        );
-      }
-      return next;
-    });
-  }, [contextInputCount, contextInputLabels]);
+      setDraftNodes((snapshot) => {
+        const next = applyNodeChanges(changes, snapshot);
+        if (removingMandatoryInput || removingMandatoryOutput) {
+          return ensureMapBoundaryNodes({
+            nodes: next,
+            contextInputCount,
+            contextInputLabels,
+          }).map((node) =>
+            String(node.id) === MAP_INPUT_NODE_ID ||
+            String(node.id) === MAP_OUTPUT_NODE_ID
+              ? { ...node, selected: false }
+              : node,
+          );
+        }
+        return next;
+      });
+    },
+    [contextInputCount, contextInputLabels],
+  );
 
   const onEditorEdgesChange = useCallback((changes: EdgeChange[]) => {
     setDraftEdges((snapshot) => applyEdgeChanges(changes, snapshot));
@@ -532,6 +545,25 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
       setDraftNodes((prev) => [...prev, newNode]);
     },
     [createInnerNodeId, paletteLabelByType, templateContext],
+  );
+
+  const onEditorNodeDragStop = useCallback<OnNodeDrag<Node>>(
+    (event, node, draggedNodes) => {
+      const nodesToEvaluate =
+        Array.isArray(draggedNodes) && draggedNodes.length > 0
+          ? draggedNodes
+          : [node];
+
+      deleteDraggedNodesOutsideViewport({
+        event,
+        draggedNodes: nodesToEvaluate,
+        reactFlowInstance: editorInstanceRef.current,
+        setNodes: setDraftNodes,
+        setEdges: setDraftEdges,
+        viewportElement: document.getElementById(editorFlowId),
+      });
+    },
+    [editorFlowId],
   );
 
   const editorNodeTypes = useMemo(
@@ -861,6 +893,8 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                     }}
                     onDrop={onEditorDrop}
                     onDragOver={onEditorDragOver}
+                    onNodeDragStop={onEditorNodeDragStop}
+                    autoPanOnNodeDrag={false}
                     fitView
                     proOptions={{ hideAttribution: true }}
                   >
@@ -909,17 +943,15 @@ export const MapNode = memo(({ id, data }: NodeProps) => {
                   const ensured = ensureMapBoundaryNodes({
                     nodes: draftNodes,
                     contextInputCount,
-                    contextInputLabels: extractContextInputLabelsFromNodes(
-                      draftNodes,
-                    ),
+                    contextInputLabels:
+                      extractContextInputLabelsFromNodes(draftNodes),
                   });
                   const normalizedEdges = filterEdgesByNodeIds(
                     draftEdges,
                     ensured,
                   );
-                  const nextContextLabels = extractContextInputLabelsFromNodes(
-                    ensured,
-                  );
+                  const nextContextLabels =
+                    extractContextInputLabelsFromNodes(ensured);
 
                   setNodes((prev) =>
                     prev.map((n) => {
