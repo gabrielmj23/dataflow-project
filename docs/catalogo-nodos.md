@@ -1,459 +1,778 @@
-# Catálogo de Nodos del Lenguaje Dataflow
+﻿# Catalogo de Nodos del Lenguaje Dataflow
 
-Este documento describe todos los nodos disponibles en el lenguaje visual de programación dataflow, organizados por categoría. Cada nodo incluye su descripción funcional, puertos de entrada/salida, patrón de activación y capacidades de distribución.
+Este documento describe el catalogo completo de nodos disponible actualmente en el editor Dataflow, alineado con la implementacion real de UI + compiladores + motor.
 
----
+Incluye:
 
-## Conceptos Previos
-
-### Patrones de Activación (Fire Patterns)
-
-Cada puerto de entrada tiene un patrón que determina cuándo el nodo se activa:
-
-| Patrón       | Comportamiento |
-|--------------|----------------|
-| `EXISTS`     | Requiere un token presente en el puerto para activarse. |
-| `DONT_CARE`  | El nodo se activa independientemente de si hay dato en ese puerto (usa valor por defecto). |
-| `ALWAYS`     | El nodo se activa en cada paso de ejecución sin necesidad de entrada externa. |
-
-### Puertos Sticky
-
-Algunos puertos son "sticky": retienen el último valor recibido y lo reutilizan en ejecuciones posteriores si no llega un nuevo token. Esto permite que un nodo se reactive con una sola entrada nueva mientras las demás conservan sus valores previos.
-
-### Destinos de Ejecución (Distribution)
-
-Muchos nodos soportan ejecución distribuida mediante el campo `executionTarget`:
-
-| Destino        | Descripción |
-|----------------|-------------|
-| **local**      | Ejecución en el navegador (por defecto). |
-| **controller** | Ejecución remota delegada a un controlador externo vía WebSocket. |
-| **micro:bit**  | Ejecución en un dispositivo micro:bit conectado por serial o Bluetooth. |
+- Nodos visibles en la paleta.
+- Nodos internos usados en subflujos.
+- Nodos compuestos (macro) y nodos solo de UI.
+- Puertos, patron de activacion, semantica y soporte de ejecucion remota.
 
 ---
 
-## 1. Nodos de Entrada
+## 1. Conceptos Base
 
-Generan datos iniciales que alimentan el flujo. Todos tienen un único puerto de salida (`output`) y se activan con patrón `ALWAYS` (emiten su valor en cada paso).
+### 1.1 Patrones de activacion (FirePatterns)
 
-### 1.1 Constante Genérica (`constantInput`)
+- `EXISTS`: requiere token en ese puerto para activarse.
+- `DONT_CARE`: no requiere token; usa valor por defecto o `undefined`.
+- `ALWAYS`: se evalua en cada paso sin entrada externa.
 
-- **Función:** Emite un valor constante (número, texto o booleano) configurado por el usuario.
-- **Salidas:** `output` — el valor constante.
-- **Activación:** `ALWAYS`.
+### 1.2 Puertos sticky
 
-### 1.2 Constante Numérica (`constantNumber`)
+Un puerto sticky conserva el ultimo valor recibido. Si llega un token por otro puerto, el nodo puede reactivarse reutilizando ese valor almacenado.
 
-- **Función:** Emite un valor numérico constante.
-- **Salidas:** `output` — número.
-- **Activación:** `ALWAYS`.
+### 1.3 Destinos de ejecucion (`executionTarget`)
 
-### 1.3 Constante Booleana (`constantBoolean`)
+- `local`: ejecucion en navegador (runner local).
+- `controller`: delega operacion/subflujo a controlador remoto via WebSocket.
+- `microbit`: ejecuta en micro:bit (serial o bluetooth), segun nodo.
 
-- **Función:** Emite `true` o `false`.
-- **Salidas:** `output` — booleano.
-- **Activación:** `ALWAYS`.
+### 1.4 Notas de alcance
 
-### 1.4 Constante de Texto (`constantText`)
-
-- **Función:** Emite una cadena de texto constante.
-- **Salidas:** `output` — string.
-- **Activación:** `ALWAYS`.
-
-### 1.5 Constante de Lista (`constantList`)
-
-- **Función:** Emite un arreglo de valores (números y/o strings) definidos por el usuario.
-- **Salidas:** `output` — array.
-- **Activación:** `ALWAYS`.
-
-### 1.6 Entrada en Tiempo de Ejecución (`runtimeInput`)
-
-- **Función:** Solicita un valor al usuario durante la ejecución del programa. Puede configurarse como numérico o de texto, con un mensaje de prompt y valor por defecto opcionales.
-- **Salidas:** `output` — el valor ingresado (o el valor por defecto).
-- **Activación:** `ALWAYS`.
-
-### 1.7 Número Aleatorio (`randomInput`)
-
-- **Función:** Genera un número aleatorio en un rango `[min, max]`. Opcionalmente solo genera enteros.
-- **Configuración:** `min`, `max`, `integerOnly`.
-- **Salidas:** `output` — número aleatorio.
-- **Activación:** `ALWAYS`.
-
-### 1.8 Selección Aleatoria (`choiceInput`)
-
-- **Función:** Selecciona aleatoriamente un elemento de una lista de opciones predefinidas (strings).
-- **Configuración:** `choices` — lista de opciones.
-- **Salidas:** `output` — la opción seleccionada.
-- **Activación:** `ALWAYS`.
-
-### 1.9 Temporizador (`timerInput`)
-
-- **Función:** Introduce un retraso temporal en el flujo. Opera en dos modos:
-  - **source:** Se activa automáticamente (`DONT_CARE`) y emite tras el intervalo.
-  - **delay:** Requiere un token entrante (`EXISTS`), aplica el retraso y reenvía el valor.
-- **Configuración:** `timeValue` (segundos).
-- **Entradas:** `input` (solo en modo delay).
-- **Salidas:** `output` — el valor recibido (o `0` en modo source).
-- **Activación:** `EXISTS` (delay) o `DONT_CARE` (source).
-
-### 1.10 Lectura de Botón micro:bit (`microbitReadButton`)
-
-- **Función:** Lee el estado de un botón del dispositivo micro:bit.
-- **Configuración:** `transport` (serial/bluetooth).
-- **Salidas:** `output` — estado del botón.
-- **Distribución:** Solo micro:bit.
+- Este catalogo refleja tipos de nodo del proyecto (`NODE_TYPES`) y nodos registrados en el editor.
+- El nodo `comment` es solo visual y no se compila al motor.
+- `conditionalPair` es un item de paleta que crea dos nodos reales: `conditional` + `conditionalSelector`.
 
 ---
 
-## 2. Nodos de Procesamiento Aritmético
+## 2. Nodos de Entrada
 
-Realizan operaciones matemáticas. Todos tienen puertos sticky (retienen valores).
+Todos tienen salida principal `output`.
 
-### 2.1 Suma (`sum`)
+### 2.1 `constantInput` (Constante generica)
 
-- **Entradas:** `input1` (número), `input2` (número).
-- **Salida:** `output` — `input1 + input2`.
-- **Activación:** Ambas `EXISTS` (sticky).
-- **Distribución:** local, controller, micro:bit.
+- Funcion: emite un valor constante (numero/texto/booleano).
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.2 Resta (`subtract`)
+### 2.2 `constantNumber`
 
-- **Entradas:** `input1`, `input2`.
-- **Salida:** `output` — `input1 - input2`.
-- **Activación/Distribución:** Igual que Suma.
+- Funcion: emite numero constante.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.3 Multiplicación (`multiply`)
+### 2.3 `constantBoolean`
 
-- **Entradas:** `input1`, `input2`.
-- **Salida:** `output` — `input1 * input2`.
-- **Activación/Distribución:** Igual que Suma.
+- Funcion: emite booleano constante.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.4 División (`divide`)
+### 2.4 `constantText`
 
-- **Entradas:** `input1`, `input2`.
-- **Salida:** `output` — `input1 / input2`. Lanza error si el resultado no es finito (división por cero).
-- **Activación/Distribución:** Igual que Suma.
+- Funcion: emite texto constante.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.5 Módulo (`mod`)
+### 2.5 `constantList`
 
-- **Entradas:** `input1`, `input2`.
-- **Salida:** `output` — `input1 % input2`.
-- **Activación/Distribución:** Igual que Suma.
+- Funcion: emite lista constante (normaliza items numericos cuando aplica).
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.6 Potencia (`power`)
+### 2.6 `runtimeInput`
 
-- **Entradas:** `input1` (base), `input2` (exponente).
-- **Salida:** `output` — `input1 ^ input2`. Lanza error para `0^0` y resultados no finitos.
-- **Activación/Distribución:** Igual que Suma.
+- Funcion: solicita valor al usuario en tiempo de ejecucion.
+- Config: `valueType` (`number` o `text`), `prompt`, `defaultValue`.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.7 Piso (`floor`)
+### 2.7 `randomInput`
 
-- **Entradas:** `input1` (número).
-- **Salida:** `output` — `⌊input1⌋`.
-- **Activación:** `EXISTS` (sticky).
-- **Distribución:** local, controller, micro:bit.
+- Funcion: genera aleatorio en rango `[min,max]`.
+- Config: `min`, `max`, `integerOnly`.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.8 Techo (`ceiling`)
+### 2.8 `choiceInput`
 
-- **Entradas:** `input1` (número).
-- **Salida:** `output` — `⌈input1⌉`.
-- **Activación/Distribución:** Igual que Piso.
+- Funcion: elige aleatoriamente un elemento de `choices`.
+- Config: `choices: string[]`.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: local.
 
-### 2.9 Redondeo (`round`)
+### 2.9 `timerInput`
 
-- **Entradas:** `input1` (número).
-- **Salida:** `output` — redondeo al entero más cercano.
-- **Activación/Distribución:** Igual que Piso.
+- Funcion: espera `timeValue` segundos y reemite.
+- Modos:
+- `source`: sin entrada, emite `0` tras retardo.
+- `delay`: con entrada, reemite el valor entrante tras retardo.
+- Config: `timeValue` (segundos).
+- Entradas: `input` (solo modo delay).
+- Salidas: `output`.
+- Activacion: `DONT_CARE` (source) o `EXISTS` (delay).
+- Sticky: no.
+- Distribucion: local.
 
-### 2.10 Editor de Fórmulas (`formulaEditor`)
+### 2.10 `microbitReadButton`
 
-- **Función:** Evalúa una expresión matemática arbitraria escrita por el usuario. Las variables de la fórmula se mapean a puertos de entrada dinámicos.
-- **Configuración:** `formula` (expresión como `"a * b + 2"`), `variables` (lista de nombres de variables).
-- **Entradas:** Un puerto `inputN` por cada variable (todas `EXISTS`, sticky).
-- **Salida:** `output` — resultado numérico de la fórmula evaluada.
-- **Distribución:** Solo local.
+- Funcion: espera evento de boton en micro:bit y emite `A`, `B` o `AB`.
+- Config: `transport` (`serial`/`bluetooth`), slot.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: micro:bit.
 
----
+### 2.11 `microbitReadTemperature`
 
-## 3. Nodos de Procesamiento de Texto
+- Funcion: solicita y emite temperatura de micro:bit (grados C).
+- Config: `transport` (`serial`/`bluetooth`), slot.
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: micro:bit.
 
-Operan sobre cadenas de texto. Todos tienen puertos sticky.
+### 2.12 `microbitReadPin`
 
-### 3.1 Concatenar (`concat`)
-
-- **Entradas:** `input1` (texto), `input2` (texto).
-- **Salida:** `output` — `input1 + input2` (concatenación).
-- **Activación:** Ambas `EXISTS` (sticky).
-- **Distribución:** local, controller, micro:bit.
-
-### 3.2 Reemplazar Texto (`replaceText`)
-
-- **Entradas:** `text` (fuente), `search` (texto a buscar), `replacement` (reemplazo).
-- **Salida:** `output` — texto con todas las ocurrencias de `search` reemplazadas por `replacement`.
-- **Activación:** Todas `EXISTS` (sticky).
-- **Distribución:** Solo local.
-
-### 3.3 Sustraer Texto (`subtractText`)
-
-- **Entradas:** `text` (fuente), `search` (texto a eliminar).
-- **Salida:** `output` — texto con todas las ocurrencias de `search` eliminadas.
-- **Activación:** Ambas `EXISTS` (sticky).
-- **Distribución:** Solo local.
-
-### 3.4 Extraer Subcadena (`sliceText`)
-
-- **Entradas:** `text` (fuente), `start` (índice inicio), `end` (índice fin, inclusivo).
-- **Salida:** `output` — subcadena desde `start` hasta `end`.
-- **Activación:** Todas `EXISTS` (sticky).
-- **Distribución:** Solo local.
-
----
-
-## 4. Nodos de Lógica y Control de Flujo
-
-### 4.1 Comparación (`comparison`)
-
-- **Función:** Compara dos valores con un operador configurable.
-- **Operadores:** `==`, `!=`, `<`, `<=`, `>`, `>=`.
-- **Entradas:** `input1`, `input2` (sticky).
-- **Salida:** `output` — booleano.
-- **Distribución:** local, micro:bit.
-
-### 4.2 Compuertas Lógicas
-
-Todas siguen la misma estructura: dos entradas booleanas (sticky), una salida booleana. Distribución: local, micro:bit.
-
-| Nodo            | ID     | Operación          |
-|-----------------|--------|--------------------|
-| **AND**         | `and`  | `a && b`           |
-| **NAND**        | `nand` | `!(a && b)`        |
-| **OR**          | `or`   | `a \|\| b`         |
-| **NOR**         | `nor`  | `!(a \|\| b)`      |
-| **XOR**         | `xor`  | `a !== b`          |
-
-### 4.3 NOT (`not`)
-
-- **Entradas:** `input` — booleano (sticky).
-- **Salida:** `output` — negación lógica.
-- **Distribución:** local, micro:bit.
-
-### 4.4 Switch (`switch`)
-
-- **Función:** Enrutador condicional. Evalúa un valor de entrada contra N condiciones ordenadas y emite el valor por el primer puerto cuya condición se cumple. Si ninguna coincide, el token se descarta.
-- **Operadores de condición:** `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `startsWith`, `endsWith`, `truthy`, `falsy`.
-- **Entradas:** `value`.
-- **Salidas:** `output1`, `output2`, ..., `outputN` (una por condición).
-- **Activación:** `EXISTS`.
-- **Distribución:** Solo local.
-
-### 4.5 Condicional (`conditional`)
-
-- **Función:** Evalúa N fórmulas matemáticas sobre las entradas y emite un token de texto ("Salida 1", "Salida 2", etc.) correspondiente a la primera fórmula que resulte verdadera.
-- **Configuración:** Entradas con etiquetas (variables de fórmula), condiciones con fórmulas y tokens de salida.
-- **Entradas:** `input1`, ..., `inputN` (dinámicas, basadas en etiquetas).
-- **Salida:** `output` — string con el nombre del token ganador (o `undefined`).
-- **Activación:** `EXISTS` para puertos con conexión entrante, `DONT_CARE` para los demás.
-- **Distribución:** Solo local.
-
-### 4.6 Selector (`selector`)
-
-- **Función:** Recibe un token de texto y múltiples valores; emite el valor correspondiente al token que coincide.
-- **Entradas:** `token` (string), más un puerto por cada opción (ej. `"Salida 1"`, `"Salida 2"`).
-- **Salida:** `output` — el valor seleccionado.
-- **Activación:** `token` es `EXISTS`; las opciones son `EXISTS` si tienen conexión entrante, `DONT_CARE` si no.
-- **Distribución:** Solo local.
-
-> **Nota:** Switch, Conditional y Selector se complementan para implementar ramificación condicional completa: Switch para enrutar un valor, Conditional para evaluar expresiones y emitir un token de decisión, y Selector para elegir un valor según ese token.
+- Funcion: lee pin de micro:bit (digital o analogico).
+- Config: `transport`, slot, `pin`, `mode` (`digital`/`analog`).
+- Entradas: ninguna.
+- Salidas: `output`.
+- Activacion: `ALWAYS`.
+- Sticky: no.
+- Distribucion: micro:bit.
 
 ---
 
-## 5. Nodos de Listas y Colecciones
+## 3. Nodos de Procesamiento Matematico y Texto
 
-### 5.1 Generar lista (`sequence`)
+### 3.1 Operaciones matematicas binarias
 
-- **Función:** Genera un arreglo `[start, start+step, ..., end]`.
-- **Entradas:** `start`, `end`, `step` (todas opcionales; usan defaults 1, 10, 1).
-- **Salida:** `output` — array de números.
-- **Activación:** `EXISTS` si el puerto tiene conexión, `DONT_CARE` si no.
-- **Distribución:** Solo local.
+Nodos: `sum`, `subtract`, `multiply`, `divide`, `mod`, `power`, `root`, `logarithm`, `mathOperation`.
 
-### 5.2 Secuencia por Pulsos (`pulseSequence`)
+- Entradas: `input1`, `input2`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si (`input1`, `input2`).
+- Distribucion:
+- `sum/subtract/multiply/divide/mod/power/root/logarithm`: local, controller, micro:bit.
+- `mathOperation`: wrapper configurable para `sum/subtract/multiply/divide/mod/power` con mismo esquema.
 
-- **Función:** Igual que Generar lista, pero en vez de emitir un solo array, emite cada elemento como un DataToken individual (múltiples tokens de salida en una sola activación).
-- **Entradas/Salidas/Activación:** Igual que Generar lista.
-- **Distribución:** Solo local.
+Validaciones destacadas:
 
-> **Nota:** `sequence` emite la lista completa como un solo valor; `pulseSequence` emite cada elemento individualmente, permitiendo procesamiento elemento-a-elemento downstream.
+- `divide`: error en division no finita.
+- `power`: error en `0^0` o resultado no finito.
+- `root`: grado entero distinto de 0; valida raiz real para negativos.
+- `logarithm`: valor > 0, base > 0 y base != 1.
 
-### 5.3 Filter (`filter`)
+### 3.2 Operaciones matematicas unarias
 
-- **Función:** Filtra una lista según un predicado definido como un subgrafo interno. Cada elemento se pasa al subgrafo y se conserva solo si el resultado es truthy.
-- **Entradas:** `inputList` — array.
-- **Salida:** `outputList` — array filtrado.
-- **Activación:** `EXISTS` (sticky).
-- **Distribución:** local, micro:bit.
+Nodos: `floor`, `ceiling`, `round`.
 
-### 5.4 Map (`map`)
+- Entradas: `input1`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`input1`).
+- Distribucion: local, controller, micro:bit.
 
-- **Función:** Transforma cada elemento de una lista usando un subgrafo interno (función de transformación).
-- **Entradas:** `inputList` — array.
-- **Salida:** `outputList` — array transformado.
-- **Activación:** `EXISTS` (sticky).
-- **Distribución:** local, micro:bit.
+### 3.3 `formulaEditor`
 
-### 5.5 Reduce / Acumular (`accumulate`)
+- Funcion: evalua formula aritmetica definida por usuario.
+- Config: `formula`, `variables`.
+- Entradas: dinamicas `input1..inputN` (segun variables).
+- Salidas: `output`.
+- Activacion: todos `EXISTS`.
+- Sticky: si (todas las entradas).
+- Distribucion: local.
 
-- **Función:** Reduce una lista a un solo valor aplicando una operación acumulativa (suma por defecto, acumulador inicial = 0).
-- **Entradas:** `inputList` — array de números.
-- **Salida:** `output` — número acumulado.
-- **Activación:** `EXISTS`.
-- **Distribución:** local, micro:bit.
+### 3.4 Texto
 
-### 5.6 Contar (`count`)
+#### `concat`
 
-- **Función:** Retorna la longitud de una lista.
-- **Entradas:** `inputList` — array.
-- **Salida:** `output` — número (longitud).
-- **Activación:** `EXISTS`.
-- **Distribución:** local, micro:bit.
+- Entradas: `input1`, `input2`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
 
-### 5.7 Ordenar (`sortList`)
+#### `replaceText`
 
-- **Función:** Ordena una lista. Si todos los elementos son numéricos, ordena numéricamente; de lo contrario, ordena lexicográficamente.
-- **Configuración:** `order` — `"asc"` (ascendente) o `"desc"` (descendente).
-- **Entradas:** `inputList` — array.
-- **Salida:** `outputList` — array ordenado.
-- **Activación:** `EXISTS`.
-- **Distribución:** local, micro:bit.
+- Entradas: `text`, `search`, `replacement`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
+- Nota: si `search` es vacio, devuelve texto original.
 
-### 5.8 Zip (`zip`)
+#### `subtractText`
 
-- **Función:** Combina dos listas en una lista de tuplas `[a, b]`, truncando a la longitud de la más corta.
-- **Entradas:** `listA`, `listB` — arrays.
-- **Salida:** `output` — array de tuplas.
-- **Activación:** Ambas `EXISTS` (sticky).
-- **Distribución:** local, micro:bit.
+- Entradas: `text`, `search`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
 
-### 5.9 Unzip (`unzip`)
+#### `sliceText`
 
-- **Función:** Separa una lista de tuplas `[a, b]` en dos listas independientes.
-- **Entradas:** `inputList` — array de tuplas.
-- **Salidas:** `listA`, `listB` — los dos arrays resultantes (emitidos como DataTokens dirigidos).
-- **Activación:** `EXISTS`.
-- **Distribución:** local, micro:bit.
-
-### 5.10 Scatter (`scatter`)
-
-- **Función:** Distribuye una lista entre N puertos de salida, dividiendo los elementos en chunks lo más equitativos posible.
-- **Configuración:** Número de salidas (inferido de conexiones).
-- **Entradas:** `inputList` — array.
-- **Salidas:** `output1`, ..., `outputN` — sublistas (emitidas como DataTokens dirigidos).
-- **Activación:** `EXISTS`.
-- **Distribución:** Solo local.
-
-### 5.11 Gather (`gather`)
-
-- **Función:** Reúne valores de N puertos de entrada en una sola lista. Si un valor ya es un array, sus elementos se aplastan al nivel superior.
-- **Configuración:** Número de entradas (inferido de conexiones).
-- **Entradas:** `input1`, ..., `inputN`.
-- **Salida:** `outputList` — array concatenado.
-- **Activación:** `EXISTS` para puertos con conexión, `DONT_CARE` para los demás.
-- **Distribución:** Solo local.
-
-> **Nota:** Scatter y Gather forman un par complementario para paralelismo de datos: Scatter divide el trabajo y Gather recoge los resultados.
+- Entradas: `text`, `start`, `end` (fin inclusivo en semantica de usuario).
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
 
 ---
 
-## 6. Nodos de Salida
+## 4. Nodos de Logica y Control de Flujo
 
-### 6.1 Escribir (`write`)
+### 4.1 Comparaciones
 
-- **Función:** Muestra valores al usuario a través del observador del motor. Acepta N entradas (dinámico según conexiones) y opcionalmente un template de formato.
-- **Entradas:** `input1`, ..., `inputN` (todas `EXISTS`, sticky).
-- **Salida:** Ninguna (nodo sumidero).
-- **Distribución:** Solo local.
+Nodos:
 
-### 6.2 Escribir en micro:bit (`microbitWrite`)
+- `comparison` (operador configurable)
+- `comparisonEqual` (`==`)
+- `comparisonNotEqual` (`!=`)
+- `comparisonLess` (`<`)
+- `comparisonLessOrEqual` (`<=`)
+- `comparisonGreater` (`>`)
+- `comparisonGreaterOrEqual` (`>=`)
 
-- **Función:** Envía un valor para mostrarlo en la pantalla LED del micro:bit.
-- **Configuración:** `transport` (serial/bluetooth).
-- **Distribución:** Solo micro:bit.
+Comun:
 
-### 6.3 Sonido micro:bit (`microbitSound`)
+- Entradas: `input1`, `input2`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: no (en local).
+- Distribucion: local, micro:bit.
 
-- **Función:** Reproduce un sonido en el micro:bit.
-- **Configuración:** `transport` (serial/bluetooth).
-- **Distribución:** Solo micro:bit.
+### 4.2 Compuertas logicas
+
+Nodos: `and`, `nand`, `or`, `nor`, `xor`, `not`, `logicOperation`.
+
+- `and/nand/or/nor/xor`: entradas `input1`, `input2`, salida `output`.
+- `not`: entrada `input`, salida `output`.
+- `logicOperation`: configurable entre las anteriores.
+- Activacion: `EXISTS` por cada entrada requerida.
+- Sticky: no (en local).
+- Distribucion: local, micro:bit.
+
+### 4.3 `switch`
+
+- Funcion: evalua condiciones ordenadas y emite por la primera salida que cumple.
+- Config: `conditions[]` con `operator` y `target`.
+- Operadores: `==`, `!=`, `>`, `>=`, `<`, `<=`, `contains`, `startsWith`, `endsWith`, `truthy`, `falsy`.
+- Entradas: `value`.
+- Salidas: `output1..outputN`.
+- Activacion: `EXISTS`.
+- Sticky: no.
+- Distribucion: local.
+- Nota: si ninguna condicion coincide, descarta el token (sin salida).
+
+### 4.4 `conditional`
+
+- Funcion: evalua formulas y emite token de salida (`outputToken`) de la primera verdadera.
+- Config: `inputs[]` (labels/variables), `conditions[]` (formula + token).
+- Entradas: dinamicas `input1..inputN`.
+- Salidas: `output` (token string o `undefined`).
+- Activacion:
+- `EXISTS` en entradas conectadas.
+- `DONT_CARE` en entradas no conectadas.
+- Sticky: no.
+- Distribucion: local.
+
+### 4.5 `selector`
+
+- Funcion: selecciona entre dos valores segun condicion booleana.
+- Entradas: `condition`, `trueValue`, `falseValue`.
+- Salidas: `output`.
+- Activacion:
+- `condition` siempre `EXISTS`.
+- `trueValue`/`falseValue` con `EXISTS` si conectados, `DONT_CARE` si no.
+- Sticky: no.
+- Distribucion: local.
+
+### 4.6 `conditionalSelector`
+
+- Funcion: selector por token (companion de `conditional`).
+- Entradas: `token`, `input1..inputN`.
+- Salidas: `output1..outputN` (mas `output` de compatibilidad legacy).
+- Activacion:
+- `token` `EXISTS`.
+- Inputs segun conexion (`EXISTS`/`DONT_CARE`).
+- Sticky: no.
+- Distribucion: local.
+
+### 4.7 `desvio`
+
+- Funcion: enruta `value` a `output1` (condicion verdadera) o `output2` (falsa).
+- Entradas: `value`, `condition`.
+- Salidas: `output1`, `output2`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si (`value`, `condition`).
+- Distribucion: local.
+
+### 4.8 `relevo`
+
+- Funcion: consume `value`, pero emite siempre `relay`.
+- Entradas: `value`, `relay`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si (`value`, `relay`).
+- Distribucion: local.
+
+### 4.9 `while`
+
+- Funcion: lazo controlado por condicion con intervalo.
+- Entradas: `flow`, `condition`, `interval` (segundos).
+- Salidas: `output`, `loopFlowOut`, `loopConditionOut`, `loopIntervalOut`.
+- Activacion: `EXISTS`, `EXISTS`, `EXISTS`.
+- Sticky: no.
+- Distribucion: local.
+- Nota: la primera iteracion en condicion verdadera pasa sin esperar; siguientes aplican delay.
 
 ---
 
-## 7. Nodos de Abstracción (Subflow)
+## 5. Nodos de Listas
 
-### 7.1 Subflow (`subflow`)
+### 5.1 Generacion de secuencias
 
-- **Función:** Encapsula un subgrafo completo como una unidad reutilizable. Actúa como una "función" del lenguaje: recibe N entradas, ejecuta internamente un grafo de nodos, y produce M salidas.
-- **Configuración:** `templateId` (referencia a plantilla guardada), `inCount`, `outCount`, nodos y arcos internos.
-- **Entradas:** `input1`, ..., `inputN`.
-- **Salidas:** `output1`, ..., `outputM`.
-- **Activación:** Todas `EXISTS`.
-- **Distribución:** local, controller, micro:bit.
-- **Recursión:** Soporta invocación recursiva detectando cuando el templateId coincide con el subflow actual.
+#### `sequence`
 
-### 7.2 Entrada de Subflow (`subflowInput`)
+- Funcion: genera lista numerica `[start..end]` con `step`.
+- Entradas: `start`, `end`, `step`.
+- Salidas: `output`.
+- Activacion: por puerto, `EXISTS` si conectado y `DONT_CARE` si no.
+- Sticky: no.
+- Distribucion: local, controller.
 
-- **Función:** Nodo interno que marca un punto de entrada dentro de un subflow. Actúa como pass-through.
-- **Puertos:** `input` → `output`.
-- **Activación:** `EXISTS`.
+#### `pulseSequence`
 
-### 7.3 Salida de Subflow (`subflowOutput`)
+- Funcion: igual que `sequence`, pero emite un token por elemento.
+- Entradas: `start`, `end`, `step`.
+- Salidas: `output` (multiples tokens).
+- Activacion: igual que `sequence`.
+- Sticky: no.
+- Distribucion: local, controller.
 
-- **Función:** Nodo interno que marca un punto de salida dentro de un subflow. Actúa como pass-through.
-- **Puertos:** `input` → `output`.
-- **Activación:** `EXISTS`.
+### 5.2 Transformacion/combinacion basica
 
-### 7.4 Entrada de Valor para Filter/Map (`filterInputValue`, `mapInputValue`)
+#### `zip`
 
-- **Función:** Nodos internos usados dentro de los subgrafos de Filter y Map para inyectar el elemento actual de la iteración.
-- **Puertos:** `input` → `output`.
-- **Activación:** `EXISTS`.
+- Entradas: `listA`, `listB`.
+- Salidas: `output` (tuplas).
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
+
+#### `unzip`
+
+- Entradas: `inputList` (lista de tuplas).
+- Salidas: `listA`, `listB`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`).
+- Distribucion: local, controller, micro:bit.
+
+#### `filter`
+
+- Funcion: filtra por subflujo predicado (o fallback truthy).
+- Entradas: `inputList`, `context1..contextN`.
+- Salidas: `outputList`.
+- Activacion: todas `EXISTS`.
+- Sticky: si (todas las entradas).
+- Distribucion: local, controller, micro:bit.
+
+#### `map`
+
+- Funcion: mapea por subflujo transformador (o identidad fallback).
+- Entradas: `inputList`, `context1..contextN`.
+- Salidas: `outputList`.
+- Activacion: todas `EXISTS`.
+- Sticky: si (todas las entradas).
+- Distribucion: local, controller, micro:bit.
+
+### 5.3 Reduccion y agregados
+
+#### `accumulate`
+
+- Funcion: reduce por suma (acumulador inicial 0).
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`).
+- Distribucion: local, controller, micro:bit.
+
+#### `product`
+
+- Funcion: reduce por multiplicacion (inicial 1).
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto; local sin sticky explicito.
+- Distribucion: local, controller.
+- Nota: no soportado en micro:bit (lanza error).
+
+#### `count`
+
+- Funcion: longitud de lista.
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+
+#### `sortList`
+
+- Funcion: ordena asc/desc; numerico si todos son numeros finitos, si no lexicografico.
+- Config: `order` (`asc`/`desc`).
+- Entradas: `inputList`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+
+### 5.4 Operaciones sobre elementos
+
+#### `listFirst`
+
+- Funcion: primer elemento.
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+- Nota: error si lista vacia.
+
+#### `listLast`
+
+- Funcion: ultimo elemento.
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+- Nota: error si lista vacia.
+
+#### `listMin`
+
+- Funcion: minimo numerico.
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+- Nota: lista vacia retorna 0.
+
+#### `listMax`
+
+- Funcion: maximo numerico.
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+- Nota: lista vacia retorna 0.
+
+#### `listFrequency`
+
+- Funcion: cuenta ocurrencias y devuelve pares `[valor, frecuencia]`.
+- Entradas: `inputList`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+
+#### `listAtPosition`
+
+- Funcion: devuelve elemento en posicion 1-based.
+- Entradas: `inputList`, `position`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
+
+#### `listFindElement`
+
+- Funcion: devuelve primera posicion 1-based de `item`; 0 si no existe.
+- Entradas: `inputList`, `item`.
+- Salidas: `output`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
+
+#### `listRemoveFirst`
+
+- Funcion: quita primer elemento.
+- Entradas: `inputList`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+
+#### `listRemoveLast`
+
+- Funcion: quita ultimo elemento.
+- Entradas: `inputList`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+
+#### `listPrepend`
+
+- Funcion: agrega `item` al inicio.
+- Entradas: `inputList`, `item`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
+
+#### `listAppend`
+
+- Funcion: agrega `item` al final.
+- Entradas: `inputList`, `item`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: local, controller, micro:bit.
+
+#### `listIsEmpty`
+
+- Funcion: indica si lista esta vacia.
+- Entradas: `inputList`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+
+#### `listReverse`
+
+- Funcion: invierte lista.
+- Entradas: `inputList`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: si (`inputList`) en remoto.
+- Distribucion: local, controller, micro:bit.
+
+#### `splitList`
+
+- Funcion: separa texto en caracteres o numero entero no negativo en digitos.
+- Entradas: `inputValue`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: no.
+- Distribucion: local.
+
+#### `listEvenPositions`
+
+- Funcion: filtra posiciones pares (1-based).
+- Entradas: `inputList`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: no.
+- Distribucion: local.
+
+#### `listOddPositions`
+
+- Funcion: filtra posiciones impares (1-based).
+- Entradas: `inputList`.
+- Salidas: `outputList`.
+- Activacion: `EXISTS`.
+- Sticky: no.
+- Distribucion: local.
+
+Alias legacy:
+
+- `listParityPositions` se resuelve como `listEvenPositions`.
 
 ---
 
-## Resumen de Distribución por Nodo
+## 6. Nodos de Distribucion de Datos
 
-| Categoría | Nodo | Local | Controller | micro:bit |
-|-----------|------|:-----:|:----------:|:---------:|
-| **Entrada** | constantInput, constantNumber, constantBoolean, constantText, constantList | Si | — | — |
-| | runtimeInput, randomInput, choiceInput | Si | — | — |
-| | timerInput | Si | — | — |
-| | microbitReadButton | — | — | Si |
-| **Aritmética** | sum, subtract, multiply, divide, mod, power | Si | Si | Si |
-| | floor, ceiling, round | Si | Si | Si |
-| | formulaEditor | Si | — | — |
-| **Texto** | concat | Si | Si | Si |
-| | replaceText, subtractText, sliceText | Si | — | — |
-| **Lógica** | comparison | Si | — | Si |
-| | and, nand, or, nor, xor, not | Si | — | Si |
-| | switch, conditional, selector | Si | — | — |
-| **Listas** | sequence, pulseSequence | Si | — | — |
-| | filter, map | Si | — | Si |
-| | accumulate, count, sortList | Si | — | Si |
-| | zip, unzip | Si | — | Si |
-| | scatter, gather | Si | — | — |
-| **Salida** | write | Si | — | — |
-| | microbitWrite, microbitSound | — | — | Si |
-| **Abstracción** | subflow | Si | Si | Si |
+### 6.1 `scatter`
+
+- Funcion: divide `inputList` en `output1..outputN` (chunks balanceados).
+- Entradas: `inputList`.
+- Salidas: dinamicas `output1..outputN`.
+- Activacion: `EXISTS`.
+- Sticky: no.
+- Distribucion: local, controller.
+
+### 6.2 `gather`
+
+- Funcion: concatena `input1..inputN` en `outputList` (aplana arrays una capa).
+- Entradas: dinamicas `input1..inputN`.
+- Salidas: `outputList`.
+- Activacion:
+- por entrada, `EXISTS` si conectada, `DONT_CARE` si no.
+- Sticky: no.
+- Distribucion: local, controller.
 
 ---
 
-## Resumen de Capacidades del Lenguaje
+## 7. Nodos de Salida
 
-1. **Aritmética completa:** Operaciones binarias (+, -, *, /, %, ^) y unarias (floor, ceil, round), además de un editor de fórmulas con expresiones arbitrarias.
-2. **Manipulación de texto:** Concatenación, reemplazo, sustracción y extracción de subcadenas.
-3. **Lógica booleana:** Compuertas completas (AND, NAND, OR, NOR, XOR, NOT) y comparadores.
-4. **Control de flujo:** Switch multi-condición, evaluador condicional con fórmulas, y selector basado en tokens.
-5. **Colecciones:** Generación de secuencias, filter, map, reduce, count, sort, zip/unzip.
-6. **Paralelismo de datos:** Scatter/Gather para dividir y reunir listas.
-7. **Abstracción:** Subflows reutilizables y recursivos que actúan como funciones parametrizadas.
-8. **Interacción:** Entrada del usuario en tiempo de ejecución, temporizadores, y generación aleatoria.
-9. **Distribución:** Ejecución local, en controlador remoto o en hardware micro:bit.
+### 7.1 `write`
+
+- Funcion: envia datos al observador/consola del motor.
+- Entradas: dinamicas `input1..inputN`.
+- Salidas: ninguna.
+- Activacion:
+- puertos conectados `EXISTS`, no conectados `DONT_CARE`.
+- Sticky: no.
+- Distribucion: local.
+
+### 7.2 `microbitWrite`
+
+- Funcion: escribe texto en display micro:bit (`TXT:`).
+- Entradas: `input1`.
+- Salidas: ninguna.
+- Activacion: `EXISTS`.
+- Sticky: no.
+- Distribucion: micro:bit.
+
+### 7.3 `microbitSound`
+
+- Funcion: reproduce sonido (`SND:frecuencia,duracionMs`).
+- Entradas: `input1` (frecuencia), `input2` (duracion).
+- Salidas: ninguna.
+- Activacion: `EXISTS`, `EXISTS`.
+- Sticky: si.
+- Distribucion: micro:bit.
+
+### 7.4 `microbitWritePin`
+
+- Funcion: escribe en pin (`PINW:pin,mode,value`).
+- Entradas: `input1`.
+- Salidas: ninguna.
+- Activacion: `EXISTS`.
+- Sticky: no.
+- Distribucion: micro:bit.
+
+---
+
+## 8. Nodos de Abstraccion y Reutilizacion
+
+### 8.1 `subflow`
+
+- Funcion: encapsula un grafo reusable con `N` entradas y `M` salidas.
+- Entradas: `input1..inputN`.
+- Salidas: `output1..outputM`.
+- Activacion: todas `EXISTS`.
+- Sticky: no.
+- Distribucion: local, controller, micro:bit.
+- Notas:
+- soporta template embebido o resolucion por `templateId`.
+- soporta recursion cuando invoca su misma plantilla.
+
+### 8.2 `replicateFlow`
+
+- Funcion: ejecuta un mismo subflujo en multiples destinos (local/controller/micro:bit) y agrega resultados por salida.
+- Entradas: tipicamente `input1..inputR` (una por replica cuando aplica).
+- Salidas: `output1..outputR`.
+- Activacion:
+- `EXISTS` por replica que requiere input.
+- sin entradas si el subflujo no requiere argumentos.
+- Sticky: no.
+- Distribucion: orquestador local con replicas locales/remotas.
+
+### 8.3 Nodos internos de subflujo
+
+#### `subflowInput`
+
+- Funcion: passthrough de entrada interna.
+- Entradas: `input`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+
+#### `subflowOutput`
+
+- Funcion: passthrough de salida interna.
+- Entradas: `input`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+
+#### `filterInputValue`, `mapInputValue`, `replicateInputValue`
+
+- Funcion: inyectan valor de item/contexto en subeditores internos.
+- Entradas: `input`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+
+#### `filterBooleanOutput`
+
+- Funcion: nodo interno de salida booleana para predicados.
+- Entradas: `input`.
+- Salidas: `output`.
+- Activacion: `EXISTS`.
+
+---
+
+## 9. Macro y Nodos Solo UI
+
+### 9.1 `conditionalPair` (macro de paleta)
+
+- No se ejecuta como tipo unico en motor.
+- Al arrastrar, crea:
+- un nodo `conditional`.
+- un nodo `conditionalSelector`.
+- una arista bloqueada que conecta `conditional.out -> conditionalSelector.token`.
+
+### 9.2 `comment`
+
+- Nodo de anotacion visual.
+- No participa en compilacion al motor.
+
+### 9.3 `baseNode`
+
+- Tipo base de UI.
+- No representa operacion ejecutable por si misma.
+
+---
+
+## 10. Resumen de Soporte por Destino
+
+| Nodo / Grupo | Local | Controller | micro:bit |
+|---|:---:|:---:|:---:|
+| `constantInput`, `constantNumber`, `constantBoolean`, `constantText`, `constantList`, `runtimeInput`, `randomInput`, `choiceInput`, `timerInput` | Si | No | No |
+| `microbitReadButton`, `microbitReadTemperature`, `microbitReadPin` | No | No | Si |
+| `sum`, `subtract`, `multiply`, `divide`, `mod`, `power`, `mathOperation`, `root`, `logarithm`, `floor`, `ceiling`, `round`, `concat`, `replaceText`, `subtractText`, `sliceText` | Si | Si | Si |
+| `formulaEditor` | Si | No | No |
+| `comparison*`, `and`, `nand`, `or`, `nor`, `xor`, `not`, `logicOperation` | Si | No | Si |
+| `switch`, `conditional`, `selector`, `conditionalSelector`, `desvio`, `relevo`, `while` | Si | No | No |
+| `sequence`, `pulseSequence` | Si | Si | No |
+| `zip`, `unzip`, `filter`, `map`, `accumulate`, `count`, `sortList`, `listFirst`, `listLast`, `listMin`, `listMax`, `listFrequency`, `listAtPosition`, `listFindElement`, `listRemoveFirst`, `listRemoveLast`, `listPrepend`, `listAppend`, `listIsEmpty`, `listReverse` | Si | Si | Si |
+| `product` | Si | Si | No |
+| `splitList`, `listEvenPositions`, `listOddPositions` | Si | No | No |
+| `scatter`, `gather` | Si | Si | No |
+| `write` | Si | No | No |
+| `microbitWrite`, `microbitSound`, `microbitWritePin` | No | No | Si |
+| `subflow` | Si | Si | Si |
+| `replicateFlow` | Si | Si (por replica) | Si (por replica) |
+
+---
+
+## 11. Resumen del Lenguaje (Estado Actual)
+
+1. Entrada de datos: constantes tipadas, entrada en runtime, aleatoriedad, temporizacion y sensores micro:bit.
+2. Calculo: aritmetica binaria/unaria, formulas, texto y operadores configurables.
+3. Logica y control: comparacion, compuertas, switch multicondicion, par condicional-selector, desvio/relevo/while.
+4. Colecciones: secuencias, map/filter con subflujo, agregados, transformaciones e indexacion.
+5. Paralelismo de datos: scatter/gather.
+6. Salidas: consola local y actuadores micro:bit.
+7. Abstraccion: subflujos reutilizables, recursion y replicacion multi-destino.
