@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DragEvent } from "react";
-import type { Edge, Node, NodeProps } from "@xyflow/react";
+import type { Edge, Node, NodeProps, OnNodeDrag } from "@xyflow/react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -45,6 +45,7 @@ import {
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { Input } from "@/components/ui/input";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { deleteDraggedNodesOutsideViewport } from "@/flow/drag-delete";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { useSubcanvasNodeCreationLock } from "@/hooks/useSubcanvasNodeCreationLock";
 import { validateConnection } from "@/flow/connection-validation";
@@ -318,6 +319,25 @@ export const NestedSubflowNode = memo(
       ],
     );
 
+    const onEditorNodeDragStop = useCallback<OnNodeDrag<EditorFlowNode>>(
+      (event, node, draggedNodes) => {
+        const nodesToEvaluate: Node[] =
+          Array.isArray(draggedNodes) && draggedNodes.length > 0
+            ? draggedNodes
+            : [node];
+
+        deleteDraggedNodesOutsideViewport({
+          event,
+          draggedNodes: nodesToEvaluate,
+          reactFlowInstance: editorInstanceRef.current,
+          setNodes: setDraftNodes,
+          setEdges: setDraftEdges,
+          viewportElement: document.getElementById(editorFlowId),
+        });
+      },
+      [editorFlowId],
+    );
+
     return (
       <BaseNode
         className="relative flex w-36 flex-col items-center justify-center rounded-xl border-violet-700 bg-violet-500 px-3 py-2 text-center text-white shadow-md"
@@ -461,6 +481,8 @@ export const NestedSubflowNode = memo(
                     }}
                     onDrop={onEditorDrop}
                     onDragOver={onEditorDragOver}
+                    onNodeDragStop={onEditorNodeDragStop}
+                    autoPanOnNodeDrag={false}
                     panOnDrag={editorCanvasMode === "pan"}
                     selectionOnDrag={editorCanvasMode === "select"}
                     selectionMode={SelectionMode.Partial}

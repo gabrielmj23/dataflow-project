@@ -23,7 +23,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { ControlRectNodeShell } from "../control/control-rect-node-shell";
+import { LogicRectNodeShell } from "../logic/logic-rect-node-shell";
 
 type LogicOperationKind =
   | typeof NODE_TYPES.AND_NODE
@@ -179,7 +179,7 @@ export const LogicOperationNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <ControlRectNodeShell
+      <LogicRectNodeShell
         nodeType={shellNodeType}
         icon={selected.icon}
         label={label}

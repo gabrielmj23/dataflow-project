@@ -1,10 +1,10 @@
 import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
 
-import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { LogicRectNodeShell } from "@/components/nodes/logic/logic-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 
-export type OrNodeData = {
+export type NandNodeData = {
   label?: string;
   runtimeError?: string | null;
   executionTarget?: "local" | "microbit" | "controller";
@@ -13,15 +13,15 @@ export type OrNodeData = {
   controllerName?: string;
 };
 
-export const OrNode = memo(({ id, data }: NodeProps) => {
+export const NandNode = memo(({ id, data }: NodeProps) => {
   const {
-    label = "OR",
+    label = "NAND",
     runtimeError,
     executionTarget,
     transport,
     controllerId,
     controllerName,
-  } = (data ?? {}) as OrNodeData;
+  } = (data ?? {}) as NandNodeData;
 
   const config = useMicrobitExecutionConfig({
     nodeId: id,
@@ -34,9 +34,9 @@ export const OrNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <ControlRectNodeShell
-        nodeType="or"
-        icon={<span className="text-xl font-medium leading-none">∨</span>}
+      <LogicRectNodeShell
+        nodeType="nand"
+        icon={<span className="text-xl font-medium leading-none">⊼</span>}
         label={label}
         subtitle={config.subtitle}
         runtimeError={runtimeError}
@@ -47,4 +47,4 @@ export const OrNode = memo(({ id, data }: NodeProps) => {
   );
 });
 
-OrNode.displayName = "OrNode";
+NandNode.displayName = "NandNode";

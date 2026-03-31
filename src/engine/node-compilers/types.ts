@@ -27,8 +27,6 @@ export type NodeCompilerContext = {
   gatherIncomingByNodeId?: Map<string, Set<string>>;
   barrierPortCountByNodeId?: Map<string, number>;
   barrierIncomingByNodeId?: Map<string, Set<string>>;
-  whileFlowEvaluatorByNodeId?: Map<string, () => Promise<unknown>>;
-
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
   onEdgeValue?: EngineObserver["onEdgeValue"];

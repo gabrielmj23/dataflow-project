@@ -1,12 +1,19 @@
 import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
 import {
+  Position,
   useReactFlow,
   useUpdateNodeInternals,
   type NodeProps,
 } from "@xyflow/react";
 import { ToggleRight } from "lucide-react";
 
-import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { BaseNode } from "@/components/base-node";
+import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
+import { getNodeDescription } from "@/flow/node-palette";
+import {
+  getPortTypeMask,
+  maskToVisualPortDataType,
+} from "@/flow/port-data-type";
 import {
   Dialog,
   DialogContent,
@@ -103,7 +110,8 @@ function requiresTarget(operator: SwitchOperator): boolean {
 }
 
 function describeCondition(condition: SwitchCondition): string {
-  const customLabel = typeof condition.label === "string" ? condition.label.trim() : "";
+  const customLabel =
+    typeof condition.label === "string" ? condition.label.trim() : "";
   if (customLabel) return customLabel;
 
   const target =
@@ -134,6 +142,17 @@ function describeCondition(condition: SwitchCondition): string {
   }
 }
 
+function offsets(count: number): string[] {
+  const safeCount = Math.max(0, Math.floor(count));
+  if (safeCount === 0) return [];
+  if (safeCount === 1) return ["50%"];
+
+  const start = 15;
+  const end = 85;
+  const step = (end - start) / (safeCount - 1);
+  return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
+}
+
 export const SwitchNode = memo(({ id, data }: NodeProps) => {
   const {
     label = "Switch",
@@ -148,7 +167,7 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
 
   const outputHandleIds = useMemo(
     () => [...conditions.map((_, i) => `out-${i + 1}`)],
-    [conditions]
+    [conditions],
   );
 
   const outputLabels = useMemo(
@@ -157,6 +176,7 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
   );
 
   const outputCount = outputHandleIds.length;
+  const outOffsets = useMemo(() => offsets(outputCount), [outputCount]);
 
   const updateNodeInternals = useUpdateNodeInternals();
   useEffect(() => {
@@ -176,16 +196,16 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                   conditions: next,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [draftConditions, setDraftConditions] = useState<SwitchCondition[]>(
-    () => conditions
+    () => conditions,
   );
 
   const openDialog = useCallback(() => {
@@ -194,6 +214,21 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
   }, [conditions]);
 
   const headingId = useId();
+
+  const maskFor = (params: {
+    handleType: "source" | "target";
+    handleId: string | null | undefined;
+  }) =>
+    getPortTypeMask({
+      nodeType: "switch",
+      handleType: params.handleType,
+      handleId: params.handleId ?? null,
+    });
+
+  const typeFor = (params: {
+    handleType: "source" | "target";
+    handleId: string | null | undefined;
+  }) => maskToVisualPortDataType(maskFor(params));
 
   const computedWidthPx = useMemo(() => {
     const base = 152; // matches previous w-38 (~9.5rem = 152px)
@@ -208,38 +243,73 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
     return baseH + extraH;
   }, [outputCount]);
 
-  const shellStyle: React.CSSProperties = { width: `${computedWidthPx}px`, minHeight: `${computedHeightPx}px` };
-
-    const iconComponent = (
-    <div
-      className="cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
-      onClick={(e) => {
-        e.stopPropagation();
-        setIsDialogOpen(true);
-      }}
-    >
-      <ToggleRight className="h-5 w-5" />
-    </div>
-  );
+  const shellStyle: React.CSSProperties = {
+    width: `${computedWidthPx}px`,
+    minHeight: `${computedHeightPx}px`,
+  };
 
   return (
     <>
-      <ControlRectNodeShell
-        nodeType="switch"
-        icon={iconComponent}
-        label={label}
-        className="pl-4 pr-14"
-        style={shellStyle}
-        contentClassName="items-start text-left"
-        labelClassName="text-base"
-        outputLabelClassName="text-[10px] max-w-[64px]"
-        variant="singleInMultiOut"
-        outputCount={outputCount}
-        outputHandleIds={outputHandleIds}
-        outputLabels={outputLabels}
-        onConfigClick={openDialog}
+      <BaseNode
         runtimeError={runtimeError}
-      />
+        infoDescription={getNodeDescription("switch") ?? undefined}
+        onConfigClick={openDialog}
+        className="relative flex flex-col items-center justify-center rounded-2xl border-lime-700 bg-lime-600 pl-4 pr-14 text-left text-white shadow-md"
+        style={shellStyle}
+      >
+        <div className="flex w-full flex-col items-start gap-0.5">
+          <button
+            type="button"
+            className="nodrag nopan transition-transform hover:scale-110 focus-visible:outline-none focus:outline-none"
+            onClick={(e) => {
+              e.stopPropagation();
+              openDialog();
+            }}
+          >
+            <ToggleRight className="h-5 w-5" />
+          </button>
+          <div className="text-base font-medium leading-tight">{label}</div>
+        </div>
+
+        <CustomTypedHandle
+          type="target"
+          position={Position.Left}
+          id="in"
+          dataType={typeFor({ handleType: "target", handleId: "in" })}
+          typeMask={maskFor({ handleType: "target", handleId: "in" })}
+          className="absolute -left-1 top-1/2 h-2 w-2 -translate-y-1/2"
+          indicatorClassName="border-lime-700"
+        />
+
+        {outOffsets.map((offset, index) => {
+          const id = outputHandleIds[index];
+          const mask = maskFor({ handleType: "source", handleId: id });
+          const dt = maskToVisualPortDataType(mask);
+          const outputLabel = outputLabels[index];
+          return (
+            <div key={`out-handle-${id}`} className="contents">
+              {outputLabel && (
+                <div
+                  className="pointer-events-none absolute right-3 max-w-16 -translate-y-1/2 truncate text-[10px] font-medium leading-none text-white/90"
+                  style={{ top: offset }}
+                >
+                  {outputLabel}
+                </div>
+              )}
+              <CustomTypedHandle
+                type="source"
+                position={Position.Right}
+                style={{ top: offset }}
+                id={id}
+                dataType={dt}
+                typeMask={mask}
+                className="absolute -right-1 h-2 w-2 -translate-y-1/2"
+                indicatorClassName="border-lime-700"
+              />
+            </div>
+          );
+        })}
+      </BaseNode>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-2xl">
@@ -273,134 +343,136 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
               <div className="space-y-4">
                 {draftConditions.map((cond, idx) => (
                   <div key={`cond-${idx}`} className="rounded-md border p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <div className="text-sm font-medium">
-                      Condición {idx + 1} (Salida {idx + 1})
-                    </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => {
-                        setDraftConditions((prev) =>
-                          prev.length <= 1
-                            ? prev
-                            : prev.filter((_, i) => i !== idx)
-                        );
-                      }}
-                      disabled={draftConditions.length <= 1}
-                    >
-                      Eliminar
-                    </Button>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-900">
-                        Etiqueta
-                      </label>
-                      <Input
-                        value={cond.label ?? ""}
-                        placeholder={`Ej: Caso ${idx + 1}`}
-                        onChange={(e) => {
-                          const next = e.currentTarget.value;
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-sm font-medium">
+                        Condición {idx + 1} (Salida {idx + 1})
+                      </div>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => {
                           setDraftConditions((prev) =>
-                            prev.map((c, i) =>
-                              i === idx
-                                ? {
-                                    ...c,
-                                    label: next.trim() ? next : undefined,
-                                  }
-                                : c
-                            )
+                            prev.length <= 1
+                              ? prev
+                              : prev.filter((_, i) => i !== idx),
                           );
                         }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-900">
-                        Operador
-                      </label>
-                      <Select
-                        value={cond.operator}
-                        onValueChange={(value: string) => {
-                          if (!isOperator(value)) return;
-                          const next = value;
-                          setDraftConditions((prev) =>
-                            prev.map((c, i) =>
-                              i === idx
-                                ? {
-                                    ...c,
-                                    operator: next,
-                                    target: requiresTarget(next)
-                                      ? c.target
-                                      : undefined,
-                                  }
-                                : c
-                            )
-                          );
-                        }}
+                        disabled={draftConditions.length <= 1}
                       >
-                        <SelectTrigger className="h-10">
-                          <SelectValue placeholder="Selecciona un operador" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Lógico</SelectLabel>
-                            <SelectItem value="truthy">Es verdadero</SelectItem>
-                            <SelectItem value="falsy">Es falso</SelectItem>
-                          </SelectGroup>
-                          <SelectGroup>
-                            <SelectLabel>Texto</SelectLabel>
-                            <SelectItem value="contains">Contiene</SelectItem>
-                            <SelectItem value="startsWith">
-                              Inicia con
-                            </SelectItem>
-                            <SelectItem value="endsWith">
-                              Termina con
-                            </SelectItem>
-                          </SelectGroup>
-                          <SelectGroup>
-                            <SelectLabel>Comparación</SelectLabel>
-                            <SelectItem value="==">Igual (==)</SelectItem>
-                            <SelectItem value="!=">Distinto (!=)</SelectItem>
-                            <SelectItem value=">">Mayor (&gt;)</SelectItem>
-                            <SelectItem value=">=">
-                              Mayor o igual (&gt;=)
-                            </SelectItem>
-                            <SelectItem value="<">Menor (&lt;)</SelectItem>
-                            <SelectItem value="<=">
-                              Menor o igual (&lt;=)
-                            </SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                        Eliminar
+                      </Button>
                     </div>
 
-                    <div>
-                      <label className="mb-1 block text-sm font-medium text-gray-900">
-                        Valor objetivo
-                      </label>
-                      <Input
-                        value={cond.target ?? ""}
-                        placeholder={
-                          requiresTarget(cond.operator)
-                            ? "Ej: 10, true, hola"
-                            : "(no aplica)"
-                        }
-                        disabled={!requiresTarget(cond.operator)}
-                        onChange={(e) => {
-                          const next = e.currentTarget.value;
-                          setDraftConditions((prev) =>
-                            prev.map((c, i) =>
-                              i === idx ? { ...c, target: next } : c
-                            )
-                          );
-                        }}
-                      />
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-900">
+                          Etiqueta
+                        </label>
+                        <Input
+                          value={cond.label ?? ""}
+                          placeholder={`Ej: Caso ${idx + 1}`}
+                          onChange={(e) => {
+                            const next = e.currentTarget.value;
+                            setDraftConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === idx
+                                  ? {
+                                      ...c,
+                                      label: next.trim() ? next : undefined,
+                                    }
+                                  : c,
+                              ),
+                            );
+                          }}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-900">
+                          Operador
+                        </label>
+                        <Select
+                          value={cond.operator}
+                          onValueChange={(value: string) => {
+                            if (!isOperator(value)) return;
+                            const next = value;
+                            setDraftConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === idx
+                                  ? {
+                                      ...c,
+                                      operator: next,
+                                      target: requiresTarget(next)
+                                        ? c.target
+                                        : undefined,
+                                    }
+                                  : c,
+                              ),
+                            );
+                          }}
+                        >
+                          <SelectTrigger className="h-10">
+                            <SelectValue placeholder="Selecciona un operador" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Lógico</SelectLabel>
+                              <SelectItem value="truthy">
+                                Es verdadero
+                              </SelectItem>
+                              <SelectItem value="falsy">Es falso</SelectItem>
+                            </SelectGroup>
+                            <SelectGroup>
+                              <SelectLabel>Texto</SelectLabel>
+                              <SelectItem value="contains">Contiene</SelectItem>
+                              <SelectItem value="startsWith">
+                                Inicia con
+                              </SelectItem>
+                              <SelectItem value="endsWith">
+                                Termina con
+                              </SelectItem>
+                            </SelectGroup>
+                            <SelectGroup>
+                              <SelectLabel>Comparación</SelectLabel>
+                              <SelectItem value="==">Igual (==)</SelectItem>
+                              <SelectItem value="!=">Distinto (!=)</SelectItem>
+                              <SelectItem value=">">Mayor (&gt;)</SelectItem>
+                              <SelectItem value=">=">
+                                Mayor o igual (&gt;=)
+                              </SelectItem>
+                              <SelectItem value="<">Menor (&lt;)</SelectItem>
+                              <SelectItem value="<=">
+                                Menor o igual (&lt;=)
+                              </SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-sm font-medium text-gray-900">
+                          Valor objetivo
+                        </label>
+                        <Input
+                          value={cond.target ?? ""}
+                          placeholder={
+                            requiresTarget(cond.operator)
+                              ? "Ej: 10, true, hola"
+                              : "(no aplica)"
+                          }
+                          disabled={!requiresTarget(cond.operator)}
+                          onChange={(e) => {
+                            const next = e.currentTarget.value;
+                            setDraftConditions((prev) =>
+                              prev.map((c, i) =>
+                                i === idx ? { ...c, target: next } : c,
+                              ),
+                            );
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
                 ))}
               </div>
             </div>
@@ -424,7 +496,7 @@ export const SwitchNode = memo(({ id, data }: NodeProps) => {
                   setConditions(
                     draftConditions.length > 0
                       ? draftConditions
-                      : DEFAULT_CONDITIONS
+                      : DEFAULT_CONDITIONS,
                   );
                   setIsDialogOpen(false);
                 }}

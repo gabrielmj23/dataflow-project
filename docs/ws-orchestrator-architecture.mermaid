@@ -2,11 +2,8 @@ flowchart LR
   %% Arquitectura: Editor, Servidor (Orquestador), Micro:bit y PCs remotos
   classDef device fill:#fff,stroke:#333,stroke-width:1px;
 
-  subgraph Hub["PC (Hub)"]
-    direction TB
-    Editor(("Editor (Frontend)"))
-    Server(("Servidor (Orquestador)"))
-  end
+  Editor(("Editor (Frontend)"))
+  Server(("Servidor (Orquestador)"))
 
   MicroA["Micro:bit"]:::device
   MicroB["Micro:bit"]:::device

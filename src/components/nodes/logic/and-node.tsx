@@ -1,10 +1,11 @@
 import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
+import { Ampersand } from "lucide-react";
 
-import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { LogicRectNodeShell } from "@/components/nodes/logic/logic-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 
-export type NorNodeData = {
+export type AndNodeData = {
   label?: string;
   runtimeError?: string | null;
   executionTarget?: "local" | "microbit" | "controller";
@@ -13,15 +14,15 @@ export type NorNodeData = {
   controllerName?: string;
 };
 
-export const NorNode = memo(({ id, data }: NodeProps) => {
+export const AndNode = memo(({ id, data }: NodeProps) => {
   const {
-    label = "NOR",
+    label = "AND",
     runtimeError,
     executionTarget,
     transport,
     controllerId,
     controllerName,
-  } = (data ?? {}) as NorNodeData;
+  } = (data ?? {}) as AndNodeData;
 
   const config = useMicrobitExecutionConfig({
     nodeId: id,
@@ -34,9 +35,9 @@ export const NorNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <ControlRectNodeShell
-        nodeType="nor"
-        icon={<span className="text-xl font-medium leading-none">⊽</span>}
+      <LogicRectNodeShell
+        nodeType="and"
+        icon={<Ampersand className="h-7 w-7" />}
         label={label}
         subtitle={config.subtitle}
         runtimeError={runtimeError}
@@ -47,4 +48,4 @@ export const NorNode = memo(({ id, data }: NodeProps) => {
   );
 });
 
-NorNode.displayName = "NorNode";
+AndNode.displayName = "AndNode";

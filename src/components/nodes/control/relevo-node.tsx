@@ -37,7 +37,7 @@ export const RelevoNode = memo(({ data }: NodeProps) => {
     <BaseNode
       runtimeError={runtimeError}
       infoDescription={getNodeDescription("relevo") ?? undefined}
-      className="relative flex min-h-[72px] w-25 flex-col items-center justify-center rounded-2xl border-lime-700 bg-lime-600 px-5 text-center text-white shadow-md"
+      className="relative flex min-h-18 w-25 flex-col items-center justify-center rounded-2xl border-lime-700 bg-lime-600 px-5 text-center text-white shadow-md"
     >
       <div className="flex flex-col items-center gap-0.5">
         <div className="text-xl font-bold leading-none">
