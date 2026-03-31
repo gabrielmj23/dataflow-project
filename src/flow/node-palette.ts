@@ -85,6 +85,7 @@ const nodeAbstractionLevelMap: Record<
 
   scatter: 2,
   gather: 2,
+  barrier: 2,
 
   sequence: 1,
   pulseSequence: 1,
@@ -660,6 +661,12 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "gather",
         label: "Reunir",
         description: "Reúne valores de varios nodos en una lista",
+      },
+      {
+        type: "barrier",
+        label: "Barrera",
+        description:
+          "Espera por todas las entradas para emitirlas en un solo pulso",
       },
     ],
   },

@@ -25,7 +25,8 @@ export type NodeCompilerContext = {
   scatterOutputCountByNodeId?: Map<string, number>;
   gatherInputCountByNodeId?: Map<string, number>;
   gatherIncomingByNodeId?: Map<string, Set<string>>;
-
+  barrierPortCountByNodeId?: Map<string, number>;
+  barrierIncomingByNodeId?: Map<string, Set<string>>;
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];
   onEdgeValue?: EngineObserver["onEdgeValue"];

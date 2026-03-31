@@ -28,6 +28,7 @@ import {
   PictureInPicture2,
   Copy,
   GitFork,
+  GitMerge,
   Replace as ReplaceIcon,
   Eraser,
   Search,
@@ -753,6 +754,20 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
         }),
       ];
 
+    case "barrier":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out-1", "out-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+      ];
+
     case "replaceText":
     case "sliceText":
       return [
@@ -989,7 +1004,12 @@ function getPreviewHandleBorderClass(type: string): string {
     return "border-teal-800";
   }
 
-  if (type === "scatter" || type === "gather" || type === "replicateFlow") {
+  if (
+    type === "scatter" ||
+    type === "gather" ||
+    type === "barrier" ||
+    type === "replicateFlow"
+  ) {
     return "border-yellow-600";
   }
 
@@ -1373,7 +1393,8 @@ function NodePreview({
       }
       case NODE_TYPES.REPLICATE_FLOW:
       case NODE_TYPES.SCATTER_NODE:
-      case NODE_TYPES.GATHER_NODE: {
+      case NODE_TYPES.GATHER_NODE:
+      case NODE_TYPES.BARRIER_NODE: {
         if (type === NODE_TYPES.SCATTER_NODE) {
           return (
             <div
@@ -1402,6 +1423,20 @@ function NodePreview({
             >
               <span className="mb-1 flex items-center justify-center">
                 <GitFork className="h-5 w-5 -rotate-90" />
+              </span>
+              <span className="text-[0.65rem] leading-tight">{label}</span>
+            </div>
+          );
+        }
+
+        if (type === NODE_TYPES.BARRIER_NODE) {
+          return (
+            <div
+              data-drag-preview
+              className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-none border border-yellow-600 bg-yellow-500 px-3 text-center text-white shadow-md"
+            >
+              <span className="text-2xl font-bold leading-none">
+                <GitMerge className="h-5 w-5" />
               </span>
               <span className="text-[0.65rem] leading-tight">{label}</span>
             </div>

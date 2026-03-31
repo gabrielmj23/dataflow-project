@@ -452,6 +452,24 @@ register([NODE_TYPES.GATHER_NODE], (p) => {
   throw unknownOutputHandle({ nodeId, nodeType, handleId });
 });
 
+// Barrier node: N inputs -> N synchronized outputs
+register([NODE_TYPES.BARRIER_NODE], (p) => {
+  const { nodeId, nodeType, handleId, direction } = p;
+  const idx = parseIndexHandle(handleId) ?? (handleId == null ? 1 : null);
+
+  if (direction === "target") {
+    if ((handleId?.startsWith("in-") || handleId == null) && idx) {
+      return `input${idx}`;
+    }
+    throw unknownInputHandle({ nodeId, nodeType, handleId });
+  }
+
+  if ((handleId?.startsWith("out-") || handleId == null) && idx) {
+    return `output${idx}`;
+  }
+  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+});
+
 // Iteration/list nodes
 register([NODE_TYPES.ZIP_NODE], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;

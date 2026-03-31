@@ -58,6 +58,7 @@ export const NODE_TYPES = {
   SELECTOR_NODE: "selector",
   SCATTER_NODE: "scatter",
   GATHER_NODE: "gather",
+  BARRIER_NODE: "barrier",
   FILTER_INPUT_VALUE: "filterInputValue",
   FILTER_BOOLEAN_OUTPUT: "filterBooleanOutput",
   MAP_INPUT_VALUE: "mapInputValue",

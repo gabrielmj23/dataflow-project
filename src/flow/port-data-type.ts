@@ -372,6 +372,10 @@ export function inferPortDataType(params: {
     return handleType === "target" ? "list" : "any";
   }
 
+  if (nodeType === NODE_TYPES.BARRIER_NODE) {
+    return "any";
+  }
+
   // Switch passes through the incoming value.
   if (nodeType === "switch") {
     return "any";
@@ -561,6 +565,9 @@ export function getPortTypeMask(params: {
     }
     if (nodeType === NODE_TYPES.GATHER_NODE) {
       return isOutput ? TYPE_LIST : TYPE_ANY;
+    }
+    if (nodeType === NODE_TYPES.BARRIER_NODE) {
+      return TYPE_ANY;
     }
     if (nodeType === "switch") {
       // Switch passes through the incoming value.
