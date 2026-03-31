@@ -161,48 +161,69 @@ export const nodePalette: NodePaletteCategory[] = [
       {
         type: "runtimeInput",
         label: "Leer",
-        description: "Pausa el programa y solicita un valor al usuario.",
+        description: "Pausa el programa y pide un valor por teclado",
+      },
+    ],
+    subcategories: [
+      {
+        id: "inputs-constant",
+        title: "Constantes",
+        items: [
+          {
+            type: "constantNumber",
+            label: "Número",
+            description: "Emite siempre el mismo número.",
+          },
+          {
+            type: "constantBoolean",
+            label: "Valor Lógico",
+            description: "Emite siempre el mismo valor verdadero/falso.",
+          },
+          {
+            type: "constantText",
+            label: "Texto",
+            description: "Emite siempre el mismo texto.",
+          },
+          {
+            type: "constantList",
+            label: "Lista fija",
+            description: "Crea una lista de números o textos.",
+          },
+        ],
       },
       {
-        type: "constantNumber",
-        label: "Número",
-        description: "Emite siempre el mismo número.",
+        id: "inputs-special",
+        title: "Especiales",
+        items: [
+          {
+            type: "timerInput",
+            label: "Temporizador",
+            description: "Detiene la ejecución por un tiempo establecido.",
+          },
+          {
+            type: "randomInput",
+            label: "Valor aleatorio",
+            description: "Genera valores aleatorios dentro de un rango.",
+          },
+          {
+            type: "choiceInput",
+            label: "Selección aleatoria",
+            description:
+              "Elige un elemento aleatorio de una lista de opciones.",
+          },
+        ],
       },
       {
-        type: "constantBoolean",
-        label: "Valor Lógico",
-        description: "Emite siempre el mismo valor verdadero/falso.",
-      },
-      {
-        type: "constantText",
-        label: "Texto",
-        description: "Emite siempre el mismo texto.",
-      },
-      {
-        type: "constantList",
-        label: "Lista fija",
-        description: "Crea una lista de números o textos.",
-      },
-      {
-        type: "timerInput",
-        label: "Temporizador",
-        description: "Detiene la ejecución por un tiempo establecido.",
-      },
-      {
-        type: "randomInput",
-        label: "Valor aleatorio",
-        description: "Genera valores aleatorios dentro de un rango.",
-      },
-      {
-        type: "choiceInput",
-        label: "Selección aleatoria",
-        description: "Elige un elemento aleatorio de una lista de opciones.",
-      },
-      {
-        type: "pulseSequence",
-        label: "Generar pulsos",
-        description:
-          "Genera una secuencia de números como pulsos individuales.",
+        id: "inputs-pulses",
+        title: "Pulsos",
+        items: [
+          {
+            type: "pulseSequence",
+            label: "Generar pulsos",
+            description:
+              "Genera una secuencia de números como pulsos individuales.",
+          },
+        ],
       },
     ],
   },
@@ -319,7 +340,7 @@ export const nodePalette: NodePaletteCategory[] = [
   },
   {
     id: "control",
-    title: "Lógica y control",
+    title: "Lógica",
     items: [],
     subcategories: [
       {
@@ -414,6 +435,180 @@ export const nodePalette: NodePaletteCategory[] = [
     ],
   },
   {
+    id: "iteration",
+    title: "Listas",
+    subcategories: [
+      {
+        id: "lists-creation",
+        title: "Construcción",
+        items: [
+          {
+            type: "sequence",
+            label: "Generar lista",
+            description: "Genera una lista de números (ej. 0..N).",
+          },
+          {
+            type: "zip",
+            label: "Unir listas",
+            description: "Combina listas elemento a elemento.",
+          },
+          {
+            type: "unzip",
+            label: "Separar lista",
+            description: "Separa una lista de pares en dos listas.",
+          },
+          {
+            type: "splitList",
+            label: "Separar",
+            description:
+              "Convierte un número o texto en una lista de sus elementos.",
+          },
+        ],
+      },
+      {
+        id: "lists-transformation",
+        title: "Transformación",
+        items: [
+          {
+            type: "filter",
+            label: "Filtrar",
+            description:
+              "Conserva solo los elementos que cumplen una condición.",
+          },
+          {
+            type: "map",
+            label: "Mapear",
+            description:
+              "Transforma cada elemento de una lista aplicando una función.",
+          },
+          {
+            type: "sortList",
+            label: "Ordenar lista",
+            description: "Ordena una lista ascendente o descendente.",
+          },
+          {
+            type: "listReverse",
+            label: "Voltear",
+            description: "Invierte los elementos de una lista.",
+          },
+
+          {
+            type: "listEvenPositions",
+            label: "Posiciones pares",
+            description:
+              "Devuelve los elementos en posiciones pares de una lista.",
+          },
+          {
+            type: "listOddPositions",
+            label: "Posiciones impares",
+            description:
+              "Devuelve los elementos en posiciones impares de una lista.",
+          },
+        ],
+      },
+      {
+        id: "lists-queries",
+        title: "Consultas",
+        items: [
+          {
+            type: "count",
+            label: "Contar",
+            description: "Cuenta cuántos elementos hay en una lista.",
+          },
+          {
+            type: "listFirst",
+            label: "Primer elemento",
+            description: "Devuelve el primer elemento de una lista.",
+          },
+          {
+            type: "listLast",
+            label: "Último elemento",
+            description: "Devuelve el último elemento de una lista.",
+          },
+          {
+            type: "listAtPosition",
+            label: "Elemento en posición",
+            description:
+              "Obtiene el elemento en una posición indicada (empezando en 1).",
+          },
+          {
+            type: "listFindElement",
+            label: "Buscar elemento",
+            description:
+              "Devuelve la primera posición donde aparece un elemento; 0 si no aparece.",
+          },
+          {
+            type: "listIsEmpty",
+            label: "Lista vacía",
+            description: "Verifica si una lista no tiene elementos.",
+          },
+          {
+            type: "listMin",
+            label: "Mínimo",
+            description:
+              "Devuelve el valor más pequeño de la lista; si está vacía devuelve 0.",
+          },
+          {
+            type: "listMax",
+            label: "Máximo",
+            description:
+              "Devuelve el valor más grande de la lista; si está vacía devuelve 0.",
+          },
+        ],
+      },
+      {
+        id: "lists-insertion",
+        title: "Inserción y Eliminación",
+        items: [
+          {
+            type: "listPrepend",
+            label: "Añadir al inicio",
+            description: "Agrega un elemento al inicio de la lista.",
+          },
+          {
+            type: "listAppend",
+            label: "Añadir al final",
+            description: "Agrega un elemento al final de la lista.",
+          },
+          {
+            type: "listRemoveFirst",
+            label: "Quitar el primero",
+            description: "Devuelve la lista sin su primer elemento.",
+          },
+          {
+            type: "listRemoveLast",
+            label: "Quitar el último",
+            description: "Devuelve la lista sin su último elemento.",
+          },
+        ],
+      },
+      {
+        id: "lists-aggregation",
+        title: "Agregación",
+        items: [
+          {
+            type: "accumulate",
+            label: "Acumular",
+            description: "Suma los elementos de una lista.",
+          },
+          {
+            type: "product",
+            label: "Productorio",
+            description: "Multiplica todos los elementos de una lista.",
+          },
+
+          {
+            type: "listFrequency",
+            label: "Frecuencia",
+            description:
+              "Cuenta ocurrencias y devuelve una lista de tuplas (elemento, cantidad).",
+          },
+        ],
+      },
+    ],
+    items: [],
+  },
+  {
     id: "flowControl",
     title: "Control de Flujo",
     items: [
@@ -444,145 +639,6 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "conditionalPair",
         label: "Condicional",
         description: "Evalúa reglas y entrega un valor según el resultado.",
-      },
-    ],
-  },
-  {
-    id: "iteration",
-    title: "Listas",
-    items: [
-      {
-        type: "sequence",
-        label: "Generar lista",
-        description: "Genera una lista de números (ej. 0..N).",
-      },
-      {
-        type: "zip",
-        label: "Unir listas",
-        description: "Combina listas elemento a elemento.",
-      },
-      {
-        type: "unzip",
-        label: "Separar lista",
-        description: "Separa una lista de pares en dos listas.",
-      },
-      {
-        type: "filter",
-        label: "Filtrar",
-        description: "Conserva solo los elementos que cumplen una condición.",
-      },
-      {
-        type: "map",
-        label: "Mapear",
-        description:
-          "Transforma cada elemento de una lista aplicando una función.",
-      },
-      {
-        type: "sortList",
-        label: "Ordenar lista",
-        description: "Ordena una lista ascendente o descendente.",
-      },
-      {
-        type: "accumulate",
-        label: "Acumular",
-        description: "Suma los elementos de una lista.",
-      },
-      {
-        type: "product",
-        label: "Productorio",
-        description: "Multiplica todos los elementos de una lista.",
-      },
-      {
-        type: "count",
-        label: "Contar",
-        description: "Cuenta cuántos elementos hay en una lista.",
-      },
-      {
-        type: "listFirst",
-        label: "Primer elemento",
-        description: "Devuelve el primer elemento de una lista.",
-      },
-      {
-        type: "listLast",
-        label: "Último elemento",
-        description: "Devuelve el último elemento de una lista.",
-      },
-      {
-        type: "listMin",
-        label: "Mínimo",
-        description:
-          "Devuelve el valor más pequeño de la lista; si está vacía devuelve 0.",
-      },
-      {
-        type: "listMax",
-        label: "Máximo",
-        description:
-          "Devuelve el valor más grande de la lista; si está vacía devuelve 0.",
-      },
-      {
-        type: "listFrequency",
-        label: "Frecuencia",
-        description:
-          "Cuenta ocurrencias y devuelve una lista de tuplas (elemento, cantidad).",
-      },
-      {
-        type: "listAtPosition",
-        label: "Elemento en posición",
-        description:
-          "Obtiene el elemento en una posición indicada (empezando en 1).",
-      },
-      {
-        type: "listFindElement",
-        label: "Buscar elemento",
-        description:
-          "Devuelve la primera posición donde aparece un elemento; 0 si no aparece.",
-      },
-      {
-        type: "listRemoveFirst",
-        label: "Quitar el primero",
-        description: "Devuelve la lista sin su primer elemento.",
-      },
-      {
-        type: "listRemoveLast",
-        label: "Quitar el último",
-        description: "Devuelve la lista sin su último elemento.",
-      },
-      {
-        type: "listPrepend",
-        label: "Añadir al inicio",
-        description: "Agrega un elemento al inicio de la lista.",
-      },
-      {
-        type: "listAppend",
-        label: "Añadir al final",
-        description: "Agrega un elemento al final de la lista.",
-      },
-      {
-        type: "listIsEmpty",
-        label: "Lista vacía",
-        description: "Verifica si una lista no tiene elementos.",
-      },
-      {
-        type: "listReverse",
-        label: "Voltear",
-        description: "Invierte los elementos de una lista.",
-      },
-      {
-        type: "splitList",
-        label: "Separar",
-        description:
-          "Convierte un número o texto en una lista de sus elementos.",
-      },
-      {
-        type: "listEvenPositions",
-        label: "Posiciones pares",
-        description: "Devuelve los elementos en posiciones pares de una lista.",
-      },
-      {
-        type: "listOddPositions",
-        label: "Posiciones impares",
-        description:
-          "Devuelve los elementos en posiciones impares de una lista.",
       },
     ],
   },
