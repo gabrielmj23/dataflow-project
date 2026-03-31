@@ -25,7 +25,6 @@ export type NodeCompilerContext = {
   scatterOutputCountByNodeId?: Map<string, number>;
   gatherInputCountByNodeId?: Map<string, number>;
   gatherIncomingByNodeId?: Map<string, Set<string>>;
-  whileFlowEvaluatorByNodeId?: Map<string, () => Promise<unknown>>;
 
   onLog?: EngineObserver["onLog"];
   onPrompt?: EngineObserver["onPrompt"];

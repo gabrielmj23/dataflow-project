@@ -36,7 +36,6 @@ import {
   Merge,
   Split,
   Flag,
-  RefreshCw,
   ChartNoAxesCombined,
 } from "lucide-react";
 
@@ -694,8 +693,8 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
         }),
         ...createHandleSpecs({
           direction: "source",
-          ids: ["out-1", "out-2", "out-3", "out-4"],
-          positions: [...HANDLE_POSITIONS.quad],
+          ids: ["out-1", "out-2"],
+          positions: [...HANDLE_POSITIONS.double],
         }),
       ];
 
@@ -796,28 +795,6 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
           ids: ["in-1", "in-2"],
           positions: [...HANDLE_POSITIONS.double],
           edge: "left",
-        }),
-        ...createHandleSpecs({
-          direction: "source",
-          ids: ["out"],
-          positions: [...HANDLE_POSITIONS.single],
-          edge: "right",
-        }),
-      ];
-
-    case "while":
-      return [
-        ...createHandleSpecs({
-          direction: "target",
-          ids: ["in"],
-          positions: [...HANDLE_POSITIONS.single],
-          edge: "left",
-        }),
-        ...createHandleSpecs({
-          direction: "target",
-          ids: ["in-cond", "in-time"],
-          positions: [...HANDLE_POSITIONS.double],
-          edge: "top",
         }),
         ...createHandleSpecs({
           direction: "source",
@@ -966,18 +943,17 @@ function getPreviewHandleBorderClass(type: string): string {
     type === "nor" ||
     type === "xor" ||
     type === "not" ||
-    type === "logicOperation" ||
-    type === "switch"
+    type === "logicOperation"
   ) {
     return "border-orange-600";
   }
 
   if (
     type === "selector" ||
-    type === "while" ||
     type === "desvio" ||
     type === "relevo" ||
-    type === "conditionalPair"
+    type === "conditionalPair" ||
+    type === "switch"
   ) {
     return "border-lime-700";
   }
@@ -1030,7 +1006,7 @@ function PreviewHandles({ type }: { type: string }) {
   const borderClass = getPreviewHandleBorderClass(type);
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-[1]">
+    <div className="pointer-events-none absolute inset-0 z-1">
       {handleSpecs.map((spec, index) => {
         const mask = getPortTypeMask({
           nodeType: type,
@@ -1277,8 +1253,7 @@ function NodePreview({
       case "nor":
       case "xor":
       case "not":
-      case "logicOperation":
-      case "switch": {
+      case "logicOperation": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           comparisonEqual: "comparisonEqual",
@@ -1356,15 +1331,15 @@ function NodePreview({
       }
       case "desvio":
       case "relevo":
-      case "while":
       case "selector":
-      case "conditionalPair": {
+      case "conditionalPair":
+      case "switch": {
         const symbolMap: Record<string, string> = {
           desvio: "desvio",
           relevo: "relevo",
-          while: "while",
           selector: "selector",
           conditionalPair: "conditionalPair",
+          switch: "switch",
         };
 
         return (
@@ -1379,7 +1354,6 @@ function NodePreview({
                 </span>
               )}
               {symbolMap[type] === "relevo" && <Flag className="h-4 w-4" />}
-              {symbolMap[type] === "while" && <RefreshCw className="h-4 w-4" />}
               {symbolMap[type] === "selector" && (
                 <Merge className="h-4 w-4 rotate-90" />
               )}
@@ -1388,6 +1362,9 @@ function NodePreview({
                   <ListChecks className="h-4 w-4" />
                   <Shuffle className="h-4 w-4" />
                 </span>
+              )}
+              {symbolMap[type] === "switch" && (
+                <ToggleRight className="h-4 w-4" />
               )}
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>

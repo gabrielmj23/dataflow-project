@@ -52,7 +52,6 @@ export const NODE_TYPES = {
   LOGIC_OPERATION_NODE: "logicOperation",
   DESVIO_NODE: "desvio",
   RELEVO_NODE: "relevo",
-  WHILE_NODE: "while",
   SWITCH_NODE: "switch",
   CONDITIONAL_NODE: "conditional",
   CONDITIONAL_SELECTOR_NODE: "conditionalSelector",

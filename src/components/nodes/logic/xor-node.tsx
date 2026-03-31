@@ -1,11 +1,10 @@
 import { memo } from "react";
 import type { NodeProps } from "@xyflow/react";
-import { Ampersand } from "lucide-react";
 
-import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { LogicRectNodeShell } from "@/components/nodes/logic/logic-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 
-export type AndNodeData = {
+export type XorNodeData = {
   label?: string;
   runtimeError?: string | null;
   executionTarget?: "local" | "microbit" | "controller";
@@ -14,15 +13,15 @@ export type AndNodeData = {
   controllerName?: string;
 };
 
-export const AndNode = memo(({ id, data }: NodeProps) => {
+export const XorNode = memo(({ id, data }: NodeProps) => {
   const {
-    label = "AND",
+    label = "XOR",
     runtimeError,
     executionTarget,
     transport,
     controllerId,
     controllerName,
-  } = (data ?? {}) as AndNodeData;
+  } = (data ?? {}) as XorNodeData;
 
   const config = useMicrobitExecutionConfig({
     nodeId: id,
@@ -35,9 +34,9 @@ export const AndNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <ControlRectNodeShell
-        nodeType="and"
-        icon={<Ampersand className="h-7 w-7" />}
+      <LogicRectNodeShell
+        nodeType="xor"
+        icon={<span className="text-xl font-medium leading-none">⊕</span>}
         label={label}
         subtitle={config.subtitle}
         runtimeError={runtimeError}
@@ -48,4 +47,4 @@ export const AndNode = memo(({ id, data }: NodeProps) => {
   );
 });
 
-AndNode.displayName = "AndNode";
+XorNode.displayName = "XorNode";

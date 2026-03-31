@@ -34,7 +34,7 @@ import { ReplaceTextNode } from "@/components/nodes/processing/replace-text-node
 import { SubtractTextNode } from "@/components/nodes/processing/subtract-text-node";
 import { SliceTextNode } from "@/components/nodes/processing/slice-text-node";
 
-import { ComparisonNode } from "@/components/nodes/control/comparison-node";
+import { ComparisonNode } from "@/components/nodes/logic/comparison-node";
 import {
   ComparisonEqualNode,
   ComparisonNotEqualNode,
@@ -42,16 +42,15 @@ import {
   ComparisonLessOrEqualNode,
   ComparisonGreaterNode,
   ComparisonGreaterOrEqualNode,
-} from "@/components/nodes/control/comparison-operator-nodes";
-import { AndNode } from "@/components/nodes/control/and-node";
-import { OrNode } from "@/components/nodes/control/or-node";
-import { NotNode } from "@/components/nodes/control/not-node";
-import { NandNode } from "@/components/nodes/control/nand-node";
-import { NorNode } from "@/components/nodes/control/nor-node";
-import { XorNode } from "@/components/nodes/control/xor-node";
+} from "@/components/nodes/logic/comparison-operator-nodes";
+import { AndNode } from "@/components/nodes/logic/and-node";
+import { OrNode } from "@/components/nodes/logic/or-node";
+import { NotNode } from "@/components/nodes/logic/not-node";
+import { NandNode } from "@/components/nodes/logic/nand-node";
+import { NorNode } from "@/components/nodes/logic/nor-node";
+import { XorNode } from "@/components/nodes/logic/xor-node";
 import { DesvioNode } from "@/components/nodes/control/desvio-node";
 import { RelevoNode } from "@/components/nodes/control/relevo-node";
-import { WhileNode } from "@/components/nodes/control/while-node";
 import { SwitchNode } from "@/components/nodes/control/switch-node";
 import { ConditionalNode } from "@/components/nodes/control/conditional-node";
 import { ConditionalSelectorNode } from "@/components/nodes/control/conditional-selector-node";
@@ -143,7 +142,6 @@ export const nodeTypesCore: NodeTypes = {
   xor: XorNode,
   desvio: DesvioNode,
   relevo: RelevoNode,
-  while: WhileNode,
   not: NotNode,
   switch: SwitchNode,
   conditional: ConditionalNode,

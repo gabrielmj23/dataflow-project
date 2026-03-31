@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import type { DragEvent } from "react";
-import type { Edge, Node, NodeProps } from "@xyflow/react";
+import type { Edge, Node, NodeProps, OnNodeDrag } from "@xyflow/react";
 import {
   addEdge,
   applyEdgeChanges,
@@ -75,6 +75,7 @@ import {
   type MicrobitConnectionType,
 } from "@/microbit/slot-manager";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
+import { deleteDraggedNodesOutsideViewport } from "@/flow/drag-delete";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
 import { validateConnection } from "@/flow/connection-validation";
 import { ConnectionErrorTooltip } from "@/flow/connection-error-tooltip";
@@ -610,6 +611,25 @@ export const ReplicateFlowNode = memo(
       ],
     );
 
+    const onEditorNodeDragStop = useCallback<OnNodeDrag<Node>>(
+      (event, node, draggedNodes) => {
+        const nodesToEvaluate =
+          Array.isArray(draggedNodes) && draggedNodes.length > 0
+            ? draggedNodes
+            : [node];
+
+        deleteDraggedNodesOutsideViewport({
+          event,
+          draggedNodes: nodesToEvaluate,
+          reactFlowInstance: editorInstanceRef.current,
+          setNodes: setDraftNodes,
+          setEdges: setDraftEdges,
+          viewportElement: document.getElementById(editorFlowId),
+        });
+      },
+      [editorFlowId],
+    );
+
     const updateDraftConnection = (
       connectionId: string,
       patch: Partial<ReplicateFlowRemoteConnection>,
@@ -980,6 +1000,8 @@ export const ReplicateFlowNode = memo(
                     }}
                     onDrop={onEditorDrop}
                     onDragOver={onEditorDragOver}
+                    onNodeDragStop={onEditorNodeDragStop}
+                    autoPanOnNodeDrag={false}
                     panOnDrag={editorCanvasMode === "pan"}
                     selectionOnDrag={editorCanvasMode === "select"}
                     selectionMode={SelectionMode.Partial}

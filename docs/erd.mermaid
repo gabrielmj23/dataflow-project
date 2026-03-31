@@ -1,0 +1,64 @@
+erDiagram
+    users ||--o{ projects : author
+    users ||--o{ custom_nodes : author
+    users ||--o{ extensions : author
+    users ||--o{ password_reset_codes : user_id
+    
+    projects ||--o{ projects : remixed_from
+    
+    extensions ||--o{ extensions_to_nodes : extension_id
+    custom_nodes ||--o{ extensions_to_nodes : node_id
+
+    users {
+        uuid id PK
+        string name
+        string email
+        string password
+    }
+
+    projects {
+        uuid id PK
+        string name
+        string description
+        uuid author FK
+        uuid remixed_from FK
+        string thumbnail
+        json program
+        datetime created_at
+        datetime updated_at
+        uuid guest_owner_id
+        string guest_author_name
+        boolean is_public
+    }
+
+    custom_nodes {
+        uuid id PK
+        string name
+        string description
+        string code
+        uuid author FK
+        datetime created_at
+    }
+
+    extensions {
+        uuid id PK
+        string name
+        string description
+        uuid author FK
+        string color
+        datetime created_at
+    }
+
+    extensions_to_nodes {
+        uuid extension_id FK
+        uuid node_id FK
+    }
+
+    password_reset_codes {
+        uuid id PK
+        uuid user_id FK
+        string code_hash
+        datetime expires_at
+        datetime consumed_at
+        datetime created_at
+    }

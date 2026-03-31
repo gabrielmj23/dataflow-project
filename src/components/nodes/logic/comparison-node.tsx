@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 
-import { ControlRectNodeShell } from "@/components/nodes/control/control-rect-node-shell";
+import { LogicRectNodeShell } from "@/components/nodes/logic/logic-rect-node-shell";
 import { useMicrobitExecutionConfig } from "@/components/nodes/processing/use-microbit-execution-config";
 import {
   Dialog,
@@ -105,11 +105,11 @@ export const ComparisonNode = memo(({ id, data }: NodeProps) => {
                   operator: nextOperator,
                 },
               }
-            : node
-        )
+            : node,
+        ),
       );
     },
-    [id, setNodes]
+    [id, setNodes],
   );
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -134,7 +134,7 @@ export const ComparisonNode = memo(({ id, data }: NodeProps) => {
 
   return (
     <>
-      <ControlRectNodeShell
+      <LogicRectNodeShell
         nodeType="comparison"
         icon={OPERATORS.find(({ op }) => op === operator)?.icon ?? "?"}
         label={label}

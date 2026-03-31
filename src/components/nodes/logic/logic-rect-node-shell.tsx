@@ -10,7 +10,7 @@ import {
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
 
-type ControlRectNodeShellProps = {
+type LogicRectNodeShellProps = {
   nodeType: string;
   icon: ReactNode;
   label: string;
@@ -62,7 +62,7 @@ function offsets(count: number): string[] {
   return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
 }
 
-export function ControlRectNodeShell({
+export function LogicRectNodeShell({
   nodeType,
   icon,
   label,
@@ -80,7 +80,7 @@ export function ControlRectNodeShell({
   labelClassName,
   outputLabelClassName,
   style,
-}: ControlRectNodeShellProps) {
+}: LogicRectNodeShellProps) {
   const maskFor = (params: {
     handleType: "source" | "target";
     handleId: string | null | undefined;

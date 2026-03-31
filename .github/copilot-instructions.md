@@ -4,7 +4,7 @@
 - **Node registry**: Visual node types are registered in `src/flow/node-types-core.ts`; palette items in `src/flow/node-palette.ts`. When adding a node, wire both so it appears in the sidebar and renders in the canvas.
 - **UI shells**: Use existing shells instead of hand-drawing handles. Examples:
   - Processing nodes: `ProcessingExecutionNode` → `ProcessingRectNodeShell` (blue, 1–3 inputs).
-  - Control nodes: `ControlRectNodeShell` (orange, boolean shapes).
+  - Logic nodes: `LogicRectNodeShell` (orange, boolean shapes).
   - Iteration nodes: `IterationRectNodeShell` (teal, triple inputs).
   - Input circles: `InputCircleNodeShell` (green).
 - **Handles & typing**: Port typing/compatibility is centralized in `src/flow/port-data-type.ts`; handle-to-port IDs in `src/engine/handle-mapping.ts`. For new handles, add masks (type inference + mask) and mapping entries so runtime wiring matches UI handles (`in-1`, `out`, etc.).
@@ -27,8 +27,9 @@
   When adding new full-screen views, place them under `src/pages/` and keep smaller components in `src/components/`.
 
 When implementing a new node:
-1) Add UI component using the appropriate shell; register in `node-types-core.ts` and `node-palette.ts` with icon entry in `app-sidebar.tsx`.
-2) Define engine class in `src/engine/nodes/*` and compiler case in the relevant `node-compilers/*.ts` file.
-3) Update port typing (`port-data-type.ts`), handle mapping (`handle-mapping.ts`), and edge labels (`labeled-edge.tsx`) if inputs need labels.
+
+1. Add UI component using the appropriate shell; register in `node-types-core.ts` and `node-palette.ts` with icon entry in `app-sidebar.tsx`.
+2. Define engine class in `src/engine/nodes/*` and compiler case in the relevant `node-compilers/*.ts` file.
+3. Update port typing (`port-data-type.ts`), handle mapping (`handle-mapping.ts`), and edge labels (`labeled-edge.tsx`) if inputs need labels.
 
 If anything here seems incomplete or unclear, ask for the missing detail before proceeding.
