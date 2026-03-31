@@ -666,7 +666,7 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "barrier",
         label: "Barrera",
         description:
-          "Sincroniza varias entradas y emite cada valor por su salida correspondiente al mismo tiempo.",
+          "Espera por todas las entradas para emitirlas en un solo pulso",
       },
     ],
   },
