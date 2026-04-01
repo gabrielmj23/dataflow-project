@@ -192,6 +192,26 @@ register(
   },
 );
 
+register(
+  [
+    NODE_TYPES.RUNTIME_INPUT_PULSE,
+    NODE_TYPES.MICROBIT_READ_BUTTON_PULSE_INPUT,
+    NODE_TYPES.MICROBIT_READ_TEMPERATURE_PULSE_INPUT,
+    NODE_TYPES.MICROBIT_READ_PIN_PULSE_INPUT,
+  ],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in-1") return "frequency";
+      if (handleId === "in-2") return "count";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
+
+    if (handleId === "out" || handleId == null) return "output";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
+
 // Timer: optional input -> output after delay
 register([NODE_TYPES.TIMER_INPUT], (p) => {
   const { nodeId, nodeType, handleId, direction } = p;
@@ -553,14 +573,14 @@ register(
     NODE_TYPES.LIST_MAX_NODE,
   ],
   (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    if (handleId === "in" || handleId == null) return "inputList";
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      if (handleId === "in" || handleId == null) return "inputList";
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "output";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
+    if (handleId === "out" || handleId == null) return "output";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
   },
 );
 

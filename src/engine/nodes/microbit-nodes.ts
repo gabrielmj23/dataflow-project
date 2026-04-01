@@ -1,4 +1,9 @@
-import { FirePatterns, NodeDefinition } from "../program-elements";
+import {
+  DataToken,
+  FirePatterns,
+  NodeDefinition,
+  PortAddress,
+} from "../program-elements";
 
 import {
   ensureMicrobitConnected,
@@ -84,6 +89,45 @@ function createAbortError(): Error {
     (err as { name?: string }).name = "AbortError";
     return err;
   }
+}
+
+function sanitizePulseCount(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.floor(n));
+}
+
+function sanitizePulseIntervalMs(value: unknown): number {
+  const ms = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(ms)) return 0;
+  return Math.max(0, Math.round(ms));
+}
+
+async function delayWithAbort(ms: number, signal?: AbortSignal): Promise<void> {
+  if (!Number.isFinite(ms) || ms <= 0) return;
+
+  if (signal?.aborted) {
+    throw createAbortError();
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      cleanup();
+      resolve();
+    }, ms);
+
+    const onAbort = () => {
+      cleanup();
+      reject(createAbortError());
+    };
+
+    const cleanup = () => {
+      window.clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", onAbort);
+    };
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 function createTimeoutError(message: string): Error {
@@ -536,45 +580,83 @@ export class EngineMicrobitReadPinNode extends NodeDefinition {
     slot?: unknown;
     pin?: unknown;
     mode?: unknown;
+    pulseCount?: unknown;
+    pulseIntervalMs?: unknown;
+    pulseFromInputs?: boolean;
     onLog?: EngineObserver["onLog"];
     signal?: AbortSignal;
   }) {
     const slot = sanitizeMicrobitSlot(params.slot);
     const mode = sanitizePinMode(params.mode);
     const pin = sanitizePinName(params.pin, mode, "read");
+    const pulseCount = sanitizePulseCount(params.pulseCount);
+    const pulseIntervalMs = sanitizePulseIntervalMs(params.pulseIntervalMs);
+    const pulseFromInputs = params.pulseFromInputs === true;
 
     super(
-      async () => {
-        const connection = await ensureMicrobitConnected({
-          transport: params.transport,
-          slot,
-        });
+      async (frequencyArg?: unknown, countArg?: unknown) => {
+        const effectivePulseCount = pulseFromInputs
+          ? sanitizePulseCount(coerceFiniteNumber(countArg, "Cantidad"))
+          : pulseCount;
+        const effectivePulseIntervalMs = pulseFromInputs
+          ? Math.max(
+              0,
+              Math.round(coerceFiniteNumber(frequencyArg, "Frecuencia") * 1000),
+            )
+          : pulseIntervalMs;
 
-        params.onLog?.({
-          level: "info",
-          nodeId: params.nodeId,
-          message: "microbit",
-          data:
-            params.transport === "bluetooth"
-              ? `Leyendo ${pin} (${mode}, Bluetooth)…`
-              : `Leyendo ${pin} (${mode}, Serial)…`,
-        });
+        const readOnce = async () => {
+          const connection = await ensureMicrobitConnected({
+            transport: params.transport,
+            slot,
+          });
 
-        await withTimeout({
-          promise: connection.send(`PINR?:${pin},${mode}`),
-          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
-          signal: params.signal,
-          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
-        });
+          params.onLog?.({
+            level: "info",
+            nodeId: params.nodeId,
+            message: "microbit",
+            data:
+              params.transport === "bluetooth"
+                ? `Leyendo ${pin} (${mode}, Bluetooth)…`
+                : `Leyendo ${pin} (${mode}, Serial)…`,
+          });
 
-        return await waitForPinReadValue({
-          slot,
-          signal: params.signal,
-          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
-        });
+          await withTimeout({
+            promise: connection.send(`PINR?:${pin},${mode}`),
+            timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+            signal: params.signal,
+            message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+          });
+
+          return await waitForPinReadValue({
+            slot,
+            signal: params.signal,
+            timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
+          });
+        };
+
+        if (effectivePulseCount <= 1) {
+          return await readOnce();
+        }
+
+        return (async function* (): AsyncGenerator<
+          DataToken<number>,
+          void,
+          unknown
+        > {
+          for (let index = 0; index < effectivePulseCount; index += 1) {
+            if (index > 0 && effectivePulseIntervalMs > 0) {
+              await delayWithAbort(effectivePulseIntervalMs, params.signal);
+            }
+            const value = await readOnce();
+            yield new DataToken(value, new PortAddress("", "output"));
+          }
+        })();
       },
-      [FirePatterns.ALWAYS],
-      ["output"],
+      pulseFromInputs
+        ? [FirePatterns.EXISTS, FirePatterns.EXISTS]
+        : [FirePatterns.ALWAYS],
+      pulseFromInputs ? ["frequency", "count", "output"] : ["output"],
       {
         kind: "microbitReadPin",
         skipStepDelay: true,
@@ -1105,63 +1187,101 @@ export class EngineMicrobitReadButtonNode extends NodeDefinition {
     nodeId: string;
     transport: MicrobitTransport;
     slot?: unknown;
+    pulseCount?: unknown;
+    pulseIntervalMs?: unknown;
+    pulseFromInputs?: boolean;
     onLog?: EngineObserver["onLog"];
     signal?: AbortSignal;
   }) {
     const slot = sanitizeMicrobitSlot(params.slot);
+    const pulseCount = sanitizePulseCount(params.pulseCount);
+    const pulseIntervalMs = sanitizePulseIntervalMs(params.pulseIntervalMs);
+    const pulseFromInputs = params.pulseFromInputs === true;
     super(
-      async () => {
+      async (frequencyArg?: unknown, countArg?: unknown) => {
+        const effectivePulseCount = pulseFromInputs
+          ? sanitizePulseCount(coerceFiniteNumber(countArg, "Cantidad"))
+          : pulseCount;
+        const effectivePulseIntervalMs = pulseFromInputs
+          ? Math.max(
+              0,
+              Math.round(coerceFiniteNumber(frequencyArg, "Frecuencia") * 1000),
+            )
+          : pulseIntervalMs;
+
         const connection = await ensureMicrobitConnected({
           transport: params.transport,
           slot,
         });
 
-        params.onLog?.({
-          level: "info",
-          nodeId: params.nodeId,
-          message: "microbit",
-          data:
-            params.transport === "bluetooth"
-              ? "Esperando botón (Bluetooth)…"
-              : "Esperando botón (Serial)…",
-        });
-
-        return await new Promise<string>((resolve, reject) => {
-          const signal = params.signal;
-
-          const cleanup = (onAbort?: () => void, off?: () => void) => {
-            if (onAbort) {
-              signal?.removeEventListener("abort", onAbort);
-            }
-            if (off) off();
-          };
-
-          const off = onMicrobitMessage((msg, context) => {
-            if (context?.slot !== slot) return;
-            const parsed = parseButtonMessage(msg);
-            if (!parsed) return;
-            cleanup(onAbort, off);
-            resolve(parsed);
+        const readOnce = async () => {
+          params.onLog?.({
+            level: "info",
+            nodeId: params.nodeId,
+            message: "microbit",
+            data:
+              params.transport === "bluetooth"
+                ? "Esperando botón (Bluetooth)…"
+                : "Esperando botón (Serial)…",
           });
 
-          const onAbort = () => {
-            cleanup(onAbort, off);
-            reject(createAbortError());
-          };
+          return await new Promise<string>((resolve, reject) => {
+            const signal = params.signal;
 
-          if (signal?.aborted) {
-            onAbort();
-            return;
+            const cleanup = (onAbort?: () => void, off?: () => void) => {
+              if (onAbort) {
+                signal?.removeEventListener("abort", onAbort);
+              }
+              if (off) off();
+            };
+
+            const off = onMicrobitMessage((msg, context) => {
+              if (context?.slot !== slot) return;
+              const parsed = parseButtonMessage(msg);
+              if (!parsed) return;
+              cleanup(onAbort, off);
+              resolve(parsed);
+            });
+
+            const onAbort = () => {
+              cleanup(onAbort, off);
+              reject(createAbortError());
+            };
+
+            if (signal?.aborted) {
+              onAbort();
+              return;
+            }
+
+            signal?.addEventListener("abort", onAbort, { once: true });
+
+            // Ensure connection exists (keeps TS from tree-shaking it away)
+            void connection;
+          });
+        };
+
+        if (effectivePulseCount <= 1) {
+          return await readOnce();
+        }
+
+        return (async function* (): AsyncGenerator<
+          DataToken<string>,
+          void,
+          unknown
+        > {
+          for (let index = 0; index < effectivePulseCount; index += 1) {
+            if (index > 0 && effectivePulseIntervalMs > 0) {
+              await delayWithAbort(effectivePulseIntervalMs, params.signal);
+            }
+            const value = await readOnce();
+            yield new DataToken(value, new PortAddress("", "output"));
           }
-
-          signal?.addEventListener("abort", onAbort, { once: true });
-
-          // Ensure connection exists (keeps TS from tree-shaking it away)
-          void connection;
-        });
+        })();
       },
-      [FirePatterns.ALWAYS],
-      ["output"],
+      pulseFromInputs
+        ? [FirePatterns.EXISTS, FirePatterns.EXISTS]
+        : [FirePatterns.ALWAYS],
+      pulseFromInputs ? ["frequency", "count", "output"] : ["output"],
       { skipStepDelay: true },
     );
   }
@@ -1172,45 +1292,81 @@ export class EngineMicrobitReadTemperatureNode extends NodeDefinition {
     nodeId: string;
     transport: MicrobitTransport;
     slot?: unknown;
+    pulseCount?: unknown;
+    pulseIntervalMs?: unknown;
+    pulseFromInputs?: boolean;
     onLog?: EngineObserver["onLog"];
     signal?: AbortSignal;
   }) {
     const slot = sanitizeMicrobitSlot(params.slot);
+    const pulseCount = sanitizePulseCount(params.pulseCount);
+    const pulseIntervalMs = sanitizePulseIntervalMs(params.pulseIntervalMs);
+    const pulseFromInputs = params.pulseFromInputs === true;
     super(
-      async () => {
-        const connection = await ensureMicrobitConnected({
-          transport: params.transport,
-          slot,
-        });
+      async (frequencyArg?: unknown, countArg?: unknown) => {
+        const effectivePulseCount = pulseFromInputs
+          ? sanitizePulseCount(coerceFiniteNumber(countArg, "Cantidad"))
+          : pulseCount;
+        const effectivePulseIntervalMs = pulseFromInputs
+          ? Math.max(
+              0,
+              Math.round(coerceFiniteNumber(frequencyArg, "Frecuencia") * 1000),
+            )
+          : pulseIntervalMs;
 
-        params.onLog?.({
-          level: "info",
-          nodeId: params.nodeId,
-          message: "microbit",
-          data:
-            params.transport === "bluetooth"
-              ? "Leyendo temperatura (Bluetooth)…"
-              : "Leyendo temperatura (Serial)…",
-        });
+        const readOnce = async () => {
+          const connection = await ensureMicrobitConnected({
+            transport: params.transport,
+            slot,
+          });
 
-        await withTimeout({
-          promise: connection.send("TEMP?"),
-          timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
-          signal: params.signal,
-          message: "Tiempo de espera agotado enviando datos a la micro:bit.",
-        });
+          params.onLog?.({
+            level: "info",
+            nodeId: params.nodeId,
+            message: "microbit",
+            data:
+              params.transport === "bluetooth"
+                ? "Leyendo temperatura (Bluetooth)…"
+                : "Leyendo temperatura (Serial)…",
+          });
 
-        const result = await waitForPrefixedNumber({
-          prefix: "TEMP",
-          slot,
-          signal: params.signal,
-          timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
-        });
+          await withTimeout({
+            promise: connection.send("TEMP?"),
+            timeoutMs: MICROBIT_SEND_TIMEOUT_MS,
+            signal: params.signal,
+            message: "Tiempo de espera agotado enviando datos a la micro:bit.",
+          });
 
-        return result;
+          return await waitForPrefixedNumber({
+            prefix: "TEMP",
+            slot,
+            signal: params.signal,
+            timeoutMs: MICROBIT_RESPONSE_TIMEOUT_MS,
+          });
+        };
+
+        if (effectivePulseCount <= 1) {
+          return await readOnce();
+        }
+
+        return (async function* (): AsyncGenerator<
+          DataToken<number>,
+          void,
+          unknown
+        > {
+          for (let index = 0; index < effectivePulseCount; index += 1) {
+            if (index > 0 && effectivePulseIntervalMs > 0) {
+              await delayWithAbort(effectivePulseIntervalMs, params.signal);
+            }
+            const value = await readOnce();
+            yield new DataToken(value, new PortAddress("", "output"));
+          }
+        })();
       },
-      [FirePatterns.ALWAYS],
-      ["output"],
+      pulseFromInputs
+        ? [FirePatterns.EXISTS, FirePatterns.EXISTS]
+        : [FirePatterns.ALWAYS],
+      pulseFromInputs ? ["frequency", "count", "output"] : ["output"],
       {
         kind: "microbitReadTemperature",
         skipStepDelay: true,

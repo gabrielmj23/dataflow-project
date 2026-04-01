@@ -147,6 +147,18 @@ function coerceNumberInput(value: unknown): number {
   return n;
 }
 
+function sanitizePulseCount(value: unknown): number {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(1, Math.floor(n));
+}
+
+function sanitizePulseIntervalMs(value: unknown): number {
+  const ms = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(ms)) return 0;
+  return Math.max(0, Math.round(ms));
+}
+
 export class DataflowEngine {
   private arcStore: ArcStore;
   private nodeStore: NodeStore;
@@ -383,6 +395,24 @@ export class DataflowEngine {
       // completes from the map (Promise.race doesn't tell us which resolved).
       type ActiveResult = { id: number; outputTokens: DataToken<unknown>[] };
       const active = new Map<number, Promise<ActiveResult>>();
+      const completed: ActiveResult[] = [];
+      let notifyCompletion: (() => void) | null = null;
+
+      const waitForCompletion = async (): Promise<void> => {
+        if (completed.length > 0) return;
+        await new Promise<void>((resolve) => {
+          notifyCompletion = resolve;
+        });
+      };
+
+      const pushCompletion = (result: ActiveResult): void => {
+        completed.push(result);
+        if (notifyCompletion) {
+          const resolve = notifyCompletion;
+          notifyCompletion = null;
+          resolve();
+        }
+      };
       let nextActiveId = 1;
 
       // Try to schedule as many ready nodes as possible in this moment.
@@ -422,9 +452,17 @@ export class DataflowEngine {
 
           // Start the node immediately and keep a handle to its completion.
           const id = nextActiveId++;
-          const promise = this.executeUnit(t, params.signal).then(
-            (outputTokens) => ({ id, outputTokens }),
-          );
+          const promise = this.executeUnit(
+            t,
+            params.signal,
+            (streamedToken) => {
+              externalOutputs.push(...this.transmitToken(streamedToken));
+              scheduleAvailable();
+            },
+          ).then((outputTokens) => ({ id, outputTokens }));
+          promise.then((result) => {
+            pushCompletion(result);
+          });
           active.set(id, promise);
         }
 
@@ -447,8 +485,14 @@ export class DataflowEngine {
           }
         }
 
-        // Wait for the first running node to finish, then propagate its outputs.
-        const { id, outputTokens } = await Promise.race(active.values());
+        // Wait for at least one running node to finish, then propagate its outputs.
+        await waitForCompletion();
+        const nextCompleted = completed.shift();
+        if (!nextCompleted) {
+          continue;
+        }
+
+        const { id, outputTokens } = nextCompleted;
         active.delete(id);
 
         for (const outputToken of outputTokens) {
@@ -622,10 +666,7 @@ export class DataflowEngine {
 
         // Even for nodes that allow parallel executions, never schedule
         // zero-consumption activations more than once in the same batch.
-        if (
-          activationTokens.length === 0 &&
-          scheduledNodeIds.has(node.id)
-        ) {
+        if (activationTokens.length === 0 && scheduledNodeIds.has(node.id)) {
           return false;
         }
 
@@ -799,6 +840,7 @@ export class DataflowEngine {
   async executeUnit(
     token: ExecuteToken,
     signal?: AbortSignal,
+    onOutputToken?: (token: DataToken<unknown>) => void,
   ): Promise<DataToken<unknown>[]> {
     throwIfAborted(signal);
     const node = token.node;
@@ -826,9 +868,10 @@ export class DataflowEngine {
     const stepDelayMs = this.stepDelayMs;
     // Do not apply the artificial step delay to nodes that opt out via
     // meta.skipStepDelay or to runtime input nodes which must prompt immediately.
+    const runtimeKind =
+      nodeDefinition.meta && (nodeDefinition.meta as { kind?: unknown }).kind;
     const isRuntimeInput =
-      (nodeDefinition.meta &&
-        (nodeDefinition.meta as { kind?: unknown }).kind) === "runtimeInput";
+      runtimeKind === "runtimeInput" || runtimeKind === "runtimeInputPulse";
     if (
       stepDelayMs > 0 &&
       !nodeDefinition.meta.skipStepDelay &&
@@ -850,22 +893,106 @@ export class DataflowEngine {
       });
     }
 
+    const emitLocalOutput = (localToken: DataToken<unknown>): void => {
+      const globalToken = new DataToken(
+        localToken.value,
+        new PortAddress(node.id, localToken.location.portId),
+      );
+      if (onOutputToken) {
+        onOutputToken(globalToken);
+      }
+    };
+
     let rawResult: unknown;
     try {
-      if (nodeDefinition.meta.kind === "runtimeInput") {
+      if (
+        nodeDefinition.meta.kind === "runtimeInput" ||
+        nodeDefinition.meta.kind === "runtimeInputPulse"
+      ) {
         const inputType = nodeDefinition.meta.runtimeInputType ?? "number";
-        if (inputType === "text") {
-          rawResult = await this.awaitRuntimeTextInput({
-            nodeId: node.id,
-            prompt: nodeDefinition.meta.runtimePrompt,
-            defaultValue: nodeDefinition.meta.runtimeDefaultValue,
-            signal,
-          });
+        const fromInputs = nodeDefinition.meta.kind === "runtimeInputPulse";
+        const pulseCount = fromInputs
+          ? sanitizePulseCount(coerceNumberInput(argValues[1]))
+          : sanitizePulseCount(nodeDefinition.meta.runtimePulseCount);
+        const pulseIntervalMs = fromInputs
+          ? Math.max(0, Math.round(coerceNumberInput(argValues[0]) * 1000))
+          : sanitizePulseIntervalMs(nodeDefinition.meta.runtimePulseIntervalMs);
+        const outputPortId =
+          nodeDefinition.ports[nodeDefinition.ports.length - 1] ?? "output";
+
+        if (pulseCount <= 1) {
+          if (inputType === "text") {
+            rawResult = await this.awaitRuntimeTextInput({
+              nodeId: node.id,
+              prompt: nodeDefinition.meta.runtimePrompt,
+              defaultValue: nodeDefinition.meta.runtimeDefaultValue,
+              signal,
+            });
+          } else {
+            rawResult = await this.awaitRuntimeNumberInput({
+              nodeId: node.id,
+              prompt: nodeDefinition.meta.runtimePrompt,
+              defaultValue: nodeDefinition.meta.runtimeDefaultValue,
+              signal,
+            });
+          }
         } else {
-          rawResult = await this.awaitRuntimeNumberInput({
+          rawResult = (async function* (
+            self: DataflowEngine,
+            opts: {
+              pulseCount: number;
+              pulseIntervalMs: number;
+              inputType: "number" | "text";
+              nodeId: string;
+              prompt?: string;
+              defaultValue?: number | string;
+              outputPortId: string;
+              signal?: AbortSignal;
+            },
+          ): AsyncGenerator<DataToken<unknown>, void, unknown> {
+            for (let index = 0; index < opts.pulseCount; index += 1) {
+              if (index > 0 && opts.pulseIntervalMs > 0) {
+                await abortableDelay(opts.pulseIntervalMs, opts.signal);
+              }
+
+              const value =
+                opts.inputType === "text"
+                  ? await self.awaitRuntimeTextInput({
+                      nodeId: opts.nodeId,
+                      prompt: opts.prompt,
+                      defaultValue:
+                        typeof opts.defaultValue === "string"
+                          ? opts.defaultValue
+                          : undefined,
+                      signal: opts.signal,
+                    })
+                  : await self.awaitRuntimeNumberInput({
+                      nodeId: opts.nodeId,
+                      prompt: opts.prompt,
+                      defaultValue:
+                        typeof opts.defaultValue === "number"
+                          ? opts.defaultValue
+                          : undefined,
+                      signal: opts.signal,
+                    });
+
+              yield new DataToken(
+                value,
+                new PortAddress("", opts.outputPortId),
+              );
+            }
+          })(this, {
+            pulseCount,
+            pulseIntervalMs,
+            inputType,
             nodeId: node.id,
             prompt: nodeDefinition.meta.runtimePrompt,
-            defaultValue: nodeDefinition.meta.runtimeDefaultValue,
+            defaultValue:
+              typeof nodeDefinition.meta.runtimeDefaultValue === "number" ||
+              typeof nodeDefinition.meta.runtimeDefaultValue === "string"
+                ? nodeDefinition.meta.runtimeDefaultValue
+                : undefined,
+            outputPortId,
             signal,
           });
         }
@@ -898,13 +1025,6 @@ export class DataflowEngine {
 
     throwIfAborted(signal);
 
-    this.observer?.onNodeExecution?.({
-      nodeId: node.id,
-      operation: nodeDefinition.meta.kind,
-      inputs: argValues,
-      result: rawResult,
-    });
-
     // Normalize outputs to local tokens
     const inferredInputCount = (() => {
       const firePatterns = nodeDefinition.firePatterns;
@@ -924,6 +1044,42 @@ export class DataflowEngine {
     })();
 
     const outputPortIds = nodeDefinition.ports.slice(inferredInputCount);
+
+    const isAsyncIterable = (value: unknown): value is AsyncIterable<unknown> =>
+      typeof value === "object" &&
+      value !== null &&
+      Symbol.asyncIterator in value;
+
+    if (isAsyncIterable(rawResult)) {
+      this.observer?.onNodeExecution?.({
+        nodeId: node.id,
+        operation: nodeDefinition.meta.kind,
+        inputs: argValues,
+        result: "<stream>",
+      });
+
+      for await (const chunk of rawResult) {
+        throwIfAborted(signal);
+        const localChunkTokens = this.normalizeToLocalOutputTokens(
+          chunk,
+          outputPortIds,
+        );
+
+        for (const localToken of localChunkTokens) {
+          emitLocalOutput(localToken);
+        }
+      }
+
+      this.observer?.onNodeStatus?.({ nodeId: node.id, status: "done" });
+      return [];
+    }
+
+    this.observer?.onNodeExecution?.({
+      nodeId: node.id,
+      operation: nodeDefinition.meta.kind,
+      inputs: argValues,
+      result: rawResult,
+    });
 
     const localOutputTokens = this.normalizeToLocalOutputTokens(
       rawResult,
@@ -956,6 +1112,10 @@ export class DataflowEngine {
     result: unknown,
     outputPortIds: string[],
   ): DataToken<unknown>[] {
+    if (result instanceof DataToken) {
+      return [result as DataToken<unknown>];
+    }
+
     // If the node returns local tokens already, keep them.
     // NOTE: `[].every(...)` is `true`, so we must require a non-empty array to
     // avoid interpreting an empty list value (`[]`) as "no output tokens".
