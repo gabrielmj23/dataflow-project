@@ -10,10 +10,14 @@ import { RandomInputNode } from "@/components/nodes/input/random-input-node";
 import { ChoiceInputNode } from "@/components/nodes/input/choice-input-node";
 import { TimerInputNode } from "@/components/nodes/input/timer-input-node";
 import { RuntimeInputNode } from "@/components/nodes/input/runtime-input-node";
+import { RuntimeInputPulseNode } from "@/components/nodes/input/runtime-input-pulse-node";
 
 import { MicrobitReadButtonInputNode } from "@/components/nodes/microbit/microbit-read-button-input-node";
+import { MicrobitReadButtonPulseInputNode } from "@/components/nodes/microbit/microbit-read-button-pulse-input-node";
 import { MicrobitReadTemperatureInputNode } from "@/components/nodes/microbit/microbit-read-temperature-input-node";
+import { MicrobitReadTemperaturePulseInputNode } from "@/components/nodes/microbit/microbit-read-temperature-pulse-input-node";
 import { MicrobitReadPinInputNode } from "@/components/nodes/microbit/microbit-read-pin-input-node";
+import { MicrobitReadPinPulseInputNode } from "@/components/nodes/microbit/microbit-read-pin-pulse-input-node";
 
 import { SumNode } from "@/components/nodes/processing/sum-node";
 import { SubtractNode } from "@/components/nodes/processing/subtract-node";
@@ -105,12 +109,16 @@ export const nodeTypesCore: NodeTypes = {
   constantText: ConstantTextInputNode,
   constantList: ConstantListInputNode,
   runtimeInput: RuntimeInputNode,
+  runtimeInputPulse: RuntimeInputPulseNode,
   randomInput: RandomInputNode,
   choiceInput: ChoiceInputNode,
   timerInput: TimerInputNode,
   microbitReadButton: MicrobitReadButtonInputNode,
+  microbitReadButtonPulse: MicrobitReadButtonPulseInputNode,
   microbitReadTemperature: MicrobitReadTemperatureInputNode,
+  microbitReadTemperaturePulse: MicrobitReadTemperaturePulseInputNode,
   microbitReadPin: MicrobitReadPinInputNode,
+  microbitReadPinPulse: MicrobitReadPinPulseInputNode,
   sum: SumNode,
   subtract: SubtractNode,
   multiply: MultiplyNode,

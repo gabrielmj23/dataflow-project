@@ -232,13 +232,25 @@ export function inferPortDataType(params: {
   if (nodeType === "runtimeInput") {
     return "any";
   }
+  if (nodeType === "runtimeInputPulse") {
+    return handleType === "source" ? "any" : "number";
+  }
   if (nodeType === "microbitReadButton") {
     return "text";
+  }
+  if (nodeType === "microbitReadButtonPulse") {
+    return handleType === "source" ? "text" : "number";
   }
   if (nodeType === "microbitReadTemperature") {
     return "number";
   }
+  if (nodeType === "microbitReadTemperaturePulse") {
+    return "number";
+  }
   if (nodeType === "microbitReadPin") {
+    return "number";
+  }
+  if (nodeType === "microbitReadPinPulse") {
     return "number";
   }
   if (nodeType === "constantText") {
@@ -457,14 +469,26 @@ export function getPortTypeMask(params: {
     if (nodeType === "runtimeInput") {
       return isOutput ? TYPE_NUMBER | TYPE_TEXT : TYPE_ANY;
     }
+    if (nodeType === "runtimeInputPulse") {
+      return isOutput ? TYPE_NUMBER | TYPE_TEXT : TYPE_NUMBER;
+    }
     if (nodeType === "microbitReadButton") {
       return isOutput ? TYPE_TEXT : TYPE_ANY;
+    }
+    if (nodeType === "microbitReadButtonPulse") {
+      return isOutput ? TYPE_TEXT : TYPE_NUMBER;
     }
     if (nodeType === "microbitReadTemperature") {
       return isOutput ? TYPE_NUMBER : TYPE_ANY;
     }
+    if (nodeType === "microbitReadTemperaturePulse") {
+      return TYPE_NUMBER;
+    }
     if (nodeType === "microbitReadPin") {
       return isOutput ? TYPE_NUMBER : TYPE_ANY;
+    }
+    if (nodeType === "microbitReadPinPulse") {
+      return TYPE_NUMBER;
     }
     if (nodeType === "timerInput") {
       // Timer can optionally pass-through any incoming value after a delay.

@@ -86,6 +86,32 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
         },
       );
     }
+    case NODE_TYPES.RUNTIME_INPUT_PULSE: {
+      const prompt = typeof data.prompt === "string" ? data.prompt : undefined;
+      const valueTypeRaw = data.valueType;
+      const valueType = valueTypeRaw === "text" ? "text" : "number";
+
+      const defaultValue =
+        valueType === "text"
+          ? typeof data.defaultValue === "string"
+            ? data.defaultValue
+            : undefined
+          : typeof data.defaultValue === "number"
+            ? data.defaultValue
+            : undefined;
+
+      return new NodeDefinition(
+        () => defaultValue ?? (valueType === "text" ? "" : 0),
+        [FirePatterns.EXISTS, FirePatterns.EXISTS],
+        ["frequency", "count", "output"],
+        {
+          kind: "runtimeInputPulse",
+          runtimePrompt: prompt,
+          runtimeInputType: valueType,
+          runtimeDefaultValue: defaultValue,
+        },
+      );
+    }
     case NODE_TYPES.RANDOM_INPUT: {
       const min = typeof data.min === "number" ? data.min : 0;
       const max = typeof data.max === "number" ? data.max : 100;
@@ -126,6 +152,22 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
         signal: ctx.signal,
       });
     }
+    case NODE_TYPES.MICROBIT_READ_BUTTON_PULSE_INPUT: {
+      const transportRaw = data.transport;
+      const transport =
+        transportRaw === "bluetooth" || transportRaw === "serial"
+          ? transportRaw
+          : "serial";
+      const slot = parseMicrobitSlot(data);
+      return new EngineMicrobitReadButtonNode({
+        nodeId: String(flowNode.id),
+        transport,
+        slot,
+        pulseFromInputs: true,
+        onLog: ctx.onLog,
+        signal: ctx.signal,
+      });
+    }
     case NODE_TYPES.MICROBIT_READ_TEMPERATURE_INPUT: {
       const transportRaw = data.transport;
       const transport =
@@ -137,6 +179,22 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
         nodeId: String(flowNode.id),
         transport,
         slot,
+        onLog: ctx.onLog,
+        signal: ctx.signal,
+      });
+    }
+    case NODE_TYPES.MICROBIT_READ_TEMPERATURE_PULSE_INPUT: {
+      const transportRaw = data.transport;
+      const transport =
+        transportRaw === "bluetooth" || transportRaw === "serial"
+          ? transportRaw
+          : "serial";
+      const slot = parseMicrobitSlot(data);
+      return new EngineMicrobitReadTemperatureNode({
+        nodeId: String(flowNode.id),
+        transport,
+        slot,
+        pulseFromInputs: true,
         onLog: ctx.onLog,
         signal: ctx.signal,
       });
@@ -156,6 +214,26 @@ export const compileInputNodes: NodeCompiler = (flowNode, ctx) => {
         slot,
         pin,
         mode,
+        onLog: ctx.onLog,
+        signal: ctx.signal,
+      });
+    }
+    case NODE_TYPES.MICROBIT_READ_PIN_PULSE_INPUT: {
+      const transportRaw = data.transport;
+      const transport =
+        transportRaw === "bluetooth" || transportRaw === "serial"
+          ? transportRaw
+          : "serial";
+      const slot = parseMicrobitSlot(data);
+      const pin = typeof data.pin === "string" ? data.pin : "P0";
+      const mode = data.mode === "analog" ? "analog" : "digital";
+      return new EngineMicrobitReadPinNode({
+        nodeId: String(flowNode.id),
+        transport,
+        slot,
+        pin,
+        mode,
+        pulseFromInputs: true,
         onLog: ctx.onLog,
         signal: ctx.signal,
       });

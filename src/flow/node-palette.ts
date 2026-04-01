@@ -32,6 +32,7 @@ const nodeAbstractionLevelMap: Record<
   AbstractionLevel | AbstractionRange
 > = {
   runtimeInput: 1,
+  runtimeInputPulse: 1,
   constantNumber: 1,
   constantBoolean: 1,
   constantText: 1,
@@ -40,8 +41,11 @@ const nodeAbstractionLevelMap: Record<
   randomInput: 2,
   choiceInput: 2,
   microbitReadButton: 3,
+  microbitReadButtonPulse: 3,
   microbitReadTemperature: 3,
+  microbitReadTemperaturePulse: 3,
   microbitReadPin: 3,
+  microbitReadPinPulse: 3,
 
   sum: { min: 1, max: 2 },
   subtract: { min: 1, max: 2 },
@@ -218,6 +222,12 @@ export const nodePalette: NodePaletteCategory[] = [
         id: "inputs-pulses",
         title: "Pulsos",
         items: [
+          {
+            type: "runtimeInputPulse",
+            label: "Leer pulsos",
+            description:
+              "Solicita entradas repetidas y emite un pulso por cada lectura.",
+          },
           {
             type: "pulseSequence",
             label: "Generar pulsos",
@@ -690,6 +700,24 @@ export const nodePalette: NodePaletteCategory[] = [
         type: "microbitReadPin",
         label: "Leer pin",
         description: "Lee un pin de la micro:bit emite el valor.",
+      },
+      {
+        type: "microbitReadButtonPulse",
+        label: "Botón pulsos",
+        description:
+          "Lee pulsaciones del botón de micro:bit en múltiples lecturas.",
+      },
+      {
+        type: "microbitReadTemperaturePulse",
+        label: "Temperatura pulsos",
+        description:
+          "Realiza lecturas de temperatura en pulsos con intervalo configurable.",
+      },
+      {
+        type: "microbitReadPinPulse",
+        label: "Pin pulsos",
+        description:
+          "Lee un pin digital/analógico de micro:bit varias veces en pulsos.",
       },
       {
         type: "microbitWrite",

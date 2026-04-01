@@ -560,6 +560,23 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
         positions: [...HANDLE_POSITIONS.single],
       });
 
+    case "runtimeInputPulse":
+    case "microbitReadButtonPulse":
+    case "microbitReadTemperaturePulse":
+    case "microbitReadPinPulse":
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in-1", "in-2"],
+          positions: [...HANDLE_POSITIONS.double],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
     // Sinks
     case "write":
     case "microbitWrite":
@@ -897,6 +914,7 @@ function getPreviewHandleBorderClass(type: string): string {
     type === "constantText" ||
     type === "constantList" ||
     type === "runtimeInput" ||
+    type === "runtimeInputPulse" ||
     type === "timerInput" ||
     type === "randomInput" ||
     type === "choiceInput"
@@ -908,8 +926,11 @@ function getPreviewHandleBorderClass(type: string): string {
 
   if (
     type === "microbitReadButton" ||
+    type === "microbitReadButtonPulse" ||
     type === "microbitReadTemperature" ||
+    type === "microbitReadTemperaturePulse" ||
     type === "microbitReadPin" ||
+    type === "microbitReadPinPulse" ||
     type === "microbitWrite" ||
     type === "microbitSound" ||
     type === "microbitWritePin"
@@ -1158,6 +1179,40 @@ function NodePreview({
               <Cpu className="h-6 w-6" />
             </span>
             <span className="px-1 text-xs leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "runtimeInputPulse": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border-emerald-600 bg-emerald-500 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-base font-bold leading-none">
+              <Keyboard className="h-5 w-5" />
+            </span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
+          </div>
+        );
+      }
+      case "microbitReadButtonPulse":
+      case "microbitReadTemperaturePulse":
+      case "microbitReadPinPulse": {
+        return (
+          <div
+            data-drag-preview
+            className="node-preview flex h-14 w-28 flex-col items-center justify-center gap-0.5 rounded-2xl border-sky-700 bg-sky-600 px-3 text-center text-white shadow-md"
+          >
+            <span className="text-base font-bold leading-none">
+              {type === "microbitReadButtonPulse" && (
+                <Cpu className="h-5 w-5" />
+              )}
+              {type === "microbitReadTemperaturePulse" && (
+                <Thermometer className="h-5 w-5" />
+              )}
+              {type === "microbitReadPinPulse" && <Cpu className="h-5 w-5" />}
+            </span>
+            <span className="text-[0.65rem] leading-tight">{label}</span>
           </div>
         );
       }

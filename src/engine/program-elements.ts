@@ -13,6 +13,10 @@ export type NodeMeta = {
   runtimeInputType?: "number" | "text";
   /** Optional default value for runtime input nodes. */
   runtimeDefaultValue?: unknown;
+  /** Number of runtime readings to emit as pulses. */
+  runtimePulseCount?: number;
+  /** Delay between runtime pulses, in milliseconds. */
+  runtimePulseIntervalMs?: number;
   /** micro:bit slot selection for nodes that talk to micro:bit. */
   microbitSlot?: number;
   /** Connection transport for micro:bit nodes. */
@@ -102,7 +106,7 @@ export class NodeDefinition {
     activationFunction: ActivationFunction,
     firePatterns: FirePatterns[],
     ports: string[],
-    meta?: NodeMeta
+    meta?: NodeMeta,
   ) {
     this._activationFunction = activationFunction;
     this._firePatterns = firePatterns;
@@ -131,7 +135,7 @@ export class NodeDefinition {
       this.activationFunction,
       [...this.firePatterns],
       [...this.ports],
-      this.meta
+      this.meta,
     );
   }
 }

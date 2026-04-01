@@ -73,9 +73,15 @@ export function IterationRectNodeShell({
         : variant === "doubleInSingleOut" && nodeType === "listFindElement"
           ? ["Lista", "Elemento"]
           : variant === "doubleInSingleOut" &&
-              (nodeType === "listPrepend" || nodeType === "listAppend")
-            ? ["Lista", "Elemento"]
-            : [];
+              (nodeType === "runtimeInputPulse" ||
+                nodeType === "microbitReadButtonPulse" ||
+                nodeType === "microbitReadTemperaturePulse" ||
+                nodeType === "microbitReadPinPulse")
+            ? ["Frecuencia", "Cantidad"]
+            : variant === "doubleInSingleOut" &&
+                (nodeType === "listPrepend" || nodeType === "listAppend")
+              ? ["Lista", "Elemento"]
+              : [];
 
   const maskFor = (params: {
     handleType: "source" | "target";
