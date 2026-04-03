@@ -8,8 +8,8 @@ import { clearStoredAuthSession, getStoredAuthUser } from "@/lib/auth";
 import type { AuthMode, AuthSessionUser } from "@/types";
 import { RecentPublishedProjectsSection } from "@/components/projects/RecentPublishedProjectsSection";
 import { MyProjectsSection } from "@/components/projects/MyProjectsSection";
-import { DistributedProgrammingSection } from "@/components/projects/DistributedProgrammingSection";
-import { PhysicalComputingSection } from "@/components/projects/PhysicalComputingSection";
+import { DistributedProgrammingSection } from "@/components/landing/DistributedProgrammingSection";
+import { PhysicalComputingSection } from "@/components/landing/PhysicalComputingSection";
 import makecodeSubflowSource from "../../makecode/nodeland-microbit.hex?raw";
 import stickerCohete from "@/assets/landing/cohete.png";
 import stickerCompas from "@/assets/landing/compas.png";
@@ -18,7 +18,8 @@ import stickerLoro from "@/assets/landing/loro.png";
 import stickerRegla from "@/assets/landing/regla.png";
 import ucabLogo from "@/assets/landing/ucab-logo.png";
 import labLogo from "@/assets/landing/lab-logo.png";
-import { DataflowParadigmSection } from "@/components/projects/DataflowParadigmSection";
+import { DataflowParadigmSection } from "@/components/landing/DataflowParadigmSection";
+import UserManualButton from "@/components/landing/UserManualButton";
 
 export default function ModeSelectPage() {
   const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
@@ -225,6 +226,7 @@ export default function ModeSelectPage() {
       </section>
 
       <DevelopedByFooter />
+      <UserManualButton />
     </div>
   );
 }
