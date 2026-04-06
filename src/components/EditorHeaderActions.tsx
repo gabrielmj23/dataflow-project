@@ -81,7 +81,7 @@ export function EditorHeaderActions({
         type="button"
         onClick={onDownloadClick}
       >
-        Descargar
+        Guardar
         <Download className="text-white" />
       </Button>
       <Button
@@ -90,7 +90,7 @@ export function EditorHeaderActions({
         type="button"
         onClick={onLoadClick}
       >
-        Subir
+        Abrir
         <Upload className="text-white" />
       </Button>
       <Tooltip>

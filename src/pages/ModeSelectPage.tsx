@@ -20,6 +20,7 @@ import ucabLogo from "@/assets/landing/ucab-logo.png";
 import labLogo from "@/assets/landing/lab-logo.png";
 import { DataflowParadigmSection } from "@/components/landing/DataflowParadigmSection";
 import UserManualButton from "@/components/landing/UserManualButton";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function ModeSelectPage() {
   const [isChallengeDialogOpen, setIsChallengeDialogOpen] = useState(false);
@@ -29,13 +30,17 @@ export default function ModeSelectPage() {
     getStoredAuthUser(),
   );
 
+  const queryClient = useQueryClient();
+
   const handleAuthSuccess = (user: AuthSessionUser) => {
     setCurrentUser(user);
+    queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
     setIsAuthDialogOpen(false);
   };
 
   const handleLogout = () => {
     clearStoredAuthSession();
+    queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
     setCurrentUser(null);
   };
 

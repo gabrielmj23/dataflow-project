@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ReactFlow,
   Background,
@@ -76,7 +76,11 @@ import { getLayoutedElements } from "@/utils/layout";
 import { CreateSubflowOverlay } from "@/components/CreateSubflowOverlay";
 import { useWindowSize } from "react-use";
 import Confetti from "react-confetti";
-import { getStoredAuthToken, getStoredAuthUser } from "@/lib/auth";
+import {
+  clearStoredAuthSession,
+  getStoredAuthToken,
+  getStoredAuthUser,
+} from "@/lib/auth";
 import { toast } from "sonner";
 import { PublishProjectDialog } from "@/components/projects/PublishProjectDialog";
 import {
@@ -103,6 +107,8 @@ import {
 import { UploadCloud } from "lucide-react";
 import type { AuthSessionUser } from "@/types";
 import { Button } from "@/components/ui/button";
+import { AuthDialog } from "@/components/auth/AuthDialog";
+import type { AuthMode } from "@/types";
 import {
   fetchExtensionById,
   type ExtensionListItem,
@@ -112,6 +118,15 @@ import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
 import microbitExample from "@/examples/microbit-example.json";
 import distributionExample from "@/examples/distribution-example.json";
 import dataflowExample from "@/examples/dataflow-example.json";
+import { ChevronDown, LogIn, LogOut, UserRound } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const initialNodes: FlowNode[] = [];
 const initialEdges: FlowEdge[] = [];
@@ -280,6 +295,7 @@ const INITIAL_PROJECT_SAVE_SIGNATURE = buildUnsavedChangesSignature({
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const {
     config: remoteConfig,
@@ -303,10 +319,14 @@ export default function EditorPage() {
     remixedFromId: string;
     remixedFromName: string | null;
   } | null>(null);
-  const [authUser] = useState<AuthSessionUser | null>(() =>
+  const [authUser, setAuthUser] = useState<AuthSessionUser | null>(() =>
     getStoredAuthUser(),
   );
-  const [authToken] = useState<string | null>(() => getStoredAuthToken());
+  const [authToken, setAuthToken] = useState<string | null>(() =>
+    getStoredAuthToken(),
+  );
+  const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("login");
   const isAuthenticated = Boolean(authUser && authToken);
   const [projectDescription, setProjectDescription] = useState<string>("");
   const [isProgramLoading, setIsProgramLoading] = useState(false);
@@ -729,6 +749,24 @@ export default function EditorPage() {
     setIsConsoleOpen(true);
     return onRunClick();
   }, [onRunClick]);
+
+  const handleAuthSuccess = useCallback(
+    (user: AuthSessionUser) => {
+      setAuthUser(user);
+      setAuthToken(getStoredAuthToken());
+      setIsAuthDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+    },
+    [queryClient],
+  );
+
+  const handleLogout = useCallback(() => {
+    clearStoredAuthSession();
+    setAuthUser(null);
+    setAuthToken(null);
+    queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+    toast.success("Sesión cerrada.");
+  }, [queryClient]);
 
   const challenge = useChallengeManager({
     challengeId,
@@ -1594,6 +1632,10 @@ export default function EditorPage() {
             : normalizedGuestAuthorName || undefined,
         });
 
+        if (shouldPublishNow) {
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+        }
+
         setProgramName(normalizedName);
         setProjectDescription(description);
         if (!isAuthenticated) {
@@ -1642,6 +1684,7 @@ export default function EditorPage() {
       thumbnailPreview,
       navigate,
       markAsSaved,
+      queryClient,
     ],
   );
 
@@ -1708,6 +1751,8 @@ export default function EditorPage() {
             : normalizedGuestAuthorName,
         });
 
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+
         setProgramName(normalizedName);
         setProjectDescription(description);
         if (!isAuthenticated) {
@@ -1745,6 +1790,7 @@ export default function EditorPage() {
       thumbnailPreview,
       updatePublishedProjectMutation,
       markAsSaved,
+      queryClient,
     ],
   );
 
@@ -1770,6 +1816,63 @@ export default function EditorPage() {
           }
         >
           <AppHeader centerTitle={challenge.challengeDefinition?.title}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="inline-flex items-center gap-2 rounded-md border border-white/30 bg-white/10 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/15 hover:text-white"
+                >
+                  <UserRound size={16} className="text-white" />
+                  <span className="max-w-32 truncate">
+                    {isAuthenticated && authUser ? authUser.name : "Invitado"}
+                  </span>
+                  <ChevronDown size={14} className="opacity-80" />
+                </Button>
+              </DropdownMenuTrigger>
+
+              <DropdownMenuContent align="end" className="w-60">
+                {isAuthenticated && authUser ? (
+                  <>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                      Sesión iniciada
+                    </DropdownMenuLabel>
+                    <DropdownMenuLabel className="pt-0 font-semibold">
+                      {authUser.name}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={handleLogout}>
+                      <LogOut size={16} />
+                      Cerrar sesión
+                    </DropdownMenuItem>
+                  </>
+                ) : (
+                  <>
+                    <DropdownMenuLabel className="text-xs text-muted-foreground">
+                      No has iniciado sesión
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAuthMode("login");
+                        setIsAuthDialogOpen(true);
+                      }}
+                    >
+                      <LogIn size={16} />
+                      Iniciar sesión
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        setAuthMode("register");
+                        setIsAuthDialogOpen(true);
+                      }}
+                    >
+                      <UserRound size={16} />
+                      Registrarse
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
             {openedProjectRemixInfo ? (
               <Link
                 to={`/editor/${openedProjectRemixInfo.remixedFromId}`}
@@ -2183,6 +2286,14 @@ export default function EditorPage() {
               shouldPublishNow,
             );
           }}
+        />
+
+        <AuthDialog
+          visible={isAuthDialogOpen}
+          mode={authMode}
+          onModeChange={setAuthMode}
+          onClose={() => setIsAuthDialogOpen(false)}
+          onAuthSuccess={handleAuthSuccess}
         />
       </SidebarProvider>
     </RemoteControllersProvider>
