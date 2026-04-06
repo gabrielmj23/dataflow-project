@@ -9,7 +9,12 @@ type UseUnsavedChangesGuardParams = {
 };
 
 export function buildUnsavedChangesSignature(payload: unknown): string {
-  return JSON.stringify(payload);
+  return JSON.stringify(payload, (key, value) => {
+    if (key === "viewport") {
+      return undefined;
+    }
+    return value;
+  });
 }
 
 export function useUnsavedChangesGuard({
@@ -66,6 +71,10 @@ export function useUnsavedChangesGuard({
     }
 
     const onDocumentClick = (event: MouseEvent) => {
+      if (!event.isTrusted) {
+        return;
+      }
+
       if (event.defaultPrevented) {
         return;
       }
@@ -93,8 +102,16 @@ export function useUnsavedChangesGuard({
         return;
       }
 
+      if (target.hasAttribute("download")) {
+        return;
+      }
+
       const href = target.getAttribute("href");
       if (!href || href.startsWith("#")) {
+        return;
+      }
+
+      if (href.startsWith("blob:") || href.startsWith("data:")) {
         return;
       }
 

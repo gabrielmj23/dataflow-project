@@ -59,6 +59,7 @@ import {
   normalizeNodeTypeForEditor,
   projectClientToFlowPosition,
 } from "@/flow/editor-node-factory";
+import { getNodeDescription } from "@/flow/node-palette";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import { computeOpenPortsFromLookup } from "@/flow/subflow-utils";
 import { useSubcanvasNodeCreationLock } from "@/hooks/useSubcanvasNodeCreationLock";
@@ -867,6 +868,7 @@ export const ReplicateFlowNode = memo(
     return (
       <BaseNode
         runtimeError={runtimeError}
+        infoDescription={getNodeDescription("replicateFlow") ?? undefined}
         className="relative flex w-36 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md z-10"
         sideActionsClassName="top-auto -bottom-8 left-1/2 -translate-x-1/2 translate-y-0 flex flex-row items-center justify-center gap-2 w-auto h-auto bg-transparent backdrop-blur-none border-0 rounded-none shadow-none z-0"
         sideActions={
