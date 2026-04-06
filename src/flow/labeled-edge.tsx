@@ -18,6 +18,47 @@ import {
 } from "./edge-feedback-mode";
 import { EDGE_STROKE_WIDTH } from "./edge-appearance";
 
+function readAccentColorFromNode(node: unknown): string | null {
+  if (!node || typeof node !== "object") return null;
+
+  const directData =
+    "data" in (node as Record<string, unknown>) &&
+    (node as { data?: unknown }).data &&
+    typeof (node as { data?: unknown }).data === "object"
+      ? ((node as { data?: unknown }).data as Record<string, unknown>)
+      : null;
+
+  const internalUserData =
+    "internals" in (node as Record<string, unknown>) &&
+    (node as { internals?: unknown }).internals &&
+    typeof (node as { internals?: unknown }).internals === "object" &&
+    "userNode" in
+      ((node as { internals?: unknown }).internals as Record<string, unknown>)
+      ? (() => {
+          const userNode = (
+            (node as { internals?: unknown }).internals as {
+              userNode?: unknown;
+            }
+          ).userNode;
+
+          if (!userNode || typeof userNode !== "object") return null;
+          const data = (userNode as { data?: unknown }).data;
+          return data && typeof data === "object"
+            ? (data as Record<string, unknown>)
+            : null;
+        })()
+      : null;
+
+  const candidates = [directData, internalUserData];
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const raw = candidate.accentColor;
+    if (typeof raw === "string" && raw.trim()) return raw;
+  }
+
+  return null;
+}
+
 type EdgeFocusState = {
   hoveredEdgeId: string | null;
   latchedEdgeIds: Set<string>;
@@ -216,6 +257,11 @@ export function LabeledEdge(props: EdgeProps) {
       ? ((sourceNode as { type?: unknown }).type as unknown)
       : null;
 
+  const sourceAccentColor = readAccentColorFromNode(sourceNode);
+  const targetAccentColor = readAccentColorFromNode(targetNode);
+
+  const edgeAccentColor = sourceAccentColor ?? targetAccentColor;
+
   const visualType = maskToVisualPortDataType(
     getPortTypeMask({
       nodeType: typeof sourceNodeType === "string" ? sourceNodeType : null,
@@ -232,6 +278,12 @@ export function LabeledEdge(props: EdgeProps) {
 
   const mergedStyle = {
     ...(style ?? {}),
+    ...(edgeAccentColor
+      ? {
+          stroke: edgeAccentColor,
+          "--xy-edge-stroke": edgeAccentColor,
+        }
+      : {}),
     strokeWidth,
     // Force all edges to be solid.
     strokeDasharray: "none",

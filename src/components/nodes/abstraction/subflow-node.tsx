@@ -97,6 +97,10 @@ import { buildProhibitedTermsError } from "@/lib/content-moderation";
 import { toast } from "sonner";
 import { getDarkerColor } from "@/utils/colors";
 import { useQueryClient } from "@tanstack/react-query";
+import { CanvasContextMenu } from "@/components/CanvasContextMenu";
+import { useClipboardSelection } from "@/hooks/useClipboardSelection";
+import { createNodeId } from "@/utils/id";
+import type { FlowEdge, FlowNode } from "@/utils/flow";
 
 export type SubflowNodeData = {
   label?: string;
@@ -247,6 +251,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   useSubcanvasNodeCreationLock(isEditorOpen);
+  const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isShareSubmitting, setIsShareSubmitting] = useState(false);
   const [shareSubmitError, setShareSubmitError] = useState<string | null>(null);
@@ -526,6 +531,84 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   }, []);
 
   const paletteLabelByType = editorPaletteLabelByType;
+
+  const [editorReactFlowInstance, setEditorReactFlowInstance] =
+    useState<ReactFlowInstance | null>(null);
+
+  const { copySelection, pasteSelection, onPaneMouseMove } =
+    useClipboardSelection({
+      nodes: syncedDraftNodes as FlowNode[],
+      edges: effectiveDraftEdges as FlowEdge[],
+      setNodes: setDraftNodes as React.Dispatch<React.SetStateAction<FlowNode[]>>,
+      setEdges: setDraftEdges as React.Dispatch<React.SetStateAction<FlowEdge[]>>,
+      reactFlowInstance: editorReactFlowInstance,
+    });
+
+  const addCommentAtContext = useCallback(() => {
+    if (!contextPoint) return;
+
+    const instance = editorReactFlowInstance as
+      | (ReactFlowInstance & {
+          screenToFlowPosition?: (pos: { x: number; y: number }) => {
+            x: number;
+            y: number;
+          };
+          project?: (pos: { x: number; y: number }) => { x: number; y: number };
+        })
+      | null;
+
+    const screenPos = { x: contextPoint.x, y: contextPoint.y };
+    const position =
+      instance?.screenToFlowPosition?.(screenPos) ??
+      instance?.project?.(screenPos) ?? { x: 0, y: 0 };
+
+    setDraftNodes((prev) => [
+      ...prev,
+      {
+        id: createNodeId(),
+        type: "comment",
+        position,
+        data: { text: "" },
+      } as Node,
+    ]);
+
+    setContextPoint(null);
+  }, [contextPoint, editorReactFlowInstance]);
+
+  useEffect(() => {
+    if (!isEditorOpen) return;
+
+    const handler = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTextInput =
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable);
+
+      if (isTextInput) return;
+
+      const key = e.key.toLowerCase();
+      const hasCtrlOrMeta = e.ctrlKey || e.metaKey;
+
+      if (hasCtrlOrMeta && key === "c") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        copySelection();
+        return;
+      }
+
+      if (hasCtrlOrMeta && key === "v") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        pasteSelection();
+      }
+    };
+
+    window.addEventListener("keydown", handler, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", handler, { capture: true });
+  }, [copySelection, isEditorOpen, pasteSelection]);
 
   type EditorFlowNode = Node & { type: string | undefined };
   const editorInstanceRef = useRef<ReactFlowInstance<
@@ -1039,93 +1122,106 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               </div>
 
               <div className="h-[60vh] w-full overflow-hidden rounded-md border">
-                <ReactFlowProvider>
-                  <ConnectionHighlightProvider value={connectionHighlight}>
-                    <ReactFlow
-                      id={editorFlowId}
-                      nodes={syncedDraftNodes.map((n) => ({
-                        ...n,
-                        type: normalizeNodeType(n.type),
-                        data:
-                          String(n.type) === "subflowInput"
-                            ? {
-                                ...(n.data ?? {}),
-                                onLabelChange: (nextLabel: string) =>
-                                  onDraftInputLabelChange(
-                                    String(n.id),
-                                    nextLabel,
-                                  ),
-                              }
-                            : n.data,
-                      }))}
-                      edges={effectiveDraftEdges}
-                      {...sharedEdgeConfig}
-                      connectionLineComponent={ArrowConnectionLine}
-                      nodeTypes={{
-                        ...nodeTypesCore,
-                        subflow: NestedSubflowNode,
-                      }}
-                      edgeTypes={{
-                        default: LabeledEdge,
-                      }}
-                      onNodesChange={onEditorNodesChange}
-                      onEdgesChange={onEditorEdgesChange}
-                      onConnect={onEditorConnect}
-                      isValidConnection={connectionTooltip.isValidConnection}
-                      onConnectStart={onEditorConnectStart}
-                      onConnectEnd={onEditorConnectEnd}
-                      onInit={(instance) => {
-                        editorInstanceRef.current = instance;
-                      }}
-                      onDrop={onEditorDrop}
-                      onDragOver={onEditorDragOver}
-                      onNodeDragStop={onEditorNodeDragStop}
-                      autoPanOnNodeDrag={false}
-                      panOnDrag={editorCanvasMode === "pan"}
-                      selectionOnDrag={editorCanvasMode === "select"}
-                      selectionMode={SelectionMode.Partial}
-                      className={
-                        editorCanvasMode === "pan"
-                          ? "rf-mode-pan"
-                          : "rf-mode-select"
-                      }
-                      fitView
-                      proOptions={{ hideAttribution: true }}
-                    >
-                      <ConnectionErrorTooltip
-                        open={connectionTooltip.tooltip.open}
-                        message={connectionTooltip.tooltip.message}
-                        x={connectionTooltip.tooltip.x}
-                        y={connectionTooltip.tooltip.y}
-                        onClose={connectionTooltip.hide}
-                      />
-                      <EditorStoreBridge
-                        onNodeLookup={(lookup) => {
-                          editorLookupRef.current = lookup;
+                <CanvasContextMenu
+                  onContextMenu={(event: React.MouseEvent) => {
+                    setContextPoint({ x: event.clientX, y: event.clientY });
+                  }}
+                  onAddComment={addCommentAtContext}
+                  copySelection={copySelection}
+                  pasteSelection={pasteSelection}
+                >
+                  <ReactFlowProvider>
+                    <ConnectionHighlightProvider value={connectionHighlight}>
+                      <ReactFlow
+                        id={editorFlowId}
+                        nodes={syncedDraftNodes.map((n) => ({
+                          ...n,
+                          type: normalizeNodeType(n.type),
+                          data:
+                            String(n.type) === "subflowInput"
+                              ? {
+                                  ...(n.data ?? {}),
+                                  onLabelChange: (nextLabel: string) =>
+                                    onDraftInputLabelChange(
+                                      String(n.id),
+                                      nextLabel,
+                                    ),
+                                }
+                              : n.data,
+                        }))}
+                        edges={effectiveDraftEdges}
+                        {...sharedEdgeConfig}
+                        connectionLineComponent={ArrowConnectionLine}
+                        nodeTypes={{
+                          ...nodeTypesCore,
+                          subflow: NestedSubflowNode,
                         }}
-                      />
-                      <Background variant={BackgroundVariant.Dots} />
-                      <Controls>
-                        <ControlButton
-                          onClick={() => setEditorCanvasMode("pan")}
-                          aria-pressed={editorCanvasMode === "pan"}
-                          title="Modo arrastrar (mover canvas)"
-                          className="rf-mode-toggle"
-                        >
-                          <Hand className="rf-icon-hand" />
-                        </ControlButton>
-                        <ControlButton
-                          onClick={() => setEditorCanvasMode("select")}
-                          aria-pressed={editorCanvasMode === "select"}
-                          title="Modo selección (cuadro)"
-                          className="rf-mode-toggle"
-                        >
-                          <MousePointer2 />
-                        </ControlButton>
-                      </Controls>
-                    </ReactFlow>
-                  </ConnectionHighlightProvider>
-                </ReactFlowProvider>
+                        edgeTypes={{
+                          default: LabeledEdge,
+                        }}
+                        onNodesChange={onEditorNodesChange}
+                        onEdgesChange={onEditorEdgesChange}
+                        onConnect={onEditorConnect}
+                        isValidConnection={connectionTooltip.isValidConnection}
+                        onConnectStart={onEditorConnectStart}
+                        onConnectEnd={onEditorConnectEnd}
+                        onInit={(instance) => {
+                          editorInstanceRef.current = instance;
+                          setEditorReactFlowInstance(
+                            instance as unknown as ReactFlowInstance,
+                          );
+                        }}
+                        onDrop={onEditorDrop}
+                        onDragOver={onEditorDragOver}
+                        onNodeDragStop={onEditorNodeDragStop}
+                        onPaneMouseMove={onPaneMouseMove}
+                        autoPanOnNodeDrag={false}
+                        panOnDrag={editorCanvasMode === "pan"}
+                        selectionOnDrag={editorCanvasMode === "select"}
+                        selectionMode={SelectionMode.Partial}
+                        className={
+                          editorCanvasMode === "pan"
+                            ? "rf-mode-pan"
+                            : "rf-mode-select"
+                        }
+                        fitView
+                        proOptions={{ hideAttribution: true }}
+                      >
+                        <ConnectionErrorTooltip
+                          open={connectionTooltip.tooltip.open}
+                          message={connectionTooltip.tooltip.message}
+                          x={connectionTooltip.tooltip.x}
+                          y={connectionTooltip.tooltip.y}
+                          onClose={connectionTooltip.hide}
+                        />
+                        <EditorStoreBridge
+                          onNodeLookup={(lookup) => {
+                            editorLookupRef.current = lookup;
+                          }}
+                        />
+                        <Background variant={BackgroundVariant.Dots} />
+                        <Controls>
+                          <ControlButton
+                            onClick={() => setEditorCanvasMode("pan")}
+                            aria-pressed={editorCanvasMode === "pan"}
+                            title="Modo arrastrar (mover canvas)"
+                            className="rf-mode-toggle"
+                          >
+                            <Hand className="rf-icon-hand" />
+                          </ControlButton>
+                          <ControlButton
+                            onClick={() => setEditorCanvasMode("select")}
+                            aria-pressed={editorCanvasMode === "select"}
+                            title="Modo selección (cuadro)"
+                            className="rf-mode-toggle"
+                          >
+                            <MousePointer2 />
+                          </ControlButton>
+                        </Controls>
+                      </ReactFlow>
+                    </ConnectionHighlightProvider>
+                  </ReactFlowProvider>
+                </CanvasContextMenu>
               </div>
             </div>
             <DialogFooter>

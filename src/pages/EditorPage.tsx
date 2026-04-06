@@ -25,6 +25,7 @@ import LevelCompleteDialog from "@/components/LevelCompleteDialog";
 import { ConsolePanel } from "@/components/ConsolePanel";
 import { CreateSubflowDialog } from "@/components/CreateSubflowDialog";
 import { DeleteSubflowDialog } from "@/components/DeleteSubflowDialog";
+import { DeleteExtensionDialog } from "@/components/DeleteExtensionDialog";
 import { TopBar } from "@/components/TopBar";
 import { TopActionPanel } from "@/components/TopActionPanel";
 import { EditorCanvasControls } from "@/components/EditorCanvasControls";
@@ -372,10 +373,23 @@ export default function EditorPage() {
   const [addedExtensionRefs, setAddedExtensionRefs] = useState<
     SavedExtensionReference[]
   >(() => parseSavedExtensionReferences());
+  const [pendingDeleteExtensionId, setPendingDeleteExtensionId] = useState<
+    string | null
+  >(null);
 
   const existingExtensionIds = useMemo(
     () => addedExtensionRefs.map((extension) => extension.id),
     [addedExtensionRefs],
+  );
+
+  const pendingDeleteExtension = useMemo(
+    () =>
+      pendingDeleteExtensionId
+        ? addedExtensionRefs.find(
+            (extension) => extension.id === pendingDeleteExtensionId,
+          ) ?? null
+        : null,
+    [addedExtensionRefs, pendingDeleteExtensionId],
   );
 
   useEffect(() => {
@@ -537,6 +551,39 @@ export default function EditorPage() {
     },
     [existingExtensionIds, refreshExtensionInPalette],
   );
+
+  const requestDeleteExtensionFromPalette = useCallback(
+    (extensionId: string) => {
+      setPendingDeleteExtensionId(extensionId);
+    },
+    [],
+  );
+
+  const cancelDeleteExtensionFromPalette = useCallback(() => {
+    setPendingDeleteExtensionId(null);
+  }, []);
+
+  const confirmDeleteExtensionFromPalette = useCallback(() => {
+    if (!pendingDeleteExtension) {
+      setPendingDeleteExtensionId(null);
+      return;
+    }
+
+    for (const templateId of pendingDeleteExtension.templateIds) {
+      deleteTemplate(templateId);
+    }
+
+    setAddedExtensionRefs((prev) => {
+      const next = prev.filter(
+        (extension) => extension.id !== pendingDeleteExtension.id,
+      );
+      localStorage.setItem(EXTENSION_REFERENCES_KEY, JSON.stringify(next));
+      return next;
+    });
+
+    toast.success(`Extension ${pendingDeleteExtension.name} eliminada.`);
+    setPendingDeleteExtensionId(null);
+  }, [deleteTemplate, pendingDeleteExtension]);
 
   useEffect(() => {
     if (hasHydratedExtensionsRef.current) return;
@@ -1218,6 +1265,7 @@ export default function EditorPage() {
           id: `extension-${extension.id}`,
           title: extension.name,
           accentColor: extension.color,
+          extensionId: extension.id,
           items,
         };
       })
@@ -1851,6 +1899,9 @@ export default function EditorPage() {
               onAbstractionLevelChange={onAbstractionLevelChange}
               onDeleteTemplate={subflow.requestDeleteTemplate}
               onAddExtension={handleAddExtensionToPalette}
+              onDeleteExtension={(extensionId) => {
+                requestDeleteExtensionFromPalette(extensionId);
+              }}
               existingExtensionIds={existingExtensionIds}
               showAbstractionFilter={!challenge.challengeAllowSet}
             />
@@ -2082,6 +2133,16 @@ export default function EditorPage() {
           }}
           onCancel={subflow.cancelDeleteTemplate}
           onConfirm={subflow.confirmDeleteTemplate}
+        />
+
+        <DeleteExtensionDialog
+          open={pendingDeleteExtensionId !== null}
+          extensionName={pendingDeleteExtension?.name ?? null}
+          onOpenChange={(open) => {
+            if (!open) cancelDeleteExtensionFromPalette();
+          }}
+          onCancel={cancelDeleteExtensionFromPalette}
+          onConfirm={confirmDeleteExtensionFromPalette}
         />
 
         {pendingAbstractionLevel !== null ? (

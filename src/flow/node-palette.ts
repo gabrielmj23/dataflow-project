@@ -16,6 +16,7 @@ export type NodePaletteCategory = {
   title: string;
   items: NodePaletteItem[];
   accentColor?: string;
+  extensionId?: string;
   /** Optional nested subcategories */
   subcategories?: NodePaletteCategory[];
 };
