@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ReactFlow,
   Background,
@@ -280,6 +280,7 @@ const INITIAL_PROJECT_SAVE_SIGNATURE = buildUnsavedChangesSignature({
 export default function EditorPage() {
   const { challengeId } = useParams<{ challengeId?: string }>();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const {
     config: remoteConfig,
@@ -1594,6 +1595,10 @@ export default function EditorPage() {
             : normalizedGuestAuthorName || undefined,
         });
 
+        if (shouldPublishNow) {
+          queryClient.invalidateQueries({ queryKey: ["projects"] });
+        }
+
         setProgramName(normalizedName);
         setProjectDescription(description);
         if (!isAuthenticated) {
@@ -1642,6 +1647,7 @@ export default function EditorPage() {
       thumbnailPreview,
       navigate,
       markAsSaved,
+      queryClient,
     ],
   );
 
@@ -1708,6 +1714,8 @@ export default function EditorPage() {
             : normalizedGuestAuthorName,
         });
 
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+
         setProgramName(normalizedName);
         setProjectDescription(description);
         if (!isAuthenticated) {
@@ -1745,6 +1753,7 @@ export default function EditorPage() {
       thumbnailPreview,
       updatePublishedProjectMutation,
       markAsSaved,
+      queryClient,
     ],
   );
 

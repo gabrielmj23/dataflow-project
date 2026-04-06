@@ -164,7 +164,7 @@ export function PublishProjectDialog({
 
     if (isAnalyzingThumbnail) {
       setThumbnailOverrideError(
-        "Espera a que termine el analisis de la imagen antes de publicar.",
+        "Espera a que termine el análisis de la imagen antes de publicar.",
       );
       return;
     }

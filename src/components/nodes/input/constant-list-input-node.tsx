@@ -1,7 +1,6 @@
 import { memo, useCallback, useId, useMemo, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { List } from "lucide-react";
-
 import { InputCircleNodeShell } from "@/components/nodes/input/input-circle-node-shell";
 import {
   Dialog,
@@ -39,8 +38,7 @@ function itemsToMultiline(items: Array<string | number>): string {
 export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
   const { items: rawItems } = (data ?? {}) as ConstantListInputNodeData;
 
-  const items =
-    Array.isArray(rawItems) && rawItems.length > 0 ? rawItems : DEFAULT_ITEMS;
+  const items = Array.isArray(rawItems) ? rawItems : DEFAULT_ITEMS;
 
   const { setNodes } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -69,13 +67,6 @@ export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
 
   const parsedDraft = useMemo(() => parseItems(draftText), [draftText]);
 
-  const validation = useMemo(() => {
-    if (parsedDraft.length === 0) {
-      return { isValid: false, message: "Agrega al menos un valor." };
-    }
-    return { isValid: true, message: "" };
-  }, [parsedDraft.length]);
-
   const openDialog = useCallback(() => {
     setDraftText(itemsToMultiline(items));
     setIsDialogOpen(true);
@@ -87,7 +78,7 @@ export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
     return count === 1 ? "1 valor" : `${count} valores`;
   }, [items.length]);
 
-    const iconComponent = (
+  const iconComponent = (
     <div
       className="cursor-pointer hover:scale-110 transition-transform flex items-center justify-center"
       onClick={(e) => {
@@ -140,18 +131,10 @@ export const ConstantListInputNode = memo(({ id, data }: NodeProps) => {
               </p>
             </div>
 
-            {!validation.isValid && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                {validation.message}
-              </div>
-            )}
-
             <div className="flex items-center justify-end gap-2">
               <Button
                 type="button"
-                disabled={!validation.isValid}
                 onClick={() => {
-                  if (!validation.isValid) return;
                   setItems(parsedDraft);
                   setIsDialogOpen(false);
                 }}
