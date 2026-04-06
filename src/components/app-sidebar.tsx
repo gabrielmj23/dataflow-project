@@ -3,6 +3,7 @@ import type { DragEvent, TouchEvent } from "react";
 import {
   ChevronDown,
   ChevronRight,
+  Trash2,
   Timer,
   Shuffle,
   Keyboard,
@@ -81,6 +82,10 @@ type AppSidebarProps = {
   ) => boolean | Promise<boolean>;
   onDeleteTemplate?: (templateId: string) => void;
   onAddExtension?: (extension: ExtensionListItem) => boolean | Promise<boolean>;
+  onDeleteExtension?: (
+    extensionId: string,
+    extensionName: string,
+  ) => void;
   existingExtensionIds?: string[];
   showAbstractionFilter?: boolean;
   className?: string;
@@ -92,6 +97,7 @@ export function AppSidebar({
   onAbstractionLevelChange,
   onDeleteTemplate,
   onAddExtension,
+  onDeleteExtension,
   existingExtensionIds = [],
   showAbstractionFilter = true,
   className,
@@ -363,8 +369,21 @@ export function AppSidebar({
                     }))
                   }
                 >
-                  <span>{category.title}</span>
-                  <span className="text-muted-foreground">
+                  <span className="min-w-0 truncate">{category.title}</span>
+                  <span className="flex items-center gap-1 text-muted-foreground">
+                    {category.extensionId && onDeleteExtension ? (
+                      <button
+                        type="button"
+                        className="inline-flex h-5 w-5 items-center justify-center rounded-sm hover:bg-muted-foreground/15"
+                        aria-label={`Eliminar extension ${category.title}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onDeleteExtension(category.extensionId!, category.title);
+                        }}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    ) : null}
                     {collapsed[category.id] ? (
                       <ChevronRight className="h-3 w-3" />
                     ) : (
@@ -406,10 +425,14 @@ export function AppSidebar({
                                   accentColor={item.accentColor}
                                   description={item.description}
                                   isCustom={
-                                    !!item.templateId && !!onDeleteTemplate
+                                    !!item.templateId &&
+                                    !!onDeleteTemplate &&
+                                    !category.extensionId
                                   }
                                   onDelete={
-                                    item.templateId && onDeleteTemplate
+                                    item.templateId &&
+                                    onDeleteTemplate &&
+                                    !category.extensionId
                                       ? () => onDeleteTemplate(item.templateId!)
                                       : undefined
                                   }
@@ -457,10 +480,14 @@ export function AppSidebar({
                                       accentColor={item.accentColor}
                                       description={item.description}
                                       isCustom={
-                                        !!item.templateId && !!onDeleteTemplate
+                                        !!item.templateId &&
+                                        !!onDeleteTemplate &&
+                                        !category.extensionId
                                       }
                                       onDelete={
-                                        item.templateId && onDeleteTemplate
+                                        item.templateId &&
+                                        onDeleteTemplate &&
+                                        !category.extensionId
                                           ? () =>
                                               onDeleteTemplate(item.templateId!)
                                           : undefined
