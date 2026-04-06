@@ -624,16 +624,16 @@ export const nodePalette: NodePaletteCategory[] = [
     title: "Control de Flujo",
     items: [
       {
-        type: "desvio",
-        label: "Desvio",
-        description:
-          "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
-      },
-      {
         type: "relevo",
         label: "Relevo",
         description:
           "Recibe una entrada por la izquierda y emite siempre el valor conectado por arriba.",
+      },
+      {
+        type: "desvio",
+        label: "Desvío",
+        description:
+          "Desvía el valor de entrada a la salida superior si la condición es verdadera, o a la inferior si es falsa.",
       },
       {
         type: "selector",

@@ -19,6 +19,7 @@ import {
   getPortTypeMask,
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
+import { getNodeDescription } from "@/flow/node-palette";
 
 export type BarrierNodeData = {
   label?: string;
@@ -37,8 +38,11 @@ function offsets(count: number): string[] {
 }
 
 export const BarrierNode = memo(({ id, data }: NodeProps) => {
-  const { label = "Barrera", runtimeError, portCount } =
-    (data ?? {}) as BarrierNodeData;
+  const {
+    label = "Barrera",
+    runtimeError,
+    portCount,
+  } = (data ?? {}) as BarrierNodeData;
 
   const { setNodes } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -90,6 +94,7 @@ export const BarrierNode = memo(({ id, data }: NodeProps) => {
   return (
     <BaseNode
       runtimeError={runtimeError}
+      infoDescription={getNodeDescription("barrier") ?? undefined}
       className="relative flex w-28 flex-col items-center justify-center rounded-none border-yellow-600 bg-yellow-500 px-3 py-2 text-center text-white shadow-md"
       style={{ height: `${nodeHeight}px` }}
       sideActionsClassName="top-auto -bottom-8 left-1/2 -translate-x-1/2 translate-y-0 flex flex-row items-center justify-center gap-2 w-auto h-auto bg-transparent backdrop-blur-none border-0 rounded-none shadow-none z-0"

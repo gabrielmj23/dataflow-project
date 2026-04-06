@@ -10,6 +10,7 @@ import {
   getPortTypeMask,
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
+import { getNodeDescription } from "@/flow/node-palette";
 import {
   Position,
   useReactFlow,
@@ -102,6 +103,7 @@ export const ScatterNode = memo(({ id, data }: NodeProps) => {
   return (
     <BaseNode
       runtimeError={runtimeError}
+      infoDescription={getNodeDescription("scatter") ?? undefined}
       disableRuntimeStyles
       className="relative flex h-40 w-18 items-center justify-center bg-transparent border-transparent shadow-none"
       hideDeleteButton={false}
