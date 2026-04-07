@@ -67,8 +67,6 @@ import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-node";
 import { useRemoteControllers } from "@/ws/remote-controllers-context";
-import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
-import type { MicrobitConnectionType } from "@/microbit/slot-manager";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { deleteDraggedNodesOutsideViewport } from "@/flow/drag-delete";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
@@ -86,7 +84,6 @@ import { CanvasContextMenu } from "@/components/CanvasContextMenu";
 import { useClipboardSelection } from "@/hooks/useClipboardSelection";
 import { createNodeId } from "@/utils/id";
 import type { FlowEdge, FlowNode } from "@/utils/flow";
-import { MicrobitConnectedSlotSelect } from "@/components/nodes/microbit/microbit-connected-slot-select";
 
 export type ReplicateFlowNodeData = {
   label?: string;
@@ -99,13 +96,11 @@ export type ReplicateFlowNodeData = {
   isSelfCall?: boolean;
 };
 
-type ReplicateFlowExecutionTarget = "local" | "controller" | "microbit";
+type ReplicateFlowExecutionTarget = "local" | "controller";
 
 type ReplicateFlowRemoteConnection = {
   id: string;
   executionTarget: ReplicateFlowExecutionTarget;
-  transport?: MicrobitConnectionType;
-  microbitSlot?: number;
   controllerId?: string;
   controllerName?: string;
 };
@@ -125,12 +120,7 @@ function parseReplicateFlowConnections(params: {
           if (!entry || typeof entry !== "object") return null;
           const item = entry as Partial<ReplicateFlowRemoteConnection>;
           const executionTarget: ReplicateFlowExecutionTarget =
-            item.executionTarget === "controller" ||
-            item.executionTarget === "microbit"
-              ? item.executionTarget
-              : "local";
-          const transport: MicrobitConnectionType =
-            item.transport === "bluetooth" ? "bluetooth" : "serial";
+            item.executionTarget === "controller" ? "controller" : "local";
           const idValue =
             typeof item.id === "string" && item.id.trim().length > 0
               ? item.id.trim()
@@ -138,8 +128,6 @@ function parseReplicateFlowConnections(params: {
           return {
             id: idValue,
             executionTarget,
-            transport,
-            microbitSlot: sanitizeSlot(item.microbitSlot ?? index + 1),
             controllerId:
               typeof item.controllerId === "string"
                 ? item.controllerId
@@ -163,7 +151,6 @@ function parseReplicateFlowConnections(params: {
     {
       id: "conn-1",
       executionTarget: "local",
-      transport: "serial",
     },
   ];
 }
@@ -269,7 +256,6 @@ export const ReplicateFlowNode = memo(
     const updateNodeInternals = useUpdateNodeInternals();
     const templateContext = useSubflowTemplateContext();
     const controllers = useRemoteControllers();
-    const connectedMicrobits = useConnectedMicrobitDevices();
     const targetSelectId = useId();
 
     const {
@@ -313,7 +299,6 @@ export const ReplicateFlowNode = memo(
             {
               id: nextId,
               executionTarget: "local",
-              transport: "serial",
             },
           ];
           return {
@@ -365,9 +350,6 @@ export const ReplicateFlowNode = memo(
       y: number;
     } | null>(null);
     const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
-    const [microbitConnectionError, setMicrobitConnectionError] = useState<
-      string | null
-    >(null);
     const [connectionDraft, setConnectionDraft] = useState<
       ReplicateFlowRemoteConnection[]
     >(() => parsedConnections);
@@ -548,6 +530,7 @@ export const ReplicateFlowNode = memo(
         reactFlowInstance: editorReactFlowInstance,
       });
 
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const addCommentAtContext = useCallback(() => {
       if (!contextPoint) return;
 
@@ -737,7 +720,6 @@ export const ReplicateFlowNode = memo(
           {
             id: nextId,
             executionTarget: "local" as const,
-            transport: "serial" as const,
           },
         ];
       });
@@ -751,8 +733,6 @@ export const ReplicateFlowNode = memo(
     };
 
     const saveConnections = () => {
-      setMicrobitConnectionError(null);
-
       const safeEntries =
         connectionDraft.length > 0
           ? connectionDraft
@@ -760,38 +740,15 @@ export const ReplicateFlowNode = memo(
               {
                 id: "conn-1",
                 executionTarget: "local" as const,
-                transport: "serial" as const,
               },
             ];
 
-      const normalizedEntries: ReplicateFlowRemoteConnection[] = [];
-      for (const entry of safeEntries) {
-        if (entry.executionTarget !== "microbit") {
-          normalizedEntries.push({
-            ...entry,
-            microbitSlot: undefined,
-            transport: undefined,
-          });
-          continue;
-        }
-
-        const slot = sanitizeSlot(entry.microbitSlot);
-        const selectedMicrobit = connectedMicrobits.find(
-          (item) => item.slot === slot,
-        );
-        if (!selectedMicrobit) {
-          setMicrobitConnectionError(
-            "Una de las conexiones micro:bit no tiene un dispositivo conectado seleccionado.",
-          );
-          return;
-        }
-
-        normalizedEntries.push({
+      const normalizedEntries: ReplicateFlowRemoteConnection[] =
+        safeEntries.map((entry) => ({
           ...entry,
-          microbitSlot: slot,
-          transport: selectedMicrobit.connectionType,
-        });
-      }
+          executionTarget:
+            entry.executionTarget === "controller" ? "controller" : "local",
+        }));
 
       setNodes((prev) =>
         prev.map((node) => {
@@ -934,7 +891,6 @@ export const ReplicateFlowNode = memo(
           !isSelfCall
             ? () => {
                 setConnectionDraft(parsedConnections);
-                setMicrobitConnectionError(null);
                 setIsConnectionDialogOpen(true);
               }
             : undefined
@@ -1260,22 +1216,12 @@ export const ReplicateFlowNode = memo(
                     <Select
                       value={entry.executionTarget}
                       onValueChange={(value) => {
-                        if (
-                          value !== "local" &&
-                          value !== "controller" &&
-                          value !== "microbit"
-                        ) {
+                        if (value !== "local" && value !== "controller") {
                           return;
                         }
 
                         updateDraftConnection(entry.id, {
                           executionTarget: value,
-                          microbitSlot:
-                            value === "microbit"
-                              ? (entry.microbitSlot ??
-                                connectedMicrobits[0]?.slot)
-                              : undefined,
-                          transport: undefined,
                           controllerId:
                             value === "controller"
                               ? (entry.controllerId ?? undefined)
@@ -1293,7 +1239,6 @@ export const ReplicateFlowNode = memo(
                       <SelectContent>
                         <SelectItem value="local">Esta PC</SelectItem>
                         <SelectItem value="controller">Otra PC</SelectItem>
-                        <SelectItem value="microbit">micro:bit</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1338,25 +1283,8 @@ export const ReplicateFlowNode = memo(
                       </Select>
                     </div>
                   )}
-
-                  {entry.executionTarget === "microbit" && (
-                    <MicrobitConnectedSlotSelect
-                      selectedSlot={entry.microbitSlot ?? null}
-                      connectedDevices={connectedMicrobits}
-                      onSlotChange={(slot) => {
-                        updateDraftConnection(entry.id, {
-                          microbitSlot: sanitizeSlot(slot),
-                        });
-                      }}
-                    />
-                  )}
                 </div>
               ))}
-              {microbitConnectionError && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-                  {microbitConnectionError}
-                </div>
-              )}
             </div>
 
             <DialogFooter>

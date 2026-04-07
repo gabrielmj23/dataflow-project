@@ -5,8 +5,6 @@ import { NODE_TYPES } from "@/common/constants";
 import { FirePatterns, NodeDefinition } from "../program-elements";
 import { asRecord } from "../deserialize/utils";
 import type { RemoteSubflowPayload } from "../deserialize/shared-types";
-import { microbitSlotManager } from "@/microbit/slot-manager";
-import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 
 import type { NodeCompiler } from "./types";
 
@@ -15,17 +13,9 @@ function isSubflowLikeType(type: string): boolean {
 }
 
 type SubflowExecutionConfig = {
-  executionTarget: "local" | "controller" | "microbit";
-  transport: "serial" | "bluetooth";
+  executionTarget: "local" | "controller";
   controllerId: string;
-  slot: number;
 };
-
-function sanitizeSlot(value: unknown): number {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return 1;
-  return Math.max(1, Math.min(8, Math.floor(n)));
-}
 
 function cloneValue<T>(value: T): T {
   if (typeof structuredClone === "function") {
@@ -53,24 +43,16 @@ function resolveExecutionConfigs(
   const connectionsRaw = data.remoteConnections;
   const connections = Array.isArray(connectionsRaw)
     ? connectionsRaw
-        .map((entry, index): SubflowExecutionConfig | null => {
+        .map((entry): SubflowExecutionConfig | null => {
           if (!entry || typeof entry !== "object") return null;
           const value = asRecord(entry);
           const executionTarget =
-            value.executionTarget === "controller" ||
-            value.executionTarget === "microbit"
-              ? value.executionTarget
-              : "local";
-          const transport =
-            value.transport === "bluetooth" ? "bluetooth" : "serial";
+            value.executionTarget === "controller" ? "controller" : "local";
           const controllerId =
             typeof value.controllerId === "string" ? value.controllerId : "";
-          const slot = sanitizeSlot(value.microbitSlot ?? index + 1);
           return {
             executionTarget,
-            transport,
             controllerId,
-            slot,
           };
         })
         .filter((value): value is SubflowExecutionConfig => Boolean(value))
@@ -83,9 +65,7 @@ function resolveExecutionConfigs(
   return [
     {
       executionTarget: "local",
-      transport: "serial",
       controllerId: "",
-      slot: 1,
     },
   ];
 }
@@ -317,9 +297,6 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
         })
       : null;
 
-    const rawId = templateId ?? String(flowNode.id);
-    const programId = rawId.replace(/[^a-zA-Z0-9._-]/g, "_").slice(0, 32);
-
     const currentTemplateId = ctx.subflowRuntimeContext?.currentTemplateId;
     const isRecursiveTemplate =
       Boolean(currentTemplateId) && currentTemplateId === selfTemplateId;
@@ -397,57 +374,35 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
             ? cloneArgsForReplica([args[index]])
             : [];
 
-          if (config.executionTarget === "controller") {
-            if (!executor) throw new Error("Ejecución remota no configurada.");
-            if (!config.controllerId) {
-              throw new Error("No hay controller seleccionado.");
-            }
-            if (!materializedForController || !controllerPlan) {
-              throw new Error(
-                "No se pudo materializar el subflujo para ejecución remota.",
-              );
-            }
-
-            const lastResult = await executor({
-              nodeId: String(flowNode.id),
-              controllerId: config.controllerId,
-              op: "subflow",
-              args: replicaArgs,
-              subflow: {
-                nodes: materializedForController.nodes,
-                edges: materializedForController.edges,
-                selectedInputs: controllerPlan.selectedInputs,
-                outputSources: controllerPlan.outputSources,
-                hasAnyOutput: controllerPlan.hasAnyOutput,
-              } satisfies RemoteSubflowPayload,
-            });
+          if (config.executionTarget === "local") {
+            const lastResult = await executeLocal(...replicaArgs);
             replicaResults.push(lastResult);
             continue;
           }
 
-          if (config.executionTarget === "microbit") {
-            const connection = microbitSlotManager.getConnection(config.slot);
-            if (!connection) {
-              throw new Error(
-                `La micro:bit del slot ${config.slot} no está conectada. Abre el diálogo "Conectar" del header y conéctala antes de ejecutar.`,
-              );
-            }
-
-            const lastResult = await sendSubflowToMicrobit({
-              connection,
-              nodes: subflowNodes as Node[],
-              edges: subflowEdges as Edge[],
-              selectedInputs: localPlan.selectedInputs,
-              outputSources: localPlan.outputSources,
-              args: replicaArgs,
-              programId,
-              signal: ctx.signal,
-            });
-            replicaResults.push(lastResult);
-            continue;
+          if (!executor) throw new Error("Ejecución remota no configurada.");
+          if (!config.controllerId) {
+            throw new Error("No hay controller seleccionado.");
+          }
+          if (!materializedForController || !controllerPlan) {
+            throw new Error(
+              "No se pudo materializar el subflujo para ejecución remota.",
+            );
           }
 
-          const lastResult = await executeLocal(...replicaArgs);
+          const lastResult = await executor({
+            nodeId: String(flowNode.id),
+            controllerId: config.controllerId,
+            op: "subflow",
+            args: replicaArgs,
+            subflow: {
+              nodes: materializedForController.nodes,
+              edges: materializedForController.edges,
+              selectedInputs: controllerPlan.selectedInputs,
+              outputSources: controllerPlan.outputSources,
+              hasAnyOutput: controllerPlan.hasAnyOutput,
+            } satisfies RemoteSubflowPayload,
+          });
           replicaResults.push(lastResult);
         }
 

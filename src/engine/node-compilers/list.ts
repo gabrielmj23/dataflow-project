@@ -603,7 +603,7 @@ export const compileListNodes: NodeCompiler = (flowNode, ctx) => {
                 onEdgeValue: ctx.onEdgeValue,
               });
 
-              if (Boolean(predicate)) {
+              if (predicate) {
                 output.push(item);
               }
             }
