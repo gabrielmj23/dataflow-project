@@ -24,6 +24,14 @@ export class SerialConnection implements MicrobitConnection {
       this.port = await navigator.serial.requestPort();
     }
 
+    if (this.port.readable || this.port.writable) {
+      try {
+        await this.port.close();
+      } catch {
+        // Ignore and let open() surface a meaningful error if it still fails.
+      }
+    }
+
     // Abre la conexión
     await this.port.open({ baudRate: 115200 });
 
@@ -50,9 +58,49 @@ export class SerialConnection implements MicrobitConnection {
    * Cierra la conexión serial
    */
   async disconnect(): Promise<void> {
-    if (this.reader) await this.reader.cancel();
-    if (this.writer) await this.writer.close();
-    if (this.port) await this.port.close();
+    const reader = this.reader;
+    const writer = this.writer;
+    const port = this.port;
+
+    this.reader = null;
+    this.writer = null;
+    this.port = null;
+
+    if (reader) {
+      try {
+        await reader.cancel();
+      } catch {
+        // Ignore reader cancellation errors during teardown.
+      }
+      try {
+        reader.releaseLock();
+      } catch {
+        // Ignore lock release errors during teardown.
+      }
+    }
+
+    if (writer) {
+      try {
+        await writer.close();
+      } catch {
+        // Ignore writer closing errors during teardown.
+      }
+      try {
+        writer.releaseLock();
+      } catch {
+        // Ignore lock release errors during teardown.
+      }
+    }
+
+    if (port) {
+      try {
+        await port.close();
+      } catch {
+        // Keep best-effort semantics: slot-manager already transitions state.
+      }
+    }
+
+    this.buffer = "";
   }
 
   /**
@@ -66,7 +114,7 @@ export class SerialConnection implements MicrobitConnection {
   getDeviceLabel(): string | undefined {
     try {
       // Intentamos obtener información del puerto si está disponible
-      const info = (this.port as any)?.getInfo ? (this.port as any).getInfo() : undefined;
+      const info = this.port?.getInfo ? this.port.getInfo() : undefined;
       if (info && (info.usbVendorId || info.usbProductId)) {
         const vid = info.usbVendorId ? info.usbVendorId.toString(16) : "";
         const pid = info.usbProductId ? info.usbProductId.toString(16) : "";
@@ -83,7 +131,9 @@ export class SerialConnection implements MicrobitConnection {
    */
   private async startReading() {
     const textDecoder = new TextDecoderStream();
-    this.port!.readable.pipeTo(textDecoder.writable);
+    this.port!.readable.pipeTo(textDecoder.writable).catch(() => {
+      // disconnect() may cancel the stream; this is expected.
+    });
     this.reader = textDecoder.readable.getReader();
 
     try {

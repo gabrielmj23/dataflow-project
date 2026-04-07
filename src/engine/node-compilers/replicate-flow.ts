@@ -65,7 +65,7 @@ function resolveExecutionConfigs(
             value.transport === "bluetooth" ? "bluetooth" : "serial";
           const controllerId =
             typeof value.controllerId === "string" ? value.controllerId : "";
-          const slot = sanitizeSlot(index + 1);
+          const slot = sanitizeSlot(value.microbitSlot ?? index + 1);
           return {
             executionTarget,
             transport,
@@ -429,7 +429,7 @@ export const compileReplicateFlowNodes: NodeCompiler = (flowNode, ctx) => {
             const connection = microbitSlotManager.getConnection(config.slot);
             if (!connection) {
               throw new Error(
-                `La conexión micro:bit en slot ${config.slot} no está conectada. Abre "Configurar conexiones remotas" y presiona Conectar en esa conexión.`,
+                `La micro:bit del slot ${config.slot} no está conectada. Abre el diálogo "Conectar" del header y conéctala antes de ejecutar.`,
               );
             }
 

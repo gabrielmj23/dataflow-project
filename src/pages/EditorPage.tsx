@@ -778,9 +778,7 @@ export default function EditorPage() {
 
     const microbitDevices = connectedMicrobitDevices.map((device) => ({
       id: `microbit-slot-${device.slot}`,
-      name: device.deviceLabel
-        ? `${device.deviceLabel} (micro:bit #${device.slot})`
-        : `micro:bit #${device.slot}`,
+      name: `Micro:bit #${device.slot}`,
       kind: "microbit" as const,
     }));
 

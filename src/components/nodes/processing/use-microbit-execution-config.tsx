@@ -1,9 +1,17 @@
-import { useCallback, useEffect, useId, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import { useReactFlow } from "@xyflow/react";
 
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -15,17 +23,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  connectMicrobit,
-  disconnectMicrobit,
-  getMicrobitTransport,
-  isMicrobitConnected,
-  type MicrobitTransport,
-} from "@/microbit/connection-manager";
-import {
-  getMicrobitSlotOptions,
-  sanitizeMicrobitSlot,
-} from "@/microbit/slot-utils";
+import { type MicrobitTransport } from "@/microbit/connection-manager";
+import { sanitizeMicrobitSlot } from "@/microbit/slot-utils";
+import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
+import { MicrobitConnectedSlotSelect } from "@/components/nodes/microbit/microbit-connected-slot-select";
 import { useRemoteControllers } from "@/ws/remote-controllers-context";
 
 type ExecutionTarget = "local" | "microbit" | "controller";
@@ -55,9 +56,9 @@ export function useMicrobitExecutionConfig(
 ): UseMicrobitExecutionConfigResult {
   const { setNodes, getNode } = useReactFlow();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const controllers = useRemoteControllers();
+  const connectedMicrobits = useConnectedMicrobitDevices();
 
   const executionTarget: ExecutionTarget =
     params.executionTarget === "microbit" ||
@@ -85,99 +86,94 @@ export function useMicrobitExecutionConfig(
     typeof params.controllerName === "string" ? params.controllerName : "";
 
   const targetSelectId = useId();
-  const transportSelectId = useId();
   const slotSelectId = useId();
-
-  const setExecutionTarget = useCallback(
-    (nextTarget: ExecutionTarget) => {
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === params.nodeId
-            ? {
-                ...node,
-                data: {
-                  ...(node.data ?? {}),
-                  executionTarget: nextTarget,
-                },
-              }
-            : node,
-        ),
-      );
-    },
-    [params.nodeId, setNodes],
-  );
-
-  const setTransport = useCallback(
-    (nextTransport: MicrobitTransport) => {
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === params.nodeId
-            ? {
-                ...node,
-                data: {
-                  ...(node.data ?? {}),
-                  transport: nextTransport,
-                },
-              }
-            : node,
-        ),
-      );
-    },
-    [params.nodeId, setNodes],
-  );
-
-  const setMicrobitSlot = useCallback(
-    (nextSlot: number) => {
-      const safeSlot = sanitizeMicrobitSlot(nextSlot);
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === params.nodeId
-            ? {
-                ...node,
-                data: {
-                  ...(node.data ?? {}),
-                  microbitSlot: safeSlot,
-                },
-              }
-            : node,
-        ),
-      );
-    },
-    [params.nodeId, setNodes],
-  );
-
-  const setControllerId = useCallback(
-    (nextControllerId: string) => {
-      const nextName = controllers.find(
-        (item) => item.id === nextControllerId,
-      )?.name;
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === params.nodeId
-            ? {
-                ...node,
-                data: {
-                  ...(node.data ?? {}),
-                  controllerId: nextControllerId || undefined,
-                  controllerName: nextControllerId
-                    ? nextName || undefined
-                    : undefined,
-                },
-              }
-            : node,
-        ),
-      );
-    },
-    [controllers, params.nodeId, setNodes],
+  const [draftExecutionTarget, setDraftExecutionTarget] =
+    useState<ExecutionTarget>(executionTarget);
+  const [draftControllerId, setDraftControllerId] =
+    useState<string>(controllerId);
+  const [draftMicrobitSlot, setDraftMicrobitSlot] = useState<number | null>(
+    null,
   );
 
   useEffect(() => {
-    if (executionTarget !== "controller") return;
-    if (!controllerId || !controllerName) return;
-    const hasId = controllers.some((item) => item.id === controllerId);
-    if (hasId) return;
-    const match = controllers.find((item) => item.name === controllerName);
-    if (!match || match.id === controllerId) return;
+    if (!isDialogOpen) {
+      return;
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setErrorMessage(null);
+    setDraftExecutionTarget(executionTarget);
+    setDraftControllerId(controllerId);
+
+    const isCurrentConnected = connectedMicrobits.some(
+      (device) => device.slot === microbitSlot,
+    );
+    if (isCurrentConnected) {
+      setDraftMicrobitSlot(microbitSlot);
+      return;
+    }
+
+    setDraftMicrobitSlot(connectedMicrobits[0]?.slot ?? null);
+  }, [
+    connectedMicrobits,
+    controllerId,
+    executionTarget,
+    isDialogOpen,
+    microbitSlot,
+  ]);
+
+  const canSave = useMemo(() => {
+    if (draftExecutionTarget === "controller") {
+      return !!draftControllerId;
+    }
+    if (draftExecutionTarget === "microbit") {
+      if (draftMicrobitSlot === null) return false;
+      return connectedMicrobits.some(
+        (device) => device.slot === draftMicrobitSlot,
+      );
+    }
+    return true;
+  }, [
+    connectedMicrobits,
+    draftControllerId,
+    draftExecutionTarget,
+    draftMicrobitSlot,
+  ]);
+
+  const save = useCallback(() => {
+    if (!canSave) {
+      setErrorMessage("Completa la configuración antes de guardar.");
+      return;
+    }
+
+    const patch: Record<string, unknown> = {
+      executionTarget: draftExecutionTarget,
+    };
+
+    if (draftExecutionTarget === "controller") {
+      const selectedController = controllers.find(
+        (item) => item.id === draftControllerId,
+      );
+      patch.controllerId = draftControllerId || undefined;
+      patch.controllerName = selectedController?.name ?? undefined;
+    } else {
+      patch.controllerId = undefined;
+      patch.controllerName = undefined;
+    }
+
+    if (draftExecutionTarget === "microbit") {
+      const selectedMicrobit = connectedMicrobits.find(
+        (item) => item.slot === draftMicrobitSlot,
+      );
+      if (!selectedMicrobit || draftMicrobitSlot === null) {
+        setErrorMessage(
+          "La micro:bit seleccionada no está conectada. Presiona 'Conectar' arriba a la derecha y vuelve a intentar.",
+        );
+        return;
+      }
+      patch.microbitSlot = draftMicrobitSlot;
+      patch.transport = selectedMicrobit.connectionType;
+    }
 
     setNodes((prev) =>
       prev.map((node) =>
@@ -186,67 +182,30 @@ export function useMicrobitExecutionConfig(
               ...node,
               data: {
                 ...(node.data ?? {}),
-                controllerId: match.id,
-                controllerName: match.name ?? controllerName,
+                ...patch,
               },
             }
           : node,
       ),
     );
+
+    setIsDialogOpen(false);
   }, [
+    canSave,
+    connectedMicrobits,
     controllers,
-    controllerId,
-    controllerName,
-    executionTarget,
+    draftControllerId,
+    draftExecutionTarget,
+    draftMicrobitSlot,
     params.nodeId,
     setNodes,
   ]);
 
-  const connectedInfo = (() => {
-    if (!isMicrobitConnected({ slot: microbitSlot })) {
-      return { ok: false as const, text: "" };
-    }
-    const t = getMicrobitTransport({ slot: microbitSlot });
-    return {
-      ok: true as const,
-      text:
-        t === "bluetooth"
-          ? `Conectado por Bluetooth (micro:bit #${microbitSlot})`
-          : t === "serial"
-            ? `Conectado por cable (Serial, micro:bit #${microbitSlot})`
-            : `Conectado (micro:bit #${microbitSlot})`,
-    };
-  })();
-
-  const connect = useCallback(async () => {
-    setIsConnecting(true);
-    setErrorMessage(null);
-    try {
-      await connectMicrobit({ transport, slot: microbitSlot });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [microbitSlot, transport]);
-
-  const disconnect = useCallback(async () => {
-    setIsConnecting(true);
-    setErrorMessage(null);
-    try {
-      await disconnectMicrobit({ slot: microbitSlot });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [microbitSlot]);
-
   const subtitle =
     executionTarget === "microbit"
-      ? `micro:bit #${microbitSlot}`
+      ? connectedMicrobits.some((device) => device.slot === microbitSlot)
+        ? `micro:bit #${microbitSlot}`
+        : `micro:bit #${microbitSlot} (no conectada)`
       : executionTarget === "controller"
         ? `${
             (controllers.find((c) => c.id === controllerId)?.name ??
@@ -271,14 +230,14 @@ export function useMicrobitExecutionConfig(
               Ejecutar en
             </label>
             <Select
-              value={executionTarget}
+              value={draftExecutionTarget}
               onValueChange={(value) => {
                 if (
                   value === "local" ||
                   value === "microbit" ||
                   value === "controller"
                 ) {
-                  setExecutionTarget(value);
+                  setDraftExecutionTarget(value);
                 }
               }}
             >
@@ -293,16 +252,16 @@ export function useMicrobitExecutionConfig(
             </Select>
           </div>
 
-          {executionTarget === "controller" && (
+          {draftExecutionTarget === "controller" && (
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-900">
                 PC remota
               </label>
               <Select
-                value={controllerId || undefined}
+                value={draftControllerId || undefined}
                 onValueChange={(value) => {
                   if (value === "__none__") return;
-                  setControllerId(value);
+                  setDraftControllerId(value);
                 }}
               >
                 <SelectTrigger>
@@ -328,119 +287,36 @@ export function useMicrobitExecutionConfig(
             </div>
           )}
 
-          {executionTarget === "microbit" && (
+          {draftExecutionTarget === "microbit" && (
             <>
-              <div>
-                <label
-                  htmlFor={slotSelectId}
-                  className="mb-2 block text-sm font-medium text-gray-900"
-                >
-                  Dispositivo micro:bit
-                </label>
-                <Select
-                  value={String(microbitSlot)}
-                  onValueChange={(value) => {
-                    setMicrobitSlot(Number.parseInt(value, 10));
-                  }}
-                >
-                  <SelectTrigger id={slotSelectId}>
-                    <SelectValue placeholder="Selecciona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getMicrobitSlotOptions().map((slot) => (
-                      <SelectItem key={slot} value={String(slot)}>
-                        Microbit #{slot}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Usa un dispositivo distinto por nodo si quieres conectar
-                  varias micro:bit a la vez.
-                </p>
-              </div>
-
-              <div>
-                <label
-                  htmlFor={transportSelectId}
-                  className="mb-2 block text-sm font-medium text-gray-900"
-                >
-                  Método de conexión
-                </label>
-                <Select
-                  value={transport}
-                  onValueChange={(value) => {
-                    if (value === "serial" || value === "bluetooth") {
-                      setTransport(value);
-                    }
-                  }}
-                >
-                  <SelectTrigger id={transportSelectId}>
-                    <SelectValue placeholder="Selecciona" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="serial">Cable (Web Serial)</SelectItem>
-                    <SelectItem value="bluetooth">
-                      Bluetooth (Web Bluetooth)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Nota: Para que aparezca el selector de dispositivo, usa Chrome
-                  o Edge y ejecuta la app en localhost/https.
-                </p>
-              </div>
-
-              <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                <p className="font-medium">Instrucciones rápidas</p>
-                <ol className="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
-                  <li>
-                    Conecta/enciende la micro:bit y prepara el programa que
-                    procesa comandos.
-                  </li>
-                  <li>
-                    Presiona <span className="font-semibold">Conectar</span>. Se
-                    abrirá una ventana pequeña de Chrome para seleccionar el
-                    dispositivo.
-                  </li>
-                  <li>
-                    Luego, al ejecutar el flujo, este nodo enviará la operación
-                    a la micro:bit y esperará el resultado.
-                  </li>
-                </ol>
-              </div>
-
-              {errorMessage && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                  {errorMessage}
-                </div>
-              )}
-
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs text-muted-foreground">
-                  {connectedInfo.ok ? connectedInfo.text : "No conectado"}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={isConnecting}
-                    onClick={disconnect}
-                  >
-                    Desconectar
-                  </Button>
-                  <Button
-                    type="button"
-                    disabled={isConnecting}
-                    onClick={connect}
-                  >
-                    {isConnecting ? "Conectando…" : "Conectar"}
-                  </Button>
-                </div>
-              </div>
+              <MicrobitConnectedSlotSelect
+                id={slotSelectId}
+                selectedSlot={draftMicrobitSlot}
+                connectedDevices={connectedMicrobits}
+                onSlotChange={(slot) => setDraftMicrobitSlot(slot)}
+              />
             </>
           )}
+
+          {errorMessage && (
+            <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+              {errorMessage}
+            </div>
+          )}
         </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => setIsDialogOpen(false)}
+          >
+            Cancelar
+          </Button>
+          <Button type="button" onClick={save} disabled={!canSave}>
+            Guardar
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
