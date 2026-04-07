@@ -1,4 +1,4 @@
-import { memo, useCallback, useId, useState } from "react";
+import { memo, useCallback, useEffect, useId, useState } from "react";
 import { useReactFlow, type NodeProps } from "@xyflow/react";
 import { Cpu } from "lucide-react";
 
@@ -6,6 +6,7 @@ import { IterationRectNodeShell } from "@/components/nodes/iteration/iteration-r
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -18,17 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-import {
-  connectMicrobit,
-  disconnectMicrobit,
-  getMicrobitTransport,
-  isMicrobitConnected,
-  type MicrobitTransport,
-} from "@/microbit/connection-manager";
-import {
-  getMicrobitSlotOptions,
-  sanitizeMicrobitSlot,
-} from "@/microbit/slot-utils";
+import { type MicrobitTransport } from "@/microbit/connection-manager";
+import { sanitizeMicrobitSlot } from "@/microbit/slot-utils";
+import { useConnectedMicrobitDevices } from "@/microbit/use-microbit-slot";
+import { MicrobitConnectedSlotSelect } from "@/components/nodes/microbit/microbit-connected-slot-select";
 
 const MICROBIT_DIGITAL_PIN_OPTIONS = [
   "P0",
@@ -86,90 +80,76 @@ export type MicrobitReadPinPulseNodeData = {
 export const MicrobitReadPinPulseInputNode = memo(({ id, data }: NodeProps) => {
   const {
     label = "Pin pulsos",
-    transport: rawTransport,
     microbitSlot: rawMicrobitSlot,
     pin: rawPin,
     mode: rawMode,
   } = (data ?? {}) as MicrobitReadPinPulseNodeData;
 
-  const transport: MicrobitTransport =
-    rawTransport === "bluetooth" || rawTransport === "serial"
-      ? rawTransport
-      : "serial";
   const microbitSlot = sanitizeMicrobitSlot(rawMicrobitSlot);
   const mode = sanitizeMode(rawMode);
   const pin = sanitizePin(rawPin, mode);
 
   const { setNodes } = useReactFlow();
+  const connectedDevices = useConnectedMicrobitDevices();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const transportSelectId = useId();
   const slotSelectId = useId();
   const pinSelectId = useId();
   const modeSelectId = useId();
+  const [draftSlot, setDraftSlot] = useState<number | null>(null);
+  const [draftMode, setDraftMode] = useState<MicrobitPinMode>(mode);
+  const [draftPin, setDraftPin] = useState<MicrobitPinName>(pin);
 
-  const patchData = useCallback(
-    (patch: Partial<MicrobitReadPinPulseNodeData>) => {
-      setNodes((prev) =>
-        prev.map((node) =>
-          node.id === id
-            ? {
-                ...node,
-                data: {
-                  ...(node.data ?? {}),
-                  ...patch,
-                },
-              }
-            : node,
-        ),
-      );
-    },
-    [id, setNodes],
-  );
+  useEffect(() => {
+    if (!isDialogOpen) return;
 
-  const connectedInfo = (() => {
-    if (!isMicrobitConnected({ slot: microbitSlot })) {
-      return { ok: false as const, text: "" };
+    setDraftMode(mode);
+    setDraftPin(pin);
+
+    const isCurrentConnected = connectedDevices.some(
+      (device) => device.slot === microbitSlot,
+    );
+    if (isCurrentConnected) {
+      setDraftSlot(microbitSlot);
+      return;
     }
-    const t = getMicrobitTransport({ slot: microbitSlot });
-    return {
-      ok: true as const,
-      text:
-        t === "bluetooth"
-          ? `Conectado por Bluetooth (micro:bit #${microbitSlot})`
-          : t === "serial"
-            ? `Conectado por cable (Serial, micro:bit #${microbitSlot})`
-            : `Conectado (micro:bit #${microbitSlot})`,
-    };
-  })();
 
-  const connect = useCallback(async () => {
-    setIsConnecting(true);
-    setErrorMessage(null);
-    try {
-      await connectMicrobit({ transport, slot: microbitSlot });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
-    } finally {
-      setIsConnecting(false);
-    }
-  }, [microbitSlot, transport]);
+    setDraftSlot(connectedDevices[0]?.slot ?? null);
+  }, [connectedDevices, isDialogOpen, microbitSlot, mode, pin]);
 
-  const disconnect = useCallback(async () => {
-    setIsConnecting(true);
-    setErrorMessage(null);
-    try {
-      await disconnectMicrobit({ slot: microbitSlot });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setErrorMessage(msg);
-    } finally {
-      setIsConnecting(false);
+  const canSave =
+    draftSlot !== null &&
+    connectedDevices.some((device) => device.slot === draftSlot);
+
+  const onSave = useCallback(() => {
+    if (!canSave || draftSlot === null) {
+      return;
     }
-  }, [microbitSlot]);
+
+    const selectedDevice = connectedDevices.find(
+      (device) => device.slot === draftSlot,
+    );
+    if (!selectedDevice) {
+      return;
+    }
+
+    setNodes((prev) =>
+      prev.map((node) =>
+        node.id === id
+          ? {
+              ...node,
+              data: {
+                ...(node.data ?? {}),
+                microbitSlot: draftSlot,
+                transport: selectedDevice.connectionType,
+                mode: draftMode,
+                pin: sanitizePin(draftPin, draftMode),
+              },
+            }
+          : node,
+      ),
+    );
+    setIsDialogOpen(false);
+  }, [canSave, connectedDevices, draftMode, draftPin, draftSlot, id, setNodes]);
 
   return (
     <>
@@ -190,58 +170,12 @@ export const MicrobitReadPinPulseInputNode = memo(({ id, data }: NodeProps) => {
           </DialogHeader>
 
           <div className="space-y-4">
-            <div>
-              <label
-                htmlFor={slotSelectId}
-                className="mb-2 block text-sm font-medium text-gray-900"
-              >
-                Dispositivo micro:bit
-              </label>
-              <Select
-                value={String(microbitSlot)}
-                onValueChange={(v) => {
-                  patchData({ microbitSlot: sanitizeMicrobitSlot(v) });
-                }}
-              >
-                <SelectTrigger id={slotSelectId}>
-                  <SelectValue placeholder="Selecciona" />
-                </SelectTrigger>
-                <SelectContent>
-                  {getMicrobitSlotOptions().map((slot) => (
-                    <SelectItem key={slot} value={String(slot)}>
-                      Microbit #{slot}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label
-                htmlFor={transportSelectId}
-                className="mb-2 block text-sm font-medium text-gray-900"
-              >
-                Método de conexión
-              </label>
-              <Select
-                value={transport}
-                onValueChange={(v) => {
-                  if (v === "serial" || v === "bluetooth") {
-                    patchData({ transport: v });
-                  }
-                }}
-              >
-                <SelectTrigger id={transportSelectId}>
-                  <SelectValue placeholder="Selecciona" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="serial">Cable (Web Serial)</SelectItem>
-                  <SelectItem value="bluetooth">
-                    Bluetooth (Web Bluetooth)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <MicrobitConnectedSlotSelect
+              id={slotSelectId}
+              selectedSlot={draftSlot}
+              connectedDevices={connectedDevices}
+              onSlotChange={(slot) => setDraftSlot(slot)}
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -252,16 +186,16 @@ export const MicrobitReadPinPulseInputNode = memo(({ id, data }: NodeProps) => {
                   Pin
                 </label>
                 <Select
-                  value={pin}
+                  value={draftPin}
                   onValueChange={(v) => {
-                    patchData({ pin: sanitizePin(v, mode) });
+                    setDraftPin(sanitizePin(v, draftMode));
                   }}
                 >
                   <SelectTrigger id={pinSelectId}>
                     <SelectValue placeholder="Pin" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(mode === "analog"
+                    {(draftMode === "analog"
                       ? MICROBIT_ANALOG_READ_PIN_OPTIONS
                       : MICROBIT_DIGITAL_PIN_OPTIONS
                     ).map((item) => (
@@ -281,13 +215,11 @@ export const MicrobitReadPinPulseInputNode = memo(({ id, data }: NodeProps) => {
                   Modo
                 </label>
                 <Select
-                  value={mode}
+                  value={draftMode}
                   onValueChange={(v) => {
                     const nextMode = sanitizeMode(v);
-                    patchData({
-                      mode: nextMode,
-                      pin: sanitizePin(pin, nextMode),
-                    });
+                    setDraftMode(nextMode);
+                    setDraftPin((prev) => sanitizePin(prev, nextMode));
                   }}
                 >
                   <SelectTrigger id={modeSelectId}>
@@ -300,32 +232,20 @@ export const MicrobitReadPinPulseInputNode = memo(({ id, data }: NodeProps) => {
                 </Select>
               </div>
             </div>
-
-            {errorMessage && (
-              <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-                {errorMessage}
-              </div>
-            )}
-
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-xs text-muted-foreground">
-                {connectedInfo.ok ? connectedInfo.text : "No conectado"}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={isConnecting}
-                  onClick={disconnect}
-                >
-                  Desconectar
-                </Button>
-                <Button type="button" disabled={isConnecting} onClick={connect}>
-                  {isConnecting ? "Conectando..." : "Conectar"}
-                </Button>
-              </div>
-            </div>
           </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setIsDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button type="button" onClick={onSave} disabled={!canSave}>
+              Guardar
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

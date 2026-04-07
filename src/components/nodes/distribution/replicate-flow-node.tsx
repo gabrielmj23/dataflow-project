@@ -67,14 +67,6 @@ import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { NestedSubflowNode } from "@/components/nodes/abstraction/nested-subflow-node";
 import { MapInputValueNode } from "@/components/nodes/iteration/map-input-value-node";
 import { useRemoteControllers } from "@/ws/remote-controllers-context";
-import {
-  connectMicrobitSlot,
-  disconnectMicrobitSlot,
-} from "@/microbit/use-microbit-slot";
-import {
-  microbitSlotManager,
-  type MicrobitConnectionType,
-} from "@/microbit/slot-manager";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
 import { deleteDraggedNodesOutsideViewport } from "@/flow/drag-delete";
 import { useSharedEdgeConfig } from "@/hooks/useSharedEdgeConfig";
@@ -104,12 +96,11 @@ export type ReplicateFlowNodeData = {
   isSelfCall?: boolean;
 };
 
-type ReplicateFlowExecutionTarget = "local" | "controller" | "microbit";
+type ReplicateFlowExecutionTarget = "local" | "controller";
 
 type ReplicateFlowRemoteConnection = {
   id: string;
   executionTarget: ReplicateFlowExecutionTarget;
-  transport?: MicrobitConnectionType;
   controllerId?: string;
   controllerName?: string;
 };
@@ -129,12 +120,7 @@ function parseReplicateFlowConnections(params: {
           if (!entry || typeof entry !== "object") return null;
           const item = entry as Partial<ReplicateFlowRemoteConnection>;
           const executionTarget: ReplicateFlowExecutionTarget =
-            item.executionTarget === "controller" ||
-            item.executionTarget === "microbit"
-              ? item.executionTarget
-              : "local";
-          const transport: MicrobitConnectionType =
-            item.transport === "bluetooth" ? "bluetooth" : "serial";
+            item.executionTarget === "controller" ? "controller" : "local";
           const idValue =
             typeof item.id === "string" && item.id.trim().length > 0
               ? item.id.trim()
@@ -142,7 +128,6 @@ function parseReplicateFlowConnections(params: {
           return {
             id: idValue,
             executionTarget,
-            transport,
             controllerId:
               typeof item.controllerId === "string"
                 ? item.controllerId
@@ -166,7 +151,6 @@ function parseReplicateFlowConnections(params: {
     {
       id: "conn-1",
       executionTarget: "local",
-      transport: "serial",
     },
   ];
 }
@@ -315,7 +299,6 @@ export const ReplicateFlowNode = memo(
             {
               id: nextId,
               executionTarget: "local",
-              transport: "serial",
             },
           ];
           return {
@@ -362,14 +345,11 @@ export const ReplicateFlowNode = memo(
 
     const [isEditorOpen, setIsEditorOpen] = useState(false);
     useSubcanvasNodeCreationLock(isEditorOpen);
-    const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
+    const [contextPoint, setContextPoint] = useState<{
+      x: number;
+      y: number;
+    } | null>(null);
     const [isConnectionDialogOpen, setIsConnectionDialogOpen] = useState(false);
-    const [connectingMicrobitConnectionId, setConnectingMicrobitConnectionId] =
-      useState<string | null>(null);
-    const [microbitConnectionError, setMicrobitConnectionError] = useState<
-      string | null
-    >(null);
-    const [microbitConnectionTick, setMicrobitConnectionTick] = useState(0);
     const [connectionDraft, setConnectionDraft] = useState<
       ReplicateFlowRemoteConnection[]
     >(() => parsedConnections);
@@ -541,11 +521,16 @@ export const ReplicateFlowNode = memo(
       useClipboardSelection({
         nodes: draftNodes as FlowNode[],
         edges: draftEdges as FlowEdge[],
-        setNodes: setDraftNodes as React.Dispatch<React.SetStateAction<FlowNode[]>>,
-        setEdges: setDraftEdges as React.Dispatch<React.SetStateAction<FlowEdge[]>>,
+        setNodes: setDraftNodes as React.Dispatch<
+          React.SetStateAction<FlowNode[]>
+        >,
+        setEdges: setDraftEdges as React.Dispatch<
+          React.SetStateAction<FlowEdge[]>
+        >,
         reactFlowInstance: editorReactFlowInstance,
       });
 
+    // eslint-disable-next-line react-hooks/preserve-manual-memoization
     const addCommentAtContext = useCallback(() => {
       if (!contextPoint) return;
 
@@ -555,13 +540,15 @@ export const ReplicateFlowNode = memo(
               x: number;
               y: number;
             };
-            project?: (pos: { x: number; y: number }) => { x: number; y: number };
+            project?: (pos: { x: number; y: number }) => {
+              x: number;
+              y: number;
+            };
           })
         | null;
 
       const screenPos = { x: contextPoint.x, y: contextPoint.y };
-      const position =
-        instance?.screenToFlowPosition?.(screenPos) ??
+      const position = instance?.screenToFlowPosition?.(screenPos) ??
         instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
       setDraftNodes((prev) => [
@@ -733,7 +720,6 @@ export const ReplicateFlowNode = memo(
           {
             id: nextId,
             executionTarget: "local" as const,
-            transport: "serial" as const,
           },
         ];
       });
@@ -754,9 +740,15 @@ export const ReplicateFlowNode = memo(
               {
                 id: "conn-1",
                 executionTarget: "local" as const,
-                transport: "serial" as const,
               },
             ];
+
+      const normalizedEntries: ReplicateFlowRemoteConnection[] =
+        safeEntries.map((entry) => ({
+          ...entry,
+          executionTarget:
+            entry.executionTarget === "controller" ? "controller" : "local",
+        }));
 
       setNodes((prev) =>
         prev.map((node) => {
@@ -766,7 +758,7 @@ export const ReplicateFlowNode = memo(
             ...node,
             data: {
               ...(node.data ?? {}),
-              remoteConnections: safeEntries,
+              remoteConnections: normalizedEntries,
               activeConnectionId: undefined,
               executionTarget: undefined,
               transport: undefined,
@@ -778,44 +770,6 @@ export const ReplicateFlowNode = memo(
       );
 
       setIsConnectionDialogOpen(false);
-    };
-
-    const connectMicrobitFromDialog = async (
-      connectionId: string,
-      slot: number,
-      connectionType: MicrobitConnectionType,
-    ) => {
-      setConnectingMicrobitConnectionId(connectionId);
-      setMicrobitConnectionError(null);
-      try {
-        await connectMicrobitSlot({
-          slot: sanitizeSlot(slot),
-          connectionType,
-        });
-        setMicrobitConnectionTick((prev) => prev + 1);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setMicrobitConnectionError(message);
-      } finally {
-        setConnectingMicrobitConnectionId(null);
-      }
-    };
-
-    const disconnectMicrobitFromDialog = async (
-      connectionId: string,
-      slot: number,
-    ) => {
-      setConnectingMicrobitConnectionId(connectionId);
-      setMicrobitConnectionError(null);
-      try {
-        await disconnectMicrobitSlot({ slot: sanitizeSlot(slot) });
-        setMicrobitConnectionTick((prev) => prev + 1);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        setMicrobitConnectionError(message);
-      } finally {
-        setConnectingMicrobitConnectionId(null);
-      }
     };
 
     const addInputValueNode = () => {
@@ -1235,215 +1189,102 @@ export const ReplicateFlowNode = memo(
                   key={entry.id}
                   className="rounded-md border border-border bg-muted/20 p-3 space-y-3"
                 >
-                  {(() => {
-                    const implicitSlot = sanitizeSlot(index + 1);
-                    return (
-                      <>
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="text-sm font-medium text-foreground">
-                            Conexión {index + 1}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              onClick={() => removeConnection(entry.id)}
-                              disabled={connectionDraft.length <= 1}
-                            >
-                              Quitar
-                            </Button>
-                          </div>
-                        </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-sm font-medium text-foreground">
+                      Conexión {index + 1}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        onClick={() => removeConnection(entry.id)}
+                        disabled={connectionDraft.length <= 1}
+                      >
+                        Quitar
+                      </Button>
+                    </div>
+                  </div>
 
-                        <div>
-                          <label
-                            htmlFor={`${targetSelectId}-${entry.id}`}
-                            className="mb-1 block text-xs font-medium text-foreground"
-                          >
-                            Ejecutar en
-                          </label>
-                          <Select
-                            value={entry.executionTarget}
-                            onValueChange={(value) => {
-                              if (
-                                value !== "local" &&
-                                value !== "controller" &&
-                                value !== "microbit"
-                              ) {
-                                return;
-                              }
+                  <div>
+                    <label
+                      htmlFor={`${targetSelectId}-${entry.id}`}
+                      className="mb-1 block text-xs font-medium text-foreground"
+                    >
+                      Ejecutar en
+                    </label>
+                    <Select
+                      value={entry.executionTarget}
+                      onValueChange={(value) => {
+                        if (value !== "local" && value !== "controller") {
+                          return;
+                        }
 
-                              updateDraftConnection(entry.id, {
-                                executionTarget: value,
-                                transport:
-                                  value === "microbit"
-                                    ? (entry.transport ?? "serial")
-                                    : undefined,
-                                controllerId:
-                                  value === "controller"
-                                    ? (entry.controllerId ?? undefined)
-                                    : undefined,
-                                controllerName:
-                                  value === "controller"
-                                    ? (entry.controllerName ?? undefined)
-                                    : undefined,
-                              });
-                            }}
-                          >
-                            <SelectTrigger id={`${targetSelectId}-${entry.id}`}>
-                              <SelectValue placeholder="Selecciona" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="local">Esta PC</SelectItem>
-                              <SelectItem value="controller">
-                                Otra PC
+                        updateDraftConnection(entry.id, {
+                          executionTarget: value,
+                          controllerId:
+                            value === "controller"
+                              ? (entry.controllerId ?? undefined)
+                              : undefined,
+                          controllerName:
+                            value === "controller"
+                              ? (entry.controllerName ?? undefined)
+                              : undefined,
+                        });
+                      }}
+                    >
+                      <SelectTrigger id={`${targetSelectId}-${entry.id}`}>
+                        <SelectValue placeholder="Selecciona" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="local">Esta PC</SelectItem>
+                        <SelectItem value="controller">Otra PC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {entry.executionTarget === "controller" && (
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-foreground">
+                        PC remota
+                      </label>
+                      <Select
+                        value={entry.controllerId || undefined}
+                        onValueChange={(value) => {
+                          if (value === "__none__") return;
+                          const controller = controllers.find(
+                            (item) => item.id === value,
+                          );
+                          updateDraftConnection(entry.id, {
+                            controllerId: value,
+                            controllerName: controller?.name ?? undefined,
+                          });
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una PC" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {controllers.length === 0 ? (
+                            <SelectItem value="__none__" disabled>
+                              (Sin PCs conectadas)
+                            </SelectItem>
+                          ) : (
+                            controllers.map((controller) => (
+                              <SelectItem
+                                key={controller.id}
+                                value={controller.id}
+                              >
+                                {controller.name ?? controller.id}
                               </SelectItem>
-                              <SelectItem value="microbit">
-                                micro:bit
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {entry.executionTarget === "controller" && (
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-foreground">
-                              PC remota
-                            </label>
-                            <Select
-                              value={entry.controllerId || undefined}
-                              onValueChange={(value) => {
-                                if (value === "__none__") return;
-                                const controller = controllers.find(
-                                  (item) => item.id === value,
-                                );
-                                updateDraftConnection(entry.id, {
-                                  controllerId: value,
-                                  controllerName: controller?.name ?? undefined,
-                                });
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona una PC" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {controllers.length === 0 ? (
-                                  <SelectItem value="__none__" disabled>
-                                    (Sin PCs conectadas)
-                                  </SelectItem>
-                                ) : (
-                                  controllers.map((controller) => (
-                                    <SelectItem
-                                      key={controller.id}
-                                      value={controller.id}
-                                    >
-                                      {controller.name ?? controller.id}
-                                    </SelectItem>
-                                  ))
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        )}
-
-                        {entry.executionTarget === "microbit" && (
-                          <div>
-                            <label className="mb-1 block text-xs font-medium text-foreground">
-                              Método de conexión
-                            </label>
-                            <Select
-                              value={entry.transport ?? "serial"}
-                              onValueChange={(value) => {
-                                if (
-                                  value === "serial" ||
-                                  value === "bluetooth"
-                                ) {
-                                  updateDraftConnection(entry.id, {
-                                    transport: value,
-                                  });
-                                }
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Selecciona" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="serial">
-                                  Cable (Web Serial)
-                                </SelectItem>
-                                <SelectItem value="bluetooth">
-                                  Bluetooth (Web Bluetooth)
-                                </SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <div className="mt-2 flex items-center justify-between gap-2">
-                              <div className="text-xs text-muted-foreground">
-                                {(() => {
-                                  void microbitConnectionTick;
-                                  const slotState =
-                                    microbitSlotManager.getSnapshot(
-                                      implicitSlot,
-                                    );
-                                  if (slotState.status !== "connected") {
-                                    return `micro:bit #${slotState.slot}: No conectado`;
-                                  }
-                                  const transportLabel =
-                                    slotState.connectionType === "bluetooth"
-                                      ? "Bluetooth"
-                                      : "Serial";
-                                  return `micro:bit #${slotState.slot}: Conectado (${transportLabel})`;
-                                })()}
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="secondary"
-                                  disabled={
-                                    connectingMicrobitConnectionId === entry.id
-                                  }
-                                  onClick={() =>
-                                    void disconnectMicrobitFromDialog(
-                                      entry.id,
-                                      implicitSlot,
-                                    )
-                                  }
-                                >
-                                  Desconectar
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  disabled={
-                                    connectingMicrobitConnectionId === entry.id
-                                  }
-                                  onClick={() =>
-                                    void connectMicrobitFromDialog(
-                                      entry.id,
-                                      implicitSlot,
-                                      entry.transport ?? "serial",
-                                    )
-                                  }
-                                >
-                                  {connectingMicrobitConnectionId === entry.id
-                                    ? "Conectando…"
-                                    : "Conectar"}
-                                </Button>
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    );
-                  })()}
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
               ))}
-              {microbitConnectionError && (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-                  {microbitConnectionError}
-                </div>
-              )}
             </div>
 
             <DialogFooter>

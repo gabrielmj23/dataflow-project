@@ -91,7 +91,7 @@ export async function ensureMicrobitConnected(params: {
   }
 
   throw new Error(
-    `Slot ${slot} no conectado. Abre la configuración del nodo y conecta la micro:bit en ese slot antes de ejecutar.`,
+    `Slot ${slot} no conectado. Abre el diálogo "Conectar" del header y conecta la micro:bit en ese slot antes de ejecutar.`,
   );
 }
 
