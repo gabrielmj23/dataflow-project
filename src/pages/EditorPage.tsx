@@ -1123,6 +1123,8 @@ export default function EditorPage() {
             : normalizedGuestAuthorName || undefined,
         });
 
+        queryClient.invalidateQueries({ queryKey: ["projects"] });
+
         setProgramName(normalizedName);
         setProjectDescription(description);
         if (!isAuthenticated) {
@@ -1165,6 +1167,7 @@ export default function EditorPage() {
       edges,
       updatePublishedProjectMutation,
       isAuthenticated,
+      queryClient,
       markAsSaved,
     ],
   );

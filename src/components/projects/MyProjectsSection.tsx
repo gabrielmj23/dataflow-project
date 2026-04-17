@@ -40,6 +40,7 @@ export function MyProjectsSection() {
   } = useQuery({
     queryKey: projectsQueryKey,
     queryFn: () => fetchMyProjects(12),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const railRef = useRef<HTMLDivElement | null>(null);
@@ -79,6 +80,7 @@ export function MyProjectsSection() {
     queryKey: ["projects", "detail", selectedProjectId],
     queryFn: () => fetchPublishedProjectById(selectedProjectId as string),
     enabled: Boolean(selectedProjectId),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const filteredProjects = useMemo(() => {
