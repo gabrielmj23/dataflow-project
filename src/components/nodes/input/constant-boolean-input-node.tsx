@@ -47,7 +47,7 @@ export const ConstantBooleanInputNode = memo(({ id, data }: NodeProps) => {
       <InputCircleNodeShell
         nodeType="constantBoolean"
         icon={
-          <div className="flex flex-col items-center justify-center gap-0.5">
+          <div className="flex flex-col items-center justify-center">
             <span className="flex items-center justify-center">
               {boolValue ? (
                 <Check className="h-4 w-4" />

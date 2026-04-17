@@ -22,14 +22,12 @@ export type RuntimeInputNodeData = {
 };
 
 export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
-  const { identifier, valueType, prompt, defaultValue } = (data ??
+  const { identifier, valueType, prompt } = (data ??
     {}) as RuntimeInputNodeData;
 
   const resolvedValueType = valueType === "text" ? "text" : "number";
 
   const promptText = typeof prompt === "string" ? prompt : "Ingrese su entrada";
-  const numericDefault = typeof defaultValue === "number" ? defaultValue : 0;
-  const textDefault = typeof defaultValue === "string" ? defaultValue : "";
   const identifierValue = typeof identifier === "string" ? identifier : "";
   const identifierLabel = identifierValue.trim()
     ? identifierValue.trim()
@@ -48,7 +46,6 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
 
   const identifierId = useId();
   const promptId = useId();
-  const defaultId = useId();
 
   const setData = useCallback(
     (patch: Partial<RuntimeInputNodeData>) => {
@@ -145,7 +142,7 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
                 className="mb-2 block text-sm font-medium text-gray-900"
                 htmlFor={identifierId}
               >
-                Identificador (se muestra en el nodo):
+                Nombre del nodo:
               </label>
               <Input
                 id={identifierId}
@@ -194,36 +191,6 @@ export const RuntimeInputNode = memo(({ id, data }: NodeProps) => {
                 onChange={(e) => setData({ prompt: e.currentTarget.value })}
                 placeholder="Ej: Ingrese su nombre"
               />
-            </div>
-
-            <div>
-              <label
-                className="mb-2 block text-sm font-medium text-gray-900"
-                htmlFor={defaultId}
-              >
-                Valor por defecto (si se cancela o no hay UI):
-              </label>
-              {resolvedValueType === "text" ? (
-                <Input
-                  id={defaultId}
-                  type="text"
-                  value={textDefault}
-                  onChange={(e) => {
-                    setData({ defaultValue: e.currentTarget.value });
-                  }}
-                  placeholder="(opcional)"
-                />
-              ) : (
-                <Input
-                  id={defaultId}
-                  type="number"
-                  value={numericDefault}
-                  onChange={(e) => {
-                    const next = e.currentTarget.valueAsNumber;
-                    setData({ defaultValue: Number.isFinite(next) ? next : 0 });
-                  }}
-                />
-              )}
             </div>
           </div>
           <DialogFooter>
