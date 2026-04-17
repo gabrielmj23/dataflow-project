@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ChevronLeft,
   ChevronRight,
+  Loader2,
   MoreHorizontal,
   Plus,
   Search,
@@ -40,6 +41,7 @@ export function MyProjectsSection() {
   } = useQuery({
     queryKey: projectsQueryKey,
     queryFn: () => fetchMyProjects(12),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const railRef = useRef<HTMLDivElement | null>(null);
@@ -79,6 +81,7 @@ export function MyProjectsSection() {
     queryKey: ["projects", "detail", selectedProjectId],
     queryFn: () => fetchPublishedProjectById(selectedProjectId as string),
     enabled: Boolean(selectedProjectId),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const filteredProjects = useMemo(() => {
@@ -143,17 +146,23 @@ export function MyProjectsSection() {
           </label>
         )}
 
-        {isLoading ? (
-          <p className="mt-4 text-slate-500">Cargando tus proyectos...</p>
-        ) : null}
-
         {error ? (
           <p className="mt-4 text-red-600">
             No se pudieron cargar tus proyectos.
           </p>
         ) : null}
 
-        {hasFilteredProjects ? (
+        {isLoading ? (
+          <div className="relative mt-4 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
+            <div className="mx-9 flex h-48 items-center justify-center">
+              <Loader2
+                size={32}
+                className="animate-spin text-blue-500"
+                aria-label="Cargando tus proyectos"
+              />
+            </div>
+          </div>
+        ) : hasFilteredProjects ? (
           <div className="relative mt-4 rounded-xl border border-slate-200 bg-white p-2 sm:p-3">
             <button
               type="button"

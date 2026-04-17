@@ -15,6 +15,7 @@ export function RecentPublishedProjectsSection() {
   } = useQuery({
     queryKey: ["projects", "recent", 12],
     queryFn: () => fetchLatestPublishedProjects(12),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const railRef = useRef<HTMLDivElement | null>(null);
@@ -32,6 +33,7 @@ export function RecentPublishedProjectsSection() {
     queryKey: ["projects", "detail", selectedProjectId],
     queryFn: () => fetchPublishedProjectById(selectedProjectId as string),
     enabled: Boolean(selectedProjectId),
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   const filteredProjects = useMemo(() => {
@@ -69,7 +71,9 @@ export function RecentPublishedProjectsSection() {
         Proyectos recientes
       </h2>
       <div className="mt-2">
-        <p className="text-sm text-slate-800">Explora proyectos de la comunidad de NodeLand</p>
+        <p className="text-sm text-slate-800">
+          Explora proyectos de la comunidad de NodeLand
+        </p>
       </div>
 
       <label className="mt-3 flex max-w-md items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
@@ -184,8 +188,6 @@ export function RecentPublishedProjectsSection() {
         isLoadingDetail={selectedProjectDetailQuery.isLoading}
         isDetailError={selectedProjectDetailQuery.isError}
       />
-
-      
     </section>
   );
 }
