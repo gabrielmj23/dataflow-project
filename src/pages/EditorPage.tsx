@@ -381,6 +381,7 @@ export default function EditorPage() {
     ((confirmed: boolean) => void) | null
   >(null);
   const hasHydratedExtensionsRef = useRef(false);
+  const pendingClearAfterNavigationRef = useRef(false);
 
   const {
     subflowTemplates,
@@ -405,9 +406,9 @@ export default function EditorPage() {
   const pendingDeleteExtension = useMemo(
     () =>
       pendingDeleteExtensionId
-        ? addedExtensionRefs.find(
+        ? (addedExtensionRefs.find(
             (extension) => extension.id === pendingDeleteExtensionId,
-          ) ?? null
+          ) ?? null)
         : null,
     [addedExtensionRefs, pendingDeleteExtensionId],
   );
@@ -1586,6 +1587,52 @@ export default function EditorPage() {
   const { width: windowWidth, height: windowHeight } = useWindowSize();
   const sharedEdgeConfig = useSharedEdgeConfig<FlowEdge>(setEdges);
 
+  const applyEditorClearState = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setProgramName("Sin título");
+    setProjectDescription("");
+    setRemixSourceProject(null);
+    setOpenedProjectRemixInfo(null);
+    onClearConsoleClick();
+    resetHistory({ nodes: [], edges: [] });
+    markAsSaved(INITIAL_PROJECT_SAVE_SIGNATURE);
+  }, [markAsSaved, onClearConsoleClick, resetHistory]);
+
+  const handleClearEditor = useCallback(() => {
+    const shouldResetUrl = Boolean(
+      challengeId && !challenge.challengeDefinition,
+    );
+
+    if (shouldResetUrl) {
+      pendingClearAfterNavigationRef.current = true;
+    }
+
+    applyEditorClearState();
+
+    if (shouldResetUrl) {
+      navigate("/editor", { replace: true });
+    }
+  }, [
+    applyEditorClearState,
+    challengeId,
+    challenge.challengeDefinition,
+    navigate,
+  ]);
+
+  useEffect(() => {
+    if (!pendingClearAfterNavigationRef.current) {
+      return;
+    }
+
+    if (challengeId) {
+      return;
+    }
+
+    pendingClearAfterNavigationRef.current = false;
+    applyEditorClearState();
+  }, [applyEditorClearState, challengeId]);
+
   useEffect(() => {
     if (!isPublishDialogOpen) {
       return;
@@ -2151,11 +2198,7 @@ export default function EditorPage() {
                                   onSetCanvasMode={setCanvasMode}
                                   soundsEnabled={soundsEnabled}
                                   onSoundsEnabledChange={setSoundsEnabledState}
-                                  onDeleteNodes={() => {
-                                    setNodes([]);
-                                    setEdges([]);
-                                    onClearConsoleClick();
-                                  }}
+                                  onDeleteNodes={handleClearEditor}
                                   onLayout={onLayout}
                                 />
                               </div>
