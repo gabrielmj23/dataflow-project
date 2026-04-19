@@ -99,6 +99,8 @@ import { SubflowOutputNode } from "@/components/nodes/abstraction/subflow-output
 import { ScatterNode } from "@/components/nodes/distribution/scatter-node";
 import { GatherNode } from "@/components/nodes/distribution/gather-node";
 import { BarrierNode } from "@/components/nodes/distribution/barrier-node";
+import { LogicFormulaNode } from "@/components/nodes/logic/logic-formula-node";
+
 // NOTE: This is intentionally the nodeTypes map WITHOUT the `subflow` entry.
 // We use this inside the Subflow editor to avoid circular imports.
 export const nodeTypesCore: NodeTypes = {
@@ -193,4 +195,5 @@ export const nodeTypesCore: NodeTypes = {
   listOddPositions: ListOddPositionsNode,
   listParityPositions: ListEvenPositionsNode,
   comment: CommentNode,
+  logicFormula: LogicFormulaNode,
 };

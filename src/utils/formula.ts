@@ -28,33 +28,22 @@ export type FormulaOperatorGuideItem = {
 
 export type FormulaValidationMode = "logic" | "arithmetic";
 
+type FormulaEvaluateResult = number | boolean;
+
+type FormulaModeStrategy = {
+  mode: FormulaValidationMode;
+  allowBooleanConstants: boolean;
+  allowedOperators: ReadonlySet<string>;
+  operatorGuide: readonly FormulaOperatorGuideItem[];
+  functionGuide: readonly FormulaFunctionGuideItem[];
+  evaluateResult: (value: unknown) => FormulaEvaluateResult;
+};
+
 type ValidateFormulaOptions = {
   mode?: FormulaValidationMode;
 };
 
-const ALLOWED_ARITHMETIC_OPERATORS = new Set([
-  "+",
-  "-",
-  "unaryPlus",
-  "unaryMinus",
-  "*",
-  "/",
-  "^",
-]);
-
-const ALLOWED_LOGIC_OPERATORS = new Set([
-  ...ALLOWED_ARITHMETIC_OPERATORS,
-  ">",
-  "<",
-  ">=",
-  "<=",
-  "==",
-  "!=",
-  "and",
-  "or",
-]);
-
-export const FORMULA_FUNCTION_GUIDE: FormulaFunctionGuideItem[] = [
+const COMMON_FUNCTION_GUIDE: readonly FormulaFunctionGuideItem[] = [
   {
     name: "sqrt",
     labelEs: "Raiz cuadrada",
@@ -175,16 +164,110 @@ export const FORMULA_FUNCTION_GUIDE: FormulaFunctionGuideItem[] = [
 ];
 
 const ALLOWED_FUNCTIONS = new Map<string, { min: number; max?: number }>(
-  FORMULA_FUNCTION_GUIDE.map((fn) => [fn.name, { min: fn.min, max: fn.max }]),
+  COMMON_FUNCTION_GUIDE.map((fn) => [fn.name, { min: fn.min, max: fn.max }]),
 );
 
-export const FORMULA_OPERATOR_GUIDE: FormulaOperatorGuideItem[] = [
+const ARITHMETIC_OPERATOR_GUIDE: readonly FormulaOperatorGuideItem[] = [
   { symbol: "+", labelEs: "Suma" },
   { symbol: "-", labelEs: "Resta" },
   { symbol: "*", labelEs: "Multiplicación" },
   { symbol: "/", labelEs: "División" },
   { symbol: "^", labelEs: "Potencia" },
 ];
+
+const LOGIC_OPERATOR_GUIDE: readonly FormulaOperatorGuideItem[] = [
+  ...ARITHMETIC_OPERATOR_GUIDE,
+  { symbol: ">", labelEs: "Mayor que" },
+  { symbol: "<", labelEs: "Menor que" },
+  { symbol: ">=", labelEs: "Mayor o igual" },
+  { symbol: "<=", labelEs: "Menor o igual" },
+  { symbol: "==", labelEs: "Igual" },
+  { symbol: "!=", labelEs: "Distinto" },
+  { symbol: "and", labelEs: "Y lógico" },
+  { symbol: "or", labelEs: "O lógico" },
+];
+
+const ARITHMETIC_OPERATOR_KEYS = new Set([
+  "+",
+  "-",
+  "unaryPlus",
+  "unaryMinus",
+  "*",
+  "/",
+  "^",
+]);
+
+const LOGIC_OPERATOR_KEYS = new Set([
+  ...ARITHMETIC_OPERATOR_KEYS,
+  ">",
+  "<",
+  ">=",
+  "<=",
+  "==",
+  "!=",
+  "and",
+  "or",
+]);
+
+const FORMULA_STRATEGIES: Record<FormulaValidationMode, FormulaModeStrategy> = {
+  arithmetic: {
+    mode: "arithmetic",
+    allowBooleanConstants: false,
+    allowedOperators: ARITHMETIC_OPERATOR_KEYS,
+    operatorGuide: ARITHMETIC_OPERATOR_GUIDE,
+    functionGuide: COMMON_FUNCTION_GUIDE,
+    evaluateResult: (value) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        throw new Error("Resultado no válido.");
+      }
+      return num;
+    },
+  },
+  logic: {
+    mode: "logic",
+    allowBooleanConstants: true,
+    allowedOperators: LOGIC_OPERATOR_KEYS,
+    operatorGuide: LOGIC_OPERATOR_GUIDE,
+    functionGuide: COMMON_FUNCTION_GUIDE,
+    evaluateResult: (value) => {
+      if (typeof value === "boolean") {
+        return value;
+      }
+
+      const num = Number(value);
+      if (!Number.isFinite(num)) {
+        throw new Error("Resultado lógico no válido.");
+      }
+
+      return num !== 0;
+    },
+  },
+};
+
+export function getFormulaStrategy(
+  mode: FormulaValidationMode,
+): FormulaModeStrategy {
+  return FORMULA_STRATEGIES[mode];
+}
+
+export function getFormulaFunctionGuide(
+  mode: FormulaValidationMode,
+): FormulaFunctionGuideItem[] {
+  return [...getFormulaStrategy(mode).functionGuide];
+}
+
+export function getFormulaOperatorGuide(
+  mode: FormulaValidationMode,
+): FormulaOperatorGuideItem[] {
+  return [...getFormulaStrategy(mode).operatorGuide];
+}
+
+// Backward-compatible exports used by arithmetic formula node.
+export const FORMULA_FUNCTION_GUIDE: FormulaFunctionGuideItem[] =
+  getFormulaFunctionGuide("arithmetic");
+export const FORMULA_OPERATOR_GUIDE: FormulaOperatorGuideItem[] =
+  getFormulaOperatorGuide("arithmetic");
 
 function isFiniteNumber(value: unknown): boolean {
   const num = typeof value === "number" ? value : Number(value);
@@ -195,27 +278,24 @@ function validateNode(params: {
   node: MathNode;
   variables: string[];
   seen: Set<string>;
-  allowedOperators: Set<string>;
-  allowBooleanConstants: boolean;
+  strategy: FormulaModeStrategy;
 }): { ok: boolean; error?: string } {
-  const {
-    node,
-    variables,
-    seen,
-    allowedOperators,
-    allowBooleanConstants,
-  } = params;
+  const { node, variables, seen, strategy } = params;
   const anyNode = node as MathNode & { [key: string]: unknown };
 
   if ((anyNode as { isOperatorNode?: boolean }).isOperatorNode) {
     const op = String((anyNode as { op?: unknown }).op ?? "");
-    if (!allowedOperators.has(op)) {
+    const fn = String((anyNode as { fn?: unknown }).fn ?? "");
+    const operatorKey = fn === "unaryMinus" || fn === "unaryPlus" ? fn : op;
+    if (
+      !strategy.allowedOperators.has(operatorKey) &&
+      !strategy.allowedOperators.has(op)
+    ) {
       return { ok: false, error: `Operador no soportado: ${op}` };
     }
 
     const args = (anyNode as { args?: unknown }).args;
     const argList = Array.isArray(args) ? (args as MathNode[]) : [];
-    const fn = String((anyNode as { fn?: unknown }).fn ?? "");
     const isUnary = fn === "unaryMinus" || fn === "unaryPlus";
     const expectedArity = isUnary ? 1 : 2;
     if (argList.length !== expectedArity) {
@@ -227,8 +307,7 @@ function validateNode(params: {
         node: child,
         variables,
         seen,
-        allowedOperators,
-        allowBooleanConstants,
+        strategy,
       });
       if (!result.ok) return result;
     }
@@ -245,8 +324,7 @@ function validateNode(params: {
       node: content,
       variables,
       seen,
-      allowedOperators,
-      allowBooleanConstants,
+      strategy,
     });
   }
 
@@ -272,8 +350,7 @@ function validateNode(params: {
         node: child,
         variables,
         seen,
-        allowedOperators,
-        allowBooleanConstants,
+        strategy,
       });
       if (!result.ok) return result;
     }
@@ -296,7 +373,7 @@ function validateNode(params: {
   if ((anyNode as { isConstantNode?: boolean }).isConstantNode) {
     const value = (anyNode as { value?: unknown }).value;
     if (typeof value === "boolean") {
-      if (allowBooleanConstants) {
+      if (strategy.allowBooleanConstants) {
         return { ok: true };
       }
       return {
@@ -323,11 +400,7 @@ export function validateFormula(
   }
 
   const mode = options?.mode ?? "logic";
-  const allowedOperators =
-    mode === "arithmetic"
-      ? ALLOWED_ARITHMETIC_OPERATORS
-      : ALLOWED_LOGIC_OPERATORS;
-  const allowBooleanConstants = mode !== "arithmetic";
+  const strategy = getFormulaStrategy(mode);
 
   try {
     const node = math.parse(trimmed) as MathNode;
@@ -337,8 +410,7 @@ export function validateFormula(
       node,
       variables,
       seen,
-      allowedOperators,
-      allowBooleanConstants,
+      strategy,
     });
     if (!validation.ok) {
       return { ok: false, error: validation.error, variables: [] };
@@ -355,11 +427,10 @@ export function validateFormula(
 export function evaluateFormulaExpression(params: {
   compiled: FormulaCompiled;
   scope: Record<string, number>;
-}): number {
+  mode?: FormulaValidationMode;
+}): FormulaEvaluateResult {
+  const mode = params.mode ?? "arithmetic";
+  const strategy = getFormulaStrategy(mode);
   const result = params.compiled.evaluate(params.scope);
-  const value = Number(result);
-  if (!Number.isFinite(value)) {
-    throw new Error("Resultado no válido.");
-  }
-  return value;
+  return strategy.evaluateResult(result);
 }

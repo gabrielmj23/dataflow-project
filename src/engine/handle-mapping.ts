@@ -256,17 +256,20 @@ register(
 );
 
 // Formula editor (dynamic inputs)
-register([NODE_TYPES.FORMULA_EDITOR_NODE], (p) => {
-  const { nodeId, nodeType, handleId, direction } = p;
-  if (direction === "target") {
-    const idx = parseIndexHandle(handleId);
-    if (handleId?.startsWith("in-") && idx) return `input${idx}`;
-    throw unknownInputHandle({ nodeId, nodeType, handleId });
-  }
+register(
+  [NODE_TYPES.FORMULA_EDITOR_NODE, NODE_TYPES.LOGIC_FORMULA_NODE],
+  (p) => {
+    const { nodeId, nodeType, handleId, direction } = p;
+    if (direction === "target") {
+      const idx = parseIndexHandle(handleId);
+      if (handleId?.startsWith("in-") && idx) return `input${idx}`;
+      throw unknownInputHandle({ nodeId, nodeType, handleId });
+    }
 
-  if (handleId === "out" || handleId == null) return "output";
-  throw unknownOutputHandle({ nodeId, nodeType, handleId });
-});
+    if (handleId === "out" || handleId == null) return "output";
+    throw unknownOutputHandle({ nodeId, nodeType, handleId });
+  },
+);
 
 // Processing nodes (2-in 1-out)
 register(

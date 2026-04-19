@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { memo, useId } from "react";
 import {
   Position,
   useReactFlow,
@@ -25,11 +25,8 @@ import {
   getPortTypeMask,
   maskToVisualPortDataType,
 } from "@/flow/port-data-type";
-import {
-  FORMULA_FUNCTION_GUIDE,
-  FORMULA_OPERATOR_GUIDE,
-  validateFormula,
-} from "@/utils/formula";
+import { NODE_TYPES } from "@/common/constants";
+import { useFormulaNodeEditor } from "@/components/nodes/shared/use-formula-node-editor";
 
 export type FormulaEditorNodeData = {
   label?: string;
@@ -39,16 +36,6 @@ export type FormulaEditorNodeData = {
 };
 
 const DEFAULT_FORMULA = "";
-function offsets(count: number): string[] {
-  const safeCount = Math.max(0, Math.floor(count));
-  if (safeCount === 0) return [];
-  if (safeCount === 1) return ["50%"];
-
-  const start = 20;
-  const end = 80;
-  const step = (end - start) / (safeCount - 1);
-  return Array.from({ length: safeCount }, (_, i) => `${start + step * i}%`);
-}
 
 export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
   const {
@@ -58,87 +45,38 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
   } = (data ?? {}) as FormulaEditorNodeData;
 
   const formula = typeof rawFormula === "string" ? rawFormula : DEFAULT_FORMULA;
-  const formulaValidation = useMemo(
-    () => validateFormula(formula, { mode: "arithmetic" }),
-    [formula],
-  );
-  const variables = useMemo(
-    () => (formulaValidation.ok ? formulaValidation.variables : []),
-    [formulaValidation],
-  );
-  const handleIds = useMemo(
-    () => variables.map((_, index) => `in-${index + 1}`),
-    [variables],
-  );
-  const handleOffsets = useMemo(() => offsets(handleIds.length), [handleIds]);
 
   const inputId = useId();
   const { setNodes } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
 
-  useEffect(() => {
-    // Notify react-flow that handles changed so it recomputes internals
-    try {
-      updateNodeInternals(id);
-    } catch {
-      // ignore if not mounted yet
-    }
-  }, [id, handleIds.length, updateNodeInternals]);
-
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [draftFormula, setDraftFormula] = useState(formula);
-  const [showFunctions, setShowFunctions] = useState(false);
-  const [showOperators, setShowOperators] = useState(false);
-  const draftValidation = useMemo(
-    () => validateFormula(draftFormula, { mode: "arithmetic" }),
-    [draftFormula],
-  );
-  const draftVariables = draftValidation.ok ? draftValidation.variables : [];
-
-  const handleDialogOpenChange = useCallback(
-    (open: boolean) => {
-      setIsDialogOpen(open);
-      if (open) {
-        setDraftFormula(formula);
-        setShowFunctions(false);
-        setShowOperators(false);
-      }
-    },
-    [formula],
-  );
-
-  const applyFormula = useCallback(() => {
-    if (!draftValidation.ok) {
-      return;
-    }
-    const nextFormulaRaw = draftFormula.trim();
-    const nextFormula = nextFormulaRaw === "" ? undefined : nextFormulaRaw;
-    const nextVariables = draftValidation.variables;
-
-    setNodes((prev) =>
-      prev.map((node) =>
-        node.id === id
-          ? {
-              ...node,
-              data: {
-                ...(node.data ?? {}),
-                ...(nextFormula !== undefined
-                  ? { formula: nextFormula }
-                  : { formula: undefined }),
-                ...(nextVariables.length > 0
-                  ? { variables: nextVariables }
-                  : { variables: undefined }),
-              },
-            }
-          : node,
-      ),
-    );
-
-    setIsDialogOpen(false);
-  }, [draftFormula, draftValidation, id, setNodes]);
+  const {
+    variables,
+    handleIds,
+    handleOffsets,
+    isDialogOpen,
+    draftFormula,
+    setDraftFormula,
+    showFunctions,
+    setShowFunctions,
+    showOperators,
+    setShowOperators,
+    draftValidation,
+    draftVariables,
+    handleDialogOpenChange,
+    applyFormula,
+    functionGuide,
+    operatorGuide,
+  } = useFormulaNodeEditor({
+    nodeId: id,
+    formula,
+    mode: "arithmetic",
+    setNodes,
+    updateNodeInternals,
+  });
 
   const outMask = getPortTypeMask({
-    nodeType: "formulaEditor",
+    nodeType: NODE_TYPES.FORMULA_EDITOR_NODE,
     handleType: "source",
     handleId: "out",
   });
@@ -164,7 +102,7 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
 
         {handleIds.map((handleId, index) => {
           const mask = getPortTypeMask({
-            nodeType: "formulaEditor",
+            nodeType: NODE_TYPES.FORMULA_EDITOR_NODE,
             handleType: "target",
             handleId,
           });
@@ -261,7 +199,7 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
                       Funciones permitidas
                     </div>
                     <ul className="space-y-1.5 text-xs text-foreground">
-                      {FORMULA_FUNCTION_GUIDE.map((fn) => (
+                      {functionGuide.map((fn) => (
                         <li key={fn.name} className="leading-snug">
                           <span className="font-medium">{fn.labelEs}</span>
                           <span className="text-muted-foreground">
@@ -300,7 +238,7 @@ export const FormulaEditorNode = memo(({ id, data }: NodeProps) => {
                   >
                     <div className="mb-2 text-sm font-semibold">Operadores</div>
                     <ul className="space-y-1.5 text-xs text-foreground">
-                      {FORMULA_OPERATOR_GUIDE.map((op) => (
+                      {operatorGuide.map((op) => (
                         <li key={op.symbol} className="leading-snug">
                           <span className="font-medium">{op.labelEs}</span>
                           <span className="text-muted-foreground">
