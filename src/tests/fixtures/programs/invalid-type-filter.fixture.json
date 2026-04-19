@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "programName": "invalid-type-filter",
+  "nodes": [
+    {
+      "id": "txt",
+      "type": "constantText",
+      "position": { "x": 0, "y": 0 },
+      "data": { "value": "hola" }
+    },
+    {
+      "id": "sum",
+      "type": "sum",
+      "position": { "x": 0, "y": 0 },
+      "data": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "bad-edge",
+      "source": "txt",
+      "target": "sum",
+      "targetHandle": "in-1"
+    }
+  ]
+}
