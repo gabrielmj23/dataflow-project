@@ -1466,7 +1466,7 @@ export default function EditorPage() {
     subflowTemplates,
     onValidateSubflow:
       activeAbstractionLevel === ABSTRACTION_LEVEL_TAIL_RECURSIVE
-        ? (templateId, sfNodes, sfEdges, candidateRecursiveTemplateIds) => {
+        ? (_templateId, sfNodes, sfEdges, candidateRecursiveTemplateIds) => {
             const analysis = analyzeTailRecursion(
               candidateRecursiveTemplateIds,
               sfNodes,
