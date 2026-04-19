@@ -67,10 +67,12 @@ import {
 import { isSoundEnabled } from "@/lib/sound";
 import {
   isNodeVisibleInLevel,
+  ABSTRACTION_LEVEL_TAIL_RECURSIVE,
   type AbstractionLevel,
   type NodePaletteCategory,
   type NodePaletteItem,
 } from "@/flow/node-palette";
+import { analyzeTailRecursion } from "@/flow/tail-recursion";
 import { type FlowEdge, type FlowNode } from "@/utils/flow";
 import { editorPaletteLabelByType } from "@/flow/editor-node-factory";
 import { getLayoutedElements } from "@/utils/layout";
@@ -380,6 +382,9 @@ export default function EditorPage() {
   const pendingAbstractionLevelResolverRef = useRef<
     ((confirmed: boolean) => void) | null
   >(null);
+  /** Nivel de abstracción activo — se sincroniza desde el AppSidebar. */
+  const [activeAbstractionLevel, setActiveAbstractionLevel] =
+    useState<AbstractionLevel>(3);
   const hasHydratedExtensionsRef = useRef(false);
   const pendingClearAfterNavigationRef = useRef(false);
 
@@ -1460,6 +1465,24 @@ export default function EditorPage() {
     isNameTaken,
     deleteTemplate,
     subflowTemplates,
+    onValidateSubflow:
+      activeAbstractionLevel === ABSTRACTION_LEVEL_TAIL_RECURSIVE
+        ? (templateId, sfNodes, sfEdges, candidateRecursiveTemplateIds) => {
+            const analysis = analyzeTailRecursion(
+              candidateRecursiveTemplateIds,
+              sfNodes,
+              sfEdges,
+            );
+            if (analysis.isTailRecursive === false) {
+              return (
+                "Nivel 4 — Recursión de cola obligatoria: este subflujo contiene" +
+                " llamadas recursivas que no son de cola. Ajusta el flujo para" +
+                " que la llamada recursiva sea la última operación antes de la salida."
+              );
+            }
+            return null;
+          }
+        : undefined,
   });
 
   const { fileInputRef, onDownloadClick, onLoadClick, onProgramFileChange } =
@@ -2048,6 +2071,7 @@ export default function EditorPage() {
               categories={paletteCategories}
               onDragStart={onPaletteDragStart}
               onAbstractionLevelChange={onAbstractionLevelChange}
+              onAbstractionLevelApplied={setActiveAbstractionLevel}
               onDeleteTemplate={subflow.requestDeleteTemplate}
               onAddExtension={handleAddExtensionToPalette}
               onDeleteExtension={(extensionId) => {
@@ -2097,6 +2121,44 @@ export default function EditorPage() {
                         isNameTaken,
                         resolveTemplate,
                         resolveTemplateByName,
+                        onValidateSubflowEdit:
+                          activeAbstractionLevel ===
+                          ABSTRACTION_LEVEL_TAIL_RECURSIVE
+                            ? (selfTemplateId, sfNodes, sfEdges) => {
+                                // Collect all subflow templateIds referenced
+                                // inside the draft as recursive candidates,
+                                // plus the node's own templateId.
+                                const candidateIds = new Set<string>();
+                                if (selfTemplateId) {
+                                  candidateIds.add(selfTemplateId);
+                                }
+                                for (const n of sfNodes) {
+                                  if (String(n.type) !== "subflow") continue;
+                                  const d =
+                                    n.data &&
+                                    typeof n.data === "object"
+                                      ? (n.data as Record<string, unknown>)
+                                      : {};
+                                  const tId = d.templateId;
+                                  if (typeof tId === "string" && tId.trim()) {
+                                    candidateIds.add(tId.trim());
+                                  }
+                                }
+                                const analysis = analyzeTailRecursion(
+                                  candidateIds,
+                                  sfNodes,
+                                  sfEdges,
+                                );
+                                if (analysis.isTailRecursive === false) {
+                                  return (
+                                    "Nivel 4 — Recursión de cola obligatoria: este subflujo contiene" +
+                                    " llamadas recursivas que no son de cola. Ajusta el flujo para" +
+                                    " que la llamada recursiva sea la última operación antes de la salida."
+                                  );
+                                }
+                                return null;
+                              }
+                            : undefined,
                       }}
                     >
                       <ConnectionHighlightProvider value={connectionHighlight}>

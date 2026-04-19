@@ -23,7 +23,14 @@ export type NodePaletteCategory = {
   subcategories?: NodePaletteCategory[];
 };
 
-export type AbstractionLevel = 1 | 2 | 3;
+export type AbstractionLevel = 1 | 2 | 3 | 4;
+
+/**
+ * El nivel 4 activa el modo de recursión de cola obligatoria. La paleta de
+ * nodos es idéntica al nivel 3, pero el editor exige que todos los subflujos
+ * recursivos utilicen exclusivamente recursión de cola.
+ */
+export const ABSTRACTION_LEVEL_TAIL_RECURSIVE = 4 as const satisfies AbstractionLevel;
 
 export type AbstractionRange = {
   min?: AbstractionLevel;
@@ -134,15 +141,19 @@ export function isNodeVisibleInLevel(
   type: string,
   currentLevel: AbstractionLevel,
 ): boolean {
+  // El nivel 4 es idéntico al nivel 3 en cuanto a disponibilidad de nodos.
+  // La restricción adicional (recursión de cola) se aplica en tiempo de guardado.
+  const effectiveLevel = currentLevel === ABSTRACTION_LEVEL_TAIL_RECURSIVE ? 3 : currentLevel;
+
   const levelInfo = nodeAbstractionLevelMap[type] ?? 3;
 
   if (typeof levelInfo === "number") {
-    return levelInfo <= currentLevel;
+    return levelInfo <= effectiveLevel;
   }
 
   const { min, max } = levelInfo;
-  const isAboveMin = min === undefined || currentLevel >= min;
-  const isBelowMax = max === undefined || currentLevel <= max;
+  const isAboveMin = min === undefined || effectiveLevel >= min;
+  const isBelowMax = max === undefined || effectiveLevel <= max;
 
   return isAboveMin && isBelowMax;
 }

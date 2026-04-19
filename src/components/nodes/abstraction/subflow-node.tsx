@@ -1306,7 +1306,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     });
                     if (hasEmptyInputs) {
                       setNameError(
-                        "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
+                        "Hay entradas sin nombre. Escribe un nombre en todas las entradas antes de guardar.",
                       );
                       return;
                     }
@@ -1314,9 +1314,23 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     // Prevent saving if there are more than one exposed outputs
                     if (Number(nextOutCount) > 1) {
                       setNameError(
-                        "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
+                        "El subflujo no puede exponer más de 1 salida. Cierra salidas antes de guardar.",
                       );
                       return;
+                    }
+
+                    // Validación externa (ej. nivel 4: recursión de cola obligatoria).
+                    if (templateContext?.onValidateSubflowEdit) {
+                      const validationError =
+                        templateContext.onValidateSubflowEdit(
+                          templateId,
+                          syncedDraftNodes as Node[],
+                          effectiveDraftEdges,
+                        );
+                      if (validationError) {
+                        setNameError(validationError);
+                        return;
+                      }
                     }
 
                     if (addToPalette && templateContext) {
