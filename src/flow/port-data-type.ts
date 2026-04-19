@@ -308,6 +308,9 @@ export function inferPortDataType(params: {
   ) {
     return "boolean";
   }
+  if (nodeType === NODE_TYPES.LOGIC_FORMULA_NODE) {
+    return handleType === "source" ? "boolean" : "any";
+  }
   if (COMPARISON_NODE_TYPES.has(nodeType)) {
     return handleType === "source" ? "boolean" : "number";
   }
@@ -563,6 +566,9 @@ export function getPortTypeMask(params: {
       nodeType === NODE_TYPES.LOGIC_OPERATION_NODE
     ) {
       return TYPE_BOOLEAN;
+    }
+    if (nodeType === NODE_TYPES.LOGIC_FORMULA_NODE) {
+      return isOutput ? TYPE_BOOLEAN : TYPE_ANY;
     }
     if (COMPARISON_NODE_TYPES.has(nodeType)) {
       // Inputs can be anything; output is boolean.

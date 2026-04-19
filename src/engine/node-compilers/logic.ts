@@ -3,6 +3,7 @@ import { ensureMicrobitConnected } from "@/microbit/connection-manager";
 import { parseMicrobitSlot } from "@/microbit/slot-utils";
 import { sendSubflowToMicrobit } from "@/microbit/subflow-sender";
 import { validateFormula } from "@/utils/formula";
+import { EngineFormulaNode } from "../nodes/algorithm-nodes";
 
 import {
   EngineAndNode,
@@ -476,6 +477,16 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
     case NODE_TYPES.RELEVO_NODE:
       return new EngineRelevoNode();
 
+    case NODE_TYPES.LOGIC_FORMULA_NODE: {
+      const formula = data.formula;
+      const variables = data.variables;
+      return new EngineFormulaNode({
+        formula,
+        variables,
+        mode: "logic",
+      });
+    }
+
     case NODE_TYPES.SWITCH_NODE: {
       const raw = data.conditions;
 
@@ -555,7 +566,9 @@ export const compileLogicNodes: NodeCompiler = (flowNode, ctx) => {
             : `Salida ${idx + 1}`;
 
         const formula = typeof formulaRaw === "string" ? formulaRaw.trim() : "";
-        const validation = validateFormula(formula === "" ? "0" : formula);
+        const validation = validateFormula(formula === "" ? "0" : formula, {
+          mode: "logic",
+        });
 
         return {
           outputToken,

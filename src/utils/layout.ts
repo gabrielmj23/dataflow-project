@@ -77,7 +77,8 @@ export function getLayoutedElements(nodes: FlowNode[], edges: FlowEdge[]) {
       node.type === "accumulate";
 
     const isWriteNode = node.type === "write" || node.type === "microbitWrite";
-    const isFormulaNode = node.type === "formulaEditor";
+    const isFormulaNode =
+      node.type === "formulaEditor" || node.type === "logicFormula";
 
     const width =
       isListNode || isWriteNode || isFormulaNode

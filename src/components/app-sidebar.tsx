@@ -82,10 +82,7 @@ type AppSidebarProps = {
   ) => boolean | Promise<boolean>;
   onDeleteTemplate?: (templateId: string) => void;
   onAddExtension?: (extension: ExtensionListItem) => boolean | Promise<boolean>;
-  onDeleteExtension?: (
-    extensionId: string,
-    extensionName: string,
-  ) => void;
+  onDeleteExtension?: (extensionId: string, extensionName: string) => void;
   existingExtensionIds?: string[];
   showAbstractionFilter?: boolean;
   className?: string;
@@ -378,7 +375,10 @@ export function AppSidebar({
                         aria-label={`Eliminar extension ${category.title}`}
                         onClick={(event) => {
                           event.stopPropagation();
-                          onDeleteExtension(category.extensionId!, category.title);
+                          onDeleteExtension(
+                            category.extensionId!,
+                            category.title,
+                          );
                         }}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -924,6 +924,20 @@ function getPreviewHandleSpecs(type: string): PreviewHandleSpec[] {
         }),
       ];
 
+    case NODE_TYPES.LOGIC_FORMULA_NODE:
+      return [
+        ...createHandleSpecs({
+          direction: "target",
+          ids: ["in"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+        ...createHandleSpecs({
+          direction: "source",
+          ids: ["out"],
+          positions: [...HANDLE_POSITIONS.single],
+        }),
+      ];
+
     default:
       return createHandleSpecs({
         direction: "target",
@@ -1006,7 +1020,8 @@ function getPreviewHandleBorderClass(type: string): string {
     type === "nor" ||
     type === "xor" ||
     type === "not" ||
-    type === "logicOperation"
+    type === "logicOperation" ||
+    type === NODE_TYPES.LOGIC_FORMULA_NODE
   ) {
     return "border-orange-600";
   }
@@ -1355,7 +1370,8 @@ function NodePreview({
       case "nor":
       case "xor":
       case "not":
-      case "logicOperation": {
+      case "logicOperation":
+      case "logicFormula": {
         const symbolMap: Record<string, string> = {
           comparison: "comparison",
           comparisonEqual: "comparisonEqual",
@@ -1372,6 +1388,7 @@ function NodePreview({
           not: "not",
           logicOperation: "logicOperation",
           switch: "switch",
+          logicFormula: "logicFormula",
         };
 
         return (
@@ -1425,6 +1442,9 @@ function NodePreview({
               )}
               {symbolMap[type] === "switch" && (
                 <ToggleRight className="h-4 w-4" />
+              )}
+              {symbolMap[type] === "logicFormula" && (
+                <span className="text-xl font-medium leading-none">ƒx</span>
               )}
             </span>
             <span className="text-[0.65rem] leading-tight">{label}</span>

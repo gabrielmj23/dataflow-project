@@ -618,7 +618,11 @@ export const compileProcessingNodes: NodeCompiler = (flowNode, ctx) => {
     case NODE_TYPES.FORMULA_EDITOR_NODE: {
       const formula = data.formula;
       const variables = data.variables;
-      return new EngineFormulaNode({ formula, variables });
+      return new EngineFormulaNode({
+        formula,
+        variables,
+        mode: "arithmetic",
+      });
     }
     default:
       return null;

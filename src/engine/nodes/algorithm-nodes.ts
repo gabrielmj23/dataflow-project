@@ -1,5 +1,9 @@
 import { FirePatterns, NodeDefinition } from "../program-elements";
-import { evaluateFormulaExpression, validateFormula } from "@/utils/formula";
+import {
+  evaluateFormulaExpression,
+  type FormulaValidationMode,
+  validateFormula,
+} from "@/utils/formula";
 
 export class EngineSumNode extends NodeDefinition {
   constructor() {
@@ -290,10 +294,15 @@ export class EngineRoundNode extends NodeDefinition {
 }
 
 export class EngineFormulaNode extends NodeDefinition {
-  constructor(params: { formula?: unknown; variables?: unknown }) {
+  constructor(params: {
+    formula?: unknown;
+    variables?: unknown;
+    mode?: FormulaValidationMode;
+  }) {
+    const mode = params.mode === "logic" ? "logic" : "arithmetic";
     const rawFormula =
       typeof params.formula === "string" ? params.formula.trim() : "";
-    const validation = validateFormula(rawFormula, { mode: "arithmetic" });
+    const validation = validateFormula(rawFormula, { mode });
 
     const providedVariables = Array.isArray(params.variables)
       ? params.variables.filter(
@@ -342,7 +351,7 @@ export class EngineFormulaNode extends NodeDefinition {
         }
 
         try {
-          return evaluateFormulaExpression({ compiled, scope });
+          return evaluateFormulaExpression({ compiled, scope, mode });
         } catch (error) {
           if (error instanceof Error) {
             throw new Error(error.message);

@@ -1,3 +1,5 @@
+import { NODE_TYPES } from "@/common/constants";
+
 export type NodePaletteItem = {
   type: string;
   label: string;
@@ -81,6 +83,8 @@ const nodeAbstractionLevelMap: Record<
   nor: { min: 1, max: 2 },
   xor: { min: 1, max: 2 },
   not: { min: 1, max: 2 },
+  logicFormula: { min: 3 },
+
   desvio: 1,
   relevo: 1,
   switch: { min: 2, max: 2 },
@@ -441,6 +445,11 @@ export const nodePalette: NodePaletteCategory[] = [
             type: "not",
             label: "NOT",
             description: "Niega un valor lógico de entrada.",
+          },
+          {
+            type: NODE_TYPES.LOGIC_FORMULA_NODE,
+            label: "Fórmula Lógica",
+            description: "Calcula una expresión con operadores lógicos",
           },
         ],
       },
