@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "programName": "control-desvio",
+  "nodes": [
+    {
+      "id": "value",
+      "type": "constantText",
+      "position": { "x": 0, "y": 0 },
+      "data": { "value": "token" }
+    },
+    {
+      "id": "condition",
+      "type": "constantBoolean",
+      "position": { "x": 0, "y": 0 },
+      "data": { "value": false }
+    },
+    {
+      "id": "desvio",
+      "type": "desvio",
+      "position": { "x": 0, "y": 0 },
+      "data": {}
+    },
+    {
+      "id": "writeTrue",
+      "type": "write",
+      "position": { "x": 0, "y": 0 },
+      "data": { "template": "A={1}" }
+    },
+    {
+      "id": "writeFalse",
+      "type": "write",
+      "position": { "x": 0, "y": 0 },
+      "data": { "template": "B={1}" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "value",
+      "target": "desvio",
+      "targetHandle": "in"
+    },
+    {
+      "id": "e2",
+      "source": "condition",
+      "target": "desvio",
+      "targetHandle": "in-cond"
+    },
+    {
+      "id": "e3",
+      "source": "desvio",
+      "target": "writeTrue",
+      "sourceHandle": "out-1"
+    },
+    {
+      "id": "e4",
+      "source": "desvio",
+      "target": "writeFalse",
+      "sourceHandle": "out-2"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "programName": "text-concat",
+  "nodes": [
+    {
+      "id": "left",
+      "type": "constantText",
+      "position": { "x": 0, "y": 0 },
+      "data": { "value": "hola" }
+    },
+    {
+      "id": "right",
+      "type": "constantText",
+      "position": { "x": 0, "y": 0 },
+      "data": { "value": " mundo" }
+    },
+    {
+      "id": "concat",
+      "type": "concat",
+      "position": { "x": 0, "y": 0 },
+      "data": {}
+    },
+    {
+      "id": "write",
+      "type": "write",
+      "position": { "x": 0, "y": 0 },
+      "data": { "template": "txt={1}" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "left",
+      "target": "concat",
+      "targetHandle": "in-1"
+    },
+    {
+      "id": "e2",
+      "source": "right",
+      "target": "concat",
+      "targetHandle": "in-2"
+    },
+    {
+      "id": "e3",
+      "source": "concat",
+      "target": "write",
+      "sourceHandle": "out"
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "programName": "arithmetic-sum",
+  "nodes": [
+    {
+      "id": "a",
+      "type": "constantNumber",
+      "position": { "x": 0, "y": 0 },
+      "data": { "value": 2 }
+    },
+    {
+      "id": "b",
+      "type": "constantNumber",
+      "position": { "x": 0, "y": 0 },
+      "data": { "value": 3 }
+    },
+    {
+      "id": "sum",
+      "type": "sum",
+      "position": { "x": 0, "y": 0 },
+      "data": {}
+    },
+    {
+      "id": "write",
+      "type": "write",
+      "position": { "x": 0, "y": 0 },
+      "data": { "template": "res={1}" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "source": "a",
+      "target": "sum",
+      "targetHandle": "in-1"
+    },
+    {
+      "id": "e2",
+      "source": "b",
+      "target": "sum",
+      "targetHandle": "in-2"
+    },
+    {
+      "id": "e3",
+      "source": "sum",
+      "target": "write",
+      "sourceHandle": "out"
+    }
+  ]
+}
