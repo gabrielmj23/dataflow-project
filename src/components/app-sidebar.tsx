@@ -104,7 +104,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
   const [abstractionLevel, setAbstractionLevel] =
-    React.useState<AbstractionLevel>(3);
+    React.useState<AbstractionLevel>(1);
   const [customNodeDialogOpen, setCustomNodeDialogOpen] = React.useState(false);
   const viewMode = "nodes";
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});

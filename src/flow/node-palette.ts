@@ -25,11 +25,6 @@ export type NodePaletteCategory = {
 
 export type AbstractionLevel = 1 | 2 | 3 | 4;
 
-/**
- * El nivel 4 activa el modo de recursión de cola obligatoria. La paleta de
- * nodos es idéntica al nivel 3, pero el editor exige que todos los subflujos
- * recursivos utilicen exclusivamente recursión de cola.
- */
 export const ABSTRACTION_LEVEL_TAIL_RECURSIVE = 4 as const satisfies AbstractionLevel;
 
 export type AbstractionRange = {
@@ -63,12 +58,12 @@ const nodeAbstractionLevelMap: Record<
   divide: { min: 1, max: 2 },
   mod: { min: 1, max: 2 },
   power: { min: 2, max: 2 },
-  mathOperation: 2,
-  root: 2,
-  logarithm: 2,
-  floor: 2,
-  ceiling: 2,
-  round: 2,
+  mathOperation: { min: 2, max: 3 },
+  root: { min: 2, max: 3 },
+  logarithm: { min: 2, max: 3 },
+  floor: { min: 2, max: 3 },
+  ceiling: { min: 2, max: 3 },
+  round: { min: 2, max: 3 },
   formulaEditor: 3,
 
   concat: 1,
@@ -76,14 +71,14 @@ const nodeAbstractionLevelMap: Record<
   subtractText: 1,
   sliceText: 1,
 
-  comparison: 2,
+  comparison: { min: 2, max: 3 },
   comparisonEqual: { min: 1, max: 2 },
   comparisonNotEqual: { min: 1, max: 2 },
   comparisonLess: { min: 1, max: 2 },
   comparisonLessOrEqual: { min: 1, max: 2 },
   comparisonGreater: { min: 1, max: 2 },
   comparisonGreaterOrEqual: { min: 1, max: 2 },
-  logicOperation: 2,
+  logicOperation: { min: 2, max: 3 },
   and: { min: 1, max: 2 },
   nand: { min: 1, max: 2 },
   or: { min: 1, max: 2 },
@@ -96,8 +91,8 @@ const nodeAbstractionLevelMap: Record<
   relevo: 1,
   switch: { min: 2, max: 2 },
   selector: 1,
-  conditional: 3,
-  conditionalPair: 3,
+  conditional: { min: 3, max: 3 },
+  conditionalPair: { min: 3, max: 3 },
 
   scatter: 2,
   gather: 2,
@@ -131,7 +126,7 @@ const nodeAbstractionLevelMap: Record<
   listOddPositions: 3,
 
   subflow: 2,
-  write: 1,
+  write: { min: 1, max: 3 },
   microbitWrite: 3,
   microbitSound: 3,
   microbitWritePin: 3,
@@ -141,19 +136,15 @@ export function isNodeVisibleInLevel(
   type: string,
   currentLevel: AbstractionLevel,
 ): boolean {
-  // El nivel 4 es idéntico al nivel 3 en cuanto a disponibilidad de nodos.
-  // La restricción adicional (recursión de cola) se aplica en tiempo de guardado.
-  const effectiveLevel = currentLevel === ABSTRACTION_LEVEL_TAIL_RECURSIVE ? 3 : currentLevel;
-
   const levelInfo = nodeAbstractionLevelMap[type] ?? 3;
 
   if (typeof levelInfo === "number") {
-    return levelInfo <= effectiveLevel;
+    return levelInfo <= currentLevel;
   }
 
   const { min, max } = levelInfo;
-  const isAboveMin = min === undefined || effectiveLevel >= min;
-  const isBelowMax = max === undefined || effectiveLevel <= max;
+  const isAboveMin = min === undefined || currentLevel >= min;
+  const isBelowMax = max === undefined || currentLevel <= max;
 
   return isAboveMin && isBelowMax;
 }

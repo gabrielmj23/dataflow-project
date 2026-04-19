@@ -382,9 +382,8 @@ export default function EditorPage() {
   const pendingAbstractionLevelResolverRef = useRef<
     ((confirmed: boolean) => void) | null
   >(null);
-  /** Nivel de abstracción activo — se sincroniza desde el AppSidebar. */
   const [activeAbstractionLevel, setActiveAbstractionLevel] =
-    useState<AbstractionLevel>(3);
+    useState<AbstractionLevel>(1);
   const hasHydratedExtensionsRef = useRef(false);
   const pendingClearAfterNavigationRef = useRef(false);
 
