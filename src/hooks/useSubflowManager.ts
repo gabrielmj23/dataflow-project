@@ -61,6 +61,11 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
     string | null
   >(null);
 
+  const normalizeSubflowName = useCallback((value: unknown): string => {
+    if (typeof value !== "string") return "";
+    return value.trim().toLowerCase();
+  }, []);
+
   const onCreateSubflowDialogChange = useCallback((open: boolean) => {
     setIsCreateSubflowOpen(open);
     if (!open) {
@@ -110,9 +115,27 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
       return;
     }
 
-    if (addSubflowToPalette && isNameTaken(name)) {
+    const normalizedName = normalizeSubflowName(name);
+    const removedNodeIds = new Set(
+      (pendingSubflowSnapshot?.nodes ?? []).map((node) => String(node.id)),
+    );
+    const hasCanvasConflict = nodes.some((node) => {
+      if (String(node.type) !== "subflow") return false;
+      if (removedNodeIds.has(String(node.id))) return false;
+
+      const nodeData = (node.data ?? {}) as { label?: unknown };
+      return normalizeSubflowName(nodeData.label) === normalizedName;
+    });
+
+    const hasPaletteConflict =
+      isNameTaken(name) ||
+      subflowTemplates.some(
+        (template) => normalizeSubflowName(template.name) === normalizedName,
+      );
+
+    if (hasCanvasConflict || hasPaletteConflict) {
       setCreateSubflowNameError(
-        "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
+        "Ya existe un subflujo con ese nombre en la paleta o en el canvas. Elige otro nombre.",
       );
       return;
     }
@@ -228,12 +251,14 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
     addSubflowToPalette,
     addOrUpdateTemplate,
     isNameTaken,
+    normalizeSubflowName,
     nodes,
     pendingSubflowBounds,
     pendingSubflowPorts,
     pendingSubflowSnapshot,
     setNodes,
     setEdges,
+    subflowTemplates,
     subflowName,
   ]);
 

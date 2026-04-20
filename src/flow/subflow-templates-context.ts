@@ -12,8 +12,25 @@ export type SubflowTemplatePayload = {
   edges: Edge[];
 };
 
+export type GlobalSubflowUpdatePayload = {
+  templateId?: string | null;
+  previousLabel: string;
+  nextLabel: string;
+  inCount: number;
+  outCount: number;
+  nodes: Node[];
+  edges: Edge[];
+};
+
+export type GlobalSubflowUpdateResult = {
+  disconnected: boolean;
+};
+
 export type SubflowTemplateContextValue = {
   addOrUpdateTemplate: (payload: SubflowTemplatePayload) => void;
+  applyGlobalSubflowUpdate: (
+    payload: GlobalSubflowUpdatePayload,
+  ) => GlobalSubflowUpdateResult;
   isNameTaken: (name: string) => boolean;
   resolveTemplate: (id: string) => {
     id: string;

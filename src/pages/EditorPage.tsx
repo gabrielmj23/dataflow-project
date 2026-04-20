@@ -32,7 +32,11 @@ import { EditorCanvasControls } from "@/components/EditorCanvasControls";
 import { EditorHeaderActions } from "@/components/EditorHeaderActions";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { usePaletteDrag } from "@/hooks/usePaletteDrag";
-import { SubflowTemplateContext } from "@/flow/subflow-templates-context";
+import {
+  SubflowTemplateContext,
+  type GlobalSubflowUpdatePayload,
+  type GlobalSubflowUpdateResult,
+} from "@/flow/subflow-templates-context";
 import { useEngineRunner } from "@/hooks/useEngineRunner";
 import { createNodeId } from "@/utils/id";
 import { useFlowHistory } from "@/hooks/useFlowHistory";
@@ -391,6 +395,271 @@ export default function EditorPage() {
     resolveTemplateByName,
     deleteTemplate,
   } = useSubflowTemplates();
+
+  const applyGlobalSubflowUpdate = useCallback(
+    (payload: GlobalSubflowUpdatePayload): GlobalSubflowUpdateResult => {
+      const normalizeName = (value: unknown): string => {
+        if (typeof value !== "string") return "";
+        return value.trim().toLowerCase();
+      };
+
+      const targetTemplateId =
+        typeof payload.templateId === "string" && payload.templateId.trim()
+          ? payload.templateId.trim()
+          : null;
+      const previousLabelNormalized = normalizeName(payload.previousLabel);
+
+      const payloadNodes = (payload.nodes ?? []) as FlowNode[];
+      const payloadEdges = (payload.edges ?? []) as FlowEdge[];
+
+      let disconnectedAny = false;
+
+      const nodeMatchesTarget = (
+        nodeData: Record<string, unknown> | null | undefined,
+      ): boolean => {
+        if (!nodeData) return false;
+        const nodeTemplateId =
+          typeof nodeData.templateId === "string" &&
+          nodeData.templateId.trim().length > 0
+            ? nodeData.templateId.trim()
+            : null;
+        const nodeLabelNormalized = normalizeName(nodeData.label);
+
+        return (
+          (targetTemplateId !== null && nodeTemplateId === targetTemplateId) ||
+          (previousLabelNormalized.length > 0 &&
+            nodeLabelNormalized === previousLabelNormalized)
+        );
+      };
+
+      const updateGraphRecursively = (
+        graphNodes: FlowNode[],
+        graphEdges: FlowEdge[],
+      ): {
+        nodes: FlowNode[];
+        edges: FlowEdge[];
+        changed: boolean;
+        disconnected: boolean;
+      } => {
+        const localDisconnectedIds = new Set<string>();
+        let graphChanged = false;
+        let nestedDisconnected = false;
+
+        const nextNodes = graphNodes.map((graphNode) => {
+          if (String(graphNode.type) !== "subflow") return graphNode;
+
+          const graphNodeData = (graphNode.data ?? {}) as Record<
+            string,
+            unknown
+          >;
+          let nextNodeData = graphNodeData;
+          let nodeChanged = false;
+
+          if (nodeMatchesTarget(graphNodeData)) {
+            const currentInCount = Number.isFinite(graphNodeData.inCount)
+              ? (graphNodeData.inCount as number)
+              : 0;
+            const currentOutCount = Number.isFinite(graphNodeData.outCount)
+              ? (graphNodeData.outCount as number)
+              : 0;
+
+            if (
+              Number(currentInCount) !== Number(payload.inCount) ||
+              Number(currentOutCount) !== Number(payload.outCount)
+            ) {
+              localDisconnectedIds.add(String(graphNode.id));
+            }
+
+            nextNodeData = {
+              ...graphNodeData,
+              label: payload.nextLabel,
+              inCount: payload.inCount,
+              outCount: payload.outCount,
+              subflowNodes: payloadNodes,
+              subflowEdges: payloadEdges,
+              ...(targetTemplateId ? { templateId: targetTemplateId } : {}),
+            };
+            nodeChanged = true;
+          } else if (
+            Array.isArray(graphNodeData.subflowNodes) &&
+            Array.isArray(graphNodeData.subflowEdges)
+          ) {
+            const nested = updateGraphRecursively(
+              graphNodeData.subflowNodes as FlowNode[],
+              graphNodeData.subflowEdges as FlowEdge[],
+            );
+            if (nested.changed) {
+              nextNodeData = {
+                ...graphNodeData,
+                subflowNodes: nested.nodes,
+                subflowEdges: nested.edges,
+              };
+              nodeChanged = true;
+            }
+            if (nested.disconnected) {
+              nestedDisconnected = true;
+            }
+          }
+
+          if (!nodeChanged) return graphNode;
+
+          graphChanged = true;
+          return {
+            ...graphNode,
+            data: nextNodeData,
+          };
+        });
+
+        let nextEdges = graphEdges;
+        let localDisconnected = false;
+        if (localDisconnectedIds.size > 0) {
+          const filtered = graphEdges.filter(
+            (edge) =>
+              !localDisconnectedIds.has(String(edge.source)) &&
+              !localDisconnectedIds.has(String(edge.target)),
+          );
+          if (filtered.length !== graphEdges.length) {
+            nextEdges = filtered;
+            graphChanged = true;
+            localDisconnected = true;
+          }
+        }
+
+        return {
+          nodes: graphChanged ? nextNodes : graphNodes,
+          edges: graphChanged ? nextEdges : graphEdges,
+          changed: graphChanged,
+          disconnected: localDisconnected || nestedDisconnected,
+        };
+      };
+
+      const rootDisconnectedIds = new Set<string>();
+      let rootChanged = false;
+
+      const nextRootNodes = nodes.map((rootNode) => {
+        if (String(rootNode.type) !== "subflow") return rootNode;
+
+        const rootNodeData = (rootNode.data ?? {}) as Record<string, unknown>;
+
+        if (nodeMatchesTarget(rootNodeData)) {
+          const currentInCount = Number.isFinite(rootNodeData.inCount)
+            ? (rootNodeData.inCount as number)
+            : 0;
+          const currentOutCount = Number.isFinite(rootNodeData.outCount)
+            ? (rootNodeData.outCount as number)
+            : 0;
+
+          if (
+            Number(currentInCount) !== Number(payload.inCount) ||
+            Number(currentOutCount) !== Number(payload.outCount)
+          ) {
+            rootDisconnectedIds.add(String(rootNode.id));
+          }
+
+          rootChanged = true;
+          return {
+            ...rootNode,
+            data: {
+              ...rootNodeData,
+              label: payload.nextLabel,
+              inCount: payload.inCount,
+              outCount: payload.outCount,
+              subflowNodes: payloadNodes,
+              subflowEdges: payloadEdges,
+              ...(targetTemplateId ? { templateId: targetTemplateId } : {}),
+            },
+          } as FlowNode;
+        }
+
+        if (
+          Array.isArray(rootNodeData.subflowNodes) &&
+          Array.isArray(rootNodeData.subflowEdges)
+        ) {
+          const nested = updateGraphRecursively(
+            rootNodeData.subflowNodes as FlowNode[],
+            rootNodeData.subflowEdges as FlowEdge[],
+          );
+          if (nested.changed) {
+            rootChanged = true;
+            if (nested.disconnected) {
+              disconnectedAny = true;
+            }
+            return {
+              ...rootNode,
+              data: {
+                ...rootNodeData,
+                subflowNodes: nested.nodes,
+                subflowEdges: nested.edges,
+              },
+            } as FlowNode;
+          }
+        }
+
+        return rootNode;
+      });
+
+      if (rootChanged) {
+        setNodes(nextRootNodes);
+      }
+
+      if (rootDisconnectedIds.size > 0) {
+        disconnectedAny = true;
+        setEdges((prev) =>
+          prev.filter(
+            (edge) =>
+              !rootDisconnectedIds.has(String(edge.source)) &&
+              !rootDisconnectedIds.has(String(edge.target)),
+          ),
+        );
+      }
+
+      for (const template of subflowTemplates) {
+        const templateData = {
+          id: template.id,
+          name: template.name,
+          authorName: template.authorName,
+          accentColor: template.accentColor,
+          inCount: template.ports.inCount,
+          outCount: template.ports.outCount,
+          nodes: template.snapshot.nodes as FlowNode[],
+          edges: template.snapshot.edges as FlowEdge[],
+        };
+
+        const isTargetTemplate =
+          (targetTemplateId !== null && templateData.id === targetTemplateId) ||
+          (previousLabelNormalized.length > 0 &&
+            normalizeName(templateData.name) === previousLabelNormalized);
+
+        const baseNodes = isTargetTemplate ? payloadNodes : templateData.nodes;
+        const baseEdges = isTargetTemplate ? payloadEdges : templateData.edges;
+
+        const nested = updateGraphRecursively(baseNodes, baseEdges);
+        if (nested.disconnected) {
+          disconnectedAny = true;
+        }
+
+        if (!isTargetTemplate && !nested.changed) {
+          continue;
+        }
+
+        addOrUpdateTemplate({
+          id: templateData.id,
+          name: isTargetTemplate ? payload.nextLabel : templateData.name,
+          authorName: templateData.authorName,
+          accentColor: templateData.accentColor,
+          inCount: isTargetTemplate ? payload.inCount : templateData.inCount,
+          outCount: isTargetTemplate
+            ? payload.outCount
+            : templateData.outCount,
+          nodes: nested.nodes,
+          edges: nested.edges,
+        });
+      }
+
+      return { disconnected: disconnectedAny };
+    },
+    [addOrUpdateTemplate, nodes, setEdges, setNodes, subflowTemplates],
+  );
   const [addedExtensionRefs, setAddedExtensionRefs] = useState<
     SavedExtensionReference[]
   >(() => parseSavedExtensionReferences());
@@ -2094,6 +2363,7 @@ export default function EditorPage() {
                     <SubflowTemplateContext.Provider
                       value={{
                         addOrUpdateTemplate,
+                        applyGlobalSubflowUpdate,
                         isNameTaken,
                         resolveTemplate,
                         resolveTemplateByName,
