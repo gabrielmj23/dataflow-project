@@ -23,7 +23,9 @@ export type NodePaletteCategory = {
   subcategories?: NodePaletteCategory[];
 };
 
-export type AbstractionLevel = 1 | 2 | 3;
+export type AbstractionLevel = 1 | 2 | 3 | 4;
+
+export const ABSTRACTION_LEVEL_TAIL_RECURSIVE = 4 as const satisfies AbstractionLevel;
 
 export type AbstractionRange = {
   min?: AbstractionLevel;
@@ -56,12 +58,12 @@ const nodeAbstractionLevelMap: Record<
   divide: { min: 1, max: 2 },
   mod: { min: 1, max: 2 },
   power: { min: 2, max: 2 },
-  mathOperation: 2,
-  root: 2,
-  logarithm: 2,
-  floor: 2,
-  ceiling: 2,
-  round: 2,
+  mathOperation: { min: 2, max: 3 },
+  root: { min: 2, max: 3 },
+  logarithm: { min: 2, max: 3 },
+  floor: { min: 2, max: 3 },
+  ceiling: { min: 2, max: 3 },
+  round: { min: 2, max: 3 },
   formulaEditor: 3,
 
   concat: 1,
@@ -69,14 +71,14 @@ const nodeAbstractionLevelMap: Record<
   subtractText: 1,
   sliceText: 1,
 
-  comparison: 2,
+  comparison: { min: 2, max: 3 },
   comparisonEqual: { min: 1, max: 2 },
   comparisonNotEqual: { min: 1, max: 2 },
   comparisonLess: { min: 1, max: 2 },
   comparisonLessOrEqual: { min: 1, max: 2 },
   comparisonGreater: { min: 1, max: 2 },
   comparisonGreaterOrEqual: { min: 1, max: 2 },
-  logicOperation: 2,
+  logicOperation: { min: 2, max: 3 },
   and: { min: 1, max: 2 },
   nand: { min: 1, max: 2 },
   or: { min: 1, max: 2 },
@@ -89,8 +91,8 @@ const nodeAbstractionLevelMap: Record<
   relevo: 1,
   switch: { min: 2, max: 2 },
   selector: 1,
-  conditional: 3,
-  conditionalPair: 3,
+  conditional: { min: 3, max: 3 },
+  conditionalPair: { min: 3, max: 3 },
 
   scatter: 2,
   gather: 2,

@@ -251,7 +251,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   useSubcanvasNodeCreationLock(isEditorOpen);
-  const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
+  const [contextPoint, setContextPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isShareSubmitting, setIsShareSubmitting] = useState(false);
   const [shareSubmitError, setShareSubmitError] = useState<string | null>(null);
@@ -539,8 +542,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     useClipboardSelection({
       nodes: syncedDraftNodes as FlowNode[],
       edges: effectiveDraftEdges as FlowEdge[],
-      setNodes: setDraftNodes as React.Dispatch<React.SetStateAction<FlowNode[]>>,
-      setEdges: setDraftEdges as React.Dispatch<React.SetStateAction<FlowEdge[]>>,
+      setNodes: setDraftNodes as React.Dispatch<
+        React.SetStateAction<FlowNode[]>
+      >,
+      setEdges: setDraftEdges as React.Dispatch<
+        React.SetStateAction<FlowEdge[]>
+      >,
       reactFlowInstance: editorReactFlowInstance,
     });
 
@@ -558,8 +565,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       | null;
 
     const screenPos = { x: contextPoint.x, y: contextPoint.y };
-    const position =
-      instance?.screenToFlowPosition?.(screenPos) ??
+    const position = instance?.screenToFlowPosition?.(screenPos) ??
       instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
     setDraftNodes((prev) => [
@@ -1306,7 +1312,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     });
                     if (hasEmptyInputs) {
                       setNameError(
-                        "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
+                        "Hay entradas sin nombre. Escribe un nombre en todas las entradas antes de guardar.",
                       );
                       return;
                     }
@@ -1314,9 +1320,23 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     // Prevent saving if there are more than one exposed outputs
                     if (Number(nextOutCount) > 1) {
                       setNameError(
-                        "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
+                        "El subflujo no puede exponer más de 1 salida. Cierra salidas antes de guardar.",
                       );
                       return;
+                    }
+
+                    // Validación externa (ej. nivel 4: recursión de cola obligatoria).
+                    if (templateContext?.onValidateSubflowEdit) {
+                      const validationError =
+                        templateContext.onValidateSubflowEdit(
+                          selfTemplateId,
+                          syncedDraftNodes as Node[],
+                          effectiveDraftEdges,
+                        );
+                      if (validationError) {
+                        setNameError(validationError);
+                        return;
+                      }
                     }
 
                     if (addToPalette && templateContext) {
