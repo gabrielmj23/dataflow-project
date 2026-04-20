@@ -126,7 +126,7 @@ const nodeAbstractionLevelMap: Record<
   listOddPositions: 3,
 
   subflow: 2,
-  write: { min: 1, max: 3 },
+  write: 1,
   microbitWrite: 3,
   microbitSound: 3,
   microbitWritePin: 3,

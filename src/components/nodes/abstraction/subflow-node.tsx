@@ -251,7 +251,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   useSubcanvasNodeCreationLock(isEditorOpen);
-  const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
+  const [contextPoint, setContextPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isShareSubmitting, setIsShareSubmitting] = useState(false);
   const [shareSubmitError, setShareSubmitError] = useState<string | null>(null);
@@ -539,8 +542,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     useClipboardSelection({
       nodes: syncedDraftNodes as FlowNode[],
       edges: effectiveDraftEdges as FlowEdge[],
-      setNodes: setDraftNodes as React.Dispatch<React.SetStateAction<FlowNode[]>>,
-      setEdges: setDraftEdges as React.Dispatch<React.SetStateAction<FlowEdge[]>>,
+      setNodes: setDraftNodes as React.Dispatch<
+        React.SetStateAction<FlowNode[]>
+      >,
+      setEdges: setDraftEdges as React.Dispatch<
+        React.SetStateAction<FlowEdge[]>
+      >,
       reactFlowInstance: editorReactFlowInstance,
     });
 
@@ -558,8 +565,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       | null;
 
     const screenPos = { x: contextPoint.x, y: contextPoint.y };
-    const position =
-      instance?.screenToFlowPosition?.(screenPos) ??
+    const position = instance?.screenToFlowPosition?.(screenPos) ??
       instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
     setDraftNodes((prev) => [
@@ -1323,7 +1329,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     if (templateContext?.onValidateSubflowEdit) {
                       const validationError =
                         templateContext.onValidateSubflowEdit(
-                          templateId,
+                          selfTemplateId,
                           syncedDraftNodes as Node[],
                           effectiveDraftEdges,
                         );
