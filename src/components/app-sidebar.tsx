@@ -60,6 +60,7 @@ import {
 } from "@/components/ui/tooltip";
 import {
   isNodeVisibleInLevel,
+  ABSTRACTION_LEVEL_TAIL_RECURSIVE,
   type AbstractionLevel,
   type NodePaletteCategory,
   type NodePaletteItem,
@@ -80,6 +81,7 @@ type AppSidebarProps = {
   onAbstractionLevelChange?: (
     level: AbstractionLevel,
   ) => boolean | Promise<boolean>;
+  onAbstractionLevelApplied?: (level: AbstractionLevel) => void;
   onDeleteTemplate?: (templateId: string) => void;
   onAddExtension?: (extension: ExtensionListItem) => boolean | Promise<boolean>;
   onDeleteExtension?: (extensionId: string, extensionName: string) => void;
@@ -92,6 +94,7 @@ export function AppSidebar({
   categories,
   onDragStart,
   onAbstractionLevelChange,
+  onAbstractionLevelApplied,
   onDeleteTemplate,
   onAddExtension,
   onDeleteExtension,
@@ -101,7 +104,7 @@ export function AppSidebar({
 }: AppSidebarProps) {
   const [search, setSearch] = React.useState("");
   const [abstractionLevel, setAbstractionLevel] =
-    React.useState<AbstractionLevel>(3);
+    React.useState<AbstractionLevel>(1);
   const [customNodeDialogOpen, setCustomNodeDialogOpen] = React.useState(false);
   const viewMode = "nodes";
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
@@ -252,8 +255,9 @@ export function AppSidebar({
       }
 
       setAbstractionLevel(level);
+      onAbstractionLevelApplied?.(level);
     },
-    [abstractionLevel, onAbstractionLevelChange],
+    [abstractionLevel, onAbstractionLevelChange, onAbstractionLevelApplied],
   );
 
   return (
@@ -271,31 +275,53 @@ export function AppSidebar({
                 <p className="mt-2 px-1 text-[11px] font-medium text-muted-foreground">
                   Nivel de abstracción
                 </p>
-                <div className="mx-auto mt-1 w-40 overflow-hidden rounded-full border border-border">
-                  <div className="grid grid-cols-3">
-                    {([1, 2, 3] as const).map((level, index) => {
+                <div className="mx-auto mt-1 w-full overflow-hidden rounded-full border border-border">
+                  <div className="grid grid-cols-4">
+                    {([1, 2, 3, 4] as const).map((level, index) => {
                       const active = level <= abstractionLevel;
+                      const isTailLevel = level === ABSTRACTION_LEVEL_TAIL_RECURSIVE;
                       return (
-                        <button
-                          key={level}
-                          type="button"
-                          onClick={() => {
-                            void handleAbstractionLevelChange(level);
-                          }}
-                          className={cn(
-                            "h-7 text-xs font-semibold transition-colors hover:cursor-pointer",
-                            index > 0 ? "border-l border-border" : "",
-                            active
-                              ? "bg-(--nodi-blue) text-white"
-                              : "bg-background text-muted-foreground hover:bg-muted",
-                          )}
-                        >
-                          {level}
-                        </button>
+                        <Tooltip key={level}>
+                          <TooltipTrigger asChild>
+                            <button
+                              key={level}
+                              type="button"
+                              id={`abstraction-level-btn-${level}`}
+                              onClick={() => {
+                                void handleAbstractionLevelChange(level);
+                              }}
+                              className={cn(
+                                "h-7 text-xs font-semibold transition-colors hover:cursor-pointer",
+                                index > 0 ? "border-l border-border" : "",
+                                active
+                                  ? isTailLevel
+                                    ? "bg-purple-600 text-white"
+                                    : "bg-(--nodi-blue) text-white"
+                                  : "bg-background text-muted-foreground hover:bg-muted",
+                              )}
+                            >
+                              {level}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[14rem] text-center text-xs">
+                            {isTailLevel
+                              ? "Nivel 4: Recursión de cola obligatoria"
+                              : `Nivel ${level}`}
+                          </TooltipContent>
+                        </Tooltip>
                       );
                     })}
                   </div>
                 </div>
+                {abstractionLevel === ABSTRACTION_LEVEL_TAIL_RECURSIVE && (
+                  <div
+                    id="tail-recursion-badge"
+                    className="mx-auto mt-1.5 flex w-full items-center gap-1.5 rounded-md border border-purple-400/40 bg-purple-50 px-2 py-1 text-[10px] text-purple-700 dark:border-purple-500/30 dark:bg-purple-950/40 dark:text-purple-300"
+                  >
+                    <GitFork className="h-3 w-3 shrink-0" />
+                    <span>Subflujos recursivos: solo recursión de cola</span>
+                  </div>
+                )}
               </>
             )}
           </SidebarGroupContent>

@@ -6,6 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import type { AbstractionLevel } from "@/flow/node-palette";
 
 type RemovedNodeItem = {
   type: string;
@@ -14,7 +15,7 @@ type RemovedNodeItem = {
 
 type AbstractionLevelChangeDialogProps = {
   open: boolean;
-  targetLevel: 1 | 2 | 3;
+  targetLevel: AbstractionLevel;
   nodesToRemove: RemovedNodeItem[];
   onOpenChange: (open: boolean) => void;
   onCancel: () => void;

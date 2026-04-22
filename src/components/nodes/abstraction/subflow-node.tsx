@@ -252,7 +252,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   useSubcanvasNodeCreationLock(isEditorOpen);
-  const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
+  const [contextPoint, setContextPoint] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const [isShareSubmitting, setIsShareSubmitting] = useState(false);
   const [shareSubmitError, setShareSubmitError] = useState<string | null>(null);
@@ -542,8 +545,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     useClipboardSelection({
       nodes: syncedDraftNodes as FlowNode[],
       edges: effectiveDraftEdges as FlowEdge[],
-      setNodes: setDraftNodes as React.Dispatch<React.SetStateAction<FlowNode[]>>,
-      setEdges: setDraftEdges as React.Dispatch<React.SetStateAction<FlowEdge[]>>,
+      setNodes: setDraftNodes as React.Dispatch<
+        React.SetStateAction<FlowNode[]>
+      >,
+      setEdges: setDraftEdges as React.Dispatch<
+        React.SetStateAction<FlowEdge[]>
+      >,
       reactFlowInstance: editorReactFlowInstance,
     });
 
@@ -561,8 +568,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       | null;
 
     const screenPos = { x: contextPoint.x, y: contextPoint.y };
-    const position =
-      instance?.screenToFlowPosition?.(screenPos) ??
+    const position = instance?.screenToFlowPosition?.(screenPos) ??
       instance?.project?.(screenPos) ?? { x: 0, y: 0 };
 
     setDraftNodes((prev) => [
@@ -1759,6 +1765,187 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 <Button
                   type="button"
                   onClick={() => {
+                    // Compute inCount from explicit `subflowInput` nodes added by the user.
+                    const explicitInputs = syncedDraftNodes.filter(
+                      (n) => String(n.type) === "subflowInput",
+                    ).length;
+                    const nextInCount = Number.isFinite(Number(explicitInputs))
+                      ? explicitInputs
+                      : Number.isFinite(rawInCount)
+                        ? (rawInCount as number)
+                        : inCount;
+
+                    // If there are explicit subflowOutput nodes, expose exactly one salida.
+                    const explicitOutputs = syncedDraftNodes.filter(
+                      (n) => String(n.type) === "subflowOutput",
+                    ).length;
+
+                    // For outputs keep the previous behavior (try to compute open ports)
+                    // when no explicit subflowOutput nodes exist.
+                    const lookup = editorLookupRef.current;
+                    let nextOutCount =
+                      explicitOutputs > 0
+                        ? 1
+                        : Number.isFinite(rawOutCount)
+                          ? (rawOutCount as number)
+                          : outCount;
+                    try {
+                      const computed = computeOpenPortsFromLookup(
+                        syncedDraftNodes,
+                        effectiveDraftEdges,
+                        lookup,
+                      );
+                      if (computed && computed.ready && explicitOutputs === 0) {
+                        nextOutCount = computed.outCount;
+                      }
+                    } catch {
+                      // ignore
+                    }
+
+                    try {
+                      const dangling = computeDanglingPortsFromLookup(
+                        syncedDraftNodes,
+                        effectiveDraftEdges,
+                        lookup,
+                      );
+                      const hasDanglingPorts =
+                        dangling.ready &&
+                        (dangling.inCount > 0 || dangling.outCount > 0);
+                      if (hasDanglingPorts) {
+                        setNameError(
+                          `Hay nodos con entradas/salidas abiertas (${dangling.inCount} entrada(s), ${dangling.outCount} salida(s)). Conecta todos los puertos antes de guardar.`,
+                        );
+                        return;
+                      }
+                    } catch {
+                      // ignore
+                    }
+
+                    const finalLabel = (draftLabel || label).trim() || label;
+                    // Prevent saving if any subflow input labels are empty
+                    const hasEmptyInputs = syncedDraftNodes.some((n) => {
+                      if (String(n.type) !== "subflowInput") return false;
+                      const data = (n.data ?? {}) as Record<string, unknown>;
+                      const label =
+                        typeof data.label === "string" ? data.label : "";
+                      return !label.trim();
+                    });
+                    if (hasEmptyInputs) {
+                      setNameError(
+                        "Hay entradas sin nombre. Escribe un nombre en todas las entradas antes de guardar.",
+                      );
+                      return;
+                    }
+
+                    // Prevent saving if there are more than one exposed outputs
+                    if (Number(nextOutCount) > 1) {
+                      setNameError(
+                        "El subflujo no puede exponer más de 1 salida. Cierra salidas antes de guardar.",
+                      );
+                      return;
+                    }
+
+                    // Validación externa (ej. nivel 4: recursión de cola obligatoria).
+                    if (templateContext?.onValidateSubflowEdit) {
+                      const validationError =
+                        templateContext.onValidateSubflowEdit(
+                          selfTemplateId,
+                          syncedDraftNodes as Node[],
+                          effectiveDraftEdges,
+                        );
+                      if (validationError) {
+                        setNameError(validationError);
+                        return;
+                      }
+                    }
+
+                    if (addToPalette && templateContext) {
+                      if (templateContext.isNameTaken(finalLabel)) {
+                        setNameError(
+                          "Ya existe un subflujo en la paleta con ese nombre. Elige otro nombre.",
+                        );
+                        return;
+                      }
+
+                      const baseId = templateId || `sf-node-${String(id)}`;
+                      const uniqueId = `${baseId}-${Date.now().toString(36)}`;
+
+                      // When saving to the palette, rebind self-call nodes to the new template id
+                      // so dragging from the palette can resolve the template correctly.
+                      const paletteNodes = syncedDraftNodes.map((n) => {
+                        if (n.type !== "subflow") return n;
+                        const data = (n.data ?? {}) as SubflowNodeData;
+                        const nodeTemplateId =
+                          typeof data.templateId === "string" &&
+                          data.templateId.trim().length > 0
+                            ? data.templateId.trim()
+                            : null;
+                        const isSelf = data.isSelfCall === true;
+                        if (
+                          isSelf &&
+                          (!nodeTemplateId ||
+                            nodeTemplateId === selfTemplateId ||
+                            nodeTemplateId === templateId)
+                        ) {
+                          return {
+                            ...n,
+                            data: {
+                              ...data,
+                              templateId: uniqueId,
+                            },
+                          };
+                        }
+                        return n;
+                      });
+
+                      templateContext.addOrUpdateTemplate({
+                        id: uniqueId,
+                        name: finalLabel,
+                        inCount: nextInCount,
+                        outCount: nextOutCount,
+                        nodes: paletteNodes,
+                        edges: effectiveDraftEdges,
+                      });
+                    }
+
+                    setNodes((prev) =>
+                      prev.map((n) => {
+                        if (n.id !== id) {
+                          return n;
+                        }
+
+                        return {
+                          ...n,
+                          data: {
+                            ...(n.data as object),
+                            label: finalLabel,
+                            subflowNodes: syncedDraftNodes,
+                            subflowEdges: effectiveDraftEdges,
+                            inCount: nextInCount,
+                            outCount: nextOutCount,
+                          },
+                        };
+                      }),
+                    );
+
+                    // Only remove connected edges if the number of exposed
+                    // ports actually changed — otherwise preserve existing
+                    // connections so users don't have to rewire on every save.
+                    const countsChanged =
+                      Number(nextInCount) !== Number(inCount) ||
+                      Number(nextOutCount) !== Number(outCount);
+
+                    if (countsChanged) {
+                      setEdges((prev) =>
+                        prev.filter(
+                          (edge) =>
+                            String(edge.source) !== String(id) &&
+                            String(edge.target) !== String(id),
+                        ),
+                      );
+                    }
+
+                    setIsEditorOpen(false);
                     setNameError(null);
                     setIsGlobalUpdateConfirmOpen(true);
                   }}

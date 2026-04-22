@@ -26,6 +26,25 @@ interface UseSubflowManagerParams {
   isNameTaken: (name: string) => boolean;
   deleteTemplate: (id: string) => void;
   subflowTemplates: Array<{ id: string; name: string }>;
+  /**
+   * Validador opcional que se llama justo antes de confirmar la creación del
+   * subflujo. Si devuelve un `string`, se muestra como error y se cancela el
+   * guardado. Si devuelve `null` (o no está definido), la creación procede.
+   *
+   * @param templateId                    ID que se asignará a la nueva plantilla.
+   * @param nodes                         Nodos del interior del subflujo.
+   * @param edges                         Aristas del interior del subflujo.
+   * @param candidateRecursiveTemplateIds Conjunto de templateIds de nodos de
+   *   subflujo que aparecen dentro del snapshot. Cualquiera de ellos puede
+   *   representar la "llamada recursiva" (el usuario está redefiniendo una
+   *   plantilla existente con el mismo nombre/propósito).
+   */
+  onValidateSubflow?: (
+    templateId: string,
+    nodes: FlowNode[],
+    edges: FlowEdge[],
+    candidateRecursiveTemplateIds: Set<string>,
+  ) => string | null;
 }
 
 export function useSubflowManager(params: UseSubflowManagerParams) {
@@ -37,6 +56,7 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
     isNameTaken,
     deleteTemplate,
     subflowTemplates,
+    onValidateSubflow,
   } = params;
 
   const [isCreateSubflowOpen, setIsCreateSubflowOpen] = useState(false);
@@ -198,6 +218,38 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
 
     const templateId = `sf-${next}`;
 
+    // Recolectar los templateIds de subflujos referenciados dentro del
+    // snapshot. Cualquiera de ellos puede ser la "llamada recursiva" cuando
+    // el usuario está redefiniendo una plantilla existente.
+    const candidateRecursiveTemplateIds = new Set<string>();
+    for (const n of snapshotNodes) {
+      if (String(n.type) !== "subflow") continue;
+      const data =
+        n.data && typeof n.data === "object"
+          ? (n.data as Record<string, unknown>)
+          : {};
+      const tplId = data.templateId;
+      if (typeof tplId === "string" && tplId.trim()) {
+        candidateRecursiveTemplateIds.add(tplId.trim());
+      }
+    }
+    // El nuevo id también es candidato (por si algún nodo ya lo referencia).
+    candidateRecursiveTemplateIds.add(templateId);
+
+    // Validación externa (ej. nivel 4: recursión de cola obligatoria).
+    if (onValidateSubflow) {
+      const validationError = onValidateSubflow(
+        templateId,
+        snapshotNodes as FlowNode[],
+        snapshotEdges as FlowEdge[],
+        candidateRecursiveTemplateIds,
+      );
+      if (validationError) {
+        setCreateSubflowError(validationError);
+        return;
+      }
+    }
+
     setNodes((prev) => {
       const newNode: FlowNode = {
         id: templateId,
@@ -253,6 +305,7 @@ export function useSubflowManager(params: UseSubflowManagerParams) {
     isNameTaken,
     normalizeSubflowName,
     nodes,
+    onValidateSubflow,
     pendingSubflowBounds,
     pendingSubflowPorts,
     pendingSubflowSnapshot,
