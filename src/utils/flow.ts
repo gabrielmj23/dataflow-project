@@ -90,6 +90,8 @@ export function reconcileWriteGraph(
   changedNodes: boolean;
   changedEdges: boolean;
 } {
+  const existingNodeIds = new Set(nodes.map((node) => String(node.id)));
+
   const inputCountByNodeId = new Map<string, number>();
   for (const n of nodes) {
     if (n.type !== "write") continue;
@@ -108,7 +110,16 @@ export function reconcileWriteGraph(
   }
 
   let changedEdges = false;
-  const nextEdges = edges.filter((e) => {
+  const edgesWithExistingNodes = edges.filter((edge) => {
+    const sourceId = String(edge.source);
+    const targetId = String(edge.target);
+    return existingNodeIds.has(sourceId) && existingNodeIds.has(targetId);
+  });
+  if (edgesWithExistingNodes.length !== edges.length) {
+    changedEdges = true;
+  }
+
+  const nextEdges = edgesWithExistingNodes.filter((e) => {
     const targetId = String(e.target);
     const inputCount = inputCountByNodeId.get(targetId);
     if (!inputCount) return true;

@@ -47,9 +47,10 @@ import {
 } from "@/components/ui/dialog";
 import { nodeTypesCore } from "@/flow/node-types-core";
 import {
-  computeDanglingPortsFromLookup,
-  computeOpenPortsFromLookup,
-} from "@/flow/subflow-utils";
+  normalizeSubflowName,
+  resolvePreviousLabelForGlobalUpdate,
+} from "@/flow/subflow-global-update";
+import { validateSubflowDraftForSave } from "@/flow/subflow-save-validation";
 import {
   buildDroppedNodeData,
   editorPaletteLabelByType,
@@ -277,6 +278,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
   const [nameError, setNameError] = useState<string | null>(null);
   const [isGlobalUpdateConfirmOpen, setIsGlobalUpdateConfirmOpen] =
     useState(false);
+  const [globalUpdatePreviousLabel, setGlobalUpdatePreviousLabel] = useState<
+    string | null
+  >(null);
   const config = useMicrobitExecutionConfig({
     nodeId: id,
     title: "Configurar ejecucion",
@@ -758,11 +762,6 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
     [editorFlowId],
   );
 
-  const normalizeSubflowName = useCallback((value: unknown): string => {
-    if (typeof value !== "string") return "";
-    return value.trim().toLowerCase();
-  }, []);
-
   const hasCanvasSubflowNameConflict = useCallback(
     (params: {
       nextLabel: string;
@@ -815,7 +814,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
       return hasConflictInGraph(getNodes() as Node[]);
     },
-    [getNodes, id, normalizeSubflowName, selfTemplateId],
+    [getNodes, id, selfTemplateId],
   );
 
   const bindSelfCallsToTemplate = useCallback(
@@ -854,97 +853,43 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
   const saveSubflowDefinition = useCallback(
     (mode: "local" | "global"): boolean => {
-      // Compute inCount from explicit `subflowInput` nodes added by the user.
-      const explicitInputs = syncedDraftNodes.filter(
-        (n) => String(n.type) === "subflowInput",
-      ).length;
-      const nextInCount = Number.isFinite(Number(explicitInputs))
-        ? explicitInputs
-        : Number.isFinite(rawInCount)
-          ? (rawInCount as number)
-          : inCount;
-
-      // If there are explicit subflowOutput nodes, expose exactly one salida.
-      const explicitOutputs = syncedDraftNodes.filter(
-        (n) => String(n.type) === "subflowOutput",
-      ).length;
-
-      // For outputs keep the previous behavior (try to compute open ports)
-      // when no explicit subflowOutput nodes exist.
-      const lookup = editorLookupRef.current;
-      let nextOutCount =
-        explicitOutputs > 0
-          ? 1
-          : Number.isFinite(rawOutCount)
-            ? (rawOutCount as number)
-            : outCount;
-      try {
-        const computed = computeOpenPortsFromLookup(
-          syncedDraftNodes,
-          effectiveDraftEdges,
-          lookup,
-        );
-        if (computed && computed.ready && explicitOutputs === 0) {
-          nextOutCount = computed.outCount;
-        }
-      } catch {
-        // ignore
+      const draftValidation = validateSubflowDraftForSave({
+        nodes: syncedDraftNodes,
+        edges: effectiveDraftEdges,
+        lookup: editorLookupRef.current,
+        draftLabel,
+        currentLabel: label,
+        rawInCount,
+        rawOutCount,
+        fallbackInCount: inCount,
+        fallbackOutCount: outCount,
+      });
+      if (!draftValidation.ok) {
+        setNameError(draftValidation.error);
+        return false;
       }
 
-      try {
-        const dangling = computeDanglingPortsFromLookup(
-          syncedDraftNodes,
-          effectiveDraftEdges,
-          lookup,
-        );
-        const hasDanglingPorts =
-          dangling.ready && (dangling.inCount > 0 || dangling.outCount > 0);
-        if (hasDanglingPorts) {
-          setNameError(
-            `Hay nodos con entradas/salidas abiertas (${dangling.inCount} entrada(s), ${dangling.outCount} salida(s)). Conecta todos los puertos antes de guardar.`,
-          );
-          return false;
-        }
-      } catch {
-        // ignore
-      }
-
-      const finalLabel = (draftLabel || label).trim() || label;
+      const { finalLabel, nextInCount, nextOutCount, edgesForSave } =
+        draftValidation;
       const currentTemplateId =
         typeof templateId === "string" && templateId.trim().length > 0
           ? templateId.trim()
           : null;
 
-      // Prevent saving if any subflow input labels are empty
-      const hasEmptyInputs = syncedDraftNodes.some((n) => {
-        if (String(n.type) !== "subflowInput") return false;
-        const inputData = (n.data ?? {}) as Record<string, unknown>;
-        const inputLabel =
-          typeof inputData.label === "string" ? inputData.label : "";
-        return !inputLabel.trim();
+      const previousLabelForGlobal = resolvePreviousLabelForGlobalUpdate({
+        mode,
+        currentLabel: label,
+        previousLabel: globalUpdatePreviousLabel,
       });
-      if (hasEmptyInputs) {
-        setNameError(
-          "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
-        );
-        return false;
-      }
-
-      // Prevent saving if there are more than one exposed outputs
-      if (Number(nextOutCount) > 1) {
-        setNameError(
-          "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
-        );
-        return false;
-      }
-
-      const previousLabelNormalized = normalizeSubflowName(label);
+      const previousLabelNormalized = normalizeSubflowName(
+        previousLabelForGlobal,
+      );
 
       const templateToUpdateGlobally =
         mode === "global" && templateContext
-          ? templateContext.resolveTemplate(selfTemplateId) ??
-            templateContext.resolveTemplateByName(label) ??
-            templateContext.resolveTemplateByName(finalLabel)
+          ? (templateContext.resolveTemplate(selfTemplateId) ??
+            templateContext.resolveTemplateByName(previousLabelForGlobal) ??
+            templateContext.resolveTemplateByName(finalLabel))
           : null;
 
       if (templateContext) {
@@ -993,12 +938,12 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       if (mode === "global" && templateContext) {
         const globalResult = templateContext.applyGlobalSubflowUpdate({
           templateId: selfTemplateId,
-          previousLabel: label,
+          previousLabel: previousLabelForGlobal,
           nextLabel: finalLabel,
           inCount: nextInCount,
           outCount: nextOutCount,
           nodes: syncedDraftNodes,
-          edges: effectiveDraftEdges,
+          edges: edgesForSave,
         });
 
         if (globalResult.disconnected) {
@@ -1011,6 +956,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
         setIsEditorOpen(false);
         setIsGlobalUpdateConfirmOpen(false);
+        setGlobalUpdatePreviousLabel(null);
         setNameError(null);
         return true;
       }
@@ -1026,7 +972,9 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
       if (templateContext) {
         if (mode === "global" && templateToUpdateGlobally) {
-          const templateNodes = bindSelfCallsToTemplate(templateToUpdateGlobally.id);
+          const templateNodes = bindSelfCallsToTemplate(
+            templateToUpdateGlobally.id,
+          );
           templateContext.addOrUpdateTemplate({
             id: templateToUpdateGlobally.id,
             name: finalLabel,
@@ -1035,7 +983,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             inCount: nextInCount,
             outCount: nextOutCount,
             nodes: templateNodes,
-            edges: effectiveDraftEdges,
+            edges: edgesForSave,
           });
         } else if (addToPalette) {
           const baseId = templateId || `sf-node-${String(id)}`;
@@ -1048,7 +996,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
             inCount: nextInCount,
             outCount: nextOutCount,
             nodes: templateNodes,
-            edges: effectiveDraftEdges,
+            edges: edgesForSave,
           });
         }
       }
@@ -1077,7 +1025,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           ...currentData,
           label: finalLabel,
           subflowNodes: syncedDraftNodes,
-          subflowEdges: effectiveDraftEdges,
+          subflowEdges: edgesForSave,
           inCount: nextInCount,
           outCount: nextOutCount,
         };
@@ -1171,7 +1119,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
           const isCurrentNode = String(node.id) === String(id);
           const nodeData = (node.data ?? {}) as SubflowNodeData;
           const isMatchingGlobalNode =
-            String(node.type) === "subflow" && nodeMatchesGlobalTarget(nodeData);
+            String(node.type) === "subflow" &&
+            nodeMatchesGlobalTarget(nodeData);
 
           if (isCurrentNode || isMatchingGlobalNode) {
             const currentInCount = Number.isFinite(nodeData.inCount)
@@ -1246,6 +1195,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
 
       setIsEditorOpen(false);
       setIsGlobalUpdateConfirmOpen(false);
+      setGlobalUpdatePreviousLabel(null);
       setNameError(null);
       return true;
     },
@@ -1257,8 +1207,8 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
       id,
       inCount,
       label,
-      normalizeSubflowName,
       hasCanvasSubflowNameConflict,
+      globalUpdatePreviousLabel,
       outCount,
       rawInCount,
       rawOutCount,
@@ -1294,6 +1244,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 setDraftLabel(label);
                 setAddToPalette(false);
                 setIsGlobalUpdateConfirmOpen(false);
+                setGlobalUpdatePreviousLabel(label);
                 setNameError(null);
                 setIsEditorOpen(true);
               }
@@ -1349,6 +1300,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     setDraftLabel(label);
                     setAddToPalette(false);
                     setIsGlobalUpdateConfirmOpen(false);
+                    setGlobalUpdatePreviousLabel(label);
                     setNameError(null);
                     setIsEditorOpen(true);
                   }}
@@ -1361,6 +1313,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                       setDraftLabel(label);
                       setAddToPalette(false);
                       setIsGlobalUpdateConfirmOpen(false);
+                      setGlobalUpdatePreviousLabel(label);
                       setNameError(null);
                       setIsEditorOpen(true);
                     }
@@ -1757,6 +1710,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   onClick={() => {
                     setIsEditorOpen(false);
                     setIsGlobalUpdateConfirmOpen(false);
+                    setGlobalUpdatePreviousLabel(null);
                     setNameError(null);
                   }}
                 >
@@ -1765,85 +1719,29 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                 <Button
                   type="button"
                   onClick={() => {
-                    // Compute inCount from explicit `subflowInput` nodes added by the user.
-                    const explicitInputs = syncedDraftNodes.filter(
-                      (n) => String(n.type) === "subflowInput",
-                    ).length;
-                    const nextInCount = Number.isFinite(Number(explicitInputs))
-                      ? explicitInputs
-                      : Number.isFinite(rawInCount)
-                        ? (rawInCount as number)
-                        : inCount;
-
-                    // If there are explicit subflowOutput nodes, expose exactly one salida.
-                    const explicitOutputs = syncedDraftNodes.filter(
-                      (n) => String(n.type) === "subflowOutput",
-                    ).length;
-
-                    // For outputs keep the previous behavior (try to compute open ports)
-                    // when no explicit subflowOutput nodes exist.
-                    const lookup = editorLookupRef.current;
-                    let nextOutCount =
-                      explicitOutputs > 0
-                        ? 1
-                        : Number.isFinite(rawOutCount)
-                          ? (rawOutCount as number)
-                          : outCount;
-                    try {
-                      const computed = computeOpenPortsFromLookup(
-                        syncedDraftNodes,
-                        effectiveDraftEdges,
-                        lookup,
-                      );
-                      if (computed && computed.ready && explicitOutputs === 0) {
-                        nextOutCount = computed.outCount;
-                      }
-                    } catch {
-                      // ignore
-                    }
-
-                    try {
-                      const dangling = computeDanglingPortsFromLookup(
-                        syncedDraftNodes,
-                        effectiveDraftEdges,
-                        lookup,
-                      );
-                      const hasDanglingPorts =
-                        dangling.ready &&
-                        (dangling.inCount > 0 || dangling.outCount > 0);
-                      if (hasDanglingPorts) {
-                        setNameError(
-                          `Hay nodos con entradas/salidas abiertas (${dangling.inCount} entrada(s), ${dangling.outCount} salida(s)). Conecta todos los puertos antes de guardar.`,
-                        );
-                        return;
-                      }
-                    } catch {
-                      // ignore
-                    }
-
-                    const finalLabel = (draftLabel || label).trim() || label;
-                    // Prevent saving if any subflow input labels are empty
-                    const hasEmptyInputs = syncedDraftNodes.some((n) => {
-                      if (String(n.type) !== "subflowInput") return false;
-                      const data = (n.data ?? {}) as Record<string, unknown>;
-                      const label =
-                        typeof data.label === "string" ? data.label : "";
-                      return !label.trim();
+                    setGlobalUpdatePreviousLabel(label);
+                    const draftValidation = validateSubflowDraftForSave({
+                      nodes: syncedDraftNodes,
+                      edges: effectiveDraftEdges,
+                      lookup: editorLookupRef.current,
+                      draftLabel,
+                      currentLabel: label,
+                      rawInCount,
+                      rawOutCount,
+                      fallbackInCount: inCount,
+                      fallbackOutCount: outCount,
                     });
-                    if (hasEmptyInputs) {
-                      setNameError(
-                        "Hay entradas sin nombre. Escribe un nombre en todas las entradas antes de guardar.",
-                      );
+                    if (!draftValidation.ok) {
+                      setNameError(draftValidation.error);
                       return;
                     }
 
-                    // Prevent saving if there are more than one exposed outputs
-                    if (Number(nextOutCount) > 1) {
-                      setNameError(
-                        "El subflujo no puede exponer más de 1 salida. Cierra salidas antes de guardar.",
-                      );
-                      return;
-                    }
+                    const {
+                      finalLabel,
+                      nextInCount,
+                      nextOutCount,
+                      edgesForSave,
+                    } = draftValidation;
 
                     // Validación externa (ej. nivel 4: recursión de cola obligatoria).
                     if (templateContext?.onValidateSubflowEdit) {
@@ -1851,7 +1749,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                         templateContext.onValidateSubflowEdit(
                           selfTemplateId,
                           syncedDraftNodes as Node[],
-                          effectiveDraftEdges,
+                          edgesForSave,
                         );
                       if (validationError) {
                         setNameError(validationError);
@@ -1904,7 +1802,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                         inCount: nextInCount,
                         outCount: nextOutCount,
                         nodes: paletteNodes,
-                        edges: effectiveDraftEdges,
+                        edges: edgesForSave,
                       });
                     }
 
@@ -1920,7 +1818,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                             ...(n.data as object),
                             label: finalLabel,
                             subflowNodes: syncedDraftNodes,
-                            subflowEdges: effectiveDraftEdges,
+                            subflowEdges: edgesForSave,
                             inCount: nextInCount,
                             outCount: nextOutCount,
                           },
@@ -1950,7 +1848,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     setIsGlobalUpdateConfirmOpen(true);
                   }}
                 >
-                  Actualizar definicion global
+                  Guardar todos
                 </Button>
                 <Button
                   type="button"
@@ -1958,7 +1856,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                     saveSubflowDefinition("local");
                   }}
                 >
-                  Guardar
+                  Guardar solo aquí
                 </Button>
               </div>
             </DialogFooter>
@@ -1966,14 +1864,21 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
         </Dialog>
         <Dialog
           open={isGlobalUpdateConfirmOpen}
-          onOpenChange={setIsGlobalUpdateConfirmOpen}
+          onOpenChange={(open) => {
+            setIsGlobalUpdateConfirmOpen(open);
+            if (!open) {
+              setGlobalUpdatePreviousLabel(null);
+            }
+          }}
         >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle>Actualizar definicion global</DialogTitle>
+              <DialogTitle>
+                Guardar todos los subflujos de este tipo
+              </DialogTitle>
               <DialogDescription>
-                Al actualizar la definicion del subflujo puedes dejar tu programa
-                en un estado inestable si alteras las entradas o salidas.
+                Al actualizar la definición de este subflujo puedes dejar tu
+                programa inestable si cambias las entradas o salidas.
               </DialogDescription>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
@@ -1984,7 +1889,10 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setIsGlobalUpdateConfirmOpen(false)}
+                onClick={() => {
+                  setIsGlobalUpdateConfirmOpen(false);
+                  setGlobalUpdatePreviousLabel(null);
+                }}
               >
                 Cancelar
               </Button>
@@ -1994,7 +1902,7 @@ export const SubflowNode = memo(({ id, data }: NodeProps<SubflowRfNode>) => {
                   saveSubflowDefinition("global");
                 }}
               >
-                Actualizar definicion global
+                Aceptar
               </Button>
             </DialogFooter>
           </DialogContent>
