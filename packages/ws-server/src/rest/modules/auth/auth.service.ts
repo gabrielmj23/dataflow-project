@@ -1,35 +1,214 @@
 import {
   createUser,
+  findUserById,
   findUserByEmail,
   updateUserPassword,
 } from "../users/users.service";
 import type { UserInsert, UserSelect } from "../users/users.types";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import type { AuthTokenPayload } from "./auth.types";
+import { isRefreshTokenPayload, type AuthTokenPayload } from "./auth.types";
 import crypto from "node:crypto";
 import db from "../../db";
 import { passwordResetCodesTable } from "./password-reset-codes.model";
+import { refreshTokensTable } from "./refresh-tokens.model";
 import { and, desc, eq, gt, isNull } from "drizzle-orm";
 import { sendMail } from "../../mailer";
 
-async function generateToken(user: UserSelect) {
+type AuthSessionResult = {
+  user: UserSelect;
+  token: string;
+  refreshToken: string;
+  refreshTokenExpiresAt: Date;
+};
+
+type AuthSessionWithTokenId = AuthSessionResult & {
+  refreshTokenId: string;
+};
+
+function getAccessTokenTtl(): string {
+  return process.env.JWT_ACCESS_EXPIRES?.trim() || "15m";
+}
+
+function getRefreshTokenDays(): number {
+  const configuredDays = Number.parseInt(
+    process.env.JWT_REFRESH_EXPIRES_DAYS ?? "30",
+    10,
+  );
+
+  if (!Number.isFinite(configuredDays) || configuredDays <= 0) {
+    return 30;
+  }
+
+  return configuredDays;
+}
+
+function getRefreshTokenSecret(): string {
+  return process.env.JWT_REFRESH_SECRET?.trim() || process.env.JWT_SECRET!;
+}
+
+function hashToken(value: string): string {
+  return crypto.createHash("sha256").update(value).digest("hex");
+}
+
+function getRefreshTokenExpiryDate(): Date {
+  const expiresAt = new Date();
+  expiresAt.setUTCDate(expiresAt.getUTCDate() + getRefreshTokenDays());
+  return expiresAt;
+}
+
+async function generateAccessToken(user: UserSelect) {
   const payload: AuthTokenPayload = {
     sub: user.id,
     name: user.name,
     email: user.email,
   };
   const token = jwt.sign(payload, process.env.JWT_SECRET!, {
-    expiresIn: "24h",
+    expiresIn: getAccessTokenTtl() as jwt.SignOptions["expiresIn"],
   });
   return token;
+}
+
+async function issueAuthSession(
+  user: UserSelect,
+): Promise<AuthSessionWithTokenId> {
+  const refreshTokenId = crypto.randomUUID();
+  const refreshTokenExpiresAt = getRefreshTokenExpiryDate();
+
+  const refreshToken = jwt.sign(
+    {
+      sub: user.id,
+      tokenId: refreshTokenId,
+      type: "refresh",
+    },
+    getRefreshTokenSecret(),
+    {
+      expiresIn: getRefreshTokenDays() * 24 * 60 * 60,
+    },
+  );
+
+  await db.insert(refreshTokensTable).values({
+    id: refreshTokenId,
+    userId: user.id,
+    tokenHash: hashToken(refreshToken),
+    expiresAt: refreshTokenExpiresAt,
+  });
+
+  const token = await generateAccessToken(user);
+
+  return {
+    user,
+    token,
+    refreshToken,
+    refreshTokenExpiresAt,
+    refreshTokenId,
+  };
+}
+
+export function getRefreshTokenCookieMaxAgeMs(): number {
+  return getRefreshTokenDays() * 24 * 60 * 60 * 1000;
+}
+
+export async function revokeRefreshToken(refreshToken: string): Promise<void> {
+  try {
+    const decoded = jwt.verify(refreshToken, getRefreshTokenSecret());
+    if (!isRefreshTokenPayload(decoded)) {
+      return;
+    }
+
+    await db
+      .update(refreshTokensTable)
+      .set({ revokedAt: new Date() })
+      .where(
+        and(
+          eq(refreshTokensTable.id, decoded.tokenId),
+          eq(refreshTokensTable.userId, decoded.sub),
+          isNull(refreshTokensTable.revokedAt),
+        ),
+      );
+  } catch {
+    // no-op on malformed or expired refresh token.
+  }
+}
+
+async function revokeAllRefreshTokensForUser(userId: string): Promise<void> {
+  await db
+    .update(refreshTokensTable)
+    .set({ revokedAt: new Date() })
+    .where(
+      and(
+        eq(refreshTokensTable.userId, userId),
+        isNull(refreshTokensTable.revokedAt),
+      ),
+    );
+}
+
+export async function refreshAuthSession(
+  refreshToken: string,
+): Promise<AuthSessionResult> {
+  let decoded: unknown;
+
+  try {
+    decoded = jwt.verify(refreshToken, getRefreshTokenSecret());
+  } catch {
+    throw new Error("Sesión expirada. Inicia sesión nuevamente.");
+  }
+
+  if (!isRefreshTokenPayload(decoded)) {
+    throw new Error("Sesión expirada. Inicia sesión nuevamente.");
+  }
+
+  const matchingTokenRows = await db
+    .select({
+      id: refreshTokensTable.id,
+      tokenHash: refreshTokensTable.tokenHash,
+    })
+    .from(refreshTokensTable)
+    .where(
+      and(
+        eq(refreshTokensTable.id, decoded.tokenId),
+        eq(refreshTokensTable.userId, decoded.sub),
+        isNull(refreshTokensTable.revokedAt),
+        gt(refreshTokensTable.expiresAt, new Date()),
+      ),
+    )
+    .limit(1);
+
+  const currentToken = matchingTokenRows[0];
+  if (!currentToken) {
+    throw new Error("Sesión expirada. Inicia sesión nuevamente.");
+  }
+
+  if (currentToken.tokenHash !== hashToken(refreshToken)) {
+    throw new Error("Sesión expirada. Inicia sesión nuevamente.");
+  }
+
+  const user = await findUserById(decoded.sub);
+  const nextSession = await issueAuthSession(user);
+
+  await db
+    .update(refreshTokensTable)
+    .set({
+      revokedAt: new Date(),
+      replacedByTokenId: nextSession.refreshTokenId,
+    })
+    .where(eq(refreshTokensTable.id, currentToken.id));
+
+  return {
+    user: nextSession.user,
+    token: nextSession.token,
+    refreshToken: nextSession.refreshToken,
+    refreshTokenExpiresAt: nextSession.refreshTokenExpiresAt,
+  };
 }
 
 export async function signUp(data: UserInsert) {
   const normalizedEmail = data.email.trim().toLowerCase();
   const existingUser = await findUserByEmail(normalizedEmail);
   if (existingUser) {
-    throw new Error("Ya existe una cuenta con este correo, por favor utiliza otro");
+    throw new Error(
+      "Ya existe una cuenta con este correo, por favor utiliza otro",
+    );
   }
 
   try {
@@ -39,10 +218,17 @@ export async function signUp(data: UserInsert) {
       email: normalizedEmail,
       password: hashedPassword,
     });
-    const token = await generateToken(newUser);
-    return { user: newUser, token };
+    const session = await issueAuthSession(newUser);
+    return {
+      user: session.user,
+      token: session.token,
+      refreshToken: session.refreshToken,
+      refreshTokenExpiresAt: session.refreshTokenExpiresAt,
+    };
   } catch {
-    throw new Error("Ocurrió un error al crear la cuenta, por favor intenta de nuevo");
+    throw new Error(
+      "Ocurrió un error al crear la cuenta, por favor intenta de nuevo",
+    );
   }
 }
 
@@ -57,9 +243,19 @@ export async function logIn(email: string, password: string) {
     throw new Error("Correo o contraseña incorrectos");
   }
 
-  const token = await generateToken(dbUser);
-  const userWithoutPassword = { ...dbUser, password: undefined };
-  return { user: userWithoutPassword, token };
+  const userWithoutPassword: UserSelect = {
+    id: dbUser.id,
+    name: dbUser.name,
+    email: dbUser.email,
+  };
+  const session = await issueAuthSession(userWithoutPassword);
+
+  return {
+    user: session.user,
+    token: session.token,
+    refreshToken: session.refreshToken,
+    refreshTokenExpiresAt: session.refreshTokenExpiresAt,
+  };
 }
 
 function buildPasswordResetEmail(code: string) {
@@ -155,6 +351,7 @@ export async function resetPasswordWithCode(params: {
 
   const hashedPassword = await bcrypt.hash(normalizedPassword, 10);
   await updateUserPassword(user.id, hashedPassword);
+  await revokeAllRefreshTokensForUser(user.id);
 
   await db
     .update(passwordResetCodesTable)

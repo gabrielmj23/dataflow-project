@@ -80,9 +80,10 @@ import { CreateSubflowOverlay } from "@/components/CreateSubflowOverlay";
 import { useWindowSize } from "react-use";
 import Confetti from "react-confetti";
 import {
-  clearStoredAuthSession,
   getStoredAuthToken,
   getStoredAuthUser,
+  logOut,
+  subscribeAuthSessionChange,
 } from "@/lib/auth";
 import { toast } from "sonner";
 import { PublishProjectDialog } from "@/components/projects/PublishProjectDialog";
@@ -810,10 +811,18 @@ export default function EditorPage() {
     [queryClient],
   );
 
-  const handleLogout = useCallback(() => {
-    clearStoredAuthSession();
-    setAuthUser(null);
-    setAuthToken(null);
+  useEffect(() => {
+    const unsubscribe = subscribeAuthSessionChange(() => {
+      setAuthUser(getStoredAuthUser());
+      setAuthToken(getStoredAuthToken());
+      queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+    });
+
+    return unsubscribe;
+  }, [queryClient]);
+
+  const handleLogout = useCallback(async () => {
+    await logOut();
     queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
     toast.success("Sesión cerrada.");
   }, [queryClient]);

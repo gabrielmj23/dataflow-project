@@ -1,10 +1,14 @@
 import { Link } from "react-router-dom";
 import { LogIn, LogOut, Trophy, UserRound, Zap } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AuthDialog } from "@/components/auth/AuthDialog";
-import { clearStoredAuthSession, getStoredAuthUser } from "@/lib/auth";
+import {
+  getStoredAuthUser,
+  logOut,
+  subscribeAuthSessionChange,
+} from "@/lib/auth";
 import type { AuthMode, AuthSessionUser } from "@/types";
 import { RecentPublishedProjectsSection } from "@/components/projects/RecentPublishedProjectsSection";
 import { MyProjectsSection } from "@/components/projects/MyProjectsSection";
@@ -38,10 +42,18 @@ export default function ModeSelectPage() {
     setIsAuthDialogOpen(false);
   };
 
-  const handleLogout = () => {
-    clearStoredAuthSession();
+  useEffect(() => {
+    const unsubscribe = subscribeAuthSessionChange(() => {
+      setCurrentUser(getStoredAuthUser());
+      queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
+    });
+
+    return unsubscribe;
+  }, [queryClient]);
+
+  const handleLogout = async () => {
+    await logOut();
     queryClient.invalidateQueries({ queryKey: ["projects", "mine"] });
-    setCurrentUser(null);
   };
 
   const handleDownloadMicrobitFirmware = () => {

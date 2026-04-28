@@ -1,6 +1,6 @@
 import type { AuthSessionUser } from "@/types";
 
-type AuthResponse = {
+export type AuthResponse = {
   user: AuthSessionUser;
   token: string;
 };
@@ -11,9 +11,39 @@ type ApiErrorResponse = {
 
 const AUTH_CURRENT_KEY = "nodi-auth-current-user";
 const AUTH_TOKEN_KEY = "nodi-auth-token";
+const AUTH_SESSION_EVENT = "nodi-auth-session-changed";
+
+let refreshInFlight: Promise<AuthResponse | null> | null = null;
 
 function getAuthApiBaseUrl(): string {
   return import.meta.env.VITE_AUTH_API_URL?.trim() || "/api";
+}
+
+function emitAuthSessionChanged() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.dispatchEvent(new Event(AUTH_SESSION_EVENT));
+}
+
+function mergeAuthHeader(
+  headers: HeadersInit | undefined,
+  token: string | null,
+): Headers {
+  const resolvedHeaders = new Headers(headers);
+
+  if (token) {
+    resolvedHeaders.set("Authorization", `Bearer ${token}`);
+  } else {
+    resolvedHeaders.delete("Authorization");
+  }
+
+  return resolvedHeaders;
+}
+
+function isAuthEndpoint(url: string): boolean {
+  return url.includes("/auth/");
 }
 
 async function readApiError(response: Response): Promise<string> {
@@ -39,6 +69,7 @@ async function postAuth<TBody>(
 ): Promise<AuthResponse | { message: string }> {
   const response = await fetch(`${getAuthApiBaseUrl()}${endpoint}`, {
     method: "POST",
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
@@ -85,6 +116,95 @@ export async function resetPasswordWithCode(params: {
   };
 }
 
+async function refreshAuthTokenSilently(): Promise<AuthResponse | null> {
+  if (refreshInFlight) {
+    return refreshInFlight;
+  }
+
+  refreshInFlight = (async () => {
+    const response = await fetch(`${getAuthApiBaseUrl()}/auth/refresh`, {
+      method: "POST",
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      clearStoredAuthSession();
+      return null;
+    }
+
+    const auth = (await response.json()) as AuthResponse;
+    persistAuthSession(auth);
+    return auth;
+  })()
+    .catch(() => {
+      clearStoredAuthSession();
+      return null;
+    })
+    .finally(() => {
+      refreshInFlight = null;
+    });
+
+  return refreshInFlight;
+}
+
+export async function fetchAuthApi(
+  input: string,
+  init?: RequestInit,
+): Promise<Response> {
+  const currentToken = getStoredAuthToken();
+  const requestInit: RequestInit = {
+    ...init,
+    credentials: "include",
+    headers: mergeAuthHeader(init?.headers, currentToken),
+  };
+
+  const response = await fetch(input, requestInit);
+  if (response.status !== 401 || isAuthEndpoint(input)) {
+    return response;
+  }
+
+  if (!currentToken) {
+    return response;
+  }
+
+  const refreshedAuth = await refreshAuthTokenSilently();
+  if (!refreshedAuth) {
+    return response;
+  }
+
+  const retryInit: RequestInit = {
+    ...init,
+    credentials: "include",
+    headers: mergeAuthHeader(init?.headers, refreshedAuth.token),
+  };
+
+  return fetch(input, retryInit);
+}
+
+export async function logOut(): Promise<void> {
+  try {
+    await fetch(`${getAuthApiBaseUrl()}/auth/log-out`, {
+      method: "POST",
+      credentials: "include",
+    });
+  } finally {
+    clearStoredAuthSession();
+  }
+}
+
+export function subscribeAuthSessionChange(listener: () => void): () => void {
+  if (typeof window === "undefined") {
+    return () => {
+      // no-op outside browser environments.
+    };
+  }
+
+  window.addEventListener(AUTH_SESSION_EVENT, listener);
+  return () => {
+    window.removeEventListener(AUTH_SESSION_EVENT, listener);
+  };
+}
+
 export function getStoredAuthUser(): AuthSessionUser | null {
   const raw = localStorage.getItem(AUTH_CURRENT_KEY);
   if (!raw) return null;
@@ -108,6 +228,7 @@ export function getStoredAuthUser(): AuthSessionUser | null {
 export function clearStoredAuthSession() {
   localStorage.removeItem(AUTH_CURRENT_KEY);
   localStorage.removeItem(AUTH_TOKEN_KEY);
+  emitAuthSessionChanged();
 }
 
 export function getStoredAuthToken(): string | null {
@@ -118,4 +239,5 @@ export function getStoredAuthToken(): string | null {
 export function persistAuthSession(auth: AuthResponse) {
   localStorage.setItem(AUTH_CURRENT_KEY, JSON.stringify(auth.user));
   localStorage.setItem(AUTH_TOKEN_KEY, auth.token);
+  emitAuthSessionChanged();
 }

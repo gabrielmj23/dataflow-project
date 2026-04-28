@@ -1,5 +1,5 @@
 import type { SerializedProgramV1 } from "@/flow/serialization";
-import { getStoredAuthToken } from "@/lib/auth";
+import { fetchAuthApi } from "@/lib/auth";
 import { toJpeg } from "html-to-image";
 
 const GUEST_PROJECT_AUTHOR_NAME_KEY = "nodi-project-guest-author-name";
@@ -34,27 +34,6 @@ export type PublishedProject = PublicProjectSummary & {
 
 function getApiBaseUrl(): string {
   return import.meta.env.VITE_AUTH_API_URL?.trim() || "/api";
-}
-
-function buildProjectRequestHeaders(): Record<string, string> {
-  const token = getStoredAuthToken();
-  return token
-    ? {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      }
-    : {
-        "Content-Type": "application/json",
-      };
-}
-
-function buildProjectAuthHeaders(): Record<string, string> {
-  const token = getStoredAuthToken();
-  return token
-    ? {
-        Authorization: `Bearer ${token}`,
-      }
-    : {};
 }
 
 function isHttpUrl(value: string): boolean {
@@ -97,10 +76,11 @@ export async function publishProject(params: {
   remixedFrom?: string;
   guestAuthorName?: string;
 }) {
-  const response = await fetch(`${getApiBaseUrl()}/projects`, {
+  const response = await fetchAuthApi(`${getApiBaseUrl()}/projects`, {
     method: "POST",
-    credentials: "include",
-    headers: buildProjectRequestHeaders(),
+    headers: {
+      "Content-Type": "application/json",
+    },
     body: JSON.stringify({
       name: params.name,
       description: params.description,
@@ -158,12 +138,13 @@ export async function uploadProjectThumbnail(
   const formData = new FormData();
   formData.append("thumbnail", thumbnail, "project-thumbnail.jpg");
 
-  const response = await fetch(`${getApiBaseUrl()}/projects/thumbnail-upload`, {
-    method: "POST",
-    credentials: "include",
-    headers: buildProjectAuthHeaders(),
-    body: formData,
-  });
+  const response = await fetchAuthApi(
+    `${getApiBaseUrl()}/projects/thumbnail-upload`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
@@ -178,11 +159,8 @@ export async function uploadProjectThumbnail(
 }
 
 export async function fetchLatestPublishedProjects(limit: number = 12) {
-  const response = await fetch(
+  const response = await fetchAuthApi(
     `${getApiBaseUrl()}/projects?page=1&pageSize=${Math.max(1, limit)}`,
-    {
-      credentials: "include",
-    },
   );
 
   if (!response.ok) {
@@ -198,12 +176,8 @@ export async function fetchLatestPublishedProjects(limit: number = 12) {
 }
 
 export async function fetchMyProjects(limit: number = 12) {
-  const response = await fetch(
+  const response = await fetchAuthApi(
     `${getApiBaseUrl()}/projects?mine=true&page=1&pageSize=${Math.max(1, limit)}`,
-    {
-      credentials: "include",
-      headers: buildProjectRequestHeaders(),
-    },
   );
 
   if (!response.ok) {
@@ -219,10 +193,10 @@ export async function fetchMyProjects(limit: number = 12) {
 }
 
 export async function fetchPublishedProjectById(projectId: string) {
-  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
-    credentials: "include",
-    headers: buildProjectRequestHeaders(),
-  });
+  const response = await fetchAuthApi(
+    `${getApiBaseUrl()}/projects/${projectId}`,
+    {},
+  );
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
@@ -240,19 +214,23 @@ export async function updatePublishedProject(params: {
   isPublic?: boolean;
   guestAuthorName?: string;
 }) {
-  const response = await fetch(`${getApiBaseUrl()}/projects/${params.id}`, {
-    method: "PATCH",
-    credentials: "include",
-    headers: buildProjectRequestHeaders(),
-    body: JSON.stringify({
-      name: params.name,
-      description: params.description,
-      thumbnail: params.thumbnail,
-      isPublic: params.isPublic,
-      program: params.program,
-      guestAuthorName: params.guestAuthorName,
-    }),
-  });
+  const response = await fetchAuthApi(
+    `${getApiBaseUrl()}/projects/${params.id}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: params.name,
+        description: params.description,
+        thumbnail: params.thumbnail,
+        isPublic: params.isPublic,
+        program: params.program,
+        guestAuthorName: params.guestAuthorName,
+      }),
+    },
+  );
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
@@ -262,11 +240,12 @@ export async function updatePublishedProject(params: {
 }
 
 export async function deletePublishedProject(projectId: string) {
-  const response = await fetch(`${getApiBaseUrl()}/projects/${projectId}`, {
-    method: "DELETE",
-    credentials: "include",
-    headers: buildProjectRequestHeaders(),
-  });
+  const response = await fetchAuthApi(
+    `${getApiBaseUrl()}/projects/${projectId}`,
+    {
+      method: "DELETE",
+    },
+  );
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
