@@ -2198,6 +2198,11 @@ export default function EditorPage() {
                               }
                               fitView={!challenge.challengeDefinition}
                               proOptions={{ hideAttribution: true }}
+                              ariaLabelConfig={{
+                                "controls.fitView.ariaLabel": "Ajustar vista",
+                                "controls.zoomIn.ariaLabel": "Zoom in",
+                                "controls.zoomOut.ariaLabel": "Zoom out",
+                              }}
                             >
                               {challenge.challengeDefinition ? (
                                 <div data-thumbnail-hidden="true">

@@ -31,7 +31,7 @@ export function EditorCanvasControls({
       <ControlButton
         onClick={() => onSetCanvasMode("pan")}
         aria-pressed={canvasMode === "pan"}
-        title="Modo arrastrar (mover canvas)"
+        title="Modo arrastrar"
         className="rf-mode-toggle"
       >
         <Hand className="rf-icon-hand" />
@@ -39,7 +39,7 @@ export function EditorCanvasControls({
       <ControlButton
         onClick={() => onSetCanvasMode("select")}
         aria-pressed={canvasMode === "select"}
-        title="Modo selección (cuadro)"
+        title="Modo selección"
         className="rf-mode-toggle"
       >
         <MousePointer2 />
@@ -57,7 +57,7 @@ export function EditorCanvasControls({
       <ControlButton onClick={onDeleteNodes} title="Borrar nodos">
         <Trash2 className="fill-none!" />
       </ControlButton>
-      <ControlButton title="Mejorar formato" onClick={onLayout}>
+      <ControlButton title="Ordenar nodos" onClick={onLayout}>
         <BrushCleaning className="fill-none!" />
       </ControlButton>
     </Controls>
