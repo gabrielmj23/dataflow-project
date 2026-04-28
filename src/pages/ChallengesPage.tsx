@@ -39,12 +39,10 @@ export default function ChallengesPage() {
     return sorted[sorted.length - 1].id;
   }, [challenges, statuses]);
 
-  const backgroundHref = "/challenge-map.png";
 
   return (
     <div className="relative min-h-screen bg-slate-950 text-white overflow-hidden">
       <ChallengeMap
-        backgroundHref={backgroundHref}
         viewBox={CHALLENGE_MAP_VIEWBOX}
         challenges={challenges}
         statuses={statuses}

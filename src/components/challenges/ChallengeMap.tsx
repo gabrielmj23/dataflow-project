@@ -16,6 +16,7 @@ import {
 import { Button } from "../ui/button";
 import { Play } from "lucide-react";
 import { Link } from "react-router-dom";
+import challengeImage from "@/assets/challenges/challenge-map.png"
 
 const STATUS_STYLE: Record<
   ChallengeStatus,
@@ -41,9 +42,6 @@ const STATUS_STYLE: Record<
   },
 };
 
-// Carga dinámica de imágenes de retos: los archivos deben llamarse como el id
-// del desafío (p. ej. `1.png`, `challenge-2.svg`). Se usa `import.meta.glob` para
-// que Vite procese/optimice los assets y nos devuelva URLs.
 const _rawChallengeImages = import.meta.glob(
   "../../assets/challenges/*.{png,jpg,svg}",
   { eager: true, as: "url" },
@@ -55,7 +53,6 @@ Object.entries(_rawChallengeImages).forEach(([p, url]) => {
   if (name) challengeImages[name] = url;
 });
 export type ChallengeMapProps = {
-  backgroundHref: string;
   viewBox: { width: number; height: number };
   challenges: ChallengeDefinition[];
   statuses: Record<ChallengeId, ChallengeStatus>;
@@ -64,7 +61,6 @@ export type ChallengeMapProps = {
 };
 
 export function ChallengeMap({
-  backgroundHref,
   viewBox,
   challenges,
   statuses,
@@ -89,13 +85,9 @@ export function ChallengeMap({
       selectedId && challenges.some((challenge) => challenge.id === selectedId);
     if (lastInitialIdRef.current !== initialSelectedId && !hasSelection) {
       lastInitialIdRef.current = initialSelectedId;
-      // Try to simulate a user click on the corresponding button so the
-      // Popover opens exactly as when the user clicks it (matching position
-      // and animation). Fallback to setting state if the button is not found.
       const selector = `button[data-challenge-id="${initialSelectedId}"]`;
       const btn = document.querySelector(selector) as HTMLButtonElement | null;
       if (btn) {
-        // Small timeout to allow layout/portal to stabilize before clicking.
         setTimeout(() => btn.click(), 50);
         setSelectedId(initialSelectedId);
       } else {
@@ -122,7 +114,7 @@ export function ChallengeMap({
         style={{ pointerEvents: "none" }}
       >
         <image
-          href={backgroundHref}
+          href={challengeImage}
           x={0}
           y={0}
           width={viewBox.width}
