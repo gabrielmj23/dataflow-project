@@ -12,6 +12,8 @@
     "start": "node dist/src/index.js",
     "build": "tsc -p tsconfig.json",
     "lint": "eslint .",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
     "migrate:project-thumbnails": "tsx src/scripts/migrate-project-thumbnails.ts",
     "migrate:project-thumbnails:dry": "tsx src/scripts/migrate-project-thumbnails.ts --dry-run"
   },

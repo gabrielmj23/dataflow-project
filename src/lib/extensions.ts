@@ -1,4 +1,4 @@
-import { getStoredAuthToken } from "@/lib/auth";
+import { fetchAuthApi, getStoredAuthToken } from "@/lib/auth";
 
 type ApiErrorResponse = {
   error?: string;
@@ -79,7 +79,7 @@ export async function fetchExtensions(params?: {
   const querySuffix = query.toString();
   const url = `${getApiBaseUrl()}/extensions${querySuffix ? `?${querySuffix}` : ""}`;
 
-  const response = await fetch(url);
+  const response = await fetchAuthApi(url);
 
   if (!response.ok) {
     throw new Error(
@@ -92,7 +92,9 @@ export async function fetchExtensions(params?: {
 }
 
 export async function fetchExtensionById(extensionId: string) {
-  const response = await fetch(`${getApiBaseUrl()}/extensions/${extensionId}`);
+  const response = await fetchAuthApi(
+    `${getApiBaseUrl()}/extensions/${extensionId}`,
+  );
 
   if (!response.ok) {
     throw new Error(
@@ -111,15 +113,12 @@ export async function createExtension(params: {
   description: string;
   color: string;
 }) {
-  const token = getRequiredAuthToken(
-    "Debes iniciar sesion para crear una extension.",
-  );
+  getRequiredAuthToken("Debes iniciar sesion para crear una extension.");
 
-  const response = await fetch(`${getApiBaseUrl()}/extensions`, {
+  const response = await fetchAuthApi(`${getApiBaseUrl()}/extensions`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       name: params.name,
@@ -138,15 +137,9 @@ export async function createExtension(params: {
 }
 
 export async function fetchMyExtensions() {
-  const token = getRequiredAuthToken(
-    "Debes iniciar sesion para ver tus extensiones.",
-  );
+  getRequiredAuthToken("Debes iniciar sesion para ver tus extensiones.");
 
-  const response = await fetch(`${getApiBaseUrl()}/users/me/extensions`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
+  const response = await fetchAuthApi(`${getApiBaseUrl()}/users/me/extensions`);
 
   if (!response.ok) {
     throw new Error(
@@ -162,17 +155,16 @@ export async function addNodesToExtension(params: {
   extensionId: string;
   nodeIds: string[];
 }) {
-  const token = getRequiredAuthToken(
+  getRequiredAuthToken(
     "Debes iniciar sesion para agregar nodos a una extension.",
   );
 
-  const response = await fetch(
+  const response = await fetchAuthApi(
     `${getApiBaseUrl()}/extensions/${params.extensionId}/nodes`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         nodeIds: params.nodeIds,

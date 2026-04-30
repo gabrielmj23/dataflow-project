@@ -19,11 +19,18 @@ Variables de entorno (opcionales):
 - `WS_MAX_MESSAGE_BYTES` (default: `1000000`)
 - `WS_MAX_JSON_BODY_BYTES` (default: `8000000`)
 - `REST_ALLOWED_ORIGIN` (si se define, limita CORS al origen indicado y habilita credenciales para cookies)
+- `JWT_ACCESS_EXPIRES` (default: `15m`)
+- `JWT_REFRESH_EXPIRES_DAYS` (default: `30`)
+- `JWT_REFRESH_SECRET` (fallback a `JWT_SECRET` si no se define)
 
 Variables de entorno para miniaturas de proyectos:
 
 - `STORAGE_URL` (connection string de Azure Blob Storage; requerida para subida de miniaturas)
 - `AZURE_STORAGE_CONTAINER` (default: `project-thumbnails`)
+
+Actualizar esquema de base de datos (incluye tabla `refresh_tokens` para sesiones):
+
+- `pnpm --filter @dataflow/ws-server db:push`
 
 Migración de miniaturas base64 existentes a Azure:
 
@@ -38,6 +45,8 @@ Migración de miniaturas base64 existentes a Azure:
 - `GET /sessions/:sessionKey` → detalle de una sala activa específica.
 - `GET /docs` → UI de Swagger/OpenAPI.
 - `GET /docs-json` → especificación OpenAPI en JSON.
+- `POST /auth/refresh` → renueva access token usando cookie HttpOnly de refresh token.
+- `POST /auth/log-out` → revoca refresh token actual y limpia cookie de sesión.
 - `POST /projects/thumbnail-upload` → recibe `multipart/form-data` con el campo `thumbnail` y retorna `{ "url": "https://..." }`.
 
 ## Protocolo (v1)

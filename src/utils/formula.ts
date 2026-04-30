@@ -274,6 +274,34 @@ function isFiniteNumber(value: unknown): boolean {
   return Number.isFinite(num);
 }
 
+function isBooleanResult(node: MathNode): boolean {
+  const anyNode = node as MathNode & { [key: string]: unknown };
+
+  if (anyNode.isParenthesisNode) {
+    const content = anyNode.content as MathNode | undefined;
+    return content ? isBooleanResult(content) : false;
+  }
+
+  if (anyNode.isOperatorNode) {
+    const op = String(anyNode.op ?? "");
+    return [">", "<", ">=", "<=", "==", "!=", "and", "or"].includes(op);
+  }
+
+  if (anyNode.isFunctionNode) {
+    return false;
+  }
+
+  if (anyNode.isConstantNode) {
+    return typeof anyNode.value === "boolean";
+  }
+
+  if (anyNode.isSymbolNode) {
+    return true;
+  }
+
+  return false;
+}
+
 function validateNode(params: {
   node: MathNode;
   variables: string[];
@@ -414,6 +442,14 @@ export function validateFormula(
     });
     if (!validation.ok) {
       return { ok: false, error: validation.error, variables: [] };
+    }
+
+    if (mode === "logic" && !isBooleanResult(node)) {
+      return {
+        ok: false,
+        error: "La fórmula debe dar un resultado lógico (ej. a > 5).",
+        variables: [],
+      };
     }
 
     return { ok: true, variables, compiled: node.compile() };

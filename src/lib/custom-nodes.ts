@@ -1,4 +1,4 @@
-import { getStoredAuthToken } from "@/lib/auth";
+import { fetchAuthApi, getStoredAuthToken } from "@/lib/auth";
 
 type ApiErrorResponse = {
   error?: string;
@@ -53,7 +53,7 @@ export async function fetchCustomNodes(params?: {
   const querySuffix = query.toString();
   const url = `${getApiBaseUrl()}/nodes${querySuffix ? `?${querySuffix}` : ""}`;
 
-  const response = await fetch(url);
+  const response = await fetchAuthApi(url);
 
   if (!response.ok) {
     throw new Error(await readApiError(response));
@@ -68,16 +68,14 @@ export async function createCustomNode(params: {
   description: string;
   code: string;
 }) {
-  const token = getStoredAuthToken();
-  if (!token) {
+  if (!getStoredAuthToken()) {
     throw new Error("Debes iniciar sesión para compartir nodos.");
   }
 
-  const response = await fetch(`${getApiBaseUrl()}/nodes`, {
+  const response = await fetchAuthApi(`${getApiBaseUrl()}/nodes`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({
       name: params.name,

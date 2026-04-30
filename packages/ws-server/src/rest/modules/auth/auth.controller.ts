@@ -1,7 +1,79 @@
-import { Router } from "express";
-import { logIn, requestPasswordReset, resetPasswordWithCode, signUp } from "./auth.service";
+import { Router, type Request, type Response } from "express";
+import {
+  getRefreshTokenCookieMaxAgeMs,
+  logIn,
+  refreshAuthSession,
+  requestPasswordReset,
+  resetPasswordWithCode,
+  revokeRefreshToken,
+  signUp,
+} from "./auth.service";
 
 const authRouter = Router();
+const REFRESH_TOKEN_COOKIE_NAME = "nodi_refresh_token";
+
+function parseCookies(
+  cookieHeader: string | undefined,
+): Record<string, string> {
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return cookieHeader
+    .split(";")
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .reduce<Record<string, string>>((cookies, part) => {
+      const separatorIndex = part.indexOf("=");
+      if (separatorIndex <= 0) {
+        return cookies;
+      }
+
+      const name = part.slice(0, separatorIndex).trim();
+      const value = part.slice(separatorIndex + 1).trim();
+      if (!name || !value) {
+        return cookies;
+      }
+
+      try {
+        cookies[name] = decodeURIComponent(value);
+      } catch {
+        cookies[name] = value;
+      }
+
+      return cookies;
+    }, {});
+}
+
+function getRefreshTokenFromRequest(req: Request): string | null {
+  const cookies = parseCookies(req.headers.cookie);
+  const refreshToken = cookies[REFRESH_TOKEN_COOKIE_NAME];
+  if (!refreshToken || !refreshToken.trim()) {
+    return null;
+  }
+
+  return refreshToken;
+}
+
+function getCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  };
+}
+
+function setRefreshTokenCookie(res: Response, refreshToken: string) {
+  res.cookie(REFRESH_TOKEN_COOKIE_NAME, refreshToken, {
+    ...getCookieOptions(),
+    maxAge: getRefreshTokenCookieMaxAgeMs(),
+  });
+}
+
+function clearRefreshTokenCookie(res: Response) {
+  res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, getCookieOptions());
+}
 
 /**
  * @openapi
@@ -32,7 +104,12 @@ const authRouter = Router();
 authRouter.post("/sign-up", async (req, res) => {
   try {
     const result = await signUp(req.body);
-    return res.status(201).json(result);
+    setRefreshTokenCookie(res, result.refreshToken);
+
+    return res.status(201).json({
+      user: result.user,
+      token: result.token,
+    });
   } catch (error: unknown) {
     console.error("Error signing up:", error);
     return res.status(400).json({
@@ -74,7 +151,13 @@ authRouter.post("/log-in", async (req, res) => {
   try {
     const { email, password } = req.body;
     const result = await logIn(email, password);
-    return res.status(200).json(result);
+
+    setRefreshTokenCookie(res, result.refreshToken);
+
+    return res.status(200).json({
+      user: result.user,
+      token: result.token,
+    });
   } catch (error: unknown) {
     console.error("Error logging in:", error);
     return res.status(400).json({
@@ -164,6 +247,84 @@ authRouter.post("/reset-password", async (req, res) => {
       error: error instanceof Error ? error.message : "Internal server error",
     });
   }
+});
+
+/**
+ * @openapi
+ * /auth/refresh:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Refresca sesión usando cookie HttpOnly de refresh token.
+ *     responses:
+ *       200:
+ *         description: Token renovado.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       401:
+ *         description: Sesión expirada.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+authRouter.post("/refresh", async (req, res) => {
+  try {
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (!refreshToken) {
+      clearRefreshTokenCookie(res);
+      return res.status(401).json({ error: "Debes iniciar sesión" });
+    }
+
+    const result = await refreshAuthSession(refreshToken);
+    setRefreshTokenCookie(res, result.refreshToken);
+
+    return res.status(200).json({
+      user: result.user,
+      token: result.token,
+    });
+  } catch (error: unknown) {
+    clearRefreshTokenCookie(res);
+    console.error("Error refreshing session:", error);
+    return res.status(401).json({
+      error:
+        error instanceof Error
+          ? error.message
+          : "Sesión expirada. Inicia sesión nuevamente.",
+    });
+  }
+});
+
+/**
+ * @openapi
+ * /auth/log-out:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Cierra sesión y revoca refresh token actual.
+ *     responses:
+ *       200:
+ *         description: Sesión cerrada.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ */
+authRouter.post("/log-out", async (req, res) => {
+  try {
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (refreshToken) {
+      await revokeRefreshToken(refreshToken);
+    }
+  } catch (error: unknown) {
+    console.error("Error revoking refresh token on logout:", error);
+  }
+
+  clearRefreshTokenCookie(res);
+  return res.status(200).json({ message: "Sesión cerrada." });
 });
 
 export { authRouter };
