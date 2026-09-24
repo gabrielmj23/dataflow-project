@@ -19,7 +19,6 @@ import {
   useStore,
   Position,
 } from "@xyflow/react";
-
 import { BaseNode } from "@/components/base-node";
 import { CustomTypedHandle } from "@/components/flow/custom-typed-handle";
 import { Hand, MousePointer2, PictureInPicture2, Split } from "lucide-react";
@@ -27,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -38,10 +38,8 @@ import {
   projectClientToFlowPosition,
 } from "@/flow/editor-node-factory";
 import { nodeTypesCore } from "@/flow/node-types-core";
-import {
-  computeDanglingPortsFromLookup,
-  computeOpenPortsFromLookup,
-} from "@/flow/subflow-utils";
+import { resolvePreviousLabelForGlobalUpdate } from "@/flow/subflow-global-update";
+import { validateSubflowDraftForSave } from "@/flow/subflow-save-validation";
 import { useSubflowTemplateContext } from "@/flow/subflow-templates-context";
 import { Input } from "@/components/ui/input";
 import { ArrowConnectionLine } from "@/flow/arrow-connection-line";
@@ -57,6 +55,7 @@ import {
   filterLockedEdgeChanges,
   handlePairedNodeChanges,
 } from "@/utils/conditional-pair";
+import { toast } from "sonner";
 
 export type NestedSubflowNodeData = {
   label?: string;
@@ -64,6 +63,7 @@ export type NestedSubflowNodeData = {
   outCount?: number;
   subflowNodes?: Node[];
   subflowEdges?: Edge[];
+  templateId?: string;
   isSelfCall?: boolean;
 };
 
@@ -109,6 +109,7 @@ export const NestedSubflowNode = memo(
       outCount: rawOutCount,
       subflowNodes,
       subflowEdges,
+      templateId,
       isSelfCall = false,
     } = (data ?? {}) as NestedSubflowNodeData;
 
@@ -131,6 +132,11 @@ export const NestedSubflowNode = memo(
     );
     const [draftLabel, setDraftLabel] = useState(label);
     const [nameError, setNameError] = useState<string | null>(null);
+    const [isGlobalUpdateConfirmOpen, setIsGlobalUpdateConfirmOpen] =
+      useState(false);
+    const [globalUpdatePreviousLabel, setGlobalUpdatePreviousLabel] = useState<
+      string | null
+    >(null);
 
     const connectionTooltip = useConnectionValidationTooltip(draftNodes);
 
@@ -319,24 +325,142 @@ export const NestedSubflowNode = memo(
       ],
     );
 
-    const onEditorNodeDragStop = useCallback<OnNodeDrag<EditorFlowNode>>(
-      (event, node, draggedNodes) => {
-        const nodesToEvaluate: Node[] =
-          Array.isArray(draggedNodes) && draggedNodes.length > 0
-            ? draggedNodes
-            : [node];
+    const onEditorNodeDragStop: OnNodeDrag<EditorFlowNode> = (
+      event,
+      node,
+      draggedNodes,
+    ) => {
+      const nodesToEvaluate: Node[] =
+        Array.isArray(draggedNodes) && draggedNodes.length > 0
+          ? draggedNodes
+          : [node];
 
-        deleteDraggedNodesOutsideViewport({
-          event,
-          draggedNodes: nodesToEvaluate,
-          reactFlowInstance: editorInstanceRef.current,
-          setNodes: setDraftNodes,
-          setEdges: setDraftEdges,
-          viewportElement: document.getElementById(editorFlowId),
+      deleteDraggedNodesOutsideViewport({
+        event,
+        draggedNodes: nodesToEvaluate,
+        reactFlowInstance: editorInstanceRef.current,
+        setNodes: setDraftNodes,
+        setEdges: setDraftEdges,
+        viewportElement: document.getElementById(editorFlowId),
+      });
+    };
+
+    const saveNestedSubflowDefinition = (mode: "local" | "global"): boolean => {
+      const draftValidation = validateSubflowDraftForSave({
+        nodes: draftNodes,
+        edges: draftEdges,
+        lookup: editorLookupRef.current,
+        draftLabel,
+        currentLabel: label,
+        rawInCount,
+        rawOutCount,
+        fallbackInCount: inCount,
+        fallbackOutCount: outCount,
+      });
+      if (!draftValidation.ok) {
+        setNameError(draftValidation.error);
+        return false;
+      }
+
+      const { finalLabel, nextInCount, nextOutCount, edgesForSave } =
+        draftValidation;
+      const previousLabelForGlobal = resolvePreviousLabelForGlobalUpdate({
+        mode,
+        currentLabel: label,
+        previousLabel: globalUpdatePreviousLabel,
+      });
+
+      const normalizedTemplateId =
+        typeof templateId === "string" && templateId.trim().length > 0
+          ? templateId.trim()
+          : null;
+
+      const templateToUpdateGlobally =
+        mode === "global" && templateContext
+          ? ((normalizedTemplateId
+              ? templateContext.resolveTemplate(normalizedTemplateId)
+              : null) ??
+            templateContext.resolveTemplateByName(previousLabelForGlobal) ??
+            templateContext.resolveTemplateByName(finalLabel))
+          : null;
+
+      if (templateContext) {
+        const sameNameTemplate =
+          templateContext.resolveTemplateByName(finalLabel);
+        if (sameNameTemplate) {
+          if (mode === "global") {
+            const allowedTemplateId =
+              templateToUpdateGlobally?.id ?? normalizedTemplateId;
+            if (
+              !allowedTemplateId ||
+              sameNameTemplate.id !== allowedTemplateId
+            ) {
+              setNameError(
+                "Ya existe un subflujo con ese nombre en la paleta o en el canvas. Elige otro nombre.",
+              );
+              return false;
+            }
+          } else if (
+            !normalizedTemplateId ||
+            sameNameTemplate.id !== normalizedTemplateId
+          ) {
+            setNameError(
+              "Ya existe un subflujo con ese nombre en la paleta o en el canvas. Elige otro nombre.",
+            );
+            return false;
+          }
+        }
+      }
+
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== id) {
+            return n;
+          }
+
+          return {
+            ...n,
+            data: {
+              ...(n.data as object),
+              label: finalLabel,
+              subflowNodes: draftNodes,
+              subflowEdges: edgesForSave,
+              inCount: nextInCount,
+              outCount: nextOutCount,
+              ...(normalizedTemplateId
+                ? { templateId: normalizedTemplateId }
+                : {}),
+            },
+          };
+        }),
+      );
+
+      if (mode === "global" && templateContext) {
+        const globalResult = templateContext.applyGlobalSubflowUpdate({
+          templateId: normalizedTemplateId,
+          previousLabel: previousLabelForGlobal,
+          nextLabel: finalLabel,
+          inCount: nextInCount,
+          outCount: nextOutCount,
+          nodes: draftNodes,
+          edges: edgesForSave,
         });
-      },
-      [editorFlowId],
-    );
+
+        if (globalResult.disconnected) {
+          toast.warning(
+            "Definicion global actualizada. Se desconectaron nodos con cambios en entradas/salidas.",
+          );
+        } else {
+          toast.success("Definicion global actualizada.");
+        }
+      }
+
+      setIsEditorOpen(false);
+      setIsGlobalUpdateConfirmOpen(false);
+      setGlobalUpdatePreviousLabel(null);
+      setNameError(null);
+      return true;
+    };
 
     return (
       <BaseNode
@@ -347,6 +471,8 @@ export const NestedSubflowNode = memo(
                 setDraftNodes(subflowNodes ?? []);
                 setDraftEdges(subflowEdges ?? []);
                 setDraftLabel(label);
+                setIsGlobalUpdateConfirmOpen(false);
+                setGlobalUpdatePreviousLabel(label);
                 setIsEditorOpen(true);
               }
             : undefined
@@ -364,6 +490,8 @@ export const NestedSubflowNode = memo(
                 setDraftNodes(subflowNodes ?? []);
                 setDraftEdges(subflowEdges ?? []);
                 setDraftLabel(label);
+                setIsGlobalUpdateConfirmOpen(false);
+                setGlobalUpdatePreviousLabel(label);
                 setIsEditorOpen(true);
               }}
               onKeyDown={(event) => {
@@ -373,6 +501,8 @@ export const NestedSubflowNode = memo(
                   setDraftNodes(subflowNodes ?? []);
                   setDraftEdges(subflowEdges ?? []);
                   setDraftLabel(label);
+                  setIsGlobalUpdateConfirmOpen(false);
+                  setGlobalUpdatePreviousLabel(label);
                   setIsEditorOpen(true);
                 }
               }}
@@ -645,126 +775,79 @@ export const NestedSubflowNode = memo(
                   <Button
                     type="button"
                     variant="secondary"
-                    onClick={() => setIsEditorOpen(false)}
+                    onClick={() => {
+                      setIsGlobalUpdateConfirmOpen(false);
+                      setGlobalUpdatePreviousLabel(null);
+                      setIsEditorOpen(false);
+                    }}
                   >
                     Cancelar
                   </Button>
                   <Button
                     type="button"
                     onClick={() => {
-                      const lookup = editorLookupRef.current;
-                      // Compute inCount from explicit `subflowInput` nodes added by the user.
-                      const explicitInputs = draftNodes.filter(
-                        (n) => String(n.type) === "subflowInput",
-                      ).length;
-                      const nextInCount = Number.isFinite(
-                        Number(explicitInputs),
-                      )
-                        ? explicitInputs
-                        : Number.isFinite(rawInCount)
-                          ? (rawInCount as number)
-                          : inCount;
-
-                      // If there are explicit subflowOutput nodes, expose exactly one salida.
-                      const explicitOutputs = draftNodes.filter(
-                        (n) => String(n.type) === "subflowOutput",
-                      ).length;
-
-                      // For outputs keep the previous behavior (try to compute open ports)
-                      // when no explicit subflowOutput nodes exist.
-                      let nextOutCount =
-                        explicitOutputs > 0
-                          ? 1
-                          : Number.isFinite(rawOutCount)
-                            ? (rawOutCount as number)
-                            : outCount;
-                      try {
-                        const computed = computeOpenPortsFromLookup(
-                          draftNodes,
-                          draftEdges,
-                          lookup,
-                        );
-                        if (
-                          computed &&
-                          computed.ready &&
-                          explicitOutputs === 0
-                        ) {
-                          nextOutCount = computed.outCount;
-                        }
-                      } catch {
-                        // ignore
-                      }
-
-                      try {
-                        const dangling = computeDanglingPortsFromLookup(
-                          draftNodes,
-                          draftEdges,
-                          lookup,
-                        );
-                        const hasDanglingPorts =
-                          dangling.ready &&
-                          (dangling.inCount > 0 || dangling.outCount > 0);
-                        if (hasDanglingPorts) {
-                          setNameError(
-                            `Hay nodos con entradas/salidas abiertas (${dangling.inCount} entrada(s), ${dangling.outCount} salida(s)). Conecta todos los puertos antes de guardar.`,
-                          );
-                          return;
-                        }
-                      } catch {
-                        // ignore
-                      }
-
-                      const finalLabel = (draftLabel || label).trim() || label;
-
-                      // Prevent saving if any subflow input labels are empty
-                      const hasEmptyInputs = draftNodes.some(
-                        (n) =>
-                          String(n.type) === "subflowInput" &&
-                          !String((n.data ?? {}).label ?? "").trim(),
-                      );
-                      if (hasEmptyInputs) {
-                        setNameError(
-                          "Hay entradas sin nombre. Asigna un nombre a todas las entradas antes de guardar.",
-                        );
-                        return;
-                      }
-
-                      // Prevent saving if there are more than one open outputs
-                      if (Number(nextOutCount) > 1) {
-                        setNameError(
-                          "El subflujo no puede exponer más de 1 salida. Unifica o cierra salidas antes de guardar.",
-                        );
-                        return;
-                      }
-
-                      setNodes((prev) =>
-                        prev.map((n) => {
-                          if (n.id !== id) {
-                            return n;
-                          }
-
-                          return {
-                            ...n,
-                            data: {
-                              ...(n.data as object),
-                              label: finalLabel,
-                              subflowNodes: draftNodes,
-                              subflowEdges: draftEdges,
-                              inCount: nextInCount,
-                              outCount: nextOutCount,
-                            },
-                          };
-                        }),
-                      );
-
-                      setIsEditorOpen(false);
+                      saveNestedSubflowDefinition("local");
                     }}
                   >
                     Guardar
                   </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      setNameError(null);
+                      setGlobalUpdatePreviousLabel(label);
+                      setIsGlobalUpdateConfirmOpen(true);
+                    }}
+                  >
+                    Actualizar definicion global
+                  </Button>
                 </div>
               </DialogFooter>
             </div>
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={isGlobalUpdateConfirmOpen}
+          onOpenChange={(open) => {
+            setIsGlobalUpdateConfirmOpen(open);
+            if (!open) {
+              setGlobalUpdatePreviousLabel(null);
+            }
+          }}
+        >
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Actualizar definicion global</DialogTitle>
+              <DialogDescription>
+                Al actualizar la definicion del subflujo puedes dejar tu
+                programa en un estado inestable si alteras las entradas o
+                salidas.
+              </DialogDescription>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Si cambia la cantidad de entradas o salidas, se desconectaran los
+              cables de los nodos afectados para evitar errores.
+            </p>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setIsGlobalUpdateConfirmOpen(false);
+                  setGlobalUpdatePreviousLabel(null);
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  saveNestedSubflowDefinition("global");
+                }}
+              >
+                Actualizar definicion global
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       </BaseNode>
