@@ -77,7 +77,7 @@ import { type FlowEdge, type FlowNode } from "@/utils/flow";
 import { editorPaletteLabelByType } from "@/flow/editor-node-factory";
 import { getLayoutedElements } from "@/utils/layout";
 import { CreateSubflowOverlay } from "@/components/CreateSubflowOverlay";
-import { useWindowSize } from "react-use";
+import { useWindowSize, useNetworkState } from "react-use";
 import Confetti from "react-confetti";
 import {
   getStoredAuthToken,
@@ -1615,6 +1615,7 @@ export default function EditorPage() {
   }, [nodes, edges, setNodes, setEdges]);
 
   const { width: windowWidth, height: windowHeight } = useWindowSize();
+  const { online: isOnline } = useNetworkState();
   const sharedEdgeConfig = useSharedEdgeConfig<FlowEdge>(setEdges);
 
   const applyEditorClearState = useCallback(() => {
@@ -1938,6 +1939,12 @@ export default function EditorPage() {
             } as React.CSSProperties
           }
         >
+          {!isOnline && (
+            <div className="flex items-center justify-center gap-2 bg-amber-500/90 px-4 py-1.5 text-center text-xs font-semibold text-amber-950 backdrop-blur-sm">
+              <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-amber-800" />
+              Sin conexión — El editor funciona localmente. Publicar en la nube no está disponible hasta que se restaure la conexión.
+            </div>
+          )}
           <AppHeader centerTitle={challenge.challengeDefinition?.title}>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
