@@ -25,14 +25,27 @@ Variables de entorno (opcionales):
 
 Variables de entorno para miniaturas de proyectos:
 
-- `STORAGE_URL` (connection string de Azure Blob Storage; requerida para subida de miniaturas)
-- `AZURE_STORAGE_CONTAINER` (default: `project-thumbnails`)
+- `STORAGE_PROVIDER` (`azure` o `s3`; default: `azure`)
+
+Con `STORAGE_PROVIDER=azure`:
+
+- `STORAGE_URL` (connection string de Azure Blob Storage; requerida)
+- `AZURE_STORAGE_CONTAINER` (default: `project-thumbnails`; se crea con acceso público de lectura si no existe)
+
+Con `STORAGE_PROVIDER=s3` (AWS S3 o cualquier API compatible, como MinIO o Cloudflare R2):
+
+- `S3_BUCKET` (requerida; el bucket debe existir y permitir lectura pública de los objetos)
+- `S3_REGION` (default: `us-east-1`; en R2 usar `auto`)
+- `S3_ENDPOINT` (URL del servicio compatible; omitir para AWS)
+- `S3_ACCESS_KEY_ID` y `S3_SECRET_ACCESS_KEY` (si faltan, el SDK usa `AWS_ACCESS_KEY_ID`, perfiles o roles)
+- `S3_PUBLIC_URL` (base de las URLs que se guardan en BD, p. ej. el dominio público de R2 o un CDN; default: `S3_ENDPOINT/S3_BUCKET` o la URL de AWS)
+- `S3_FORCE_PATH_STYLE` (`true`/`false`; default: `true` si hay `S3_ENDPOINT`)
 
 Actualizar esquema de base de datos (incluye tabla `refresh_tokens` para sesiones):
 
 - `pnpm --filter @dataflow/ws-server db:push`
 
-Migración de miniaturas base64 existentes a Azure:
+Migración de miniaturas base64 existentes al almacenamiento configurado:
 
 - `pnpm --filter @dataflow/ws-server migrate:project-thumbnails:dry` (simulación sin actualizar BD)
 - `pnpm --filter @dataflow/ws-server migrate:project-thumbnails` (ejecución real)
